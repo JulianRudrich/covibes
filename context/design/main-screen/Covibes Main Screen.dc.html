@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#dde2e8;}
+*{box-sizing:border-box;}
+a{color:#2346b0;}
+a:hover{color:#16317f;}
+button{font-family:inherit;}
+input::placeholder{color:#7a8595;}
+@keyframes cvdot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
+@keyframes cvblink{0%,49%{opacity:1}50%,100%{opacity:0}}
+</style>
+</helmet>
+<div style="width:1440px;height:900px;margin:0 auto;display:grid;grid-template-rows:52px minmax(0,1fr);background:#eef1f5;color:#0f1720;font-family:'Geist',system-ui,sans-serif;font-size:13px;overflow:hidden;-webkit-font-smoothing:antialiased;">
+
+  <header data-screen-label="Kopfzeile" style="display:grid;grid-template-columns:380px minmax(0,1fr) 300px;gap:8px;align-items:center;padding:0 8px;">
+    <div style="display:flex;align-items:center;gap:10px;padding-left:8px;min-width:0;">
+      <div style="position:relative;width:22px;height:22px;flex:none;">
+        <span style="position:absolute;left:0;top:0;width:14px;height:14px;border-radius:5px;background:#151b24;"></span>
+        <span style="position:absolute;right:0;bottom:0;width:14px;height:14px;border-radius:5px;border:2px solid #151b24;"></span>
+      </div>
+      <span style="font-weight:600;font-size:15px;letter-spacing:-0.02em;">covibes</span>
+      <span style="color:#b4bdc8;font-size:15px;">/</span>
+      <button style="display:flex;align-items:center;gap:6px;height:30px;padding:0 8px;border:none;border-radius:7px;background:transparent;color:#0f1720;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;" style-hover="background:#e3e8ee;">Covibes V1<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7686" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"></path></svg></button>
+    </div>
+
+    <nav aria-label="Phasen" style="justify-self:center;display:flex;align-items:center;gap:2px;padding:3px;background:#e2e7ed;border-radius:10px;">
+      <div style="display:flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:7px;color:#3f4a5a;white-space:nowrap;">
+        <span style="width:16px;height:16px;border-radius:8px;background:#151b24;color:#fff;display:grid;place-items:center;flex:none;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>Brainstorming
+      </div>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9aa4b2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+      <div style="display:flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:7px;color:#3f4a5a;white-space:nowrap;">
+        <span style="width:16px;height:16px;border-radius:8px;background:#151b24;color:#fff;display:grid;place-items:center;flex:none;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>Entscheiden
+      </div>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9aa4b2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+      <div style="display:flex;align-items:center;gap:7px;height:28px;padding:0 12px 0 10px;border-radius:7px;background:#ffffff;box-shadow:0 1px 2px rgba(16,24,40,0.10),0 0 0 1px rgba(16,24,40,0.05);font-weight:600;white-space:nowrap;">
+        <span style="width:16px;height:16px;border-radius:8px;border:1.5px solid #151b24;display:grid;place-items:center;flex:none;"><span style="width:6px;height:6px;border-radius:3px;background:#151b24;"></span></span>Architektur
+      </div>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9aa4b2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+      <div style="display:flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:7px;color:#5b6676;white-space:nowrap;">
+        <span style="width:16px;height:16px;border-radius:8px;border:1.5px solid #aab3bf;display:grid;place-items:center;flex:none;font-size:9px;font-weight:600;color:#5b6676;">4</span>Projektplan
+      </div>
+    </nav>
+
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding-right:4px;">
+      <div aria-label="Menschen" style="display:flex;align-items:center;">
+        <div title="Du" style="width:26px;height:26px;border-radius:13px;background:#dfe4ea;color:#253041;border:2px solid #eef1f5;display:grid;place-items:center;font-size:10px;font-weight:600;">Du</div>
+        <div title="Alex" style="width:26px;height:26px;border-radius:13px;background:#dfe4ea;color:#253041;border:2px solid #eef1f5;display:grid;place-items:center;font-size:11px;font-weight:600;margin-left:-6px;">A</div>
+        <div title="Sam" style="width:26px;height:26px;border-radius:13px;background:#dfe4ea;color:#253041;border:2px solid #eef1f5;display:grid;place-items:center;font-size:11px;font-weight:600;margin-left:-6px;">S</div>
+      </div>
+      <span style="width:1px;height:20px;background:#cfd6df;"></span>
+      <div aria-label="Agents" style="display:flex;align-items:center;gap:3px;">
+        <div title="Moderator" style="width:24px;height:24px;border-radius:7px;background:#0f7f8a;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:600;">M</div>
+        <div title="Backend" style="width:24px;height:24px;border-radius:7px;background:#3563e9;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:600;">B</div>
+        <div title="Kritiker" style="width:24px;height:24px;border-radius:7px;background:#c84a14;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:600;">K</div>
+        <div title="Daten" style="width:24px;height:24px;border-radius:7px;background:#8b4fd6;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:600;">D</div>
+      </div>
+      <button style="height:30px;padding:0 14px;border:none;border-radius:8px;background:#151b24;color:#fff;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 1px 2px rgba(16,24,40,0.24);" style-hover="background:#2a3340;">Teilen</button>
+    </div>
+  </header>
+
+  <main style="display:grid;grid-template-columns:380px minmax(0,1fr) 300px;gap:8px;padding:0 8px 8px;min-height:0;">
+
+    <section data-screen-label="Chat" style="display:grid;grid-template-rows:52px minmax(0,1fr) auto;min-height:0;background:#ffffff;border:1px solid #e1e6ec;border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,0.04);overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;border-bottom:1px solid #eef1f4;">
+        <span style="font-size:14px;font-weight:600;">Chat</span>
+        <span style="display:flex;align-items:center;gap:8px;height:26px;padding:0 10px;border-radius:13px;background:#f3f5f8;font-size:12px;color:#3f4a5a;white-space:nowrap;">
+          <sc-if value="{{ isTyping }}" hint-placeholder-val="{{ true }}">{{ statusDots }}</sc-if>
+          {{ statusText }}
+        </span>
+      </div>
+
+      <div ref="{{ chatRef }}" style="overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:18px;min-height:0;">
+        <div style="display:flex;align-items:center;gap:10px;font-size:11.5px;color:#7a8595;"><span style="flex:1;height:1px;background:#eef1f4;"></span>Heute<span style="flex:1;height:1px;background:#eef1f4;"></span></div>
+
+        <div style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;">
+          <div style="width:28px;height:28px;border-radius:14px;background:#e6eaf0;color:#253041;display:grid;place-items:center;font-size:11px;font-weight:600;">A</div>
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:0;">
+            <div style="display:flex;align-items:baseline;gap:8px;"><span style="font-weight:600;">Alex</span><span style="font-size:11.5px;color:#7a8595;font-variant-numeric:tabular-nums;">10:41</span></div>
+            <div style="font-size:13.5px;line-height:1.55;color:#1e2733;">Die Architektur steht fast. Was machen wir mit den AI-Kosten?</div>
+          </div>
+        </div>
+
+        <div style="border:1px solid #cde6e9;background:#f4fafb;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:24px;height:24px;border-radius:7px;background:#0f7f8a;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:600;flex:none;">M</div>
+            <span style="font-weight:600;color:#0b5f68;">Moderator</span>
+            <span style="height:18px;padding:0 6px;border-radius:5px;background:#dcf0f2;color:#0b5f68;font-size:11px;font-weight:500;display:flex;align-items:center;white-space:nowrap;">Agent · neutral</span>
+            <span style="margin-left:auto;font-size:11.5px;color:#6b7686;font-variant-numeric:tabular-nums;">10:42</span>
+          </div>
+          <div style="font-size:13.5px;line-height:1.55;color:#1e2733;">Ich habe die Architektur nach euren Kriterien gezeichnet. Offen ist nur das Hosting des Servers. Soll ich zwei Varianten zum Vergleich anlegen?</div>
+          <sc-if value="{{ compareOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;gap:6px;">
+              <button onClick="{{ compareYes }}" style="height:30px;padding:0 12px;border:none;border-radius:8px;background:#151b24;color:#fff;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 1px 2px rgba(16,24,40,0.24);" style-hover="background:#2a3340;">Ja, vergleichen</button>
+              <button onClick="{{ compareLater }}" style="height:30px;padding:0 12px;border:1px solid #d9dfe7;border-radius:8px;background:#fff;color:#1e2733;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;box-shadow:0 1px 2px rgba(16,24,40,0.05);" style-hover="background:#f5f7f9;">Später</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ compareDone }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:6px;padding-top:10px;border-top:1px solid #d7ecee;font-size:12.5px;color:#0b5f68;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>{{ compareNote }}</div>
+          </sc-if>
+        </div>
+
+        <div style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;">
+          <div style="width:28px;height:28px;border-radius:14px;background:#e6eaf0;color:#253041;display:grid;place-items:center;font-size:11px;font-weight:600;">S</div>
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:0;">
+            <div style="display:flex;align-items:baseline;gap:8px;"><span style="font-weight:600;">Sam</span><span style="font-size:11.5px;color:#7a8595;font-variant-numeric:tabular-nums;">10:43</span></div>
+            <div style="font-size:13.5px;line-height:1.75;color:#1e2733;"><span style="color:#2346b0;background:#eef2fe;border-radius:5px;padding:2px 5px;font-weight:500;">@Backend</span>, passt <button onClick="{{ jumpGateway }}" title="Im Canvas zeigen" style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 7px 0 5px;border:1px solid #bfe3e6;border-radius:6px;background:#f4fafb;color:#0b5f68;font-size:12.5px;font-weight:500;cursor:pointer;vertical-align:-1px;white-space:nowrap;" style-hover="background:#dcf0f2;border-color:#0f7f8a;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="16" y="16" width="6" height="6" rx="1"></rect><rect x="2" y="16" width="6" height="6" rx="1"></rect><rect x="9" y="2" width="6" height="6" rx="1"></rect><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"></path><path d="M12 12V8"></path></svg>AI-Gateway</button> so, wenn mehrere Agents gleichzeitig laufen?</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;">
+          <div style="width:28px;height:28px;border-radius:8px;background:#3563e9;color:#fff;display:grid;place-items:center;font-size:12px;font-weight:600;">B</div>
+          <div style="display:flex;flex-direction:column;gap:3px;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-weight:600;color:#2346b0;">Backend</span>
+              <span style="height:18px;padding:0 6px;border-radius:5px;background:#eef2fe;color:#2346b0;font-size:11px;font-weight:500;display:flex;align-items:center;white-space:nowrap;">Agent</span>
+              <sc-if value="{{ isTyping }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#2346b0;">{{ msgDots }}schreibt</span></sc-if>
+              <sc-if value="{{ doneTyping }}" hint-placeholder-val="{{ false }}"><span style="font-size:11.5px;color:#7a8595;font-variant-numeric:tabular-nums;">10:44</span></sc-if>
+            </div>
+            <div style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:#6b7686;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 10 20 15 15 20"></polyline><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg>Antwort an Sam</div>
+            <div style="font-size:13.5px;line-height:1.55;color:#1e2733;">{{ backendText }}{{ caretEl }}</div>
+          </div>
+        </div>
+
+        <sc-for list="{{ extra }}" as="m" hint-placeholder-count="0">
+          <div style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;">
+            <sc-if value="{{ m.isAgent }}"><div style="width:28px;height:28px;border-radius:8px;background:{{ m.color }};color:#fff;display:grid;place-items:center;font-size:12px;font-weight:600;">{{ m.initial }}</div></sc-if>
+            <sc-if value="{{ m.isHuman }}"><div style="width:28px;height:28px;border-radius:14px;background:#e6eaf0;color:#253041;display:grid;place-items:center;font-size:11px;font-weight:600;">{{ m.initial }}</div></sc-if>
+            <div style="display:flex;flex-direction:column;gap:3px;min-width:0;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-weight:600;color:{{ m.dark }};">{{ m.name }}</span>
+                <sc-if value="{{ m.isAgent }}"><span style="height:18px;padding:0 6px;border-radius:5px;background:{{ m.tint }};color:{{ m.dark }};font-size:11px;font-weight:500;display:flex;align-items:center;white-space:nowrap;">Agent</span></sc-if>
+                <span style="font-size:11.5px;color:#7a8595;font-variant-numeric:tabular-nums;">{{ m.time }}</span>
+              </div>
+              <div style="font-size:13.5px;line-height:1.55;color:#1e2733;">{{ m.text }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="padding:12px 16px 16px;display:flex;flex-direction:column;gap:10px;">
+        <sc-if value="{{ criticRaised }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 10px 10px 12px;border:1px solid #f3cfbb;background:#fdf5f0;border-radius:10px;">
+            <div style="width:28px;height:28px;border-radius:8px;background:#c84a14;color:#fff;display:grid;place-items:center;flex:none;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"></path><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg>
+            </div>
+            <div style="flex:1;min-width:0;font-size:13px;line-height:1.4;color:#3f4a5a;"><span style="font-weight:600;color:#9a360a;">Kritiker meldet sich</span> – Einwand zu den Kosten</div>
+            <button onClick="{{ hearCritic }}" style="height:30px;padding:0 12px;border:1px solid #e9b89d;border-radius:8px;background:#fff;color:#9a360a;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;flex:none;box-shadow:0 1px 2px rgba(16,24,40,0.05);" style-hover="background:#fbe7dc;">Anhören</button>
+          </div>
+        </sc-if>
+        <form onSubmit="{{ send }}" style="display:flex;flex-direction:column;border:1px solid #d9dfe7;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,0.05);">
+          <input value="{{ draft }}" onChange="{{ onDraft }}" placeholder="Nachricht an Team und Agents, @ ruft einen Agent" style="height:44px;padding:0 14px;border:none;outline:none;background:transparent;font-family:inherit;font-size:13.5px;color:#0f1720;border-radius:12px 12px 0 0;">
+          <div style="display:flex;align-items:center;gap:2px;padding:0 8px 8px;">
+            <button type="button" onClick="{{ insertAt }}" title="Agent erwähnen" style="width:28px;height:28px;border:none;border-radius:7px;background:transparent;color:#4a5565;display:grid;place-items:center;cursor:pointer;" style-hover="background:#f1f4f7;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"></path></svg></button>
+            <button type="button" title="Datei anhängen" style="width:28px;height:28px;border:none;border-radius:7px;background:transparent;color:#4a5565;display:grid;place-items:center;cursor:pointer;" style-hover="background:#f1f4f7;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button>
+            <span style="margin-left:auto;margin-right:8px;font-size:11.5px;color:#7a8595;white-space:nowrap;">Enter zum Senden</span>
+            <button type="submit" aria-label="Senden" style="width:28px;height:28px;border:none;border-radius:7px;background:#151b24;color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 1px 2px rgba(16,24,40,0.24);" style-hover="background:#2a3340;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 7-7 7 7"></path><path d="M12 19V5"></path></svg></button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section data-screen-label="Canvas" style="display:grid;grid-template-rows:52px minmax(0,1fr);min-height:0;min-width:0;background:#ffffff;border:1px solid #e1e6ec;border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,0.04);overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:4px;padding:0 12px;border-bottom:1px solid #eef1f4;">
+        <div style="display:flex;align-items:center;height:30px;padding:0 12px;border-radius:8px;background:#f1f4f7;font-weight:500;white-space:nowrap;flex:none;">Haupt-Canvas</div>
+        <button style="display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:none;border-radius:8px;background:transparent;color:#4a5565;font-size:13px;cursor:pointer;white-space:nowrap;flex:none;" style-hover="background:#f1f4f7;color:#0f1720;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Board</button>
+      </div>
+
+      <div style="position:relative;overflow:hidden;background-color:#f6f7f9;background-image:radial-gradient(#d3d9e1 1px,transparent 1.3px);background-size:20px 20px;">
+
+        <div style="position:absolute;left:24px;top:36px;width:676px;height:392px;border:1px solid #cfd7e1;border-radius:14px;background:rgba(255,255,255,0.55);">
+          <div style="position:absolute;left:14px;top:12px;display:flex;align-items:center;gap:8px;white-space:nowrap;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4a5565" strokeWidth="2" strokeLinecap="round"><line x1="22" x2="2" y1="6" y2="6"></line><line x1="22" x2="2" y1="18" y2="18"></line><line x1="6" x2="6" y1="2" y2="22"></line><line x1="18" x2="18" y1="2" y2="22"></line></svg>
+            <span style="font-weight:600;">Architektur</span>
+            <span style="font-size:12px;color:#6b7686;">5 Blöcke</span>
+          </div>
+        </div>
+
+        <svg width="726" height="700" style="position:absolute;left:0;top:0;pointer-events:none;overflow:visible;">
+          <defs>
+            <marker id="cvA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8792a2"></path></marker>
+            <marker id="cvT" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0f7f8a"></path></marker>
+          </defs>
+          <path d="M232 132 L326 132" fill="none" stroke="#8792a2" strokeWidth="1.5" markerEnd="url(#cvA)"></path>
+          <path d="M395 180 C395 236, 142 230, 142 288" fill="none" stroke="#8792a2" strokeWidth="1.5" markerEnd="url(#cvA)"></path>
+          <path d="M425 180 C425 236, 364 230, 364 288" fill="none" stroke="#8792a2" strokeWidth="1.5" markerEnd="url(#cvA)"></path>
+          <path d="M455 180 C455 236, 530 230, 530 288" fill="none" stroke="#0f7f8a" strokeWidth="1.75" markerEnd="url(#cvT)"></path>
+          <path d="M586 388 L586 452" fill="none" stroke="{{ sugStroke }}" strokeWidth="1.5" strokeDasharray="{{ sugDash }}" markerEnd="{{ sugMarker }}"></path>
+        </svg>
+
+        <div style="position:absolute;left:279px;top:132px;transform:translate(-50%,-50%);height:20px;padding:0 7px;display:flex;align-items:center;background:#fff;border:1px solid #dfe4ea;border-radius:6px;font-family:'Geist Mono',monospace;font-size:11px;color:#4a5565;">REST</div>
+        <div style="position:absolute;left:268px;top:233px;transform:translate(-50%,-50%);height:20px;padding:0 7px;display:flex;align-items:center;background:#fff;border:1px solid #dfe4ea;border-radius:6px;font-family:'Geist Mono',monospace;font-size:11px;color:#4a5565;">Jobs</div>
+        <div style="position:absolute;left:394px;top:233px;transform:translate(-50%,-50%);height:20px;padding:0 7px;display:flex;align-items:center;background:#fff;border:1px solid #dfe4ea;border-radius:6px;font-family:'Geist Mono',monospace;font-size:11px;color:#4a5565;">Daten</div>
+        <div style="position:absolute;left:492px;top:233px;transform:translate(-50%,-50%);height:20px;padding:0 7px;display:flex;align-items:center;background:#f4fafb;border:1px solid #bfe3e6;border-radius:6px;font-family:'Geist Mono',monospace;font-size:11px;color:#0b5f68;">API</div>
+
+        <div style="position:absolute;left:52px;top:84px;width:180px;height:96px;background:#fff;border:1px solid #dbe1e8;border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,0.05),0 2px 8px rgba(16,24,40,0.04);display:flex;flex-direction:column;">
+          <div style="flex:1;display:flex;align-items:center;gap:10px;padding:0 12px;">
+            <div style="width:30px;height:30px;border-radius:8px;background:#f1f4f7;border:1px solid #e3e8ee;display:grid;place-items:center;flex:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3f4a5a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M10 4v4"></path><path d="M2 8h20"></path><path d="M6 4v4"></path></svg></div>
+            <div style="min-width:0;"><div style="font-size:13.5px;font-weight:600;">Web-App</div><div style="font-size:11.5px;color:#6b7686;">Frontend</div></div>
+          </div>
+          <div style="height:30px;border-top:1px solid #eef1f4;display:flex;align-items:center;gap:6px;padding:0 12px;font-size:11.5px;color:#4a5565;"><span style="width:16px;height:16px;border-radius:8px;background:#e6eaf0;color:#253041;font-size:8px;font-weight:600;display:grid;place-items:center;">Du</span>Du</div>
+        </div>
+
+        <div style="position:absolute;left:330px;top:84px;width:190px;height:96px;background:#fafbfc;border:1.5px solid #1e2733;border-radius:12px;box-shadow:0 0 0 4px rgba(30,39,51,0.07);display:flex;flex-direction:column;cursor:not-allowed;">
+          <div style="position:absolute;left:-1.5px;top:-27px;height:22px;padding:0 8px 0 6px;display:flex;align-items:center;gap:6px;border-radius:6px;background:#1e2733;color:#fff;font-size:11.5px;font-weight:500;white-space:nowrap;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Sam bearbeitet
+          </div>
+          <div style="flex:1;display:flex;align-items:center;gap:10px;padding:0 12px;">
+            <div style="width:30px;height:30px;border-radius:8px;background:#eef1f4;border:1px solid #e3e8ee;display:grid;place-items:center;flex:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3f4a5a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"></rect><rect width="20" height="8" x="2" y="14" rx="2" ry="2"></rect><line x1="6" x2="6.01" y1="6" y2="6"></line><line x1="6" x2="6.01" y1="18" y2="18"></line></svg></div>
+            <div style="min-width:0;"><div style="font-size:13.5px;font-weight:600;display:flex;align-items:center;">Covibes-Server{{ samCaret }}</div><div style="font-size:11.5px;color:#6b7686;">Server · Hosting offen</div></div>
+          </div>
+          <div style="height:30px;border-top:1px solid #eceff3;display:flex;align-items:center;gap:6px;padding:0 12px;font-size:11.5px;"><span style="width:16px;height:16px;border-radius:5px;background:#3563e9;color:#fff;font-size:9px;font-weight:600;display:grid;place-items:center;">B</span><span style="color:#2346b0;font-weight:500;">Backend</span></div>
+        </div>
+
+        <div style="position:absolute;left:52px;top:292px;width:180px;height:96px;background:#fff;border:1px solid #dbe1e8;border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,0.05),0 2px 8px rgba(16,24,40,0.04);display:flex;flex-direction:column;">
+          <div style="flex:1;display:flex;align-items:center;gap:10px;padding:0 12px;">
+            <div style="width:30px;height:30px;border-radius:8px;background:#f1f4f7;border:1px solid #e3e8ee;display:grid;place-items:center;flex:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3f4a5a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="6" x2="6" y1="3" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg></div>
+            <div style="min-width:0;"><div style="font-size:13.5px;font-weight:600;">GitLab</div><div style="font-size:11.5px;color:#6b7686;">Repository</div></div>
+          </div>
+          <div style="height:30px;border-top:1px solid #eef1f4;display:flex;align-items:center;gap:6px;padding:0 12px;font-size:11.5px;color:#4a5565;"><span style="width:16px;height:16px;border-radius:8px;background:#e6eaf0;color:#253041;font-size:9px;font-weight:600;display:grid;place-items:center;">A</span>Alex</div>
+        </div>
+
+        <div style="position:absolute;left:274px;top:292px;width:180px;height:96px;background:#fff;border:1px solid #dbe1e8;border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,0.05),0 2px 8px rgba(16,24,40,0.04);display:flex;flex-direction:column;">
+          <div style="flex:1;display:flex;align-items:center;gap:10px;padding:0 12px;">
+            <div style="width:30px;height:30px;border-radius:8px;background:#f1f4f7;border:1px solid #e3e8ee;display:grid;place-items:center;flex:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3f4a5a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5V19A9 3 0 0 0 21 19V5"></path><path d="M3 12A9 3 0 0 0 21 12"></path></svg></div>
+            <div style="min-width:0;"><div style="font-size:13.5px;font-weight:600;">PostgreSQL</div><div style="font-size:11.5px;color:#6b7686;">Datenbank · EU</div></div>
+          </div>
+          <div style="height:30px;border-top:1px solid #eef1f4;display:flex;align-items:center;gap:6px;padding:0 12px;font-size:11.5px;"><span style="width:16px;height:16px;border-radius:5px;background:#8b4fd6;color:#fff;font-size:9px;font-weight:600;display:grid;place-items:center;">D</span><span style="color:#6532a8;font-weight:500;">Daten</span></div>
+        </div>
+
+        <sc-if value="{{ gwHighlight }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:496px;top:292px;width:180px;height:96px;background:#fff;border:1.5px solid #0f7f8a;border-radius:12px;box-shadow:0 0 0 4px rgba(15,127,138,0.16),0 6px 16px rgba(15,127,138,0.14);display:flex;flex-direction:column;">
+            <div style="position:absolute;right:-1.5px;top:-27px;height:22px;padding:0 8px 0 6px;display:flex;align-items:center;gap:5px;border-radius:6px;background:#0f7f8a;color:#fff;font-size:11.5px;font-weight:500;white-space:nowrap;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c.5 4.8 3.2 7.5 8 8-4.8.5-7.5 3.2-8 8-.5-4.8-3.2-7.5-8-8 4.8-.5 7.5-3.2 8-8z"></path></svg>Gerade gezeichnet
+            </div>
+            <div style="flex:1;display:flex;align-items:center;gap:10px;padding:0 12px;">
+              <div style="width:30px;height:30px;border-radius:8px;background:#ecf7f8;border:1px solid #cde6e9;display:grid;place-items:center;flex:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0b5f68" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="16" y="16" width="6" height="6" rx="1"></rect><rect x="2" y="16" width="6" height="6" rx="1"></rect><rect x="9" y="2" width="6" height="6" rx="1"></rect><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"></path><path d="M12 12V8"></path></svg></div>
+              <div style="min-width:0;"><div style="font-size:13.5px;font-weight:600;">AI-Gateway</div><div style="font-size:11.5px;color:#0b5f68;">Dienst · neu</div></div>
+            </div>
+            <div style="height:30px;border-top:1px solid #dcf0f2;display:flex;align-items:center;gap:6px;padding:0 12px;font-size:11.5px;"><span style="width:16px;height:16px;border-radius:5px;background:#0f7f8a;color:#fff;font-size:9px;font-weight:600;display:grid;place-items:center;">M</span><span style="color:#0b5f68;font-weight:500;">Moderator</span></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ gwNormal }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:496px;top:292px;width:180px;height:96px;background:#fff;border:1px solid #dbe1e8;border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,0.05),0 2px 8px rgba(16,24,40,0.04);display:flex;flex-direction:column;">
+            <div style="flex:1;display:flex;align-items:center;gap:10px;padding:0 12px;">
+              <div style="width:30px;height:30px;border-radius:8px;background:#f1f4f7;border:1px solid #e3e8ee;display:grid;place-items:center;flex:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3f4a5a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="16" y="16" width="6" height="6" rx="1"></rect><rect x="2" y="16" width="6" height="6" rx="1"></rect><rect x="9" y="2" width="6" height="6" rx="1"></rect><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"></path><path d="M12 12V8"></path></svg></div>
+              <div style="min-width:0;"><div style="font-size:13.5px;font-weight:600;">AI-Gateway</div><div style="font-size:11.5px;color:#6b7686;">Dienst</div></div>
+            </div>
+            <div style="height:30px;border-top:1px solid #eef1f4;display:flex;align-items:center;gap:6px;padding:0 12px;font-size:11.5px;"><span style="width:16px;height:16px;border-radius:5px;background:#0f7f8a;color:#fff;font-size:9px;font-weight:600;display:grid;place-items:center;">M</span><span style="color:#0b5f68;font-weight:500;">Moderator</span></div>
+          </div>
+        </sc-if>
+
+        <div style="position:absolute;left:56px;top:462px;width:176px;height:124px;background:#fdf6d3;border:1px solid #ecdd98;border-radius:4px 4px 14px 4px;box-shadow:0 1px 2px rgba(110,90,20,0.08),0 6px 14px rgba(110,90,20,0.08);transform:rotate(-1.5deg);padding:14px;display:flex;flex-direction:column;justify-content:space-between;">
+          <div style="font-size:15px;font-weight:600;color:#3a3312;">Offline-Modus?</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#5e5424;"><span style="width:16px;height:16px;border-radius:8px;background:#f1e5ad;color:#3a3312;font-size:9px;font-weight:600;display:grid;place-items:center;">A</span>Notiz · Alex</div>
+        </div>
+
+        <sc-if value="{{ sugOpen }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:476px;top:456px;width:216px;border:1.5px dashed #c84a14;border-radius:12px;background:rgba(253,245,240,0.94);padding:12px;display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:500;color:#9a360a;white-space:nowrap;"><span style="width:16px;height:16px;border-radius:5px;background:#c84a14;color:#fff;font-size:9px;font-weight:600;display:grid;place-items:center;">K</span>Vorschlag · Kritiker</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:30px;height:30px;border-radius:8px;background:#fff;border:1px dashed #e9b89d;display:grid;place-items:center;flex:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9a360a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m12 14 4-4"></path><path d="M3.34 19a10 10 0 1 1 17.32 0"></path></svg></div>
+              <div style="min-width:0;"><div style="font-size:13.5px;font-weight:600;">Kosten-Limits</div><div style="font-size:11.5px;color:#5b4a42;">Budget pro Agent und Tag</div></div>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button onClick="{{ acceptSug }}" style="height:28px;padding:0 10px;border:none;border-radius:7px;background:#151b24;color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap;box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 1px 2px rgba(16,24,40,0.24);" style-hover="background:#2a3340;">Übernehmen</button>
+              <button onClick="{{ rejectSug }}" style="height:28px;padding:0 10px;border:1px solid #e0cfc6;border-radius:7px;background:#fff;color:#1e2733;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap;" style-hover="background:#f7f1ee;">Ablehnen</button>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sugAccepted }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:496px;top:456px;width:180px;height:96px;background:#fff;border:1px solid #dbe1e8;border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,0.05),0 2px 8px rgba(16,24,40,0.04);display:flex;flex-direction:column;">
+            <div style="flex:1;display:flex;align-items:center;gap:10px;padding:0 12px;">
+              <div style="width:30px;height:30px;border-radius:8px;background:#f1f4f7;border:1px solid #e3e8ee;display:grid;place-items:center;flex:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3f4a5a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m12 14 4-4"></path><path d="M3.34 19a10 10 0 1 1 17.32 0"></path></svg></div>
+              <div style="min-width:0;"><div style="font-size:13.5px;font-weight:600;">Kosten-Limits</div><div style="font-size:11.5px;color:#6b7686;">Von dir übernommen</div></div>
+            </div>
+            <div style="height:30px;border-top:1px solid #eef1f4;display:flex;align-items:center;gap:6px;padding:0 12px;font-size:11.5px;"><span style="width:16px;height:16px;border-radius:5px;background:#c84a14;color:#fff;font-size:9px;font-weight:600;display:grid;place-items:center;">K</span><span style="color:#9a360a;font-weight:500;">Kritiker</span></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showCursor }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:506px;top:112px;pointer-events:none;display:flex;flex-direction:column;align-items:flex-start;">
+            <svg width="16" height="18" viewBox="0 0 16 18"><path d="M2 1.5 L2 14.5 L5.6 11.2 L8 16.5 L10.2 15.5 L7.9 10.4 L12.8 10.2 Z" fill="#1e2733" stroke="#fff" strokeWidth="1.3" strokeLinejoin="round"></path></svg>
+            <div style="margin:-3px 0 0 11px;height:20px;padding:0 7px;display:flex;align-items:center;border-radius:6px;background:#1e2733;color:#fff;font-size:11.5px;font-weight:500;white-space:nowrap;">Sam</div>
+          </div>
+        </sc-if>
+
+        <div style="position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:2px;padding:5px;background:#fff;border:1px solid #dfe4ea;border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,0.06),0 8px 24px rgba(16,24,40,0.08);white-space:nowrap;">
+          <button onClick="{{ toolBlock }}" style="height:34px;padding:0 10px 0 8px;display:flex;align-items:center;gap:6px;border:none;border-radius:8px;font-size:12.5px;font-weight:500;cursor:pointer;background:{{ tBlockBg }};color:{{ tBlockFg }};"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"></rect></svg>Block</button>
+          <button onClick="{{ toolNotiz }}" style="height:34px;padding:0 10px 0 8px;display:flex;align-items:center;gap:6px;border:none;border-radius:8px;font-size:12.5px;font-weight:500;cursor:pointer;background:{{ tNotizBg }};color:{{ tNotizFg }};"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"></path><path d="M15 3v4a2 2 0 0 0 2 2h4"></path></svg>Notiz</button>
+          <button onClick="{{ toolRahmen }}" style="height:34px;padding:0 10px 0 8px;display:flex;align-items:center;gap:6px;border:none;border-radius:8px;font-size:12.5px;font-weight:500;cursor:pointer;background:{{ tRahmenBg }};color:{{ tRahmenFg }};"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><line x1="22" x2="2" y1="6" y2="6"></line><line x1="22" x2="2" y1="18" y2="18"></line><line x1="6" x2="6" y1="2" y2="22"></line><line x1="18" x2="18" y1="2" y2="22"></line></svg>Rahmen</button>
+          <button onClick="{{ toolVerbinden }}" style="height:34px;padding:0 10px 0 8px;display:flex;align-items:center;gap:6px;border:none;border-radius:8px;font-size:12.5px;font-weight:500;cursor:pointer;background:{{ tVerbindenBg }};color:{{ tVerbindenFg }};"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="19" cy="5" r="2"></circle><circle cx="5" cy="19" r="2"></circle><path d="M5 17A12 12 0 0 1 17 5"></path></svg>Verbinden</button>
+          <button onClick="{{ toolLayout }}" style="height:34px;padding:0 10px 0 8px;display:flex;align-items:center;gap:6px;border:none;border-radius:8px;font-size:12.5px;font-weight:500;cursor:pointer;background:{{ tLayoutBg }};color:{{ tLayoutFg }};"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg>Auto-Layout</button>
+          <span style="width:1px;height:22px;background:#e3e8ee;margin:0 4px;"></span>
+          <button onClick="{{ zoomOut }}" aria-label="Verkleinern" style="width:30px;height:34px;border:none;border-radius:8px;background:transparent;color:#1e2733;display:grid;place-items:center;cursor:pointer;" style-hover="background:#f1f4f7;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M5 12h14"></path></svg></button>
+          <span style="min-width:46px;text-align:center;font-size:12.5px;font-weight:500;font-variant-numeric:tabular-nums;">{{ zoom }} %</span>
+          <button onClick="{{ zoomIn }}" aria-label="Vergrößern" style="width:30px;height:34px;border:none;border-radius:8px;background:transparent;color:#1e2733;display:grid;place-items:center;cursor:pointer;" style-hover="background:#f1f4f7;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+        </div>
+      </div>
+    </section>
+
+    <aside data-screen-label="Überblick" style="display:grid;grid-template-rows:52px minmax(0,1fr);min-height:0;background:#ffffff;border:1px solid #e1e6ec;border-radius:12px;box-shadow:0 1px 2px rgba(16,24,40,0.04);overflow:hidden;">
+      <div style="display:flex;align-items:center;padding:0 16px;border-bottom:1px solid #eef1f4;"><span style="font-size:14px;font-weight:600;">Überblick</span></div>
+      <div style="overflow-y:auto;min-height:0;">
+        <div style="padding:16px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid #eef1f4;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-weight:600;">Wartet auf dich</span>
+            <span style="min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#151b24;color:#fff;font-size:11px;font-weight:600;display:grid;place-items:center;font-variant-numeric:tabular-nums;">{{ waitCount }}</span>
+          </div>
+          <sc-if value="{{ sugOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="border:1px solid #e1e6ec;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;box-shadow:0 1px 2px rgba(16,24,40,0.04);">
+              <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#6b7686;white-space:nowrap;"><span style="width:16px;height:16px;border-radius:5px;background:#c84a14;color:#fff;font-size:9px;font-weight:600;display:grid;place-items:center;">K</span><span style="color:#9a360a;font-weight:500;">Kritiker</span>· Vorschlag<span style="margin-left:auto;">vor 2 Min.</span></div>
+              <div style="font-size:13.5px;line-height:1.4;">Block <span style="font-weight:600;">Kosten-Limits</span> hinzufügen</div>
+              <div style="display:flex;gap:6px;">
+                <button onClick="{{ acceptSug }}" style="height:28px;padding:0 10px;border:none;border-radius:7px;background:#151b24;color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap;box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 1px 2px rgba(16,24,40,0.24);" style-hover="background:#2a3340;">Übernehmen</button>
+                <button onClick="{{ rejectSug }}" style="height:28px;padding:0 10px;border:1px solid #d9dfe7;border-radius:7px;background:#fff;color:#1e2733;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap;box-shadow:0 1px 2px rgba(16,24,40,0.05);" style-hover="background:#f5f7f9;">Ablehnen</button>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ releaseOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="border:1px solid #e1e6ec;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;box-shadow:0 1px 2px rgba(16,24,40,0.04);">
+              <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#6b7686;white-space:nowrap;"><span style="width:16px;height:16px;border-radius:5px;background:#3563e9;color:#fff;font-size:9px;font-weight:600;display:grid;place-items:center;">B</span><span style="color:#2346b0;font-weight:500;">Backend</span>· Freigabe<span style="margin-left:auto;">vor 5 Min.</span></div>
+              <div style="font-size:13.5px;line-height:1.5;">3 Issues im Repo <span style="font-family:'Geist Mono',monospace;font-size:12.5px;background:#f1f4f7;border:1px solid #e3e8ee;padding:1px 5px;border-radius:5px;">covibes</span> anlegen</div>
+              <sc-if value="{{ releaseDetail }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;border:1px solid #eef1f4;border-radius:8px;">
+                  <sc-for list="{{ issues }}" as="it" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;font-size:12.5px;color:#253041;border-top:{{ it.border }};"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1b7a43" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="1"></circle></svg>{{ it.title }}</div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <div style="display:flex;gap:6px;">
+                <button onClick="{{ approve }}" style="height:28px;padding:0 10px;border:none;border-radius:7px;background:#151b24;color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap;box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 1px 2px rgba(16,24,40,0.24);" style-hover="background:#2a3340;">Freigeben</button>
+                <button onClick="{{ toggleDetail }}" style="height:28px;padding:0 10px;border:1px solid #d9dfe7;border-radius:7px;background:#fff;color:#1e2733;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap;box-shadow:0 1px 2px rgba(16,24,40,0.05);" style-hover="background:#f5f7f9;">{{ detailLabel }}</button>
+              </div>
+            </div>
+          </sc-if>
+          <sc-for list="{{ doneItems }}" as="d" hint-placeholder-count="0">
+            <div style="display:flex;align-items:center;gap:8px;padding:2px 0;font-size:12.5px;color:#4a5565;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1b7a43" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>{{ d }}</div>
+          </sc-for>
+        </div>
+
+        <div style="padding:16px;display:flex;flex-direction:column;gap:4px;border-bottom:1px solid #eef1f4;">
+          <span style="font-weight:600;margin-bottom:6px;">Entscheidungen</span>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;">
+            <span style="width:20px;height:20px;border-radius:10px;background:#e5f4ea;color:#1b7a43;display:grid;place-items:center;flex:none;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+            <div style="min-width:0;"><div style="font-size:11.5px;color:#6b7686;">Canvas</div><div style="font-size:13.5px;font-weight:500;">React Flow</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #f1f3f6;">
+            <span style="width:20px;height:20px;border-radius:10px;background:#e5f4ea;color:#1b7a43;display:grid;place-items:center;flex:none;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+            <div style="min-width:0;"><div style="font-size:11.5px;color:#6b7686;">Backend</div><div style="font-size:13.5px;font-weight:500;">PostgreSQL</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #f1f3f6;">
+            <span style="width:20px;height:20px;border-radius:10px;border:1.5px dashed #9aa4b2;flex:none;"></span>
+            <div style="min-width:0;flex:1;"><div style="font-size:11.5px;color:#6b7686;">Hosting des Servers</div><div style="font-size:13.5px;font-weight:500;color:#3f4a5a;">{{ hostingState }}</div></div>
+            <span style="height:20px;padding:0 7px;border-radius:6px;background:#f1f4f7;color:#3f4a5a;font-size:11px;font-weight:500;display:flex;align-items:center;">offen</span>
+          </div>
+        </div>
+
+        <div style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+          <span style="font-weight:600;">Kriterien</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            <span style="height:26px;padding:0 9px;border-radius:7px;background:#f3f5f8;border:1px solid #e3e8ee;font-size:12.5px;color:#253041;display:flex;align-items:center;white-space:nowrap;">EU-Hosting</span>
+            <span style="height:26px;padding:0 9px;border-radius:7px;background:#f3f5f8;border:1px solid #e3e8ee;font-size:12.5px;color:#253041;display:flex;align-items:center;white-space:nowrap;">Qualität vor Kosten</span>
+            <span style="height:26px;padding:0 9px;border-radius:7px;background:#f3f5f8;border:1px solid #e3e8ee;font-size:12.5px;color:#253041;display:flex;align-items:center;white-space:nowrap;">Team: 3 Devs</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;liveTyping&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;showCursor&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const BACKEND = 'Ja, mit einer Ergänzung: Das Gateway braucht eine Warteschlange pro Agent und höchstens 4 parallele Aufrufe. Ich trage einen Rate-Limiter am Block ein.';
+const AG = {
+  Moderator: { initial: 'M', color: '#0f7f8a', dark: '#0b5f68', tint: '#dcf0f2' },
+  Backend: { initial: 'B', color: '#3563e9', dark: '#2346b0', tint: '#eef2fe' },
+  Kritiker: { initial: 'K', color: '#c84a14', dark: '#9a360a', tint: '#fbe7dc' },
+  Daten: { initial: 'D', color: '#8b4fd6', dark: '#6532a8', tint: '#f3ecfc' },
+};
+const ISSUES = ['AI-Gateway mit Warteschlange', 'Datenbank-Schema für Boards', 'Hosting-Varianten vergleichen'];
+const TOOLS = { Block: 'Block', Notiz: 'Notiz', Rahmen: 'Rahmen', Verbinden: 'Verbinden', Layout: 'Auto-Layout' };
+const now = () => new Date().toTimeString().slice(0, 5);
+const h = React.createElement;
+
+class Component extends DCLogic {
+  state = { typed: 0, compare: 'open', critic: 'raised', sug: 'open', release: 'open', detail: false, gw: true, extra: [], draft: '', tool: 'Block', zoom: 100 };
+  chatRef = React.createRef();
+
+  componentDidMount() {
+    if (this.props.liveTyping === false) { this.setState({ typed: BACKEND.length }); return; }
+    this.timer = setInterval(() => {
+      this.setState(s => {
+        if (s.typed >= BACKEND.length) { clearInterval(this.timer); return null; }
+        return { typed: s.typed + 1 };
+      });
+    }, 45);
+  }
+  componentWillUnmount() { clearInterval(this.timer); clearTimeout(this.gwTimer); clearTimeout(this.modTimer); }
+  componentDidUpdate() {
+    const n = this.state.extra.length;
+    if (n !== this.lastN) { this.lastN = n; if (this.chatRef.current) this.chatRef.current.scrollTop = 99999; }
+  }
+  push(m) { this.setState(s => ({ extra: [...s.extra, { ...m, time: now() }] })); }
+  addAgent(name, text) { const a = AG[name]; this.push({ isAgent: true, isHuman: false, name, text, ...a }); }
+  addHuman(text) { this.push({ isAgent: false, isHuman: true, name: 'Du', initial: 'Du', text, color: '', dark: '#0f1720', tint: '' }); }
+  dots(color) {
+    return h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 3 } },
+      [0, 1, 2].map(i => h('span', { key: i, style: { width: 4, height: 4, borderRadius: 2, background: color, animation: `cvdot 1.2s ease-in-out ${i * 0.16}s infinite` } })));
+  }
+  caret(color) {
+    return h('span', { style: { display: 'inline-block', width: 2, height: 15, background: color, marginLeft: 2, verticalAlign: -2, animation: 'cvblink 1s infinite' } });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const typing = s.typed < BACKEND.length;
+    const raised = s.critic === 'raised';
+    const status = [typing && 'Backend schreibt', raised && '1 wartet'].filter(Boolean).join(' · ') || 'Keine Wortmeldung';
+    const waiting = (s.sug === 'open' ? 1 : 0) + (s.release === 'open' ? 1 : 0);
+    const done = [];
+    if (s.sug === 'accepted') done.push('Kosten-Limits übernommen');
+    if (s.sug === 'rejected') done.push('Kosten-Limits abgelehnt');
+    if (s.release === 'done') done.push('3 Issues in covibes angelegt');
+    const tools = {};
+    Object.keys(TOOLS).forEach(k => {
+      const on = s.tool === k;
+      tools[`t${k}Bg`] = on ? '#151b24' : 'transparent';
+      tools[`t${k}Fg`] = on ? '#ffffff' : '#1e2733';
+      tools[`tool${k}`] = () => this.setState({ tool: k });
+    });
+    return {
+      ...tools,
+      chatRef: this.chatRef,
+      isTyping: typing, doneTyping: !typing,
+      statusText: status,
+      statusDots: this.dots('#3563e9'),
+      msgDots: this.dots('#3563e9'),
+      backendText: BACKEND.slice(0, s.typed),
+      caretEl: typing ? this.caret('#3563e9') : null,
+      samCaret: this.caret('#1e2733'),
+      showCursor: this.props.showCursor !== false,
+      compareOpen: s.compare === 'open', compareDone: s.compare !== 'open',
+      compareNote: s.compare === 'yes' ? 'Varianten A und B werden angelegt' : 'Auf später verschoben',
+      compareYes: () => {
+        this.setState({ compare: 'yes' });
+        this.modTimer = setTimeout(() => this.addAgent('Moderator', 'Varianten angelegt: A – eigener Server (Frankfurt), B – Container-Dienst (Frankfurt). Beide erfüllen das Kriterium EU-Hosting.'), 900);
+      },
+      compareLater: () => this.setState({ compare: 'later' }),
+      jumpGateway: () => { this.setState({ gw: true }); clearTimeout(this.gwTimer); this.gwTimer = setTimeout(() => this.setState({ gw: false }), 2500); },
+      gwHighlight: s.gw, gwNormal: !s.gw,
+      criticRaised: raised,
+      hearCritic: () => { this.setState({ critic: 'heard' }); this.addAgent('Kritiker', 'Ohne Obergrenze können parallele Agents in einer Sitzung schnell teuer werden. Ich schlage Kosten-Limits pro Agent vor, der Vorschlag liegt im Canvas.'); },
+      extra: s.extra,
+      draft: s.draft,
+      onDraft: e => this.setState({ draft: e.target.value }),
+      insertAt: () => this.setState(st => ({ draft: st.draft + (st.draft && !st.draft.endsWith(' ') ? ' @' : '@') })),
+      send: e => { e.preventDefault(); const t = s.draft.trim(); if (!t) return; this.setState({ draft: '' }); this.addHuman(t); },
+      sugOpen: s.sug === 'open', sugAccepted: s.sug === 'accepted',
+      sugStroke: s.sug === 'open' ? '#c84a14' : s.sug === 'accepted' ? '#8792a2' : 'none',
+      sugDash: s.sug === 'open' ? '5 4' : '0',
+      sugMarker: s.sug === 'accepted' ? 'url(#cvA)' : '',
+      acceptSug: () => this.setState({ sug: 'accepted' }),
+      rejectSug: () => this.setState({ sug: 'rejected' }),
+      releaseOpen: s.release === 'open',
+      releaseDetail: s.detail,
+      issues: ISSUES.map((title, i) => ({ title, border: i ? '1px solid #eef1f4' : 'none' })),
+      detailLabel: s.detail ? 'Schließen' : 'Ansehen',
+      toggleDetail: () => this.setState({ detail: !s.detail }),
+      approve: () => this.setState({ release: 'done' }),
+      waitCount: waiting, doneItems: done,
+      hostingState: s.compare === 'yes' ? 'Vergleich A/B läuft' : 'Noch nicht entschieden',
+      zoom: s.zoom,
+      zoomIn: () => this.setState({ zoom: Math.min(200, s.zoom + 10) }),
+      zoomOut: () => this.setState({ zoom: Math.max(30, s.zoom - 10) }),
+    };
+  }
+}
+</script>
+</body>
+</html>

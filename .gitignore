@@ -1,0 +1,23 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Local issue notes; may contain error messages or tokens
+context/current-issues.md
+
+# Node and build output
+node_modules
+dist
+coverage
+.vite
+*.tsbuildinfo
+*.local
+.pnpm-store
+
+# Local settings of the coding agent (launch.json is shared)
+.claude/settings.local.json
+
+# Operating system
+.DS_Store
+Thumbs.db

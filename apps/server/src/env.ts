@@ -5,7 +5,7 @@ export const serverEnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3001),
-    // Local development stays on this machine; deployment sets HOST=0.0.0.0 (spec 02b).
+    // Local development stays on this machine; the Docker image sets HOST=0.0.0.0 (spec 02b).
     HOST: z.string().min(1).default('127.0.0.1'),
     /** Public address of the web app; the API is reachable under `${APP_URL}/api`. */
     APP_URL: z.url().default('http://localhost:5173'),
@@ -18,11 +18,40 @@ export const serverEnvSchema = z
     GITLAB_CLIENT_SECRET: z.string().min(1).optional(),
     /** Only for a self-hosted GitLab; defaults to gitlab.com. */
     GITLAB_ISSUER: z.url().optional(),
+    /** Mail delivery in production, e.g. `smtps://user:password@mail.example.com:465`. */
+    SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
+    /** Sender of all mails, e.g. `Covibes <no-reply@example.com>`. */
+    MAIL_FROM: z.string().min(3).optional(),
+    /** Comma-separated addresses of reverse proxies that append to `X-Forwarded-For`. */
+    TRUSTED_PROXIES: z
+      .string()
+      .default('')
+      .transform((value) =>
+        value
+          .split(',')
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      ),
+    /** Built web app to serve in production (Docker image); unset while Vite serves it. */
+    WEB_DIST_DIR: z.string().min(1).optional(),
   })
   .refine((env) => Boolean(env.GITLAB_CLIENT_ID) === Boolean(env.GITLAB_CLIENT_SECRET), {
     message: 'GITLAB_CLIENT_ID and GITLAB_CLIENT_SECRET must be set together',
     path: ['GITLAB_CLIENT_SECRET'],
-  });
+  })
+  .refine((env) => !env.SMTP_URL || Boolean(env.MAIL_FROM), {
+    message: 'MAIL_FROM is required when SMTP_URL is set',
+    path: ['MAIL_FROM'],
+  })
+  .refine(
+    (env) =>
+      env.NODE_ENV !== 'production' || Boolean(env.SMTP_URL) || Boolean(env.GITLAB_CLIENT_ID),
+    {
+      message:
+        'Production needs a way to sign in: set SMTP_URL and MAIL_FROM (login link by mail) and/or GITLAB_CLIENT_ID and GITLAB_CLIENT_SECRET',
+      path: ['SMTP_URL'],
+    },
+  );
 
 export type ServerEnv = z.output<typeof serverEnvSchema>;
 

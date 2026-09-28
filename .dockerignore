@@ -1,0 +1,17 @@
+# Only what the image build needs; never local data or secrets.
+**/node_modules
+**/dist
+**/coverage
+**/.vite
+**/*.tsbuildinfo
+.git
+.github
+.claude
+.data
+backups
+context
+deploy
+**/.env
+**/.env.*
+!**/.env.example
+*.log

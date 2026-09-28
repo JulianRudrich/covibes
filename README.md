@@ -2,7 +2,7 @@
 
 Covibes is a shared planning space made of chat and canvas. Teams (or individuals) use it to plan the foundation of a project together with specialized AI agents and a neutral AI moderator: brainstorming, decisions, architecture and the project plan.
 
-Covibes is developed locally: everything runs on your own machine, with no cloud accounts and no outside connections.
+Covibes is developed locally: everything runs on your own machine, with no cloud accounts and no outside connections. A self-hosted instance can be run with Docker (see [`deploy/README.md`](deploy/README.md)).
 
 ## Requirements
 
@@ -104,6 +104,7 @@ apps/server      Covibes server (Hono): login and API; later realtime, collabora
 packages/db      migrations, local database, database tests
 packages/shared  shared types, schemas and helpers
 scripts/         start script for `pnpm dev`
+deploy/          Docker Compose setup for a self-hosted instance
 context/         planning: overview, architecture, standards, design, feature specs
 ```
 

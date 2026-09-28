@@ -19,6 +19,7 @@ try {
       GITLAB_CLIENT_ID: undefined,
       GITLAB_CLIENT_SECRET: undefined,
       GITLAB_ISSUER: undefined,
+      TRUSTED_PROXIES: [],
     },
     adminPool,
     mailer: new DevOutbox(),

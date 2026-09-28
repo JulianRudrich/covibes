@@ -9,6 +9,12 @@ const required = {
   BETTER_AUTH_SECRET: 'x'.repeat(32),
 };
 
+const production = { ...required, NODE_ENV: 'production' };
+const smtp = {
+  SMTP_URL: 'smtps://user:secret@mail.example.com:465',
+  MAIL_FROM: 'Covibes <a@b.de>',
+};
+
 describe('loadServerEnv', () => {
   it('uses defaults for everything but the database and the auth secret', () => {
     expect(loadServerEnv(required)).toEqual({
@@ -17,6 +23,7 @@ describe('loadServerEnv', () => {
       PORT: 3001,
       HOST: '127.0.0.1',
       APP_URL: 'http://localhost:5173',
+      TRUSTED_PROXIES: [],
     });
   });
 
@@ -46,5 +53,28 @@ describe('loadServerEnv', () => {
     );
     const env = loadServerEnv({ ...required, GITLAB_CLIENT_ID: 'id', GITLAB_CLIENT_SECRET: 's' });
     expect(env.GITLAB_CLIENT_ID).toBe('id');
+  });
+
+  it('needs a sender for SMTP, and only accepts SMTP addresses', () => {
+    expect(() => loadServerEnv({ ...required, SMTP_URL: smtp.SMTP_URL })).toThrow(/MAIL_FROM/);
+    expect(loadServerEnv({ ...required, MAIL_FROM: smtp.MAIL_FROM }).SMTP_URL).toBeUndefined();
+    expect(() =>
+      loadServerEnv({ ...required, ...smtp, SMTP_URL: 'https://mail.example.com' }),
+    ).toThrow(/SMTP_URL/);
+    expect(loadServerEnv({ ...required, ...smtp }).SMTP_URL).toBe(smtp.SMTP_URL);
+  });
+
+  it('refuses production without a way to sign in', () => {
+    expect(() => loadServerEnv(production)).toThrow(/way to sign in/);
+    expect(loadServerEnv({ ...production, ...smtp }).NODE_ENV).toBe('production');
+    expect(
+      loadServerEnv({ ...production, GITLAB_CLIENT_ID: 'id', GITLAB_CLIENT_SECRET: 's' }).NODE_ENV,
+    ).toBe('production');
+  });
+
+  it('reads trusted proxies as a list', () => {
+    expect(
+      loadServerEnv({ ...required, TRUSTED_PROXIES: ' 172.18.0.1 , 10.0.0.0/24,' }).TRUSTED_PROXIES,
+    ).toEqual(['172.18.0.1', '10.0.0.0/24']);
   });
 });

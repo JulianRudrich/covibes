@@ -21,6 +21,11 @@ describe('defineEnv', () => {
     expect(env.PORT).toBe(8080);
   });
 
+  it('treats empty values as unset', () => {
+    expect(defineEnv(schema, { DATABASE_URL: 'x', PORT: '' }).PORT).toBe(3001);
+    expect(() => defineEnv(schema, { DATABASE_URL: '' })).toThrow(/DATABASE_URL/);
+  });
+
   it('names a missing required variable', () => {
     expect(() => defineEnv(schema, {})).toThrow(EnvValidationError);
     expect(() => defineEnv(schema, {})).toThrow(/DATABASE_URL/);

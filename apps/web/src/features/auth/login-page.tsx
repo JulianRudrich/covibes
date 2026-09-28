@@ -62,6 +62,8 @@ export function LoginPage() {
   }
 
   const gitlabReady = config?.gitlabLogin === true;
+  // Without SMTP in production there is no login link by mail (spec 02b).
+  const emailReady = config?.emailLogin !== false;
 
   return (
     <main className="grid min-h-dvh place-items-center bg-bg-app p-6 text-text">
@@ -96,49 +98,58 @@ export function LoginPage() {
             </p>
           )}
 
-          <div className="my-5 flex items-center gap-3 text-small text-text-4">
-            <span aria-hidden="true" className="h-px flex-1 bg-border" />
-            {t('auth.or')}
-            <span aria-hidden="true" className="h-px flex-1 bg-border" />
-          </div>
+          {emailReady ? (
+            <>
+              <div className="my-5 flex items-center gap-3 text-small text-text-4">
+                <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                {t('auth.or')}
+                <span aria-hidden="true" className="h-px flex-1 bg-border" />
+              </div>
 
-          {sentTo ? (
-            <div className="grid gap-3">
-              <Notice tone="success">{t('auth.linkSent', { email: sentTo })}</Notice>
-              {config?.devMailbox ? (
-                <Link to="/dev/mails" className="text-ui">
-                  {t('auth.openMailbox')}
-                </Link>
-              ) : null}
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setSentTo(undefined);
-                }}
-              >
-                {t('auth.otherEmail')}
-              </Button>
-            </div>
-          ) : (
-            <form className="grid gap-2" noValidate onSubmit={(event) => void sendLink(event)}>
-              <Label htmlFor="login-email">{t('auth.emailLabel')}</Label>
-              <Input
-                id="login-email"
-                type="email"
-                autoComplete="email"
-                placeholder={t('auth.emailPlaceholder')}
-                value={email}
-                aria-invalid={error === 'auth.errors.invalidEmail'}
-                aria-describedby={error ? 'login-error' : undefined}
-                onChange={(event) => {
-                  setEmail(event.target.value);
-                }}
-              />
-              <Button variant="primary" type="submit" className="mt-1 w-full" disabled={sending}>
-                {sending ? t('auth.sending') : t('auth.sendLink')}
-              </Button>
-            </form>
-          )}
+              {sentTo ? (
+                <div className="grid gap-3">
+                  <Notice tone="success">{t('auth.linkSent', { email: sentTo })}</Notice>
+                  {config?.devMailbox ? (
+                    <Link to="/dev/mails" className="text-ui">
+                      {t('auth.openMailbox')}
+                    </Link>
+                  ) : null}
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setSentTo(undefined);
+                    }}
+                  >
+                    {t('auth.otherEmail')}
+                  </Button>
+                </div>
+              ) : (
+                <form className="grid gap-2" noValidate onSubmit={(event) => void sendLink(event)}>
+                  <Label htmlFor="login-email">{t('auth.emailLabel')}</Label>
+                  <Input
+                    id="login-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder={t('auth.emailPlaceholder')}
+                    value={email}
+                    aria-invalid={error === 'auth.errors.invalidEmail'}
+                    aria-describedby={error ? 'login-error' : undefined}
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                    }}
+                  />
+                  <Button
+                    variant="primary"
+                    type="submit"
+                    className="mt-1 w-full"
+                    disabled={sending}
+                  >
+                    {sending ? t('auth.sending') : t('auth.sendLink')}
+                  </Button>
+                </form>
+              )}
+            </>
+          ) : null}
         </Card>
       </div>
     </main>

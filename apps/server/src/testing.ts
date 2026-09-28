@@ -6,7 +6,7 @@ import { createApp } from '@server/app';
 import { createAuth } from '@server/auth/auth';
 import { createDatabase } from '@server/db/database';
 import { loadServerEnv, type ServerEnv } from '@server/env';
-import { DevOutbox } from '@server/integrations/mail/mailer';
+import { createMailSetup } from '@server/integrations/mail/mailer';
 
 export const APP_URL = 'http://localhost:5173';
 
@@ -22,9 +22,10 @@ export function createTestServer(overrides: Partial<Record<keyof ServerEnv, stri
     ...overrides,
   });
   const db = createDatabase(env);
-  const outbox = new DevOutbox();
-  const auth = createAuth({ env, adminPool: db.adminPool, mailer: outbox });
-  const app = createApp({ env, db, auth, outbox });
+  const mail = createMailSetup(env);
+  const auth = createAuth({ env, adminPool: db.adminPool, mailer: mail.mailer });
+  const app = createApp({ env, db, auth, mail });
+  const { outbox } = mail;
   afterAll(() => db.close());
 
   /** Signs in through the real login link and returns the session cookie. */
@@ -35,8 +36,8 @@ export function createTestServer(overrides: Partial<Record<keyof ServerEnv, stri
       body: JSON.stringify({ email, callbackURL: '/' }),
     });
     expect(requested.status).toBe(200);
-    const mail = outbox.list().find((candidate) => candidate.to === email);
-    const link = mail?.text.match(/https?:\/\/\S+/)?.[0];
+    const sent = outbox?.list().find((candidate) => candidate.to === email);
+    const link = sent?.text.match(/https?:\/\/\S+/)?.[0];
     if (!link) throw new Error(`No login link was sent to ${email}`);
 
     const verified = await app.request(link);

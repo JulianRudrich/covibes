@@ -73,10 +73,20 @@ Secrets never go into the repository, not even into chat messages.
 - `nodemailer` (current version, respecting pnpm's minimum release age)
 
 ## Checklist
-- [ ] The image builds, and `docker compose up -d` starts database, setup and Covibes. `/health` returns `{ "status": "ok" }`.
-- [ ] Web app, API and canvas WebSocket run over one port. Reloading a subpage (e.g. `/p/…`) returns the app.
-- [ ] The setup is repeatable, and the app service does not know the superuser password.
-- [ ] Without SMTP and without GitLab, Covibes does not start in production and names the reason. With SMTP, the login link arrives by mail.
-- [ ] Security headers and `Secure` cookies are set in production. There are tests for this.
-- [ ] The guide is enough for the operator to run Covibes without further questions.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] The image builds, and `docker compose up -d` starts database, setup and Covibes. `/health` returns `{ "status": "ok" }`.
+- [x] Web app and API run over one port. Reloading a subpage (e.g. `/p/…`) returns the app. The canvas WebSocket only exists from spec 05 on; its checklist covers it.
+- [x] The setup is repeatable, and the app service does not know the superuser password.
+- [x] Without SMTP and without GitLab, Covibes does not start in production and names the reason. With SMTP, the login link arrives by mail.
+- [x] Security headers and `Secure` cookies are set in production. There are tests for this.
+- [x] The guide is enough for the operator to run Covibes without further questions.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-09-28)
+- **Verified with Docker Desktop**, following the steps "First start" and "Sign-in" of `deploy/README.md`:
+  - The image builds (508 MB). `docker compose up -d` starts `db`, then `setup` (applies the migrations), then `app`, which reports healthy.
+  - Web app, security headers (CSP, `X-Frame-Options`, `Referrer-Policy`), immutable cache for hashed assets, `no-cache` for the SPA fallback and JSON `404` for unknown API routes all behave as intended.
+  - The login link arrives via SMTP. Signing in, creating a project and listing projects work; a used link is rejected; the development mailbox answers `404`.
+  - After `docker compose down` and `up -d` the data is still there, and `setup` reports "no pending migrations".
+  - Not tested: the web server examples (Caddy, nginx) in front of the container.
+- Empty values in `.env` count as unset (`defineEnv`).
+- `@covibes/db` and `@covibes/shared` are only build dependencies of the server, because tsup bundles them. This keeps the embedded PostgreSQL binaries out of the image.

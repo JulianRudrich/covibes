@@ -33,7 +33,7 @@ const DETAILS: ProjectDetails = {
     { userId: OLGA.id, name: OLGA.name, role: 'owner' },
   ],
 };
-const CONFIG: PublicConfig = { gitlabLogin: false, devMailbox: true };
+const CONFIG: PublicConfig = { gitlabLogin: false, emailLogin: true, devMailbox: true };
 
 function signedIn(user: typeof OLGA | null) {
   vi.mocked(authClient.getSession).mockResolvedValue({
@@ -105,6 +105,21 @@ describe('without a session', () => {
         expect.objectContaining({ callbackURL: '/', errorCallbackURL: '/login' }),
       );
     });
+  });
+
+  it('hides the login by mail when the server cannot send mails', async () => {
+    stubApi({
+      'GET /api/config': () => ({
+        body: { gitlabLogin: true, emailLogin: false, devMailbox: false },
+      }),
+    });
+    renderApp('/login');
+
+    const gitlab = await screen.findByRole('button', { name: 'Mit GitLab anmelden' });
+    await waitFor(() => {
+      expect(gitlab).toBeEnabled();
+    });
+    expect(screen.queryByLabelText('E-Mail-Adresse')).not.toBeInTheDocument();
   });
 
   it('explains an expired or used login link', async () => {

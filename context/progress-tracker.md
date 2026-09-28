@@ -7,8 +7,7 @@
 Build the product, starting with the vertical slice (specs 04 to 07). Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 02b: Docker deployment (branch `spec/02b-server-deployment`)
-- Spec 05: live canvas, paused until spec 02b is merged (branch `spec/05-canvas-live`, server part done)
+- Spec 05: live canvas (branch `spec/05-canvas-live`, server part done)
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -47,6 +46,7 @@ Build the product, starting with the vertical slice (specs 04 to 07). Covibes is
   - API for settings and projects, login page, route guard, project list, project creation, workspace with real members, account menu
 
   Lint, type check, format, 106 tests and build pass; verified in the browser with two users.
+- [x] **Spec 02b Docker deployment:** `Dockerfile`, `deploy/compose.yaml` (PostgreSQL, setup, app), guide `deploy/README.md`; sign-in by SMTP mail and/or GitLab. Verified with Docker Desktop: image build, start, sign-in by SMTP mail, projects, restart with persisted data.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; apart from GitHub there are no external services. A private instance can be self-hosted with Docker (spec 02b).

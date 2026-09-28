@@ -1,0 +1,59 @@
+# Covibes with PostgreSQL (spec 02b). Settings come from deploy/.env, see .env.example and README.md.
+#   docker compose up -d --build
+name: covibes
+
+x-image: &image
+  image: covibes:latest
+  build:
+    context: ..
+    dockerfile: Dockerfile
+
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env}
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # Runs once before every start: roles, database, migrations. Only it knows the superuser password.
+  setup:
+    <<: *image
+    command: ['node', 'dist/setup.js']
+    restart: 'no'
+    environment:
+      DATABASE_SUPERUSER_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
+      COVIBES_ADMIN_PASSWORD: ${COVIBES_ADMIN_PASSWORD:?Set COVIBES_ADMIN_PASSWORD in deploy/.env}
+      COVIBES_APP_PASSWORD: ${COVIBES_APP_PASSWORD:?Set COVIBES_APP_PASSWORD in deploy/.env}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    <<: *image
+    restart: unless-stopped
+    environment:
+      APP_URL: ${APP_URL:?Set APP_URL in deploy/.env}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in deploy/.env}
+      DATABASE_URL: postgres://covibes_app:${COVIBES_APP_PASSWORD}@db:5432/covibes
+      DATABASE_ADMIN_URL: postgres://covibes_admin:${COVIBES_ADMIN_PASSWORD}@db:5432/covibes
+      SMTP_URL: ${SMTP_URL:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID:-}
+      GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET:-}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+    ports:
+      # Only reachable from this server by default: the web server with HTTPS forwards to it.
+      - '${COVIBES_BIND:-127.0.0.1}:${COVIBES_PORT:-3000}:3000'
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+
+volumes:
+  db-data:

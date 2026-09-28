@@ -18,10 +18,12 @@ type AuthDeps = {
     | 'GITLAB_CLIENT_ID'
     | 'GITLAB_CLIENT_SECRET'
     | 'GITLAB_ISSUER'
+    | 'TRUSTED_PROXIES'
   >;
   /** Admin role: the login tables belong to it and are not reachable for covibes_app. */
   adminPool: pg.Pool;
-  mailer: Mailer;
+  /** Without a mailer (production without SMTP) there is no login by mail. */
+  mailer: Mailer | undefined;
 };
 
 export function gitlabLoginEnabled(env: AuthDeps['env']): boolean {
@@ -91,6 +93,8 @@ export function authOptions({ env, adminPool, mailer }: AuthDeps) {
       database: { generateId: 'uuid' },
       cookiePrefix: 'covibes',
       useSecureCookies: env.NODE_ENV === 'production',
+      // Behind a reverse proxy that appends to X-Forwarded-For (spec 02b).
+      ...(env.TRUSTED_PROXIES.length ? { ipAddress: { trustedProxies: env.TRUSTED_PROXIES } } : {}),
     },
     rateLimit: { enabled: env.NODE_ENV !== 'test', window: 60, max: 100 },
     socialProviders: gitlabLoginEnabled(env)
@@ -102,14 +106,16 @@ export function authOptions({ env, adminPool, mailer }: AuthDeps) {
           },
         }
       : {},
-    plugins: [
-      magicLink({
-        expiresIn: MAGIC_LINK_MINUTES * 60,
-        sendMagicLink: async ({ email, url }) => {
-          await mailer.send(magicLinkMail({ to: email, url, minutes: MAGIC_LINK_MINUTES }));
-        },
-      }),
-    ],
+    plugins: mailer
+      ? [
+          magicLink({
+            expiresIn: MAGIC_LINK_MINUTES * 60,
+            sendMagicLink: async ({ email, url }) => {
+              await mailer.send(magicLinkMail({ to: email, url, minutes: MAGIC_LINK_MINUTES }));
+            },
+          }),
+        ]
+      : [],
   } satisfies BetterAuthOptions;
 }
 

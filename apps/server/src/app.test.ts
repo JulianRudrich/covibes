@@ -18,7 +18,11 @@ describe('GET /health', () => {
 describe('GET /api/config', () => {
   it('tells the web app that GitLab is not set up', async () => {
     const response = await test.app.request('/api/config');
-    expect(await response.json()).toEqual<PublicConfig>({ gitlabLogin: false, devMailbox: false });
+    expect(await response.json()).toEqual<PublicConfig>({
+      gitlabLogin: false,
+      emailLogin: true,
+      devMailbox: false,
+    });
   });
 
   it('reports GitLab once both values are set', async () => {

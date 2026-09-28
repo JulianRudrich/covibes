@@ -16,11 +16,16 @@ Build the product, starting with the vertical slice (specs 04 to 07). Covibes is
 - [x] Context files for the product: `CLAUDE.md`, `project-overview.md`, `ai-workflow-rules.md`, `progress-tracker.md`
 - [x] Custom agents added to V1, following the owner's feedback
 - [x] Dry run with Covibes as the project: 21 gaps found and closed. The scenario is in `dry-run.md`, the rules in `project-overview.md` under "Detailed rules".
+- [x] Tech stack round: `architecture.md` and `code-standards.md` written
+- [x] Design: the owner designed the main screen in Claude Design. The handoff is in `context/design/main-screen/`; `ui-context.md` is derived from it.
+- [x] Spec overview (`feature-specs/00-overview.md`) approved by the owner
+- [x] Specs 01–07 worked out in detail (M0 foundation and M1 vertical slice)
 
 ## Next
-1. Tech stack round in plan mode → `architecture.md`, `code-standards.md`
-2. Design direction based on 2–3 visual drafts → `ui-context.md`
-3. Split V1 into numbered feature specs (`context/feature-specs/`)
+1. **Spec 01:** monorepo and tooling.
+2. **Spec 03:** app shell and design tokens.
+3. **Spec 02a:** local development environment with PostgreSQL.
+4. Then specs 04 to 07 (vertical slice).
 
 ## Open decisions
 - **Dark mode:** not decided yet.
@@ -58,3 +63,5 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   - 17 were added as default rules.
 
   The scenario doubles as the acceptance test for V1.
+- **2026-09-27, tech stack round:** owner decisions: several AI providers per agent, GitLab.com first, on-premise stays possible. The notes from planning and dry run went into `architecture.md`.
+- **2026-09-27, design:** three directions were on the table (workshop, control room, studio). The owner then designed the main screen in Claude Design: cool and neutral with Geist, graphite as the primary color and one color per agent. The handoff also covers the four block states and the interactions. Deviations from the architecture (locks via Yjs awareness, variants already in V1) are listed in `ui-context.md`.

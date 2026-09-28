@@ -122,3 +122,7 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-09-28, spec 02b pulled forward:** a Docker image with Compose setup allows running a private instance. Spec 05 was paused until it was merged.
 - **2026-09-28, spec 02b verified and merged:** built and started with Docker Desktop; sign-in by SMTP mail, projects and a restart with persisted data work.
 - **2026-09-28, local repository:** decided by the owner. Covibes lives in a local Git repository without a remote until the end, because the owner may want to market it. It is published at the very end. All checks run locally before every merge.
+- **2026-09-28, goal after V1:** the owner keeps both options open: using Covibes as a portfolio project or marketing it commercially. Consequences:
+  - The Git history stays ready to publish at any time: professional, in English, Conventional Commits, one commit per spec.
+  - There is no license file yet, so all rights are reserved. The license is chosen when the owner decides how to publish.
+  - Every dependency must allow commercial use (see `code-standards.md`). All current dependencies do.

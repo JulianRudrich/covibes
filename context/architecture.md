@@ -1,7 +1,7 @@
 # Architecture
 
 > As of 2026-09-28. Stack, system boundaries and invariants only change after consulting the owner.
-> **Guideline:** Covibes is developed locally. It runs entirely on the owner's machine; apart from GitHub there are no external services. A private instance can be self-hosted with Docker (spec 02b). The public launch comes at the end (spec 35).
+> **Guideline:** Covibes is developed locally. It runs entirely on the owner's machine; there are no external services. A private instance can be self-hosted with Docker (spec 02b). The public launch comes at the end (spec 35).
 
 ## Overview
 
@@ -268,7 +268,7 @@ The owner decides in spec 07 which route is used first. On Vertex, Claude only h
   - the web app
 
   Login mails show up in a development mailbox in the app (`/dev/mails`). Nothing is sent.
-- **CI:** GitHub Actions checks lint, types, formatting and tests. The database tests run against the same embedded PostgreSQL.
+- **Checks:** lint, types, formatting, tests and the build run locally before every merge. Once the repository is published, the GitHub Actions workflow in `.github/workflows/ci.yml` runs them as CI. The database tests run against the same embedded PostgreSQL.
 - **Self-hosted instance (spec 02b):** one Docker image that serves web app, API and WebSockets on a single port, plus PostgreSQL 18 via Compose. A web server with HTTPS sits in front of it.
 - **Public launch (at the end, spec 35):** the owner decides where Covibes runs. Needed:
   - a web server as reverse proxy, with TLS

@@ -52,12 +52,12 @@ Shared types, schemas and formats live in `packages/shared` and are never define
 - Every feature spec names the checks that must pass before the unit counts as done.
 
 ## Tooling
-- ESLint and Prettier. `pnpm lint`, `pnpm typecheck`, `pnpm format:check` and `pnpm test` must pass before every pull request. CI (GitHub Actions) enforces this.
+- ESLint and Prettier. `pnpm lint`, `pnpm typecheck`, `pnpm format:check` and `pnpm test` must pass before every merge to `main`. Once the repository is published, the CI workflow (`.github/workflows/ci.yml`) runs the same checks.
 - The package manager is pnpm. Versions are pinned.
 - `.gitattributes` enforces LF line endings.
 - Read the current documentation or agent skills of a library before using it. Do not rely on training knowledge, especially for versions and APIs.
 
 ## Git
-- Every spec runs on its own branch (`spec/NN-short-name`). It is merged through a pull request once CI is green, always as a squash merge: one commit per spec, no merge commits. Documentation changes go straight to `main`.
+- Every spec runs on its own branch (`spec/NN-short-name`). It is squash-merged into `main` once all checks pass: one commit per spec, no merge commits. Documentation changes go straight to `main`.
 - Commit messages follow Conventional Commits in English, e.g. `feat(canvas): sync the board with Yjs` (details in `ai-workflow-rules.md`).
 - Never commit secrets. `context/current-issues.md` stays local.

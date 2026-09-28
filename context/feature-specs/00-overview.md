@@ -27,12 +27,12 @@ The prompt to the coding agent is always the same: "Read the spec, mark it as in
 - **Design:** –
 - **Done when:** `pnpm install && pnpm lint && pnpm typecheck && pnpm test` pass, locally and in CI.
 
-> **Hosting** (owner decision, 2026-09-28): Covibes is developed locally, without external services apart from GitHub. A private instance can be self-hosted with Docker (02b); the public launch is prepared in 35. Condition: fully self-hostable at any time (invariant 10 in `architecture.md`).
+> **Hosting** (owner decision, 2026-09-28): Covibes is developed locally, without external services. A private instance can be self-hosted with Docker (02b); the public launch is prepared in 35. Condition: fully self-hostable at any time (invariant 10 in `architecture.md`).
 
 ### 02a Local development environment
 - **Goal:**
   - PostgreSQL 18 runs via `embedded-postgres` directly from Node, without Docker. Login mails show up in a development mailbox in the app.
-  - No external service apart from GitHub.
+  - No external services.
   - Web and server run via `pnpm dev`.
   - scripts for start, backup, restore and reset
 - **Needs:** 01

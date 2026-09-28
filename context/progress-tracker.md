@@ -26,7 +26,7 @@ Build the product, starting with the vertical slice (specs 04 to 07). Covibes is
   - GitHub Actions
 
   Lint, type check, format and tests pass; `pnpm dev` and `pnpm build` work.
-- [x] Private GitHub repository created, CI with GitHub Actions
+- [x] CI workflow for GitHub Actions (`.github/workflows/ci.yml`), active once the repository is published
 - [x] **Spec 03 app shell and design tokens:**
   - Tailwind theme from `ui-context.md`, Geist served locally, token guard in `pnpm lint`
   - building blocks Button, IconButton, Avatar, Tooltip, Badge/Pill/Chip, Panel
@@ -49,7 +49,7 @@ Build the product, starting with the vertical slice (specs 04 to 07). Covibes is
 - [x] **Spec 02b Docker deployment:** `Dockerfile`, `deploy/compose.yaml` (PostgreSQL, setup, app), guide `deploy/README.md`; sign-in by SMTP mail and/or GitLab. Verified with Docker Desktop: image build, start, sign-in by SMTP mail, projects, restart with persisted data.
 
 ## Next
-**Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; apart from GitHub there are no external services. A private instance can be self-hosted with Docker (spec 02b).
+**Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
 1. **Spec 05:** live canvas (React Flow and Yjs via Hocuspocus).
 2. Then specs 06 and 07 (real-time chat, AI gateway and moderator).
@@ -74,7 +74,7 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   - When acting on its own, it makes a proposal.
   - For alternatives, it creates variants.
 - **Git in the product:** GitLab first, GitHub afterwards. Reading is free; everything that changes something needs approval.
-- **Covibes code repository:** on GitHub, CI with GitHub Actions. The owner chose this on 2026-09-28; it is independent of the GitLab integration in the product.
+- **Covibes code repository:** local only until the end, then published on GitHub with CI via GitHub Actions. The owner decided this on 2026-09-28; it is independent of the GitLab integration in the product.
 - **Repository language:** everything in the repository is English, and commits follow Conventional Commits. The owner decided this on 2026-09-28.
 - **Tech stack:**
   - React app and the Covibes server (Hono, Better Auth, Hocuspocus, Graphile Worker) with PostgreSQL and RLS
@@ -102,13 +102,13 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   - pnpm runs through Corepack
   - hono is pinned to 4.13.9 because of pnpm's minimum release age
 
-  The owner wants the code on GitHub, so CI runs on GitHub Actions.
+  The code will be published on GitHub, so CI is prepared for GitHub Actions.
 - **2026-09-28, spec 03 implemented.** Details are in the spec under "Implementation notes":
   - Colors from the handoff that had no name are now tokens and were added to `ui-context.md`.
   - The building blocks are hand-written in the shadcn style. `dropdown-menu` follows with spec 04.
   - The comparison with the prototype used a measuring script on both pages. `.claude/launch.json` serves the prototype as server `design`.
 - **2026-09-28, local development:** decided by the owner:
-  - Covibes is developed locally, without external services apart from GitHub.
+  - Covibes is developed locally, without external services.
   - The database is a regular PostgreSQL 18, locally via `embedded-postgres` without Docker. Login (Better Auth), permissions, API and live updates are handled by the Covibes server; RLS stays as a second safeguard in the database.
   - This is reflected in `architecture.md`, `code-standards.md` (database) and in specs 00, 02a, 02b and 04 to 07.
 - **2026-09-28, spec 02a implemented.** Details are in the spec under "Implementation notes":
@@ -117,6 +117,8 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-09-28, spec 04 implemented.** Details are in the spec under "Implementation notes":
   - New users are named after the part of their address before the "@" for now, because the login link does not ask for a name.
   - `pnpm dev` starts the web app only once the server answers.
-- **2026-09-28, authorship:** everything in the repository is authored by the owner. Commits and pull requests carry no references to AI tools (see `ai-workflow-rules.md`).
-- **2026-09-28, GitHub:** the owner handed GitHub maintenance over to the coding agent completely. Specs are squash-merged once CI is green, one commit per spec (see `ai-workflow-rules.md`).
+- **2026-09-28, authorship:** everything in the repository is authored by the owner. Commits carry no references to AI tools (see `ai-workflow-rules.md`).
+- **2026-09-28, Git:** the owner handed Git maintenance over to the coding agent completely. Specs are squash-merged into `main` once all checks pass, one commit per spec (see `ai-workflow-rules.md`).
 - **2026-09-28, spec 02b pulled forward:** a Docker image with Compose setup allows running a private instance. Spec 05 was paused until it was merged.
+- **2026-09-28, spec 02b verified and merged:** built and started with Docker Desktop; sign-in by SMTP mail, projects and a restart with persisted data work.
+- **2026-09-28, local repository:** decided by the owner. Covibes lives in a local Git repository without a remote until the end, because the owner may want to market it. It is published at the very end. All checks run locally before every merge.

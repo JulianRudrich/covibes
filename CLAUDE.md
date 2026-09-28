@@ -23,6 +23,6 @@ Read as needed:
 - **Before starting a unit:** mark it as "in progress" in `context/progress-tracker.md`.
 - **After finishing:** check the spec's checklist and update the tracker (status, decisions, session notes).
 - Application code is only written through feature specs from `context/feature-specs/`. No spec, no code.
-- The repository is written in English: documentation, code, comments, commit messages and pull requests. Commits follow Conventional Commits.
-- The coding agent maintains GitHub completely. Every finished change is committed and pushed. Documentation goes straight to `main`. Every spec runs on its own branch `spec/NN-short-name` with a pull request and is squash-merged once CI is green, so there is exactly one commit per spec. Details are in `context/ai-workflow-rules.md`.
+- The repository is written in English: documentation, code, comments, commit messages and branch names. Commits follow Conventional Commits.
+- The repository is local only; it is published at the very end. The coding agent maintains Git completely. Every finished change is committed. Documentation goes straight to `main`. Every spec runs on its own branch `spec/NN-short-name` and is squash-merged into `main` once all checks pass, so there is exactly one commit per spec. Details are in `context/ai-workflow-rules.md`.
 - Conversations with the owner are in German.

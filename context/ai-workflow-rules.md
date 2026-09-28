@@ -44,13 +44,14 @@ These rules apply to every coding agent working on Covibes, such as Claude Code,
 
 ## Language
 
-- The repository is written in English: documentation, code, comments, commit messages, pull requests and branch names.
+- The repository is written in English: documentation, code, comments, commit messages and branch names.
 - User-facing texts of the product live in the i18n files (German and English).
 - Conversations with the owner are in German.
 
 ## Git
 
-- **The coding agent maintains GitHub completely:** commits, pushes, pull requests, merges, pulls and branch cleanup. The owner handed this over on 2026-09-28. The history must look professional.
+- **The repository is local only.** It has no remote; it is published at the very end, when the owner decides so (owner decision, 2026-09-28). Until then nothing is pushed anywhere.
+- **The coding agent maintains Git completely:** commits, branches, merges and branch cleanup. The owner handed this over on 2026-09-28. The history must look professional.
 - **Commits** follow [Conventional Commits](https://www.conventionalcommits.org/):
   - `type(scope): subject`, with the types `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `ci` and `chore`
   - subject in the imperative mood, lowercase, no trailing period, at most 72 characters
@@ -58,13 +59,13 @@ These rules apply to every coding agent working on Covibes, such as Claude Code,
   - one commit per self-contained change
 - **Branches:**
   - Documentation and planning changes (`context/`, `README.md`, `CLAUDE.md`) go straight to `main`.
-  - Every feature spec runs on its own branch (`spec/NN-short-name`) with a pull request to `main`, on which CI runs.
-- **Pull requests:** the title follows the commit format, e.g. `feat(auth): add magic-link login and projects`. The description states what is included and how it was verified.
+  - Every feature spec runs on its own branch (`spec/NN-short-name`).
 - **Merges to `main`:**
-  - only when CI is green
-  - always as a squash merge, never with a merge commit
-  - `main` gets exactly one commit per spec, titled after the pull request, e.g. `feat(auth): add magic-link login and projects (#1)`. The individual steps remain visible in the pull request.
-  - afterwards the branch is deleted, locally and on GitHub
-- **`main` stays linear:** no force pushes to `main` unless the owner explicitly asks for one.
-- **Authorship:** everything in the repository is authored by the owner. Commits and pull requests carry no co-author trailer and no reference to an AI tool (no `Co-Authored-By`, no "Generated with …"). In the documentation the role is called "coding agent". The owner decided this on 2026-09-28.
+  - only when all checks pass locally: `pnpm lint`, `pnpm typecheck`, `pnpm format:check`, `pnpm test`, `pnpm db:types:check` and `pnpm build`
+  - always as a squash merge (`git merge --squash`), never with a merge commit
+  - `main` gets exactly one commit per spec, e.g. `feat(auth): add magic-link login and projects`. Its body names the spec and sums up what is included and how it was verified.
+  - afterwards the branch is deleted
+- **`main` stays linear:** its history is not rewritten unless the owner explicitly asks for it.
+- **Publishing:** when the repository goes public, `main` is pushed as it is. The CI workflow in `.github/workflows/ci.yml` then runs the same checks on every change.
+- **Authorship:** everything in the repository is authored by the owner. Commits carry no co-author trailer and no reference to an AI tool (no `Co-Authored-By`, no "Generated with …"). In the documentation the role is called "coding agent". The owner decided this on 2026-09-28.
 - Never put secrets (API keys, tokens, contents of `.env` files) into code, commits or context files.

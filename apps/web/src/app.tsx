@@ -1,10 +1,12 @@
-import { APP_NAME } from '@covibes/shared';
+import { RouterProvider } from '@tanstack/react-router';
 
-// Placeholder until spec 03 adds the design tokens, i18n and the workspace layout.
-export function App() {
+import { TooltipProvider } from '@web/components/ui/tooltip';
+import type { AppRouter } from '@web/router';
+
+export function App({ router }: { router: AppRouter }) {
   return (
-    <main>
-      <h1>{APP_NAME}</h1>
-    </main>
+    <TooltipProvider>
+      <RouterProvider router={router} />
+    </TooltipProvider>
   );
 }

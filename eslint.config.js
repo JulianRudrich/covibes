@@ -43,7 +43,7 @@ export default defineConfig(
   },
   {
     // Plain JS config files are not part of any tsconfig, so type-aware rules cannot run on them.
-    files: ['**/*.js'],
+    files: ['**/*.{js,mjs}'],
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: {
       globals: globals.node,

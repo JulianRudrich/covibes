@@ -27,11 +27,17 @@ Build the product, starting with the vertical slice (specs 04 to 07). Covibes is
 
   Lint, type check, format and tests pass; `pnpm dev` and `pnpm build` work.
 - [x] Private GitHub repository created, CI with GitHub Actions
+- [x] **Spec 03 app shell and design tokens:**
+  - Tailwind theme from `ui-context.md`, Geist served locally, token guard in `pnpm lint`
+  - building blocks Button, IconButton, Avatar, Tooltip, Badge/Pill/Chip, Panel
+  - main screen `/p/demo` with header, phase bar and three empty panels, matching the prototype at 1440 × 900
+  - TanStack Router, i18n in German and English
+
+  Lint, type check, format, tests and build pass.
 
 ## Next
-1. **Spec 03:** app shell and design tokens.
-2. **Spec 02a:** local development environment with PostgreSQL.
-3. Then specs 04 to 07 (vertical slice).
+1. **Spec 02a:** local development environment with PostgreSQL.
+2. Then specs 04 to 07 (vertical slice).
 
 ## Open decisions
 - **Dark mode:** not decided yet.
@@ -78,3 +84,7 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   - hono is pinned to 4.13.9 because of pnpm's minimum release age
 
   The owner wants the code on GitHub, so CI runs on GitHub Actions.
+- **2026-09-28, spec 03 implemented.** Details are in the spec under "Implementation notes":
+  - Colors from the handoff that had no name are now tokens and were added to `ui-context.md`.
+  - The building blocks are hand-written in the shadcn style. `dropdown-menu` follows with spec 04.
+  - The comparison with the prototype used a measuring script on both pages. `.claude/launch.json` serves the prototype as server `design`.

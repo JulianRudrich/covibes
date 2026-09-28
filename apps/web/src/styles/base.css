@@ -1,0 +1,49 @@
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-bg-app);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: var(--text-ui);
+    /* Handoff default; multi-line text sets its own leading (e.g. messages 1.55). */
+    line-height: normal;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button,
+  input,
+  textarea {
+    font-family: inherit;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-text-4);
+  }
+
+  a {
+    color: var(--color-link);
+  }
+
+  a:hover {
+    color: var(--color-link-hover);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+}
+
+/* Dot grid of the canvas surface (handoff: 20 px spacing). */
+@utility canvas-dots {
+  background-color: var(--color-bg-canvas);
+  background-image: radial-gradient(var(--color-canvas-dot) 1px, transparent 1.3px);
+  background-size: 20px 20px;
+}

@@ -1,0 +1,39 @@
+{
+  "common": {
+    "appName": "Covibes",
+    "wordmark": "covibes",
+    "share": "Teilen",
+    "you": "Du"
+  },
+  "workspace": {
+    "demoProjectName": "Covibes V1",
+    "projectMenu": "Projekt wechseln",
+    "phasesLabel": "Phasen",
+    "humansLabel": "Menschen",
+    "agentsLabel": "Agents",
+    "mainCanvas": "Haupt-Canvas",
+    "addBoard": "Board"
+  },
+  "phases": {
+    "brainstorming": "Brainstorming",
+    "decide": "Entscheiden",
+    "architecture": "Architektur",
+    "plan": "Projektplan"
+  },
+  "agents": {
+    "moderator": "Moderator",
+    "backend": "Backend",
+    "kritiker": "Kritiker",
+    "daten": "Daten"
+  },
+  "panels": {
+    "chat": "Chat",
+    "canvas": "Canvas",
+    "overview": "Überblick"
+  },
+  "empty": {
+    "chat": "Noch keine Nachrichten.",
+    "canvas": "Das Canvas ist noch leer.",
+    "overview": "Hier erscheinen offene Punkte, Entscheidungen und Kriterien."
+  }
+}

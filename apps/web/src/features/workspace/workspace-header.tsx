@@ -1,4 +1,5 @@
 import type { Phase } from '@covibes/shared';
+import { Link } from '@tanstack/react-router';
 import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -6,12 +7,21 @@ import { Logo } from '@web/components/logo';
 import { Avatar } from '@web/components/ui/avatar';
 import { Button } from '@web/components/ui/button';
 import { Tooltip } from '@web/components/ui/tooltip';
-import { DEMO_AGENTS, DEMO_MEMBERS } from '@web/features/workspace/demo-workspace';
+import { AccountMenu } from '@web/features/account/account-menu';
+import type { SessionUser } from '@web/features/auth/session';
+import { DEMO_AGENTS } from '@web/features/workspace/demo-workspace';
 import { PhaseIndicator } from '@web/features/workspace/phase-indicator';
+import type { WorkspaceMember } from '@web/features/workspace/workspace-shell';
+import { initialsOf } from '@web/lib/format';
 
-type WorkspaceHeaderProps = { projectName: string; activePhase: Phase };
+type WorkspaceHeaderProps = {
+  projectName: string;
+  activePhase: Phase;
+  members: WorkspaceMember[];
+  user: SessionUser | null;
+};
 
-export function WorkspaceHeader({ projectName, activePhase }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({ projectName, activePhase, members, user }: WorkspaceHeaderProps) {
   const { t } = useTranslation();
 
   return (
@@ -24,14 +34,14 @@ export function WorkspaceHeader({ projectName, activePhase }: WorkspaceHeaderPro
         <span aria-hidden="true" className="text-display text-text-faint">
           /
         </span>
-        <button
-          type="button"
+        <Link
+          to="/"
           aria-label={`${projectName}, ${t('workspace.projectMenu')}`}
-          className="flex h-[30px] min-w-0 cursor-pointer items-center gap-1.5 rounded-btn-s px-2 text-ui font-medium whitespace-nowrap hover:bg-bg-hover-app"
+          className="flex h-[30px] min-w-0 items-center gap-1.5 rounded-btn-s px-2 text-ui font-medium whitespace-nowrap text-text no-underline hover:bg-bg-hover-app hover:text-text"
         >
           <span className="truncate">{projectName}</span>
           <ChevronDown size={14} className="shrink-0 text-text-3" aria-hidden="true" />
-        </button>
+        </Link>
       </div>
 
       <div className="justify-self-center">
@@ -40,20 +50,26 @@ export function WorkspaceHeader({ projectName, activePhase }: WorkspaceHeaderPro
 
       <div className="flex items-center justify-end gap-2.5 pr-1">
         <div role="group" aria-label={t('workspace.humansLabel')} className="flex items-center">
-          {DEMO_MEMBERS.map((member, index) => {
+          {members.map((member, index) => {
             const name = member.isCurrentUser ? t('common.you') : member.name;
-            const initials = member.isCurrentUser ? t('common.you') : member.initials;
+            const avatar = (
+              <Avatar
+                kind="human"
+                tone="strong"
+                size={26}
+                label={name}
+                initials={member.isCurrentUser ? t('common.you') : initialsOf(member.name)}
+                className="border-2 border-bg-app"
+              />
+            );
             return (
               <Tooltip key={member.id} content={name}>
                 <span className={index > 0 ? '-ml-1.5' : undefined}>
-                  <Avatar
-                    kind="human"
-                    tone="strong"
-                    size={26}
-                    label={name}
-                    initials={initials}
-                    className="border-2 border-bg-app"
-                  />
+                  {member.isCurrentUser && user ? (
+                    <AccountMenu user={user}>{avatar}</AccountMenu>
+                  ) : (
+                    avatar
+                  )}
                 </span>
               </Tooltip>
             );

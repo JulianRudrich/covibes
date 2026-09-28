@@ -92,12 +92,30 @@ Users can sign in by email link, create projects and open them. The GitLab login
 - `better-auth`, `@tanstack/react-query` (current versions, respecting pnpm's minimum release age)
 
 ## Checklist
-- [ ] Signing in by email link works locally through the development mailbox. The user is created on the first sign-in.
-- [ ] The button "Sign in with GitLab" is built in and disabled without configuration.
-- [ ] A created project appears in the list, can be opened and has exactly one `main` board.
-- [ ] A second user sees the first user's project neither in the list nor via URL or API.
-- [ ] Without signing in there is no access to `/`, `/p/*` and the project API, and after signing in the user returns to the original page.
-- [ ] The tests from "Database tests" pass, locally and in CI.
-- [ ] The API tests cover `401`, `404`, validation, creation and listing.
-- [ ] All texts come through i18n, and there are no raw hex colors.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] Signing in by email link works locally through the development mailbox. The user is created on the first sign-in.
+- [x] The button "Sign in with GitLab" is built in and disabled without configuration.
+- [x] A created project appears in the list, can be opened and has exactly one `main` board.
+- [x] A second user sees the first user's project neither in the list nor via URL or API.
+- [x] Without signing in there is no access to `/`, `/p/*` and the project API, and after signing in the user returns to the original page.
+- [x] The tests from "Database tests" pass, locally and in CI.
+- [x] The API tests cover `401`, `404`, validation, creation and listing.
+- [x] All texts come through i18n, and there are no raw hex colors.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-09-28)
+- **Login:** Better Auth 1.7.6 with the magic link plugin.
+  - The login link does not ask for a name. New users are therefore named after the part of their address before the "@" (database hook) until profiles exist. Other members never see the full address.
+  - Better Auth reports expired and already used links both as `INVALID_TOKEN`. The login page shows one shared message for them.
+  - The development mailbox lives in the server's memory. When the server restarts, e.g. after a code change, it is empty.
+- **Server:**
+  - The API tests run against a real test database and sign in through the real login link.
+  - Unknown, foreign and malformed project ids all get the same `404`.
+  - On shutdown the server closes its database connections so that the database can stop right away.
+- **Web:**
+  - The route guard is a pathless route (`_authed`). The session comes from TanStack Query (`queryClient.query`, fresh for 60 seconds). Signing out clears the whole cache.
+  - New building blocks: input with label and error text, card with a notice box, dialog and dropdown menu (Radix).
+  - New tokens `danger`, `danger-bg`, `danger-border` and `overlay`, added to `ui-context.md`.
+  - The project name in the header leads to the project list for now; a project switcher comes later. Agents and phase in the header stay sample data until spec 07.
+- **`pnpm dev`:** the web app only starts once the server answers on `/health`. Before, the first session request sometimes failed.
+- **Rate limit:** the Vite proxy forwards the caller's address (`xfwd`) so that Better Auth counts sign-in attempts per client. In production the web server must do the same (spec 02b).
+- **Verified in the browser:** sign-in through the development mailbox, creating a project (exactly one `main` board), a second user sees it neither in the list nor via the API (`404`), `401` without signing in.

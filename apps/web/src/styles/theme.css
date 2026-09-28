@@ -44,6 +44,10 @@
   --color-human-avatar-fg: #253041;
   --color-success: #1b7a43;
   --color-success-bg: #e5f4ea;
+  --color-danger: #b42318;
+  --color-danger-bg: #fef3f2;
+  --color-danger-border: #fecdca;
+  --color-overlay: rgba(15, 23, 32, 0.32);
   --color-note: #fdf6d3;
   --color-note-border: #ecdd98;
   --color-note-text: #3a3312;

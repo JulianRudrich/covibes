@@ -31,6 +31,7 @@ Ctrl+C stops everything; the data is kept. The very first start creates the data
 | What | Address |
 |---|---|
 | Web app | http://localhost:5173 |
+| Login mails (development mailbox) | http://localhost:5173/dev/mails |
 | Server | http://localhost:3001, from the browser via http://localhost:5173/api |
 | Database | `127.0.0.1:54320`, database `covibes` |
 
@@ -42,13 +43,14 @@ Ctrl+C stops everything; the data is kept. The very first start creates the data
   - Data lives in `.data/postgres`.
   - Passwords are generated randomly per machine on the first start and stored in `.data/local-secrets.json`.
   - The `.data/` folder is never committed.
+- **Login:** by a link sent via email. Locally no mail is sent; it ends up in the development mailbox at `/dev/mails`, which only exists in development mode.
 - **This machine only:** database, server and web app are only reachable locally (`127.0.0.1` or `localhost`). If Windows asks whether `node.exe` or `postgres.exe` may access the network, **decline**.
 
 ### Settings
 
-Nothing has to be configured for local development. `pnpm dev` passes the database addresses to the server.
+Nothing has to be configured for local development. `pnpm dev` passes the database addresses and the session secret to the server.
 
-Optional values are documented in `apps/server/.env.example`. They go into `apps/server/.env.local`, which is never committed.
+Optional values, for example for signing in with GitLab, are documented in `apps/server/.env.example`. They go into `apps/server/.env.local`, which is never committed.
 
 ### Inspecting the database
 
@@ -98,7 +100,7 @@ These three commands only work while `pnpm dev` is stopped.
 
 ```
 apps/web         React app (Vite)
-apps/server      Covibes server (Hono); later login, API, realtime, collaboration and worker
+apps/server      Covibes server (Hono): login and API; later realtime, collaboration and worker
 packages/db      migrations, local database, database tests
 packages/shared  shared types, schemas and helpers
 scripts/         start script for `pnpm dev`

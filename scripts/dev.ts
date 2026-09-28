@@ -1,14 +1,17 @@
-// `pnpm dev`: starts the local database (with migrations), then server and web app (spec 02a).
-// Ctrl+C stops server and web app first and the database last.
+// `pnpm dev`: starts the local database (with migrations), then the server and, once the server
+// answers, the web app (spec 02a). Ctrl+C stops server and web app first and the database last.
 import { spawn, type ChildProcess } from 'node:child_process';
 
 import { startLocalDatabase } from '@covibes/db/local';
 
-const pnpmEntry = process.env.npm_execpath;
-if (!pnpmEntry) {
+const SERVER_HEALTH_URL = 'http://127.0.0.1:3001/health';
+
+const npmExecPath = process.env.npm_execpath;
+if (!npmExecPath) {
   console.error('Start this script through pnpm: `pnpm dev`.');
   process.exit(1);
 }
+const pnpmEntry: string = npmExecPath;
 
 console.log('Starting the local database …');
 const database = await startLocalDatabase();
@@ -27,17 +30,25 @@ const childEnv: NodeJS.ProcessEnv = {
 // The server keeps its own port, which the web app's proxy expects.
 delete childEnv.PORT;
 
+const children: ChildProcess[] = [];
+let stopping = false;
+const isStopping = () => stopping;
+
 // pnpm is either a native binary or a JS entry for Node. Both start without a shell, also on Windows.
 const pnpmIsScript = /\.[cm]?js$/.test(pnpmEntry);
-const children: ChildProcess[] = ['@covibes/server', '@covibes/web'].map((pkg) => {
+function startPackage(pkg: string): void {
   const args = ['--filter', pkg, 'dev'];
-  return spawn(
+  const child = spawn(
     pnpmIsScript ? process.execPath : pnpmEntry,
     pnpmIsScript ? [pnpmEntry, ...args] : args,
     // No stdin: both run without keyboard input, and a shared stdin can stall Vite's start.
     { env: childEnv, stdio: ['ignore', 'inherit', 'inherit'] },
   );
-});
+  child.once('exit', (code) => {
+    if (!stopping) void stop(code ?? 1);
+  });
+  children.push(child);
+}
 
 /** Ends a child process; after 10 seconds the database is stopped anyway. */
 function stopChild(child: ChildProcess): Promise<void> {
@@ -52,7 +63,6 @@ function stopChild(child: ChildProcess): Promise<void> {
   });
 }
 
-let stopping = false;
 async function stop(exitCode: number): Promise<void> {
   if (stopping) return;
   stopping = true;
@@ -67,10 +77,27 @@ async function stop(exitCode: number): Promise<void> {
   process.exit(exitCode);
 }
 
+/** The web app's first request needs the server, so the web app waits until it answers. */
+async function waitForServer(timeoutMs = 60_000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (!stopping && Date.now() < deadline) {
+    try {
+      if ((await fetch(SERVER_HEALTH_URL)).ok) return true;
+    } catch {
+      // Not listening yet.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return false;
+}
+
 process.on('SIGINT', () => void stop(0));
 process.on('SIGTERM', () => void stop(0));
-for (const child of children) {
-  child.once('exit', (code) => {
-    if (!stopping) void stop(code ?? 1);
-  });
+
+startPackage('@covibes/server');
+if (await waitForServer()) {
+  startPackage('@covibes/web');
+} else if (!isStopping()) {
+  console.error(`The server did not answer on ${SERVER_HEALTH_URL}.`);
+  await stop(1);
 }

@@ -10,5 +10,9 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    // API tests run against a real PostgreSQL, one per test run (see src/test-global-setup.ts).
+    globalSetup: ['./src/test-global-setup.ts'],
+    testTimeout: 20_000,
+    hookTimeout: 120_000,
   },
 });

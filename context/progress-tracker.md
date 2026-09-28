@@ -7,7 +7,8 @@
 Build the product, starting with the vertical slice (specs 04 to 07). Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- (none)
+- Spec 02b: Docker deployment (branch `spec/02b-server-deployment`)
+- Spec 05: live canvas, paused until spec 02b is merged (branch `spec/05-canvas-live`, server part done)
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -40,10 +41,22 @@ Build the product, starting with the vertical slice (specs 04 to 07). Covibes is
   - commands for backup, restore and reset
 
   Lint, type check, format, tests, type verification and build pass.
+- [x] **Spec 04 login and projects:**
+  - login by email link with Better Auth, development mailbox at `/dev/mails`, GitLab login prepared
+  - tables for users, projects, members and boards with RLS, access only through `withUser`
+  - API for settings and projects, login page, route guard, project list, project creation, workspace with real members, account menu
+
+  Lint, type check, format, 106 tests and build pass; verified in the browser with two users.
 
 ## Next
-1. **Spec 04:** login with Better Auth and projects.
-2. Then specs 05 to 07 (vertical slice).
+**Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; apart from GitHub there are no external services. A private instance can be self-hosted with Docker (spec 02b).
+
+1. **Spec 05:** live canvas (React Flow and Yjs via Hocuspocus).
+2. Then specs 06 and 07 (real-time chat, AI gateway and moderator).
+3. What the owner contributes while building:
+   - designs for new screens in Claude Design, or approval to derive them from the existing building blocks
+   - **by spec 07:** access to an AI with an EU endpoint
+4. **At the very end (public launch):** spec 35 (launch preparation): hosting location, OAuth application on GitLab.com, domain, legal texts, monitoring.
 
 ## Open decisions
 - **Dark mode:** not decided yet.
@@ -101,3 +114,9 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-09-28, spec 02a implemented.** Details are in the spec under "Implementation notes":
   - Only the binaries of the `embedded-postgres` package are used. Start and stop go through `pg_ctl`, because the package kills the server hard on Windows and can hang on Ctrl+C.
   - The database uses UTF-8 with the built-in locale `C.UTF-8` and SCRAM for passwords.
+- **2026-09-28, spec 04 implemented.** Details are in the spec under "Implementation notes":
+  - New users are named after the part of their address before the "@" for now, because the login link does not ask for a name.
+  - `pnpm dev` starts the web app only once the server answers.
+- **2026-09-28, authorship:** everything in the repository is authored by the owner. Commits and pull requests carry no references to AI tools (see `ai-workflow-rules.md`).
+- **2026-09-28, GitHub:** the owner handed GitHub maintenance over to the coding agent completely. Specs are squash-merged once CI is green, one commit per spec (see `ai-workflow-rules.md`).
+- **2026-09-28, spec 02b pulled forward:** a Docker image with Compose setup allows running a private instance. Spec 05 was paused until it was merged.

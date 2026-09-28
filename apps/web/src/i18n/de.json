@@ -3,16 +3,86 @@
     "appName": "Covibes",
     "wordmark": "covibes",
     "share": "Teilen",
-    "you": "Du"
+    "you": "Du",
+    "cancel": "Abbrechen",
+    "loading": "Wird geladen …"
+  },
+  "auth": {
+    "title": "Bei Covibes anmelden",
+    "subtitle": "Mit GitLab oder mit einem Login-Link per E-Mail.",
+    "gitlab": "Mit GitLab anmelden",
+    "gitlabUnavailable": "Der Login mit GitLab ist noch nicht eingerichtet.",
+    "or": "oder",
+    "emailLabel": "E-Mail-Adresse",
+    "emailPlaceholder": "name@beispiel.de",
+    "sendLink": "Login-Link senden",
+    "sending": "Wird gesendet …",
+    "linkSent": "Wir haben dir einen Login-Link an {{email}} geschickt. Er gilt 10 Minuten und nur einmal.",
+    "openMailbox": "Entwicklungs-Postfach öffnen",
+    "otherEmail": "Andere Adresse verwenden",
+    "errors": {
+      "rateLimit": "Zu viele Versuche. Bitte warte kurz und versuch es dann noch einmal.",
+      "invalidEmail": "Bitte gib eine gültige E-Mail-Adresse ein.",
+      "invalidLink": "Der Login-Link ist abgelaufen oder wurde schon benutzt. Fordere einfach einen neuen an.",
+      "generic": "Das hat nicht geklappt. Bitte versuch es noch einmal."
+    }
+  },
+  "account": {
+    "menu": "Konto",
+    "signOut": "Abmelden"
+  },
+  "projects": {
+    "title": "Projekte",
+    "create": "Projekt anlegen",
+    "emptyTitle": "Noch keine Projekte",
+    "emptyText": "Leg dein erstes Projekt an. Danach planst du darin mit Chat, Canvas und den Agents.",
+    "updated": "geändert {{time}}",
+    "loadError": "Die Projekte konnten nicht geladen werden.",
+    "roles": {
+      "owner": "Owner",
+      "editor": "Bearbeiter",
+      "viewer": "Leser"
+    },
+    "dialog": {
+      "title": "Neues Projekt",
+      "description": "Den Namen kannst du später noch ändern.",
+      "nameLabel": "Name",
+      "namePlaceholder": "z. B. Covibes V1",
+      "nameInvalid": "Bitte gib einen Namen mit 1 bis {{max}} Zeichen ein.",
+      "submit": "Anlegen",
+      "creating": "Wird angelegt …",
+      "error": "Das Projekt konnte nicht angelegt werden. Bitte versuch es noch einmal."
+    }
   },
   "workspace": {
-    "demoProjectName": "Covibes V1",
-    "projectMenu": "Projekt wechseln",
+    "projectMenu": "zur Projektliste",
     "phasesLabel": "Phasen",
     "humansLabel": "Menschen",
     "agentsLabel": "Agents",
     "mainCanvas": "Haupt-Canvas",
-    "addBoard": "Board"
+    "addBoard": "Board",
+    "loading": "Projekt wird geladen …",
+    "loadError": "Das Projekt konnte nicht geladen werden.",
+    "notFound": {
+      "title": "Projekt nicht gefunden",
+      "text": "Dieses Projekt gibt es nicht, oder du hast keinen Zugriff darauf.",
+      "back": "Zur Projektliste"
+    }
+  },
+  "devMails": {
+    "title": "Entwicklungs-Postfach",
+    "hint": "Nur im Entwicklungsmodus: Hier landen alle Mails, die Covibes lokal verschickt.",
+    "empty": "Noch keine Mails.",
+    "to": "an {{email}}",
+    "toLogin": "Zur Anmeldung",
+    "loadError": "Das Postfach konnte nicht geladen werden."
+  },
+  "errors": {
+    "notFound": "Seite nicht gefunden",
+    "toStart": "Zur Startseite",
+    "unavailable": "Covibes ist gerade nicht erreichbar",
+    "unavailableText": "Läuft `pnpm dev` noch? Danach die Seite neu laden.",
+    "retry": "Neu laden"
   },
   "phases": {
     "brainstorming": "Brainstorming",

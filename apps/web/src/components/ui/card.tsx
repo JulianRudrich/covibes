@@ -1,0 +1,34 @@
+import type { ComponentProps } from 'react';
+
+import { cn } from '@web/lib/cn';
+
+/** White surface in the panel style, e.g. the login card. */
+export function Card({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn('rounded-panel border border-border bg-bg-panel shadow-panel', className)}
+      {...props}
+    />
+  );
+}
+
+/** Info or error box inside a card or form. */
+export function Notice({
+  tone = 'info',
+  className,
+  ...props
+}: ComponentProps<'div'> & { tone?: 'info' | 'success' | 'danger' }) {
+  return (
+    <div
+      role={tone === 'danger' ? 'alert' : 'status'}
+      className={cn(
+        'rounded-md border px-3 py-2.5 text-small leading-[1.5]',
+        tone === 'info' && 'border-border bg-bg-muted text-text-2',
+        tone === 'success' && 'border-transparent bg-success-bg text-success',
+        tone === 'danger' && 'border-danger-border bg-danger-bg text-danger',
+        className,
+      )}
+      {...props}
+    />
+  );
+}

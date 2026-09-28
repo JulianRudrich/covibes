@@ -17,7 +17,8 @@ export default defineConfig({
     strictPort: true,
     // API, login and WebSockets share the web app's origin, so session cookies stay first-party.
     proxy: {
-      '/api': { target: 'http://127.0.0.1:3001', ws: true },
+      // `xfwd` passes the caller's address on, so the login rate limit counts per client.
+      '/api': { target: 'http://127.0.0.1:3001', ws: true, xfwd: true },
     },
   },
   test: {

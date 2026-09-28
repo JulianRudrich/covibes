@@ -5,4 +5,109 @@
  * Please do not edit it manually.
  */
 
-export interface DB {}
+import type { ColumnType } from 'kysely';
+
+export type Generated<T> =
+  T extends ColumnType<infer S, infer I, infer U>
+    ? ColumnType<S, I | undefined, U>
+    : ColumnType<T, T | undefined, T>;
+
+export type Json = JsonValue;
+
+export type JsonArray = JsonValue[];
+
+export type JsonObject = {
+  [x: string]: JsonValue | undefined;
+};
+
+export type JsonPrimitive = boolean | number | string | null;
+
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
+export type ProjectRole = 'editor' | 'owner' | 'viewer';
+
+export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+
+export interface Accounts {
+  access_token: string | null;
+  access_token_expires_at: Timestamp | null;
+  account_id: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  id_token: string | null;
+  password: string | null;
+  provider_id: string;
+  refresh_token: string | null;
+  refresh_token_expires_at: Timestamp | null;
+  scope: string | null;
+  updated_at: Timestamp;
+  user_id: string;
+}
+
+export interface Boards {
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  kind: string;
+  position: Generated<number>;
+  project_id: string;
+  title: string;
+}
+
+export interface ProjectMembers {
+  can_approve_git: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+  project_id: string;
+  role: ProjectRole;
+  user_id: string;
+}
+
+export interface Projects {
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  language: Generated<string>;
+  name: string;
+  owner_id: string;
+  settings: Generated<Json>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface Sessions {
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  ip_address: string | null;
+  token: string;
+  updated_at: Timestamp;
+  user_agent: string | null;
+  user_id: string;
+}
+
+export interface Users {
+  created_at: Generated<Timestamp>;
+  email: string;
+  email_verified: boolean;
+  id: Generated<string>;
+  image: string | null;
+  locale: Generated<string>;
+  name: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface Verifications {
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  identifier: string;
+  updated_at: Generated<Timestamp>;
+  value: string;
+}
+
+export interface DB {
+  accounts: Accounts;
+  boards: Boards;
+  project_members: ProjectMembers;
+  projects: Projects;
+  sessions: Sessions;
+  users: Users;
+  verifications: Verifications;
+}

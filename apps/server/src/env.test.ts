@@ -3,21 +3,48 @@ import { describe, expect, it } from 'vitest';
 
 import { loadServerEnv } from '@server/env';
 
+const required = {
+  DATABASE_URL: 'postgresql://covibes_app:app@127.0.0.1:54320/covibes',
+  DATABASE_ADMIN_URL: 'postgresql://covibes_admin:admin@127.0.0.1:54320/covibes',
+  BETTER_AUTH_SECRET: 'x'.repeat(32),
+};
+
 describe('loadServerEnv', () => {
-  it('uses defaults when nothing is set', () => {
-    expect(loadServerEnv({})).toEqual({ NODE_ENV: 'development', PORT: 3001, HOST: '127.0.0.1' });
+  it('uses defaults for everything but the database and the auth secret', () => {
+    expect(loadServerEnv(required)).toEqual({
+      ...required,
+      NODE_ENV: 'development',
+      PORT: 3001,
+      HOST: '127.0.0.1',
+      APP_URL: 'http://localhost:5173',
+    });
+  });
+
+  it('requires the database addresses and the auth secret', () => {
+    expect(() => loadServerEnv({})).toThrow(EnvValidationError);
+    expect(() => loadServerEnv({})).toThrow(/DATABASE_URL/);
+    expect(() => loadServerEnv({ ...required, BETTER_AUTH_SECRET: 'short' })).toThrow(
+      /BETTER_AUTH_SECRET/,
+    );
   });
 
   it('allows listening on all interfaces when HOST is set', () => {
-    expect(loadServerEnv({ HOST: '0.0.0.0' }).HOST).toBe('0.0.0.0');
+    expect(loadServerEnv({ ...required, HOST: '0.0.0.0' }).HOST).toBe('0.0.0.0');
   });
 
   it('rejects an invalid port with a clear message', () => {
-    expect(() => loadServerEnv({ PORT: 'not-a-port' })).toThrow(EnvValidationError);
-    expect(() => loadServerEnv({ PORT: 'not-a-port' })).toThrow(/PORT/);
+    expect(() => loadServerEnv({ ...required, PORT: 'not-a-port' })).toThrow(/PORT/);
   });
 
   it('rejects an unknown NODE_ENV', () => {
-    expect(() => loadServerEnv({ NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
+    expect(() => loadServerEnv({ ...required, NODE_ENV: 'staging' })).toThrow(/NODE_ENV/);
+  });
+
+  it('needs both GitLab values or neither', () => {
+    expect(() => loadServerEnv({ ...required, GITLAB_CLIENT_ID: 'id' })).toThrow(
+      /GITLAB_CLIENT_SECRET/,
+    );
+    const env = loadServerEnv({ ...required, GITLAB_CLIENT_ID: 'id', GITLAB_CLIENT_SECRET: 's' });
+    expect(env.GITLAB_CLIENT_ID).toBe('id');
   });
 });

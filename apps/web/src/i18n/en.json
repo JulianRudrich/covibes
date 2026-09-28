@@ -3,16 +3,86 @@
     "appName": "Covibes",
     "wordmark": "covibes",
     "share": "Share",
-    "you": "You"
+    "you": "You",
+    "cancel": "Cancel",
+    "loading": "Loading …"
+  },
+  "auth": {
+    "title": "Sign in to Covibes",
+    "subtitle": "With GitLab or with a login link by email.",
+    "gitlab": "Sign in with GitLab",
+    "gitlabUnavailable": "Signing in with GitLab is not set up yet.",
+    "or": "or",
+    "emailLabel": "Email address",
+    "emailPlaceholder": "name@example.com",
+    "sendLink": "Send login link",
+    "sending": "Sending …",
+    "linkSent": "We sent a login link to {{email}}. It is valid for 10 minutes and can be used once.",
+    "openMailbox": "Open development mailbox",
+    "otherEmail": "Use a different address",
+    "errors": {
+      "rateLimit": "Too many attempts. Please wait a moment and try again.",
+      "invalidEmail": "Please enter a valid email address.",
+      "invalidLink": "The login link has expired or was already used. Just request a new one.",
+      "generic": "That did not work. Please try again."
+    }
+  },
+  "account": {
+    "menu": "Account",
+    "signOut": "Sign out"
+  },
+  "projects": {
+    "title": "Projects",
+    "create": "Create project",
+    "emptyTitle": "No projects yet",
+    "emptyText": "Create your first project. Then plan it with chat, canvas and the agents.",
+    "updated": "changed {{time}}",
+    "loadError": "The projects could not be loaded.",
+    "roles": {
+      "owner": "Owner",
+      "editor": "Editor",
+      "viewer": "Viewer"
+    },
+    "dialog": {
+      "title": "New project",
+      "description": "You can change the name later.",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g. Covibes V1",
+      "nameInvalid": "Please enter a name with 1 to {{max}} characters.",
+      "submit": "Create",
+      "creating": "Creating …",
+      "error": "The project could not be created. Please try again."
+    }
   },
   "workspace": {
-    "demoProjectName": "Covibes V1",
-    "projectMenu": "Switch project",
+    "projectMenu": "to the project list",
     "phasesLabel": "Phases",
     "humansLabel": "People",
     "agentsLabel": "Agents",
     "mainCanvas": "Main canvas",
-    "addBoard": "Board"
+    "addBoard": "Board",
+    "loading": "Loading project …",
+    "loadError": "The project could not be loaded.",
+    "notFound": {
+      "title": "Project not found",
+      "text": "This project does not exist, or you have no access to it.",
+      "back": "To the project list"
+    }
+  },
+  "devMails": {
+    "title": "Development mailbox",
+    "hint": "Development only: every mail Covibes sends locally ends up here.",
+    "empty": "No mails yet.",
+    "to": "to {{email}}",
+    "toLogin": "To sign-in",
+    "loadError": "The mailbox could not be loaded."
+  },
+  "errors": {
+    "notFound": "Page not found",
+    "toStart": "To the start page",
+    "unavailable": "Covibes is not reachable right now",
+    "unavailableText": "Is `pnpm dev` still running? Then reload the page.",
+    "retry": "Reload"
   },
   "phases": {
     "brainstorming": "Brainstorming",

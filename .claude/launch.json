@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "web",
+      "name": "dev",
       "runtimeExecutable": "corepack",
-      "runtimeArgs": ["pnpm", "--filter", "@covibes/web", "dev"],
+      "runtimeArgs": ["pnpm", "dev"],
       "port": 5173
     },
     {

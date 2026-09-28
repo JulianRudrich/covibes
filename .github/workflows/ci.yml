@@ -16,7 +16,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [lint, typecheck, 'format:check', test]
+        # test includes the database tests, each run starts its own temporary PostgreSQL.
+        task: [lint, typecheck, 'format:check', test, 'db:types:check']
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6

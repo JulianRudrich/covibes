@@ -68,10 +68,26 @@
 - `embedded-postgres`, `pg`, `kysely`, `kysely-codegen` (current versions, respecting pnpm's minimum release age)
 
 ## Checklist
-- [ ] `pnpm dev` starts database, migrations, server and web app. Ctrl+C stops everything, and the data is still there on the next start.
-- [ ] The database listens on `127.0.0.1` or `::1` only.
-- [ ] The roles `covibes_admin` and `covibes_app` exist. `covibes_app` cannot bypass RLS.
-- [ ] The runner applies migrations in order and aborts when an applied file has changed. There are tests for this.
-- [ ] `pnpm db:backup`, `db:restore` and `db:reset` work. Restore and reset ask first.
-- [ ] The database tests run locally and in CI against their own test database.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] `pnpm dev` starts database, migrations, server and web app. Ctrl+C stops everything, and the data is still there on the next start.
+- [x] The database listens on `127.0.0.1` or `::1` only.
+- [x] The roles `covibes_admin` and `covibes_app` exist. `covibes_app` cannot bypass RLS.
+- [x] The runner applies migrations in order and aborts when an applied file has changed. There are tests for this.
+- [x] `pnpm db:backup`, `db:restore` and `db:reset` work. Restore and reset ask first.
+- [x] The database tests run locally and in CI against their own test database.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes
+- **Start and stop via `pg_ctl`:** only the PostgreSQL binaries of `embedded-postgres` are used, not its JavaScript. Tested on Windows on 2026-09-28:
+  - Its `stop()` kills PostgreSQL hard on Windows.
+  - It waits forever if PostgreSQL has already exited. That happens on Ctrl+C, because the signal reaches every process in the terminal.
+  - It installs its own Ctrl+C handler that ends the process before `pnpm dev` has finished cleaning up.
+- **Stopping:** `pg_ctl stop -m fast` closes open connections and writes everything to disk. If that fails, `-m immediate` follows, and PostgreSQL recovers from the write-ahead log on the next start.
+- **Hard-killed `pnpm dev`:** a leftover database from the last run is stopped cleanly on the next start.
+- **Log next to the data folder:** the log lives in `.data/postgres.log`, not inside the data folder. During recovery PostgreSQL opens every file in the data folder; on Windows an open log file blocks that for 30 seconds each time.
+- **`scripts/dev.ts`:**
+  - pnpm 12 is a native binary. The script starts it directly, older versions via Node.
+  - Server and web app run without stdin, because a shared stdin stalled Vite's start in the coding agent's preview.
+  - A `PORT` from the caller applies to the web app. The server keeps 3001, which the web app's proxy expects.
+- **Web app:** Vite runs with `strictPort` on 5173 and forwards `/api` including WebSockets to the server.
+- **Tests:** `bootstrap.test.ts` checks roles, privileges, `private.current_user_id()` and UTF-8. `migrate.test.ts` checks the runner.
+- **Backup:** a copy of the data folder. The package does not ship `pg_dump`.

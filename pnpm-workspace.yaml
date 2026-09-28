@@ -2,6 +2,10 @@ packages:
   - apps/*
   - packages/*
 
-# esbuild (used by tsup and tsx) downloads its platform binary in a postinstall script.
+# Packages allowed to run install scripts:
+# - esbuild (used by tsup and tsx) downloads its platform binary.
+# - embedded-postgres restores symlinks inside its bundled PostgreSQL binaries (Windows locally, Linux in CI).
 allowBuilds:
+  '@embedded-postgres/linux-x64': true
+  '@embedded-postgres/windows-x64': true
   esbuild: true

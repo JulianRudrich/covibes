@@ -7,22 +7,32 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "pnpm -r --parallel dev",
+    "dev": "tsx scripts/dev.ts",
     "build": "pnpm -r build",
     "lint": "eslint . && pnpm -r --if-present check:tokens",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm -r typecheck && tsc --noEmit -p scripts",
     "test": "pnpm -r test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "db:migrate": "tsx packages/db/src/cli.ts migrate",
+    "db:migration": "tsx packages/db/src/cli.ts migration",
+    "db:types": "tsx packages/db/src/cli.ts types",
+    "db:types:check": "tsx packages/db/src/cli.ts types --verify",
+    "db:backup": "tsx packages/db/src/cli.ts backup",
+    "db:restore": "tsx packages/db/src/cli.ts restore",
+    "db:reset": "tsx packages/db/src/cli.ts reset"
   },
   "devDependencies": {
+    "@covibes/db": "workspace:*",
     "@eslint/js": "10.0.1",
+    "@types/node": "24.19.0",
     "eslint": "10.11.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-react-refresh": "0.5.7",
     "globals": "17.12.0",
     "prettier": "3.9.9",
+    "tsx": "4.23.15",
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.1"
   }

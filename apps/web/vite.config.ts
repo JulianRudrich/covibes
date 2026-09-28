@@ -13,6 +13,12 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // The server's APP_URL points here, so the web app must not move to another port.
+    strictPort: true,
+    // API, login and WebSockets share the web app's origin, so session cookies stay first-party.
+    proxy: {
+      '/api': { target: 'http://127.0.0.1:3001', ws: true },
+    },
   },
   test: {
     environment: 'jsdom',

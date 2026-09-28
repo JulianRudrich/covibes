@@ -18,6 +18,6 @@ function readEnvOrExit(): ServerEnv {
 
 const env = readEnvOrExit();
 
-serve({ fetch: createApp().fetch, port: env.PORT }, (info) => {
-  console.log(`Covibes server listening on http://localhost:${String(info.port)}`);
+serve({ fetch: createApp().fetch, port: env.PORT, hostname: env.HOST }, (info) => {
+  console.log(`Covibes server listening on http://${env.HOST}:${String(info.port)}`);
 });

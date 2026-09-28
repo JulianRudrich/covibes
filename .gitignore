@@ -6,6 +6,12 @@
 # Local issue notes; may contain error messages or tokens
 context/current-issues.md
 
+# Local database and its passwords (pnpm dev), generated per machine
+.data/
+
+# Backups of the local database (pnpm db:backup); contain real data
+backups/
+
 # Node and build output
 node_modules
 dist

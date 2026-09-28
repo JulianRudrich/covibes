@@ -34,10 +34,16 @@ Build the product, starting with the vertical slice (specs 04 to 07). Covibes is
   - TanStack Router, i18n in German and English
 
   Lint, type check, format, tests and build pass.
+- [x] **Spec 02a local development environment:**
+  - `pnpm dev` starts PostgreSQL 18 (without Docker, localhost only), applies the migrations and starts server and web app. Ctrl+C stops everything.
+  - package `packages/db`: roles `covibes_admin` and `covibes_app`, custom migration runner with checksums, Kysely types, test database for Vitest
+  - commands for backup, restore and reset
+
+  Lint, type check, format, tests, type verification and build pass.
 
 ## Next
-1. **Spec 02a:** local development environment with PostgreSQL.
-2. Then specs 04 to 07 (vertical slice).
+1. **Spec 04:** login with Better Auth and projects.
+2. Then specs 05 to 07 (vertical slice).
 
 ## Open decisions
 - **Dark mode:** not decided yet.
@@ -88,3 +94,10 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   - Colors from the handoff that had no name are now tokens and were added to `ui-context.md`.
   - The building blocks are hand-written in the shadcn style. `dropdown-menu` follows with spec 04.
   - The comparison with the prototype used a measuring script on both pages. `.claude/launch.json` serves the prototype as server `design`.
+- **2026-09-28, local development:** decided by the owner:
+  - Covibes is developed locally, without external services apart from GitHub.
+  - The database is a regular PostgreSQL 18, locally via `embedded-postgres` without Docker. Login (Better Auth), permissions, API and live updates are handled by the Covibes server; RLS stays as a second safeguard in the database.
+  - This is reflected in `architecture.md`, `code-standards.md` (database) and in specs 00, 02a, 02b and 04 to 07.
+- **2026-09-28, spec 02a implemented.** Details are in the spec under "Implementation notes":
+  - Only the binaries of the `embedded-postgres` package are used. Start and stop go through `pg_ctl`, because the package kills the server hard on Windows and can hang on Ctrl+C.
+  - The database uses UTF-8 with the built-in locale `C.UTF-8` and SCRAM for passwords.

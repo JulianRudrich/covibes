@@ -20,12 +20,18 @@ Build the product, starting with the vertical slice (specs 04 to 07). Covibes is
 - [x] Design: the owner designed the main screen in Claude Design. The handoff is in `context/design/main-screen/`; `ui-context.md` is derived from it.
 - [x] Spec overview (`feature-specs/00-overview.md`) approved by the owner
 - [x] Specs 01–07 worked out in detail (M0 foundation and M1 vertical slice)
+- [x] **Spec 01 monorepo and tooling:**
+  - pnpm workspaces with `apps/web`, `apps/server` and `packages/shared`
+  - TypeScript strict, ESLint, Prettier, Vitest, environment variables via Zod
+  - GitHub Actions
+
+  Lint, type check, format and tests pass; `pnpm dev` and `pnpm build` work.
+- [x] Private GitHub repository created, CI with GitHub Actions
 
 ## Next
-1. **Spec 01:** monorepo and tooling.
-2. **Spec 03:** app shell and design tokens.
-3. **Spec 02a:** local development environment with PostgreSQL.
-4. Then specs 04 to 07 (vertical slice).
+1. **Spec 03:** app shell and design tokens.
+2. **Spec 02a:** local development environment with PostgreSQL.
+3. Then specs 04 to 07 (vertical slice).
 
 ## Open decisions
 - **Dark mode:** not decided yet.
@@ -65,3 +71,10 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   The scenario doubles as the acceptance test for V1.
 - **2026-09-27, tech stack round:** owner decisions: several AI providers per agent, GitLab.com first, on-premise stays possible. The notes from planning and dry run went into `architecture.md`.
 - **2026-09-27, design:** three directions were on the table (workshop, control room, studio). The owner then designed the main screen in Claude Design: cool and neutral with Geist, graphite as the primary color and one color per agent. The handoff also covers the four block states and the interactions. Deviations from the architecture (locks via Yjs awareness, variants already in V1) are listed in `ui-context.md`.
+- **2026-09-28, spec 01 implemented.** Deviations and details are in the spec under "Implementation notes":
+  - TypeScript 6.0 instead of 7, because typescript-eslint does not support 7 yet
+  - `shared` is a just-in-time package without its own build
+  - pnpm runs through Corepack
+  - hono is pinned to 4.13.9 because of pnpm's minimum release age
+
+  The owner wants the code on GitHub, so CI runs on GitHub Actions.

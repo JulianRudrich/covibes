@@ -70,11 +70,26 @@ An empty but complete monorepo that all further specs build on:
   - `@testing-library/react`, `jsdom`
 
 ## Checklist
-- [ ] `pnpm install` works in a fresh clone without warnings about missing peer dependencies.
-- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm format:check` and `pnpm test` pass.
-- [ ] `pnpm dev` starts web (Vite) and server together, and `GET http://localhost:3001/health` returns `{ "status": "ok" }`.
-- [ ] Both apps import `@covibes/shared`, and the types arrive.
-- [ ] The server aborts at startup with a clear message when an environment variable is missing or invalid. Tests check this: `defineEnv` for missing variables, `loadServerEnv` for invalid ones. The built server was started with `PORT=abc` and exited with code 1.
-- [ ] `.env.example` contains no real value, and no `.env` is committed.
-- [ ] The CI run on GitHub passes, all four jobs succeeded.
-- [ ] `progress-tracker.md` is updated.
+- [x] `pnpm install` works in a fresh clone without warnings about missing peer dependencies.
+- [x] `pnpm lint`, `pnpm typecheck`, `pnpm format:check` and `pnpm test` pass.
+- [x] `pnpm dev` starts web (Vite) and server together, and `GET http://localhost:3001/health` returns `{ "status": "ok" }`.
+- [x] Both apps import `@covibes/shared`, and the types arrive.
+- [x] The server aborts at startup with a clear message when an environment variable is missing or invalid. Tests check this: `defineEnv` for missing variables, `loadServerEnv` for invalid ones. The built server was started with `PORT=abc` and exited with code 1.
+- [x] `.env.example` contains no real value, and no `.env` is committed.
+- [x] The CI run on GitHub passes, all four jobs succeeded.
+- [x] `progress-tracker.md` is updated.
+
+## Implementation notes (2026-09-28)
+- **TypeScript 6.0.3 instead of 7.0:** `typescript-eslint` 8.70 only supports TypeScript up to 6.0. We switch as soon as it supports 7.
+- **pnpm 12.6.0** runs through Corepack. If pnpm is not installed, use `corepack enable` (as administrator) or `npm i -g pnpm@12.6.0`.
+- **Protection against new packages:** pnpm enforces a minimum release age for new package versions. `hono` is therefore pinned to 4.13.9 instead of the just released 4.13.10. Automatically added exceptions are not accepted.
+- **esbuild** (for tsup and tsx) may run its install script via `allowBuilds` in `pnpm-workspace.yaml`.
+- **Tool versions:**
+
+  | Tool | Version |
+  |---|---|
+  | Vite | 8.3 |
+  | Vitest | 5.0 |
+  | ESLint | 10.11 |
+  | Zod | 4.6 |
+  | React | 19.3 |

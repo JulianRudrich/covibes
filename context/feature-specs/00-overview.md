@@ -92,18 +92,18 @@ The prompt to the coding agent is always the same: "Read the spec, mark it as in
 
 ## M2: Canvas
 
-### 08 Blocks and the four states
-- **Goal:** blocks with icon, title, subtitle and author line, plus the four states: normal, changed by AI, proposal and locked. The lock runs over awareness.
+### 08 Blocks and their states
+- **Goal:** blocks with icon, title, subtitle and author line, plus the states normal, changed by AI and locked. The lock runs over awareness. The proposal state moved to 13 (owner decision, 2026-09-29).
 - **Needs:** 07
 - **Design:** available. The building block overview helps but is not required.
 
 ### 09 Edges, frames and sticky notes
-- **Goal:** edges with Bézier curves and labels, dashed proposal edges, frames as diagram areas and sticky notes.
+- **Goal:** edges with Bézier curves and labels, frames as diagram areas and sticky notes. Dashed proposal edges come with 13.
 - **Needs:** 08
 - **Design:** available
 
-### 10 Toolbar, zoom, auto-layout and history
-- **Goal:** the toolbar with all tools, zoom from 30 to 200 %, auto-layout with ELK and undo/redo via Yjs.
+### 10 Toolbar, zoom, auto-layout and undo
+- **Goal:** the toolbar with all tools, zoom from 30 to 200 %, auto-layout with ELK and undo/redo of one's own changes via Yjs. Undoing agent changes needs a history view that is not designed yet (owner decision, 2026-09-29).
 - **Needs:** 09
 - **Design:** available
 
@@ -115,7 +115,7 @@ The prompt to the coding agent is always the same: "Read the spec, mark it as in
 ### 12 Diagram types
 - **Goal:** frames with a diagram type: mind map, architecture, data model, flow and sitemap. Each type has matching block types and its own layout preset.
 - **Needs:** 10
-- **Design:** **required:** blocks for mind map, data model and flow
+- **Design:** **required:** blocks for mind map, data model and flow. The spec is worked out once the designs exist.
 
 ## M3: AI core
 
@@ -125,7 +125,7 @@ The prompt to the coding agent is always the same: "Read the spec, mark it as in
   - respect locks
   - proposals-only mode
 
-  Plus the `proposals` table with apply and reject.
+  Plus the `proposals` table with apply and reject, and on the canvas the proposal state of blocks and dashed proposal edges (moved from 08 and 09, owner decision 2026-09-29).
 - **Needs:** 08
 - **Design:** available
 

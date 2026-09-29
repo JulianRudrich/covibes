@@ -54,7 +54,7 @@ Shared types, schemas and formats live in `packages/shared` and are never define
 ## Tooling
 - ESLint and Prettier. `pnpm lint`, `pnpm typecheck`, `pnpm format:check` and `pnpm test` must pass before every merge to `main`. Once the repository is published, the CI workflow (`.github/workflows/ci.yml`) runs the same checks.
 - The package manager is pnpm. Versions are pinned.
-- **Licenses:** every dependency must allow commercial use. Permissive licenses (MIT, Apache-2.0, BSD, ISC and similar) are fine, as are MPL-2.0 and OFL-1.1 for unmodified use. GPL, AGPL, SSPL, BUSL and non-commercial licenses need the owner's approval. `pnpm licenses list` shows all licenses.
+- **Licenses:** every dependency must allow commercial use. Permissive licenses (MIT, Apache-2.0, BSD, ISC and similar) are fine, as are MPL-2.0, EPL-2.0 (approved by the owner on 2026-09-29 for `elkjs`) and OFL-1.1 for unmodified use. GPL, AGPL, SSPL, BUSL and non-commercial licenses need the owner's approval. `pnpm licenses list` shows all licenses.
 - `.gitattributes` enforces LF line endings.
 - Read the current documentation or agent skills of a library before using it. Do not rely on training knowledge, especially for versions and APIs.
 

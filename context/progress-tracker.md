@@ -20,6 +20,7 @@ Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is d
 - [x] Design: the owner designed the main screen in Claude Design. The handoff is in `context/design/main-screen/`; `ui-context.md` is derived from it.
 - [x] Spec overview (`feature-specs/00-overview.md`) approved by the owner
 - [x] Specs 01–07 worked out in detail (M0 foundation and M1 vertical slice)
+- [x] Specs 08–11 worked out in detail (M2 canvas); spec 12 is worked out once its designs exist
 - [x] **Spec 01 monorepo and tooling:**
   - pnpm workspaces with `apps/web`, `apps/server` and `packages/shared`
   - TypeScript strict, ESLint, Prettier, Vitest, environment variables via Zod
@@ -73,13 +74,15 @@ Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is d
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M2 specs:** work out specs 08 to 12 (canvas) in detail, then build them, starting with spec 08 (blocks and the four states).
+1. **Spec 08:** blocks and their states, then specs 09 to 11.
 2. What the owner contributes while building:
-   - designs for new screens in Claude Design, or approval to derive them from the existing building blocks
+   - accept the derived canvas interactions from screenshots (specs 08 to 11)
+   - **by spec 12:** designs in Claude Design for the blocks of mind map, data model and flow
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
 3. **At the very end (public launch):** spec 35 (launch preparation): hosting location, OAuth application on GitLab.com, domain, legal texts, monitoring.
 
 ## Open decisions
+- **Gaps in the spec overview:** two V1 features from `project-overview.md` have no spec yet: canvas references in the chat (markers that jump to a block) and the change history view (which also brings undoing agent changes). Both need a design and a place in the overview.
 - **Dark mode:** not decided yet.
 - **React Flow attribution:** the small "React Flow" link in the canvas corner stays for now. The MIT license allows hiding it; the makers ask commercial users to subscribe to React Flow Pro. Decide before the public launch.
 - **Hosting for the public launch:** decided at the end (spec 35). A private instance can be self-hosted with Docker (spec 02b).
@@ -91,6 +94,12 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **Positioning:** Covibes steers, coding agents build. Covibes agents write no application code.
 - **Moderator:** it offers help but never starts unasked. Stance and decision process are configurable per project.
 - **Custom agents:** V1 includes custom agents that are created in Covibes and shared personally or in a project. External agents (A2A/webhook) and company agents come right after V1, together with team workspaces.
+- **Canvas in M2** (2026-09-29):
+  - The proposal state and dashed proposal edges come with spec 13, together with the proposals.
+  - Interactions the handoff does not show are derived from the existing building blocks; the owner accepts them from screenshots.
+  - Every canvas spec gives the agents the tools for its elements.
+  - Undo covers one's own changes; undoing agent changes follows with a history view.
+  - Auto-layout uses ELK (`elkjs`, EPL-2.0 approved for unmodified use).
 - **Canvas:** structured, with sticky notes. How agents draw depends on the situation:
   - When asked, an agent changes the canvas directly.
   - When acting on its own, it makes a proposal.
@@ -159,3 +168,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   - The worker checks the Claude login at startup without a model call and refuses to start without one; in production it requires an API key.
   - Four coding agents started in parallel ran into the session rate limit, so the lead finished the work alone and in order.
   - Not verified yet: the worker in the Docker image (Docker Desktop was not running; it needs an API key there).
+- **2026-09-29, M2 specs worked out:** specs 08 to 11 are ready. The owner decided four points on the coding agent's recommendation: the proposal state moves to spec 13, interactions missing in the handoff are derived and accepted from screenshots, agents get the tools for every new canvas element, and undo covers one's own changes first. The owner also approved EPL-2.0 for ELK. Spec 12 waits for designs of the mind map, data model and flow blocks.

@@ -213,6 +213,9 @@ Every block is 180 × 96, has radius 12, a 30 px icon tile, title and subtitle a
 - **Locks and live cursors** run through the **Yjs awareness** of Hocuspocus. The look stays the same.
 - **The variant comparison A/B** is already part of V1 according to `project-overview.md`; the handoff says "V2". It still needs to be designed, see below.
 - The contents of the prototype (chat, blocks, decisions) become seed data and test fixtures.
+- **Interactions the handoff does not show** (selection, editing in place, the block type menu, connection points, tool modes, board tabs) are derived from these tokens and building blocks in the canvas specs and accepted by the owner from screenshots (owner decision, 2026-09-29).
+- **Toolbar:** the prototype shows "Block" as the active tool; the app starts without an active tool, so a click on the canvas never creates something by accident (spec 10).
+- **The proposal state** of blocks and dashed proposal edges are built with spec 13, together with the proposals themselves.
 
 ## Still to be designed
 The design is created in Claude Design before the corresponding feature spec is built. Until then: do not improvise beyond these tokens and building blocks.

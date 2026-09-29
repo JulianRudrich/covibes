@@ -247,8 +247,8 @@ These rules come from the dry run with Covibes as the project (see `context/dry-
 ## Cross-cutting concerns
 
 - **Privacy:**
-  - GDPR-compliant, hosted in the EU where possible
-  - AI providers with processing in the EU and no training on user data, secured by a data processing agreement
+  - GDPR-compliant. Processing is not limited to the EU, because Covibes aims at international users (owner decision, 2026-09-29).
+  - AI providers without training on user data, secured by a data processing agreement
   - Projects and accounts can be deleted; data can be exported.
 - **Costs:** V1 is free with generous limits against abuse. Costs are tracked per project and per user. A subscription comes later.
 - **Language:** German and English are built in from the start. Agents answer in the language of the chat.

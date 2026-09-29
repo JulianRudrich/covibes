@@ -67,7 +67,7 @@ Build the product, starting with the vertical slice (specs 04 to 07). Covibes is
 1. **Spec 07:** AI gateway, worker and moderator; it completes the vertical slice (M1).
 3. What the owner contributes while building:
    - designs for new screens in Claude Design, or approval to derive them from the existing building blocks
-   - **by spec 07:** access to an AI with an EU endpoint
+   - **by spec 07:** an Anthropic API key, stored only locally
 4. **At the very end (public launch):** spec 35 (launch preparation): hosting location, OAuth application on GitLab.com, domain, legal texts, monitoring.
 
 ## Open decisions
@@ -92,11 +92,11 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **Tech stack:**
   - React app and the Covibes server (Hono, Better Auth, Hocuspocus, Graphile Worker) with PostgreSQL and RLS
   - local via `pnpm dev`, PostgreSQL without Docker; Docker image for self-hosting; fully self-hostable at any time (invariant 10)
-  - AI SDK with EU endpoints only, several providers per agent
+  - AI gateway with Claude via the Anthropic API first; more providers per agent later
 - **Frame:**
   - V1 is free with generous limits, subject to "Monetization" under open decisions.
   - Quality over cost.
-  - GDPR-compliant, hosted in the EU where possible.
+  - GDPR-compliant; no EU-only rule, the focus is international (2026-09-29).
   - Languages: German and English.
 
 ## Session notes
@@ -143,3 +143,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-09-29, spec 05 implemented.** Details are in the spec under "Implementation notes". Agent keys are English now (`critic`, `data`).
 - **2026-09-29, spec 06 implemented** with five coding agents in parallel: four built data layer, live channel, message view and composer against fixed contracts, one reviewed the server part. The review found two crashes (a broken WebSocket frame or a reset during the access check ended the server process); both are fixed and covered by tests that fail without the fix. Details are in the spec under "Implementation notes".
 - **2026-09-29, lesson from parallel work:** a coding agent started `pnpm dev` and applied a draft of migration 0004 to the local database; it was brought in line with the final file without losing data. Agents working in parallel must not start `pnpm dev` or touch the local database.
+- **2026-09-29, no EU-only rule:** decided by the owner. Covibes aims at international users, both as a portfolio project and as a product, so data does not have to stay in the EU. Claude is called through the Anthropic API (global routing, default model Claude Opus 5.5). A data processing agreement and no training on customer data remain required. EU processing can be added per project later via Google Vertex AI or AWS Bedrock if a customer needs it. Updated in `architecture.md`, `project-overview.md` and specs 00 and 07.

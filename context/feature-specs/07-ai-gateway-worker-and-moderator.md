@@ -12,9 +12,9 @@ Every model call is metered with tokens and costs.
 - **Worker:** Graphile Worker lives in the same package as the server but runs as a **separate process** (`node dist/worker.js`). It connects directly to Postgres with the admin role.
 - **Jobs:** a database trigger on `messages` creates them, so no client can create jobs. The queue per agent is called `agent:{projectId}:{agentKey}`, so every agent works through its requests one after the other.
 - **`ai-gateway`:**
-  - AI SDK (npm package `ai`) with the provider registry. This spec has only one provider, **Claude in the EU**. The owner decides at the start of the spec whether via Google Vertex AI or AWS Bedrock.
-  - Model: `claude-opus-5`. The region is `eu` (multi-region) or an EU region such as `europe-west1`. Which locations the AI SDK provider supports is checked during implementation.
-  - At startup the registry rejects every configuration that does not point to the EU (invariant 3).
+  - Provider registry with one provider in this spec: **Claude via the Anthropic API** (owner decision 2026-09-29: global routing, no EU-only rule). At the start of the implementation, the AI SDK (npm package `ai`) and the official Anthropic SDK are compared against their current documentation; the gateway uses whichever supports streaming, tool use, thinking and usage of the current models best, behind the gateway's own interface.
+  - Model: `claude-opus-5-5` (Claude Opus 5.5). Thinking and effort follow the current API reference.
+  - At startup the registry rejects a configuration without an API key or with an unknown model.
 - **Streaming:**
   - At the start the worker creates the agent message with `status = 'streaming'`.
   - It sends the text chunks batched (about every 50 ms) via Postgres `NOTIFY` to the server, which distributes them over the channel `project:{projectId}` as the event `message_delta` with `{ messageId, text }`.
@@ -40,8 +40,8 @@ Every model call is metered with tokens and costs.
 ### Server: `apps/server/src/`
 - **`worker.ts`** starts Graphile Worker with the tasks. Concurrency is 5; the queues per agent stay serial.
 - **`ai-gateway/`:**
-  - `registry.ts`: providers and models with the EU check. Credentials come from the service account JSON (environment).
-  - `pricing.ts`: prices per model and region as configuration, with a source. For Claude Opus 5 in the EU on Vertex that is $5.50 input and $27.50 output per million tokens. The prices are checked against the current pricing page during implementation.
+  - `registry.ts`: providers and models with the configuration check. The API key comes from the environment.
+  - `pricing.ts`: prices per model as configuration, with a source. For Claude Opus 5.5 on the Anthropic API that is $4 input and $20 output per million tokens (as of 2026-09). The prices are checked against the current pricing page during implementation.
   - `stream.ts`: `streamAgentReply({ model, system, messages, tools, onDelta })`. The function meters usage and returns text, tool calls and usage.
 - **`agents/`:**
   - `definitions/moderator.ts`: definition in the later shared format with `key`, `name`, `role`, `provider`, `model` and `tools: ['add_block']`.
@@ -61,7 +61,7 @@ Every model call is metered with tokens and costs.
   On errors there is `error` and a short note in the message. Graphile Worker handles retries. The task is idempotent: a run with status `done` is not executed again.
 - **`tools/add-block.ts`:** Zod schema `{ title: string (1–80), subtitle?: string, x?: number, y?: number }`. Without a position, a free spot next to the existing blocks is chosen.
 - **New environment variables:**
-  - Vertex: `VERTEX_PROJECT_ID`, `VERTEX_LOCATION`, `VERTEX_CREDENTIALS_JSON` (secret)
+  - `ANTHROPIC_API_KEY` (secret; locally in `apps/server/.env.local`, which is never committed)
 
 ### Web
 - **Streaming display:**
@@ -78,7 +78,7 @@ Every model call is metered with tokens and costs.
   Afterwards it returns to normal with a 200 ms transition. This is the minimal version of the state "changed by AI"; spec 08 builds the complete block.
 
 ### Tests
-- **`ai-gateway`** with the AI SDK's mock model: streaming, usage, EU check (a non-EU configuration throws).
+- **`ai-gateway`** with a mock model: streaming, usage, configuration check (a missing key or an unknown model throws).
 - **`agent-turn`:** the mock model calls `add_block`. This results in a block in the in-memory Y.Doc, a finished message and `ai_runs` with `done`. A second call has no effect.
 - **Trigger** (Vitest against the test database): a mention creates `ai_runs` with `queued` and a job in the right queue. Without a mention there is no job.
 
@@ -90,8 +90,8 @@ Every model call is metered with tokens and costs.
 
 ## Dependencies
 - Specs 05 and 06
-- access to Claude in the EU via Google Vertex AI or AWS Bedrock (owner)
-- packages: `graphile-worker`, `ai` and the provider for the chosen route to Claude
+- an Anthropic API key (owner; created in the Claude Console and stored only locally)
+- packages: `graphile-worker` and the SDK chosen for the gateway
 
 ## Notes from spec 06
 - Agent messages are written by the server with the admin role; clients cannot insert them (RLS and column grants). `reply_to` must point to a message of the same project.
@@ -103,7 +103,7 @@ Every model call is metered with tokens and costs.
 - [ ] **Vertical slice:** two browsers, two users. `@Moderator draw a block "API"` streams the answer visibly for both, and the block "API" appears live for both with "Just drawn".
 - [ ] Two quick requests to the moderator run one after the other. The status pill shows "· 1 waiting".
 - [ ] `ai_runs` contains model, tokens and costs of the run.
-- [ ] With a non-EU region in the configuration, the worker does not start.
+- [ ] Without an API key or with an unknown model, the worker does not start and says why.
 - [ ] A simulated model error leads to a message with status `error` and a friendly note. The retry works.
 - [ ] Clients cannot create agent messages or jobs. The RLS and trigger tests pass.
 - [ ] The tests from "Tests" pass.

@@ -17,7 +17,7 @@ Browser ── React app (static files)
                                 ├── worker (Graphile Worker)
                                 └── PostgreSQL with row-level security
 
-   external (from the respective specs on): AI providers (EU endpoints only) · GitLab.com
+   external (from the respective specs on): AI providers (first: the Anthropic API) · GitLab.com
 ```
 
 - **React app:** only the user interface. It talks exclusively to the Covibes server, never directly to the database, and contains no secrets.
@@ -85,7 +85,7 @@ During development Vite forwards `/api` to the server. Web app and API therefore
 | `realtime/` | WebSocket channels per project: new messages, AI streaming, queue status, presence |
 | `collab/` | Hocuspocus: auth hook (session and project role), persistence in `yjs_documents`, direct connections for changes by agents |
 | `worker/` | Graphile Worker: all jobs, i.e. agent runs, observer, debates, plan, MR review, summaries, mails, token refresh, cron |
-| `ai-gateway/` | the only path to models: provider registry (EU endpoints only), streaming, usage metering, limits, prompt caching |
+| `ai-gateway/` | the only path to models: provider registry, streaming, usage metering, limits, prompt caching |
 | `agents/` | agent runner, prompts as versioned files, tools |
 | `rules/` | rule engine: decides for every tool action whether it runs directly, becomes a proposal, goes into the approval queue or is rejected |
 | `integrations/` | GitLab, web search, email |
@@ -233,22 +233,25 @@ This is the first version; the vertical slice confirms it.
 - **RLS:** every table has policies built on `private.current_user_id()`, `private.is_member()` and `private.has_role()`. The database protects the data even if a check is missing on the server.
 - **Read-only links:** a server endpoint checks the token in `share_links` and returns a view without write access.
 
-## AI providers (EU endpoints only)
+## AI providers
 
-| Models | Route | Region |
+| Models | Route | When |
 |---|---|---|
-| Claude (default for agents: Claude Opus 5) | Google Vertex AI | `eu` (multi-region) |
-| Gemini | Google Vertex AI | EU region |
-| GPT | Azure OpenAI (EU data zone) or an OpenAI project with EU data residency | EU |
-| Mistral | Mistral API | EU |
+| Claude (default for agents: Claude Opus 5.5) | Anthropic API, global routing | spec 07 |
+| Gemini, GPT, Mistral | their own APIs through the same registry | with the agent catalog (spec 14) or later |
 
-The owner decides in spec 07 which route is used first. On Vertex, Claude only has basic web search and no web fetch, so all providers get the same own tools: a web search and an own fetch for links.
+The owner decided on 2026-09-29: **no EU-only rule.** Covibes aims at international users, so providers are chosen by quality, features and reach. What stays:
+- a data processing agreement with every provider and no training on customer data
+- the provider's data retention terms documented
+- If an enterprise customer needs processing in the EU later, the registry can route that project to Claude on Google Vertex AI or AWS Bedrock in an EU region.
+
+Claude on the Anthropic API brings web search and web fetch as server tools. Providers added later get equivalent own tools through the gateway.
 
 ## Invariants
 
 1. Every table has RLS. Requests on behalf of a user always run with the role `covibes_app` and that user's id. Only migrations, Better Auth and the worker use the admin role.
 2. Long AI work never runs inside a request, always as a job in the worker.
-3. All model calls go through the `ai-gateway`, and only to EU endpoints.
+3. All model calls go through the `ai-gateway`.
 4. Agents act exclusively through tools and the rule engine.
 5. Changing Git actions only run after approval, with the token of the approving person, and always with an audit log entry.
 6. Content from repositories, the web and uploads is data, not instructions.
@@ -304,6 +307,6 @@ The owner decides in spec 07 which route is used first. On Vertex, Claude only h
 - hosting for the public launch (spec 35)
 - library for the PDF export
 - ELK layout presets per diagram type
-- for GPT: Azure OpenAI or an OpenAI project with EU data residency
+- the route for GPT, Gemini and Mistral once a second provider is needed
 - default models per catalog agent, after the evals
 - provider for web search (spec 20) and for sending email in production

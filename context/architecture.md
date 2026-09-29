@@ -237,7 +237,7 @@ This is the first version; the vertical slice confirms it.
 
 | Models | Route | When |
 |---|---|---|
-| Claude (default for agents: Claude Opus 5.5) | Anthropic API, global routing | spec 07 |
+| Claude (default for agents: Claude Opus 5.5) | Claude Agent SDK: during local development with the owner's Claude subscription, with an API key as soon as other people use Covibes | spec 07 |
 | Gemini, GPT, Mistral | their own APIs through the same registry | with the agent catalog (spec 14) or later |
 
 The owner decided on 2026-09-29: **no EU-only rule.** Covibes aims at international users, so providers are chosen by quality, features and reach. What stays:
@@ -245,7 +245,9 @@ The owner decided on 2026-09-29: **no EU-only rule.** Covibes aims at internatio
 - the provider's data retention terms documented
 - If an enterprise customer needs processing in the EU later, the registry can route that project to Claude on Google Vertex AI or AWS Bedrock in an EU region.
 
-Claude on the Anthropic API brings web search and web fetch as server tools. Providers added later get equivalent own tools through the gateway.
+**Subscription or API key:** Claude subscriptions include a monthly credit for the Claude Agent SDK in the subscriber's own projects. Anthropic does not allow offering claude.ai login or subscription limits to other users of a product, so every instance that other people use (a hosted test instance, the public launch) runs with an API key. The switch is configuration only.
+
+Claude brings web search and web fetch as tools. Providers added later get equivalent own tools through the gateway.
 
 ## Invariants
 

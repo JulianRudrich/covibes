@@ -12,9 +12,11 @@ Every model call is metered with tokens and costs.
 - **Worker:** Graphile Worker lives in the same package as the server but runs as a **separate process** (`node dist/worker.js`). It connects directly to Postgres with the admin role.
 - **Jobs:** a database trigger on `messages` creates them, so no client can create jobs. The queue per agent is called `agent:{projectId}:{agentKey}`, so every agent works through its requests one after the other.
 - **`ai-gateway`:**
-  - Provider registry with one provider in this spec: **Claude via the Anthropic API** (owner decision 2026-09-29: global routing, no EU-only rule). At the start of the implementation, the AI SDK (npm package `ai`) and the official Anthropic SDK are compared against their current documentation; the gateway uses whichever supports streaming, tool use, thinking and usage of the current models best, behind the gateway's own interface.
+  - Provider registry with one provider in this spec: **Claude through the Claude Agent SDK** (`@anthropic-ai/claude-agent-sdk`), behind the gateway's own interface (owner decisions 2026-09-29: no EU-only rule; development runs on the owner's Claude subscription).
+  - **Authentication:** locally the SDK uses the owner's Claude Code login, so the monthly Agent SDK credit of the subscription pays. With `ANTHROPIC_API_KEY` set, it uses the key instead; that is mandatory for every instance other people use (see `architecture.md`, "AI providers").
+  - **Isolation:** the moderator is not Claude Code. Built-in tools are switched off, only the gateway's own tools are allowed (in-process MCP tools), and no settings, skills or memory are loaded from `.claude/` folders. The exact options are taken from the current Agent SDK reference.
   - Model: `claude-opus-5-5` (Claude Opus 5.5). Thinking and effort follow the current API reference.
-  - At startup the registry rejects a configuration without an API key or with an unknown model.
+  - At startup the registry rejects an unknown model; without a working login or key the worker says so clearly.
 - **Streaming:**
   - At the start the worker creates the agent message with `status = 'streaming'`.
   - It sends the text chunks batched (about every 50 ms) via Postgres `NOTIFY` to the server, which distributes them over the channel `project:{projectId}` as the event `message_delta` with `{ messageId, text }`.
@@ -40,8 +42,8 @@ Every model call is metered with tokens and costs.
 ### Server: `apps/server/src/`
 - **`worker.ts`** starts Graphile Worker with the tasks. Concurrency is 5; the queues per agent stay serial.
 - **`ai-gateway/`:**
-  - `registry.ts`: providers and models with the configuration check. The API key comes from the environment.
-  - `pricing.ts`: prices per model as configuration, with a source. For Claude Opus 5.5 on the Anthropic API that is $4 input and $20 output per million tokens (as of 2026-09). The prices are checked against the current pricing page during implementation.
+  - `registry.ts`: providers and models with the configuration check. Credentials: the local Claude Code login, or `ANTHROPIC_API_KEY` from the environment.
+  - `pricing.ts`: prices per model as configuration, with a source. For Claude Opus 5.5 that is $4 input and $20 output per million tokens (as of 2026-09). The prices are checked against the current pricing page during implementation; where the SDK reports the cost of a run, that value is stored.
   - `stream.ts`: `streamAgentReply({ model, system, messages, tools, onDelta })`. The function meters usage and returns text, tool calls and usage.
 - **`agents/`:**
   - `definitions/moderator.ts`: definition in the later shared format with `key`, `name`, `role`, `provider`, `model` and `tools: ['add_block']`.
@@ -61,7 +63,7 @@ Every model call is metered with tokens and costs.
   On errors there is `error` and a short note in the message. Graphile Worker handles retries. The task is idempotent: a run with status `done` is not executed again.
 - **`tools/add-block.ts`:** Zod schema `{ title: string (1–80), subtitle?: string, x?: number, y?: number }`. Without a position, a free spot next to the existing blocks is chosen.
 - **New environment variables:**
-  - `ANTHROPIC_API_KEY` (secret; locally in `apps/server/.env.local`, which is never committed)
+  - `ANTHROPIC_API_KEY` (optional secret; unset locally, where the subscription login is used; required for instances other people use)
 
 ### Web
 - **Streaming display:**
@@ -78,7 +80,7 @@ Every model call is metered with tokens and costs.
   Afterwards it returns to normal with a 200 ms transition. This is the minimal version of the state "changed by AI"; spec 08 builds the complete block.
 
 ### Tests
-- **`ai-gateway`** with a mock model: streaming, usage, configuration check (a missing key or an unknown model throws).
+- **`ai-gateway`** with a mocked SDK: streaming, usage, configuration check (an unknown model throws), and that built-in tools and `.claude/` settings stay off.
 - **`agent-turn`:** the mock model calls `add_block`. This results in a block in the in-memory Y.Doc, a finished message and `ai_runs` with `done`. A second call has no effect.
 - **Trigger** (Vitest against the test database): a mention creates `ai_runs` with `queued` and a job in the right queue. Without a mention there is no job.
 
@@ -90,8 +92,8 @@ Every model call is metered with tokens and costs.
 
 ## Dependencies
 - Specs 05 and 06
-- an Anthropic API key (owner; created in the Claude Console and stored only locally)
-- packages: `graphile-worker` and the SDK chosen for the gateway
+- Claude Code on the owner's machine, logged in with the Claude subscription, and the monthly Agent SDK credit active
+- packages: `graphile-worker`, `@anthropic-ai/claude-agent-sdk`
 
 ## Notes from spec 06
 - Agent messages are written by the server with the admin role; clients cannot insert them (RLS and column grants). `reply_to` must point to a message of the same project.
@@ -103,7 +105,7 @@ Every model call is metered with tokens and costs.
 - [ ] **Vertical slice:** two browsers, two users. `@Moderator draw a block "API"` streams the answer visibly for both, and the block "API" appears live for both with "Just drawn".
 - [ ] Two quick requests to the moderator run one after the other. The status pill shows "· 1 waiting".
 - [ ] `ai_runs` contains model, tokens and costs of the run.
-- [ ] Without an API key or with an unknown model, the worker does not start and says why.
+- [ ] With an unknown model, or without a working login or key, the worker does not start and says why.
 - [ ] A simulated model error leads to a message with status `error` and a friendly note. The retry works.
 - [ ] Clients cannot create agent messages or jobs. The RLS and trigger tests pass.
 - [ ] The tests from "Tests" pass.

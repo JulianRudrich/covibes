@@ -67,7 +67,7 @@ Build the product, starting with the vertical slice (specs 04 to 07). Covibes is
 1. **Spec 07:** AI gateway, worker and moderator; it completes the vertical slice (M1).
 3. What the owner contributes while building:
    - designs for new screens in Claude Design, or approval to derive them from the existing building blocks
-   - **by spec 07:** an Anthropic API key, stored only locally
+   - **by spec 07:** the monthly Agent SDK credit of the Claude subscription activated (development runs on the subscription)
 4. **At the very end (public launch):** spec 35 (launch preparation): hosting location, OAuth application on GitLab.com, domain, legal texts, monitoring.
 
 ## Open decisions
@@ -144,3 +144,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-09-29, spec 06 implemented** with five coding agents in parallel: four built data layer, live channel, message view and composer against fixed contracts, one reviewed the server part. The review found two crashes (a broken WebSocket frame or a reset during the access check ended the server process); both are fixed and covered by tests that fail without the fix. Details are in the spec under "Implementation notes".
 - **2026-09-29, lesson from parallel work:** a coding agent started `pnpm dev` and applied a draft of migration 0004 to the local database; it was brought in line with the final file without losing data. Agents working in parallel must not start `pnpm dev` or touch the local database.
 - **2026-09-29, no EU-only rule:** decided by the owner. Covibes aims at international users, both as a portfolio project and as a product, so data does not have to stay in the EU. Claude is called through the Anthropic API (global routing, default model Claude Opus 5.5). A data processing agreement and no training on customer data remain required. EU processing can be added per project later via Google Vertex AI or AWS Bedrock if a customer needs it. Updated in `architecture.md`, `project-overview.md` and specs 00 and 07.
+- **2026-09-29, Claude through the subscription:** decided by the owner. The gateway uses the Claude Agent SDK, which runs locally on the owner's Claude subscription (monthly Agent SDK credit for own projects). Anthropic does not allow offering subscription login to other users, so every instance that others use needs an API key; switching is configuration only.

@@ -7,7 +7,7 @@
 Build the product, starting with the vertical slice (specs 04 to 07). Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- nothing; next up is spec 06
+- Spec 06: real-time chat (branch `spec/06-realtime-chat`)
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

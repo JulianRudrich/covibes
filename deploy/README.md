@@ -130,6 +130,7 @@ docker compose up -d
 - **`setup` fails with a password error:** `POSTGRES_PASSWORD` only takes effect on the very first start of the volume. Do not change it afterwards, or change the password inside PostgreSQL as well.
 - **The canvas stays empty or keeps reconnecting:** the web server does not forward WebSockets, or the domain does not match `APP_URL` exactly.
 - **The login mail does not arrive:** check the `app` log, the sender (`MAIL_FROM`) and the spam folder.
+- **The log warns that the client IP could not be determined:** Covibes is reached without the web server in front, e.g. directly on `127.0.0.1:3000` for a test. The sign-in rate limit then counts all visitors together. Behind the web server from "Web server in front" the warning disappears.
 
 ## Security
 - `.env` holds all secrets: readable only by the operator (`chmod 600`), never committed.

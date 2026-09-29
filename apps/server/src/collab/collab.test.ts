@@ -16,7 +16,9 @@ import WebSocket from 'ws';
 import * as Y from 'yjs';
 
 import { createCollab, type Collab } from '@server/collab/collab';
+import { closedByServer, rawUpgrade, UNMASKED_FRAME } from '@server/test-sockets';
 import { APP_URL, createTestServer } from '@server/testing';
+import { attachWebSockets } from '@server/websockets';
 
 const test = createTestServer();
 let collab: Collab;
@@ -24,12 +26,15 @@ let server: Server;
 let port = 0;
 
 async function startServer() {
-  collab = createCollab({ env: test.env, db: test.db, auth: test.auth });
+  collab = createCollab({ db: test.db, auth: test.auth });
   const listener = getRequestListener(test.app.fetch);
   server = createServer((request, response) => {
     void listener(request, response);
   });
-  collab.attach(server);
+  attachWebSockets(server, {
+    appUrl: test.env.APP_URL,
+    routes: new Map([[test.env.COLLAB_PATH, collab.handleUpgrade]]),
+  });
   await new Promise<void>((resolve) => {
     server.listen(0, '127.0.0.1', resolve);
   });
@@ -213,5 +218,16 @@ describe('persistence', () => {
     const second = connect(boardId, owner);
     expect(await second.result).toBe('ok');
     expect(readNodes(second.doc).map((node) => node.label)).toEqual(['Bleibt']);
+  });
+});
+
+describe('robustness', () => {
+  it('closes a connection with a broken frame, even without a session, and keeps running', async () => {
+    const raw = await rawUpgrade(port, test.env.COLLAB_PATH, { Origin: APP_URL });
+    const closed = closedByServer(raw);
+    raw.write(UNMASKED_FRAME);
+    await closed;
+    const health = await fetch(`http://127.0.0.1:${String(port)}/health`);
+    expect(health.ok).toBe(true);
   });
 });

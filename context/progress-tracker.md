@@ -7,7 +7,7 @@
 Build the product, starting with the vertical slice (specs 04 to 07). Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 06: real-time chat (branch `spec/06-realtime-chat`)
+- nothing; next up is spec 07
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -53,12 +53,18 @@ Build the product, starting with the vertical slice (specs 04 to 07). Covibes is
   - agent keys renamed to English (`critic`, `data`)
 
   Lint, type check, format, 161 tests and build pass; verified with two users (sync after 9 ms), server restart, offline change with reconnect, viewer and the Docker image.
+- [x] **Spec 06 real-time chat:**
+  - table `messages` with RLS, API for the latest 100 messages and for sending, live channel per project over WebSocket
+  - `@` mentions in German and English, not inside emails, links or code
+  - chat as in the handoff: day dividers, human and agent messages, mention chips, composer with agent list, optimistic sending with retry, read-only hint for viewers
+  - server hardened after a review: WebSocket crashes fixed, body limit, CSRF protection
+
+  Lint, type check, format, 316 tests and build pass; verified with two users (55 ms and about 0.3 s).
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **Spec 06:** real-time chat.
-2. Then spec 07 (AI gateway, worker and moderator); it completes the vertical slice.
+1. **Spec 07:** AI gateway, worker and moderator; it completes the vertical slice (M1).
 3. What the owner contributes while building:
    - designs for new screens in Claude Design, or approval to derive them from the existing building blocks
    - **by spec 07:** access to an AI with an EU endpoint
@@ -135,3 +141,5 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   - Every dependency must allow commercial use (see `code-standards.md`). All current dependencies do.
 - **2026-09-29, history verified:** every code commit on `main` was checked out on its own: install, type check, lint, format, tests and build pass for each. On Windows, the database tests need a short path; in a very long temp path `initdb` fails.
 - **2026-09-29, spec 05 implemented.** Details are in the spec under "Implementation notes". Agent keys are English now (`critic`, `data`).
+- **2026-09-29, spec 06 implemented** with five coding agents in parallel: four built data layer, live channel, message view and composer against fixed contracts, one reviewed the server part. The review found two crashes (a broken WebSocket frame or a reset during the access check ended the server process); both are fixed and covered by tests that fail without the fix. Details are in the spec under "Implementation notes".
+- **2026-09-29, lesson from parallel work:** a coding agent started `pnpm dev` and applied a draft of migration 0004 to the local database; it was brought in line with the final file without losing data. Agents working in parallel must not start `pnpm dev` or touch the local database.

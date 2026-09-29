@@ -1,7 +1,8 @@
 /** Error body of every API route. `code` is stable and mapped to i18n texts by the web app. */
 export type ApiErrorBody = { error: { code: ApiErrorCode; message: string } };
 
-export type ApiErrorCode = 'unauthorized' | 'not_found' | 'invalid_input' | 'internal';
+export type ApiErrorCode =
+  'unauthorized' | 'forbidden' | 'not_found' | 'invalid_input' | 'too_large' | 'internal';
 
 /** `GET /api/config`: settings the web app may know before login. */
 export type PublicConfig = {

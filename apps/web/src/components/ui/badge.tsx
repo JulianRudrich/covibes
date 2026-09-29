@@ -2,13 +2,7 @@ import type { AgentKey } from '@covibes/shared';
 import type { ReactNode } from 'react';
 
 import { cn } from '@web/lib/cn';
-
-const AGENT_TONE: Record<AgentKey, string> = {
-  moderator: 'bg-agent-moderator-tint text-agent-moderator-dark',
-  backend: 'bg-agent-backend-tint text-agent-backend-dark',
-  critic: 'bg-agent-critic-tint text-agent-critic-dark',
-  data: 'bg-agent-data-tint text-agent-data-dark',
-};
+import { AGENT_TONE } from '@web/lib/styles';
 
 type BadgeProps = { children: ReactNode; agent?: AgentKey; className?: string };
 

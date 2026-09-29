@@ -1,4 +1,4 @@
-import type { IncomingHttpHeaders, IncomingMessage, Server } from 'node:http';
+import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 
 import { boardIdFromDocumentName, type ProjectRole } from '@covibes/shared';
@@ -8,7 +8,7 @@ import { WebSocketServer, type RawData } from 'ws';
 
 import type { Auth } from '@server/auth/auth';
 import { withUser, type Database as AppDatabase } from '@server/db/database';
-import type { ServerEnv } from '@server/env';
+import { acceptUpgrade, fetchHeaders } from '@server/websockets';
 
 export type CollabContext = {
   user: { id: string; name: string; role: ProjectRole };
@@ -17,7 +17,6 @@ export type CollabContext = {
 };
 
 type CollabDeps = {
-  env: Pick<ServerEnv, 'APP_URL' | 'COLLAB_PATH'>;
   db: AppDatabase;
   auth: Auth;
 };
@@ -25,15 +24,6 @@ type CollabDeps = {
 /** Refuses a document; the client learns "permission denied" and nothing more. */
 class AccessDenied extends Error {
   readonly reason = 'permission-denied';
-}
-
-function toHeaders(incoming: IncomingHttpHeaders): Headers {
-  const headers = new Headers();
-  for (const [name, value] of Object.entries(incoming)) {
-    if (Array.isArray(value)) for (const item of value) headers.append(name, item);
-    else if (value !== undefined) headers.set(name, value);
-  }
-  return headers;
 }
 
 function toUint8Array(data: RawData): Uint8Array {
@@ -46,7 +36,7 @@ function toUint8Array(data: RawData): Uint8Array {
  * Access is checked per document: signed in via the session cookie, member of the board's project;
  * viewers only read.
  */
-export function createCollab({ env, db, auth }: CollabDeps) {
+export function createCollab({ db, auth }: CollabDeps) {
   const pendingStores = new Set<Promise<unknown>>();
 
   const hocuspocus = new Hocuspocus<CollabContext>({
@@ -111,33 +101,19 @@ export function createCollab({ env, db, auth }: CollabDeps) {
   });
 
   const webSockets = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 * 1024 });
-  const allowedOrigin = new URL(env.APP_URL).origin;
 
-  /** Takes over WebSocket upgrades on `COLLAB_PATH`. */
-  function attach(server: Server) {
-    server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
-      const url = new URL(request.url ?? '/', 'http://localhost');
-      if (url.pathname !== env.COLLAB_PATH) {
-        socket.destroy();
-        return;
-      }
-      // Browsers attach the session cookie to WebSocket requests from other sites too, so only
-      // the web app's own origin may connect (protection against cross-site WebSocket hijacking).
-      if (request.headers.origin !== allowedOrigin) {
-        socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
-        return;
-      }
-      webSockets.handleUpgrade(request, socket, head, (webSocket) => {
-        const connection = hocuspocus.handleConnection(
-          webSocket,
-          new Request(url, { headers: toHeaders(request.headers) }),
-        );
-        webSocket.on('message', (data: RawData) => {
-          connection.handleMessage(toUint8Array(data));
-        });
-        webSocket.on('close', (code: number, reason: Buffer) => {
-          connection.handleClose({ code, reason: reason.toString() });
-        });
+  /** Takes over a WebSocket upgrade on `COLLAB_PATH` (routed by `attachWebSockets`). */
+  function handleUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer, url: URL) {
+    acceptUpgrade(webSockets, request, socket, head, (webSocket) => {
+      const connection = hocuspocus.handleConnection(
+        webSocket,
+        new Request(url, { headers: fetchHeaders(request.headers) }),
+      );
+      webSocket.on('message', (data: RawData) => {
+        connection.handleMessage(toUint8Array(data));
+      });
+      webSocket.on('close', (code: number, reason: Buffer) => {
+        connection.handleClose({ code, reason: reason.toString() });
       });
     });
   }
@@ -158,7 +134,7 @@ export function createCollab({ env, db, auth }: CollabDeps) {
     webSockets.close();
   }
 
-  return { hocuspocus, attach, close };
+  return { hocuspocus, handleUpgrade, close };
 }
 
 export type Collab = ReturnType<typeof createCollab>;

@@ -7,6 +7,7 @@ import { createAuth } from '@server/auth/auth';
 import { createDatabase } from '@server/db/database';
 import { loadServerEnv, type ServerEnv } from '@server/env';
 import { createMailSetup } from '@server/integrations/mail/mailer';
+import { createRealtime } from '@server/realtime/realtime';
 
 export const APP_URL = 'http://localhost:5173';
 
@@ -24,9 +25,13 @@ export function createTestServer(overrides: Partial<Record<keyof ServerEnv, stri
   const db = createDatabase(env);
   const mail = createMailSetup(env);
   const auth = createAuth({ env, adminPool: db.adminPool, mailer: mail.mailer });
-  const app = createApp({ env, db, auth, mail });
+  const realtime = createRealtime({ db, auth });
+  const app = createApp({ env, db, auth, mail, live: realtime });
   const { outbox } = mail;
-  afterAll(() => db.close());
+  afterAll(async () => {
+    realtime.close();
+    await db.close();
+  });
 
   /** Signs in through the real login link and returns the session cookie. */
   async function signIn(email = `${randomUUID()}@example.com`): Promise<string> {
@@ -50,5 +55,5 @@ export function createTestServer(overrides: Partial<Record<keyof ServerEnv, stri
     return cookie;
   }
 
-  return { app, env, db, auth, outbox, signIn };
+  return { app, env, db, auth, realtime, outbox, signIn };
 }

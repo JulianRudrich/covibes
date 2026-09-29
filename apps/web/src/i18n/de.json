@@ -111,5 +111,23 @@
     "loading": "Canvas wird geladen …",
     "reconnecting": "Verbindung wird wiederhergestellt …",
     "denied": "Du hast keinen Zugriff mehr auf dieses Canvas."
+  },
+  "chat": {
+    "messages": "Nachrichten",
+    "today": "Heute",
+    "placeholder": "Nachricht an Team und Agents, @ ruft einen Agent",
+    "mentionAgent": "Agent erwähnen",
+    "attach": "Datei anhängen",
+    "attachLater": "Anhänge kommen später.",
+    "enterToSend": "Enter zum Senden",
+    "send": "Senden",
+    "agentBadge": "Agent",
+    "sending": "Wird gesendet …",
+    "failed": "Nicht gesendet.",
+    "retry": "Erneut senden",
+    "readOnly": "Du hast Lesezugriff.",
+    "loadError": "Die Nachrichten konnten nicht geladen werden.",
+    "typing": "{{name}} schreibt",
+    "waiting": "{{count}} wartet"
   }
 }

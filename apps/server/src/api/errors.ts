@@ -4,8 +4,10 @@ import type { Context } from 'hono';
 // Fixed English messages for developers; the web app shows its own texts based on `code`.
 const ERRORS = {
   unauthorized: { status: 401, message: 'Sign-in required.' },
+  forbidden: { status: 403, message: 'Not allowed.' },
   not_found: { status: 404, message: 'Not found.' },
   invalid_input: { status: 400, message: 'Invalid input.' },
+  too_large: { status: 413, message: 'Request too large.' },
   internal: { status: 500, message: 'Something went wrong.' },
 } as const satisfies Record<ApiErrorCode, { status: number; message: string }>;
 

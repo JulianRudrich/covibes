@@ -57,7 +57,11 @@ describe('projects', () => {
       expect(response.status).toBe(400);
       expect(await errorCode(response)).toBe('invalid_input');
     }
-    const broken = await request('/api/projects', cookie, { method: 'POST', body: '{' });
+    const broken = await request('/api/projects', cookie, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{',
+    });
     expect(broken.status).toBe(400);
   });
 

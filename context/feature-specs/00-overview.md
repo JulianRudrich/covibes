@@ -168,6 +168,7 @@ The prompt to the coding agent is always the same: "Read the spec, mark it as in
 
 ### 21 Invitations, roles and read-only link
 - **Goal:** invitations by link or email (locally in the development mailbox), the roles owner, editor and viewer, the Git approval right and a read-only link.
+- **Note from spec 06:** live channel and canvas check access only on connect; removing a member or changing a role must close their open connections. Messages of former members should keep their author's name.
 - **Needs:** 04
 - **Design:** **required:** share dialog and read-only view
 

@@ -93,6 +93,12 @@ Every model call is metered with tokens and costs.
 - access to Claude in the EU via Google Vertex AI or AWS Bedrock (owner)
 - packages: `graphile-worker`, `ai` and the provider for the chosen route to Claude
 
+## Notes from spec 06
+- Agent messages are written by the server with the admin role; clients cannot insert them (RLS and column grants). `reply_to` must point to a message of the same project.
+- New live events (streaming deltas, queue status) extend `liveEventSchema` in `packages/shared/src/messages.ts`; the web app drops events it does not know.
+- `ChatStatusPill` (`apps/web/src/features/chat/status-pill.tsx`) shows "typing" and "waiting" as soon as it gets a status.
+- Before mentions start paid runs: add a rate limit for messages and a cap on live connections per user.
+
 ## Checklist
 - [ ] **Vertical slice:** two browsers, two users. `@Moderator draw a block "API"` streams the answer visibly for both, and the block "API" appears live for both with "Just drawn".
 - [ ] Two quick requests to the moderator run one after the other. The status pill shows "· 1 waiting".

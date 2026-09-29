@@ -111,5 +111,23 @@
     "loading": "Loading canvas …",
     "reconnecting": "Reconnecting …",
     "denied": "You no longer have access to this canvas."
+  },
+  "chat": {
+    "messages": "Messages",
+    "today": "Today",
+    "placeholder": "Message the team and agents, @ calls an agent",
+    "mentionAgent": "Mention an agent",
+    "attach": "Attach file",
+    "attachLater": "Attachments are coming later.",
+    "enterToSend": "Enter to send",
+    "send": "Send",
+    "agentBadge": "Agent",
+    "sending": "Sending …",
+    "failed": "Not sent.",
+    "retry": "Send again",
+    "readOnly": "You have read access.",
+    "loadError": "The messages could not be loaded.",
+    "typing": "{{name}} is typing",
+    "waiting": "{{count}} waiting"
   }
 }

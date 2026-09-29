@@ -1,0 +1,211 @@
+import type { AgentKey } from '@covibes/shared';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { I18nextProvider } from 'react-i18next';
+import { describe, expect, it, vi } from 'vitest';
+
+import { ChatMessageView } from '@web/features/chat/chat-message';
+import { MentionText } from '@web/features/chat/mention-text';
+import type { ChatItem } from '@web/features/chat/types';
+import { i18n } from '@web/i18n';
+
+// A local time, so the expected clock time holds in every time zone.
+const CREATED_AT = new Date(2026, 8, 28, 14, 5).toISOString();
+
+function human(overrides: Partial<ChatItem> = {}): ChatItem {
+  return {
+    id: 'message-1',
+    projectId: 'project-1',
+    author: { kind: 'human', userId: 'user-alex', name: 'Alex Adams' },
+    content: 'Die Architektur steht fast. Was machen wir mit den AI-Kosten?',
+    mentions: [],
+    replyTo: null,
+    status: 'complete',
+    createdAt: CREATED_AT,
+    updatedAt: CREATED_AT,
+    ...overrides,
+  };
+}
+
+function agentMessage(agentKey: AgentKey): ChatItem {
+  return human({
+    id: `message-${agentKey}`,
+    author: { kind: 'agent', agentKey },
+    content: 'Ich habe die Architektur nach euren Kriterien gezeichnet.',
+  });
+}
+
+function messageText(article: HTMLElement): HTMLElement {
+  const paragraph = article.querySelector('p');
+  if (!paragraph) throw new Error('The message has no text paragraph.');
+  return paragraph;
+}
+
+describe('ChatMessageView', () => {
+  it('shows another person with a round avatar, the name and the time', () => {
+    render(<ChatMessageView item={human()} isOwn={false} />);
+    const article = screen.getByRole('article', { name: 'Alex Adams 14:05' });
+
+    const avatar = article.querySelector('[role="img"]');
+    expect(avatar).toHaveClass('rounded-full', 'bg-human-avatar-bg', 'size-7');
+    expect(avatar).toHaveTextContent('AA');
+    expect(within(article).getByText('Alex Adams')).toHaveClass('font-semibold', 'text-text');
+    expect(within(article).queryByText('Agent')).not.toBeInTheDocument();
+    expect(messageText(article)).toHaveTextContent('Die Architektur steht fast.');
+  });
+
+  it('keeps the avatar out of the accessibility tree, since the name is next to it', () => {
+    render(<ChatMessageView item={human()} isOwn={false} />);
+
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
+
+  it('shows the signed-in user as "Du" in name and avatar', () => {
+    render(<ChatMessageView item={human()} isOwn />);
+    const article = screen.getByRole('article', { name: 'Du 14:05' });
+
+    expect(article.querySelector('[role="img"]')).toHaveTextContent('Du');
+    expect(article).not.toHaveTextContent('Alex');
+  });
+
+  it('renders the time as a machine-readable, tabular clock time', () => {
+    render(<ChatMessageView item={human()} isOwn={false} />);
+    const time = screen.getByText('14:05');
+
+    expect(time.tagName).toBe('TIME');
+    expect(time).toHaveAttribute('dateTime', CREATED_AT);
+    expect(time).toHaveClass('text-meta', 'text-text-4', 'tabular-nums');
+  });
+
+  it('follows the language of the app', () => {
+    const english = i18n.cloneInstance({ lng: 'en' });
+    render(
+      <I18nextProvider i18n={english}>
+        <ChatMessageView item={human()} isOwn />
+      </I18nextProvider>,
+    );
+
+    expect(screen.getByRole('article', { name: /^You 2:05\sPM$/ })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['moderator', 'Moderator', 'M'],
+    ['backend', 'Backend', 'B'],
+    ['critic', 'Kritiker', 'K'],
+    ['data', 'Daten', 'D'],
+  ] as const)('shows the %s agent in its colors with the badge "Agent"', (key, name, initial) => {
+    render(<ChatMessageView item={agentMessage(key)} isOwn={false} />);
+    const article = screen.getByRole('article', { name: `${name} Agent 14:05` });
+
+    const avatar = article.querySelector('[role="img"]');
+    expect(avatar).toHaveClass(`bg-agent-${key}`, 'rounded-md', 'size-7', 'text-status');
+    expect(avatar).not.toHaveClass('rounded-full');
+    expect(avatar).toHaveTextContent(initial);
+    expect(within(article).getByText(name)).toHaveClass(`text-agent-${key}-dark`, 'font-semibold');
+    expect(within(article).getByText('Agent')).toHaveClass(
+      `bg-agent-${key}-tint`,
+      `text-agent-${key}-dark`,
+    );
+  });
+
+  it('ignores "isOwn" for agents', () => {
+    render(<ChatMessageView item={agentMessage('backend')} isOwn />);
+
+    expect(screen.getByRole('article', { name: 'Backend Agent 14:05' })).toBeInTheDocument();
+  });
+
+  it('marks a message that is still being sent', () => {
+    render(<ChatMessageView item={human({ delivery: 'sending' })} isOwn onRetry={vi.fn()} />);
+    const article = screen.getByRole('article', { name: 'Du 14:05 Wird gesendet …' });
+
+    expect(article).toHaveClass('opacity-60');
+    expect(within(article).getByText('Wird gesendet …')).toHaveClass('sr-only');
+    expect(within(article).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('shows a failed message with an error and sends it again on request', () => {
+    const onRetry = vi.fn();
+    render(<ChatMessageView item={human({ delivery: 'failed' })} isOwn onRetry={onRetry} />);
+    const article = screen.getByRole('article', { name: 'Du 14:05 Nicht gesendet.' });
+
+    expect(article).not.toHaveClass('opacity-60');
+    expect(within(article).getByText('Nicht gesendet.')).toHaveClass('text-danger');
+    fireEvent.click(within(article).getByRole('button', { name: 'Erneut senden' }));
+
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(onRetry).toHaveBeenCalledWith('message-1');
+  });
+
+  it('offers no retry without a handler', () => {
+    render(<ChatMessageView item={human({ delivery: 'failed' })} isOwn />);
+
+    expect(screen.getByText('Nicht gesendet.')).toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('shows confirmed messages without a delivery state', () => {
+    render(<ChatMessageView item={human()} isOwn />);
+    const article = screen.getByRole('article', { name: 'Du 14:05' });
+
+    expect(article).not.toHaveClass('opacity-60');
+    expect(article).not.toHaveTextContent(/Wird gesendet|Nicht gesendet/);
+  });
+
+  it('renders chips only for mentions of known agents, in the agent colors', () => {
+    const content =
+      '@Backend, passt das? @Kritiker und @moderator, @Sam schaut auch. Mail: sam@data.dev';
+    render(<ChatMessageView item={human({ content })} isOwn={false} />);
+    const text = messageText(screen.getByRole('article'));
+
+    const chips = Array.from(text.querySelectorAll('span.rounded-xs'));
+    expect(chips.map((chip) => chip.textContent)).toEqual(['@Backend', '@Kritiker', '@moderator']);
+    expect(within(text).getByText('@Backend')).toHaveClass(
+      'bg-agent-backend-tint',
+      'text-agent-backend-dark',
+      'px-[5px]',
+      'py-0.5',
+      'font-medium',
+    );
+    expect(within(text).getByText('@Kritiker')).toHaveClass(
+      'bg-agent-critic-tint',
+      'text-agent-critic-dark',
+    );
+    expect(within(text).getByText('@moderator')).toHaveClass(
+      'bg-agent-moderator-tint',
+      'text-agent-moderator-dark',
+    );
+    expect(within(text).queryByText('@Sam')).not.toBeInTheDocument();
+    expect(text).toHaveTextContent(content);
+  });
+
+  it('keeps line breaks and lets long words wrap', () => {
+    const content = 'Erste Zeile\nZweite Zeile\n\n@Daten, dritte Zeile';
+    render(<ChatMessageView item={human({ content })} isOwn={false} />);
+    const text = messageText(screen.getByRole('article'));
+
+    expect(text).toHaveTextContent(content, { normalizeWhitespace: false });
+    expect(text).toHaveClass('text-body', 'leading-[1.55]', 'text-text-body', 'wrap-break-word');
+    expect(within(text).getByText('@Daten')).toHaveClass('bg-agent-data-tint');
+  });
+
+  it('renders a streaming message as it is', () => {
+    render(
+      <ChatMessageView
+        item={{ ...agentMessage('backend'), status: 'streaming', content: 'Ich schau' }}
+        isOwn={false}
+      />,
+    );
+
+    expect(messageText(screen.getByRole('article'))).toHaveTextContent('Ich schau');
+  });
+});
+
+describe('MentionText', () => {
+  it('keeps the text unchanged when nothing is mentioned', () => {
+    const { container } = render(<MentionText text={'Zeile eins\n  eingerückt'} />);
+    const wrapper = container.firstElementChild;
+
+    expect(wrapper).toHaveClass('whitespace-pre-wrap');
+    expect(wrapper?.textContent).toBe('Zeile eins\n  eingerückt');
+    expect(wrapper?.children).toHaveLength(0);
+  });
+});

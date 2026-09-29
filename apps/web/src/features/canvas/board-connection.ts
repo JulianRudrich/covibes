@@ -2,6 +2,8 @@ import { boardDocumentName, COLLAB_PATH } from '@covibes/shared';
 import { HocuspocusProvider, WebSocketStatus } from '@hocuspocus/provider';
 import * as Y from 'yjs';
 
+import { sameOriginWebSocketUrl } from '@web/lib/websocket-url';
+
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
 function toConnectionStatus(status: WebSocketStatus): ConnectionStatus {
@@ -25,8 +27,7 @@ export type BoardConnectionState = {
 
 /** WebSocket address of the collaboration server on the web app's own origin. */
 export function collabUrl(location: Pick<Location, 'protocol' | 'host'>): string {
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${location.host}${COLLAB_PATH}`;
+  return sameOriginWebSocketUrl(location, COLLAB_PATH);
 }
 
 /**

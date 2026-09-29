@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 import { z } from 'zod';
 
-import { AGENT_KEYS } from '../agents';
+import { AGENT_KEYS } from '../agents/keys';
 
 // The canvas of a board lives in one Y.Doc (`board:{boardId}`, see architecture.md, "Canvas model").
 // Web app and server change it only through these functions, so every change is validated and

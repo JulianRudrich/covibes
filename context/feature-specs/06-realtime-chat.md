@@ -65,10 +65,26 @@ Members of a project chat with each other live. `@` mentions of agents are recog
 - Spec 04. The layout from spec 03 exists.
 
 ## Checklist
-- [ ] Two users in the same project see each other's messages in under a second.
-- [ ] `@Moderator, draw a block` stores `mentions = {moderator}`. The parser tests pass.
-- [ ] The database tests from "Migration `messages`" pass.
-- [ ] Chat messages and composer look like the handoff, and the agent variant is checked with fixtures.
-- [ ] Enter, Shift+Enter, empty messages and resending after errors work.
-- [ ] Viewers cannot write, neither in the UI nor through a direct API call.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] Two users in the same project see each other's messages in under a second.
+- [x] `@Moderator, draw a block` stores `mentions = {moderator}`. The parser tests pass.
+- [x] The database tests from "Migration `messages`" pass.
+- [x] Chat messages and composer look like the handoff, and the agent variant is checked with fixtures.
+- [x] Enter, Shift+Enter, empty messages and resending after errors work.
+- [x] Viewers cannot write, neither in the UI nor through a direct API call.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-09-29)
+- **Built in parallel:** four coding agents built data layer, live channel, message view and composer against fixed contracts (types, i18n keys, file ownership); a fifth reviewed the server part. The coding agent in charge integrated everything and checked it end to end.
+- **Mentions** accept the German and English agent names (`@Kritiker` and `@Critic`). They are not found inside email addresses, domains (`@data.io`), links (`youtube.com/@backend`) or code in backticks, because from spec 07 on every mention starts a paid agent run.
+- **Messages** carry an id created by the client, so a resend after an error is stored once. A reply can only point to a message of the same project (composite foreign key). NUL characters are refused as invalid input.
+- **Live channel** `/api/live?project=…`: checks session and membership on connect, then only pushes events. The event schema lives in `@covibes/shared`; the web app drops events it does not know. Reconnects wait 1 s, doubling up to 15 s, with jitter; after every open the chat reloads the latest messages, so nothing sent before the channel opened is missed.
+- **Hardening after the review:**
+  - every WebSocket has an error listener, and upgrade sockets are guarded until the handshake (before, one broken frame or a connection reset during the access check ended the process; tests reproduce both)
+  - API bodies are limited to 64 KiB (413), form-like requests from other origins are refused (403)
+  - on shutdown the server stops accepting connections first
+- **Verified** with `pnpm dev`, a browser and a second user on the live channel: a message from the browser reached the other user after 55 ms, the other way round it showed up after about 0.3 s. Shift+Enter keeps the line break, `@Kritiker` is stored as `critic`.
+- **Known limits, planned for later specs:**
+  - The live channel and the canvas check access only when connecting. A removed member keeps receiving until the connection closes (spec 21 closes their sockets on removal or role change).
+  - Former members lose their name on old messages for readers who no longer share a project with them (spec 21).
+  - There is no rate limit for messages and no cap on live connections per user yet (spec 07, before messages start agent runs).
+  - The status pill is ready but stays hidden until agents type and wait (spec 07).

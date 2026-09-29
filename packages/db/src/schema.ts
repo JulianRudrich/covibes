@@ -53,6 +53,21 @@ export interface Boards {
   title: string;
 }
 
+export interface Messages {
+  author_agent_key: string | null;
+  author_kind: string;
+  author_user_id: string | null;
+  block_refs: Generated<Json>;
+  content: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  mentions: Generated<string[]>;
+  project_id: string;
+  reply_to: string | null;
+  status: Generated<string>;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface ProjectMembers {
   can_approve_git: Generated<boolean>;
   created_at: Generated<Timestamp>;
@@ -111,6 +126,7 @@ export interface YjsDocuments {
 export interface DB {
   accounts: Accounts;
   boards: Boards;
+  messages: Messages;
   project_members: ProjectMembers;
   projects: Projects;
   sessions: Sessions;

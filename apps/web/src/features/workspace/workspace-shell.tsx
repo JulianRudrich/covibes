@@ -19,6 +19,8 @@ type WorkspaceShellProps = {
   activePhase: Phase;
   members: WorkspaceMember[];
   user: SessionUser | null;
+  /** Content of the chat panel: its header row and the chat. */
+  chat: ReactNode;
   /** Content of the canvas panel: its header row and the canvas. */
   canvas: ReactNode;
 };
@@ -29,6 +31,7 @@ export function WorkspaceShell({
   activePhase,
   members,
   user,
+  chat,
   canvas,
 }: WorkspaceShellProps) {
   const { t } = useTranslation();
@@ -43,12 +46,7 @@ export function WorkspaceShell({
       />
 
       <main className="grid min-h-0 grid-cols-[380px_minmax(0,1fr)_300px] gap-2 px-2 pb-2">
-        <Panel aria-label={t('panels.chat')}>
-          <PanelHeader className="justify-between">
-            <PanelTitle>{t('panels.chat')}</PanelTitle>
-          </PanelHeader>
-          <EmptyHint>{t('empty.chat')}</EmptyHint>
-        </Panel>
+        <Panel aria-label={t('panels.chat')}>{chat}</Panel>
 
         <Panel aria-label={t('panels.canvas')}>{canvas}</Panel>
 

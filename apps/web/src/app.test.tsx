@@ -13,7 +13,18 @@ vi.mock('@web/lib/auth-client', () => ({
   },
 }));
 
-// The live canvas needs the collaboration server; its parts have their own tests.
+// Canvas and chat need the live server; their parts have their own tests.
+vi.mock('@web/features/chat/chat-panel', async () => {
+  const { createElement } = await import('react');
+  return {
+    ChatPanel: (props: { projectId: string; readOnly: boolean }) =>
+      createElement('div', {
+        'data-testid': 'chat-panel',
+        'data-project': props.projectId,
+        'data-readonly': String(props.readOnly),
+      }),
+  };
+});
 vi.mock('@web/features/canvas/canvas-panel', async () => {
   const { createElement } = await import('react');
   return {
@@ -224,15 +235,19 @@ describe('with a session', () => {
     const canvas = screen.getByTestId('canvas-panel');
     expect(canvas).toHaveAttribute('data-board', DETAILS.boards[0]?.id);
     expect(canvas).toHaveAttribute('data-readonly', 'false');
+    const chat = screen.getByTestId('chat-panel');
+    expect(chat).toHaveAttribute('data-project', PROJECT.id);
+    expect(chat).toHaveAttribute('data-readonly', 'false');
   });
 
-  it('opens the canvas read-only for viewers', async () => {
+  it('opens canvas and chat read-only for viewers', async () => {
     stubApi({
       [`GET /api/projects/${PROJECT.id}`]: () => ({ body: { ...DETAILS, role: 'viewer' } }),
     });
     renderApp(`/p/${PROJECT.id}`);
 
     expect(await screen.findByTestId('canvas-panel')).toHaveAttribute('data-readonly', 'true');
+    expect(screen.getByTestId('chat-panel')).toHaveAttribute('data-readonly', 'true');
   });
 
   it('shows "Projekt nicht gefunden" for projects without access', async () => {

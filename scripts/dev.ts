@@ -1,5 +1,6 @@
 // `pnpm dev`: starts the local database (with migrations), then the server and, once the server
-// answers, the web app (spec 02a). Ctrl+C stops server and web app first and the database last.
+// answers, the worker for agent runs and the web app (specs 02a and 07). Ctrl+C stops them first
+// and the database last.
 import { spawn, type ChildProcess } from 'node:child_process';
 
 import { startLocalDatabase } from '@covibes/db/local';
@@ -25,6 +26,9 @@ const childEnv: NodeJS.ProcessEnv = {
   DATABASE_URL: database.appUrl,
   DATABASE_ADMIN_URL: database.adminUrl,
   BETTER_AUTH_SECRET: database.secrets.betterAuthSecret,
+  // Server and worker share it; the worker uses it to draw on boards for the agents.
+  INTERNAL_TOKEN: database.secrets.internalToken,
+  COLLAB_URL: 'ws://127.0.0.1:3001/api/collab',
 };
 // A PORT from the caller (e.g. a preview tool) means the web app, which always runs on 5173.
 // The server keeps its own port, which the web app's proxy expects.
@@ -36,8 +40,8 @@ const isStopping = () => stopping;
 
 // pnpm is either a native binary or a JS entry for Node. Both start without a shell, also on Windows.
 const pnpmIsScript = /\.[cm]?js$/.test(pnpmEntry);
-function startPackage(pkg: string): void {
-  const args = ['--filter', pkg, 'dev'];
+function startPackage(pkg: string, script = 'dev'): void {
+  const args = ['--filter', pkg, script];
   const child = spawn(
     pnpmIsScript ? process.execPath : pnpmEntry,
     pnpmIsScript ? [pnpmEntry, ...args] : args,
@@ -96,6 +100,7 @@ process.on('SIGTERM', () => void stop(0));
 
 startPackage('@covibes/server');
 if (await waitForServer()) {
+  startPackage('@covibes/server', 'dev:worker');
   startPackage('@covibes/web');
 } else if (!isStopping()) {
   console.error(`The server did not answer on ${SERVER_HEALTH_URL}.`);

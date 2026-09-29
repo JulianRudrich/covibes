@@ -1,8 +1,31 @@
-import { BLOCK_SIZE, type CanvasEdge, type CanvasNode, type Position } from '@covibes/shared';
+import type { AgentKey, CanvasEdge, CanvasNode } from '@covibes/shared';
 import type { Edge, Node } from '@xyflow/react';
 
-export type BlockNodeData = { label: string; subtitle: string };
+export type BlockNodeData = {
+  label: string;
+  subtitle: string;
+  /** The agent that made the last change, or null when it was a human. */
+  changedByAgent: AgentKey | null;
+  lastChangedAt: string;
+};
 export type BlockFlowNode = Node<BlockNodeData, 'block'>;
+
+/** How long a block shows that an agent just changed it (spec 07). */
+export const JUST_DRAWN_MS = 5000;
+
+/**
+ * Milliseconds for which a block still shows the state "just changed by AI" at `now`: 0 after a
+ * human change or once the agent's change is 5 s old. A change stamped in the future (the clocks of
+ * server and browser differ) counts as made right now, so the state never lasts longer than 5 s.
+ */
+export function justDrawnRemainingMs(
+  data: Pick<BlockNodeData, 'changedByAgent' | 'lastChangedAt'>,
+  now: number,
+): number {
+  if (data.changedByAgent === null) return 0;
+  const age = Math.max(0, now - Date.parse(data.lastChangedAt));
+  return Math.max(0, JUST_DRAWN_MS - age);
+}
 
 /**
  * React Flow nodes from the Y.Doc snapshot. UI state that only lives in this browser (selection,
@@ -22,7 +45,12 @@ export function toFlowNodes(
         id: node.id,
         type: 'block',
         position: node.position,
-        data: { label: node.label, subtitle: node.subtitle },
+        data: {
+          label: node.label,
+          subtitle: node.subtitle,
+          changedByAgent: node.lastChangedBy.kind === 'agent' ? node.lastChangedBy.agentKey : null,
+          lastChangedAt: node.lastChangedAt,
+        },
       };
       const local = previousById.get(node.id);
       if (!local) return flowNode;
@@ -43,50 +71,4 @@ export function toFlowEdges(canvasEdges: readonly CanvasEdge[]): Edge[] {
     targetHandle: edge.targetHandle,
     label: edge.label,
   }));
-}
-
-/** Grid of the canvas background; new blocks snap to it. */
-export const GRID_SIZE = 20;
-const MAX_RINGS = 12;
-
-function snap(value: number) {
-  return Math.round(value / GRID_SIZE) * GRID_SIZE;
-}
-
-function overlaps(position: Position, node: CanvasNode) {
-  const gap = GRID_SIZE;
-  return (
-    position.x < node.position.x + node.size.width + gap &&
-    position.x + BLOCK_SIZE.width + gap > node.position.x &&
-    position.y < node.position.y + node.size.height + gap &&
-    position.y + BLOCK_SIZE.height + gap > node.position.y
-  );
-}
-
-/**
- * Top-left position for a new block near `center` (usually the middle of the visible canvas) that
- * does not cover an existing node. Searches outwards on a block-sized grid, nearest spots first;
- * among equally near spots, below and to the right come before above and to the left.
- */
-export function findFreeSpot(nodes: readonly CanvasNode[], center: Position): Position {
-  const start = {
-    x: snap(center.x - BLOCK_SIZE.width / 2),
-    y: snap(center.y - BLOCK_SIZE.height / 2),
-  };
-  const stepX = BLOCK_SIZE.width + GRID_SIZE;
-  const stepY = BLOCK_SIZE.height + GRID_SIZE;
-
-  const offsets: { dx: number; dy: number; distance: number }[] = [];
-  for (let dy = -MAX_RINGS; dy <= MAX_RINGS; dy += 1) {
-    for (let dx = -MAX_RINGS; dx <= MAX_RINGS; dx += 1) {
-      offsets.push({ dx, dy, distance: Math.hypot(dx * stepX, dy * stepY) });
-    }
-  }
-  offsets.sort((a, b) => a.distance - b.distance || b.dy - a.dy || b.dx - a.dx);
-
-  for (const { dx, dy } of offsets) {
-    const candidate = { x: start.x + dx * stepX, y: start.y + dy * stepY };
-    if (!nodes.some((node) => overlaps(candidate, node))) return candidate;
-  }
-  return start;
 }

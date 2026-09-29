@@ -7,12 +7,17 @@ import { HTTPException } from 'hono/http-exception';
 import { apiError } from '@server/api/errors';
 import { messageRoutes } from '@server/api/messages';
 import { projectRoutes } from '@server/api/projects';
+import { runRoutes } from '@server/api/runs';
 import { AUTH_BASE_PATH, gitlabLoginEnabled, type Auth } from '@server/auth/auth';
 import type { Database } from '@server/db/database';
 import type { ServerEnv } from '@server/env';
 import type { MailSetup } from '@server/integrations/mail/mailer';
 import type { LivePublisher } from '@server/realtime/realtime';
+import { createRateLimiter } from '@server/rate-limit';
 import { securityHeaders, serveWebApp } from '@server/web-app';
+
+/** Messages one person may send per minute across all projects. */
+export const MESSAGES_PER_MINUTE = 20;
 
 /** Largest request body the API accepts. */
 export const API_BODY_LIMIT = 64 * 1024;
@@ -58,7 +63,9 @@ export function createApp({ env, db, auth, mail, live }: AppDeps): Hono {
     app.get('/api/dev/mails', (c) => c.json<DevMail[]>(outbox.list()));
   }
 
-  app.route('/api/projects/:projectId/messages', messageRoutes(db.app, auth, live));
+  const messageLimiter = createRateLimiter({ limit: MESSAGES_PER_MINUTE, windowMs: 60_000 });
+  app.route('/api/projects/:projectId/messages', messageRoutes(db.app, auth, live, messageLimiter));
+  app.route('/api/projects/:projectId/runs', runRoutes(db.app, auth));
   app.route('/api/projects', projectRoutes(db.app, auth));
 
   // In the Docker image the server also delivers the web app (spec 02b); locally Vite does.

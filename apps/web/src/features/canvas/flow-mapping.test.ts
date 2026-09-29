@@ -1,11 +1,29 @@
 import { BLOCK_SIZE, type Author, type CanvasNode } from '@covibes/shared';
 import { describe, expect, it } from 'vitest';
 
-import { findFreeSpot, toFlowNodes, type BlockFlowNode } from '@web/features/canvas/flow-mapping';
+import {
+  justDrawnRemainingMs,
+  toFlowNodes,
+  type BlockFlowNode,
+  type BlockNodeData,
+} from '@web/features/canvas/flow-mapping';
 
 const AUTHOR: Author = { kind: 'human', userId: '00000000-0000-4000-8000-000000000001' };
+const CHANGED_AT = '2026-09-29T10:00:00.000Z';
+const LOCAL_DATA: BlockNodeData = {
+  label: '',
+  subtitle: '',
+  changedByAgent: null,
+  lastChangedAt: CHANGED_AT,
+};
 
-function canvasNode(id: string, x: number, y: number, type: CanvasNode['type'] = 'block') {
+function canvasNode(
+  id: string,
+  x: number,
+  y: number,
+  type: CanvasNode['type'] = 'block',
+  lastChangedBy: Author = AUTHOR,
+) {
   const node: CanvasNode = {
     id,
     type,
@@ -16,19 +34,10 @@ function canvasNode(id: string, x: number, y: number, type: CanvasNode['type'] =
     subtitle: '',
     frameId: null,
     createdBy: AUTHOR,
-    lastChangedBy: AUTHOR,
-    lastChangedAt: '2026-09-29T10:00:00.000Z',
+    lastChangedBy,
+    lastChangedAt: CHANGED_AT,
   };
   return node;
-}
-
-function isSeparated(spot: { x: number; y: number }, node: CanvasNode) {
-  return (
-    spot.x >= node.position.x + node.size.width ||
-    spot.x + BLOCK_SIZE.width <= node.position.x ||
-    spot.y >= node.position.y + node.size.height ||
-    spot.y + BLOCK_SIZE.height <= node.position.y
-  );
 }
 
 describe('toFlowNodes', () => {
@@ -39,8 +48,17 @@ describe('toFlowNodes', () => {
       id: 'a',
       type: 'block',
       position: { x: 40, y: 60 },
-      data: { label: 'Block a', subtitle: '' },
+      data: { label: 'Block a', subtitle: '', changedByAgent: null, lastChangedAt: CHANGED_AT },
     });
+  });
+
+  it('carries the agent of the last change, so the block can show that it was just drawn', () => {
+    const [node] = toFlowNodes(
+      [canvasNode('a', 0, 0, 'block', { kind: 'agent', agentKey: 'moderator' })],
+      [],
+    );
+
+    expect(node?.data).toMatchObject({ changedByAgent: 'moderator', lastChangedAt: CHANGED_AT });
   });
 
   it('leaves out node types that are not rendered yet', () => {
@@ -55,7 +73,7 @@ describe('toFlowNodes', () => {
         id: 'a',
         type: 'block',
         position: { x: 0, y: 0 },
-        data: { label: '', subtitle: '' },
+        data: LOCAL_DATA,
         selected: true,
         measured: { width: 180, height: 96 },
       },
@@ -73,7 +91,7 @@ describe('toFlowNodes', () => {
         id: 'a',
         type: 'block',
         position: { x: 300, y: 200 },
-        data: { label: '', subtitle: '' },
+        data: LOCAL_DATA,
         dragging: true,
       },
     ];
@@ -83,36 +101,27 @@ describe('toFlowNodes', () => {
   });
 });
 
-describe('findFreeSpot', () => {
-  it('centers the block on the given point, snapped to the grid', () => {
-    expect(findFreeSpot([], { x: 390, y: 308 })).toEqual({ x: 300, y: 260 });
+describe('justDrawnRemainingMs', () => {
+  const changedAt = Date.parse(CHANGED_AT);
+  const byAgent = { changedByAgent: 'critic', lastChangedAt: CHANGED_AT } as const;
+
+  it('counts down 5 s from an agent change', () => {
+    expect(justDrawnRemainingMs(byAgent, changedAt)).toBe(5000);
+    expect(justDrawnRemainingMs(byAgent, changedAt + 3000)).toBe(2000);
   });
 
-  it('moves away from a node that covers the spot', () => {
-    const taken = canvasNode('a', 300, 260);
-    const spot = findFreeSpot([taken], { x: 400, y: 300 });
-
-    expect(isSeparated(spot, taken)).toBe(true);
+  it('is over once the agent change is 5 s old', () => {
+    expect(justDrawnRemainingMs(byAgent, changedAt + 5000)).toBe(0);
+    expect(justDrawnRemainingMs(byAgent, changedAt + 60_000)).toBe(0);
   });
 
-  it('puts the next block right below the previous one', () => {
-    const first = findFreeSpot([], { x: 390, y: 308 });
-    const second = findFreeSpot([canvasNode('a', first.x, first.y)], { x: 390, y: 308 });
-
-    expect(second).toEqual({ x: first.x, y: first.y + BLOCK_SIZE.height + 20 });
+  it('never applies to a human change', () => {
+    expect(
+      justDrawnRemainingMs({ changedByAgent: null, lastChangedAt: CHANGED_AT }, changedAt),
+    ).toBe(0);
   });
 
-  it('finds a spot outside a crowded area', () => {
-    const crowd = [];
-    for (let row = -1; row <= 1; row += 1) {
-      for (let column = -1; column <= 1; column += 1) {
-        crowd.push(
-          canvasNode(`${String(row)}${String(column)}`, 300 + column * 200, 260 + row * 116),
-        );
-      }
-    }
-    const spot = findFreeSpot(crowd, { x: 400, y: 300 });
-
-    expect(crowd.every((node) => isSeparated(spot, node))).toBe(true);
+  it('treats a change stamped in the future as made right now', () => {
+    expect(justDrawnRemainingMs(byAgent, changedAt - 30_000)).toBe(5000);
   });
 });

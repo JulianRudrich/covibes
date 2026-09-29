@@ -110,7 +110,8 @@
     "newBlock": "New block",
     "loading": "Loading canvas …",
     "reconnecting": "Reconnecting …",
-    "denied": "You no longer have access to this canvas."
+    "denied": "You no longer have access to this canvas.",
+    "justDrawn": "Just drawn"
   },
   "chat": {
     "messages": "Messages",
@@ -128,6 +129,10 @@
     "readOnly": "You have read access.",
     "loadError": "The messages could not be loaded.",
     "typing": "{{name}} is typing",
-    "waiting": "{{count}} waiting"
+    "waiting": "{{count}} waiting",
+    "typingShort": "is typing",
+    "replyTo": "Reply to {{name}}",
+    "agentNeutral": "Agent · neutral",
+    "agentError": "The answer failed."
   }
 }

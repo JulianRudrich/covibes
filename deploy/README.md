@@ -9,6 +9,7 @@ This guide covers running a private Covibes instance on your own server (spec 02
 | `db` | PostgreSQL 18. Data lives in the volume `covibes_db-data`; the port is not published. |
 | `setup` | Runs once before every start: creates the database roles or updates their passwords and applies new migrations. Only this service knows the superuser password. |
 | `app` | Covibes: web app, API and WebSockets on **one** port (default `127.0.0.1:3000`). |
+| `worker` | Agent runs: takes jobs from the queue, calls Claude and streams the answers into the chat. It draws on boards through the app, with the shared `INTERNAL_TOKEN`. |
 
 Put a web server with HTTPS in front of it that forwards everything to `127.0.0.1:3000`, including WebSockets.
 
@@ -29,7 +30,8 @@ chmod 600 .env
 
 Fill in `.env`:
 - `APP_URL`: the public address, exactly as Covibes is opened in the browser, e.g. `https://covibes.example.org` (no trailing `/`)
-- `BETTER_AUTH_SECRET`, `POSTGRES_PASSWORD`, `COVIBES_ADMIN_PASSWORD`, `COVIBES_APP_PASSWORD`: each generated with `openssl rand -hex 32`
+- `BETTER_AUTH_SECRET`, `POSTGRES_PASSWORD`, `COVIBES_ADMIN_PASSWORD`, `COVIBES_APP_PASSWORD`, `INTERNAL_TOKEN`: each generated with `openssl rand -hex 32`
+- `ANTHROPIC_API_KEY`: an API key from the Claude Console for the agents. Other people use this instance, so a personal Claude subscription must not be used here; set a monthly spending limit in the Console.
 - at least one sign-in method, see the next section
 
 Then start:

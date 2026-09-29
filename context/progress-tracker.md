@@ -1,13 +1,13 @@
 # Progress Tracker
 
 ## Current phase
-**M0/M1: foundation and vertical slice.** Planning is complete (2026-09-27); the product is built spec by spec.
+**M1 completed (2026-09-29): the vertical slice runs.** Next is M2 (canvas); the product is built spec by spec.
 
 ## Current goal
-Build the product, starting with the vertical slice (specs 04 to 07). Covibes is developed locally; the public launch comes at the end.
+Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 07: AI gateway, worker and moderator (branch `spec/07-ai-moderator`)
+- nothing
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -60,15 +60,24 @@ Build the product, starting with the vertical slice (specs 04 to 07). Covibes is
   - server hardened after a review: WebSocket crashes fixed, body limit, CSRF protection
 
   Lint, type check, format, 316 tests and build pass; verified with two users (55 ms and about 0.3 s).
+- [x] **Spec 07 AI gateway, worker and moderator. M1 completed:**
+  - table `ai_runs` and a trigger that creates one run and one job per mention, in a serial queue per project and agent
+  - AI gateway with Claude through the Claude Agent SDK, isolated from Claude Code; model, tokens and cost stored per run
+  - worker as its own process: checks the Claude login at startup, streams answers into the chat, retries with a friendly note, resumes jobs of a worker that was ended
+  - moderator with a versioned prompt and the tool `add_block`, which draws live through the collaboration server
+  - chat shows streaming answers, "↳ Antwort an", typing and waiting; blocks drawn by an agent show "Just drawn"
+  - limits: 20 messages per minute and 20 live connections per user
+
+  Lint, type check, format, 410 tests and build pass; verified with `pnpm dev` and a second member: the block after 3.6 s, the second request waited, a run costs about $0.02 at list price.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **Spec 07:** AI gateway, worker and moderator; it completes the vertical slice (M1).
-3. What the owner contributes while building:
+1. **M2 specs:** work out specs 08 to 12 (canvas) in detail, then build them, starting with spec 08 (blocks and the four states).
+2. What the owner contributes while building:
    - designs for new screens in Claude Design, or approval to derive them from the existing building blocks
-   - **by spec 07:** the monthly Agent SDK credit of the Claude subscription activated (development runs on the subscription)
-4. **At the very end (public launch):** spec 35 (launch preparation): hosting location, OAuth application on GitLab.com, domain, legal texts, monitoring.
+   - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
+3. **At the very end (public launch):** spec 35 (launch preparation): hosting location, OAuth application on GitLab.com, domain, legal texts, monitoring.
 
 ## Open decisions
 - **Dark mode:** not decided yet.
@@ -92,7 +101,7 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **Tech stack:**
   - React app and the Covibes server (Hono, Better Auth, Hocuspocus, Graphile Worker) with PostgreSQL and RLS
   - local via `pnpm dev`, PostgreSQL without Docker; Docker image for self-hosting; fully self-hostable at any time (invariant 10)
-  - AI gateway with Claude via the Anthropic API first; more providers per agent later
+  - AI gateway with Claude through the Claude Agent SDK first (locally on the owner's subscription, an API key for every instance others use); more providers per agent later
 - **Frame:**
   - V1 is free with generous limits, subject to "Monetization" under open decisions.
   - Quality over cost.
@@ -145,3 +154,8 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-09-29, lesson from parallel work:** a coding agent started `pnpm dev` and applied a draft of migration 0004 to the local database; it was brought in line with the final file without losing data. Agents working in parallel must not start `pnpm dev` or touch the local database.
 - **2026-09-29, no EU-only rule:** decided by the owner. Covibes aims at international users, both as a portfolio project and as a product, so data does not have to stay in the EU. Claude is called through the Anthropic API (global routing, default model Claude Opus 5.5). A data processing agreement and no training on customer data remain required. EU processing can be added per project later via Google Vertex AI or AWS Bedrock if a customer needs it. Updated in `architecture.md`, `project-overview.md` and specs 00 and 07.
 - **2026-09-29, Claude through the subscription:** decided by the owner. The gateway uses the Claude Agent SDK, which runs locally on the owner's Claude subscription (monthly Agent SDK credit for own projects). Anthropic does not allow offering subscription login to other users, so every instance that others use needs an API key; switching is configuration only.
+- **2026-09-29, spec 07 implemented; M1 completed.** The vertical slice runs: `@Moderator` answers streamed in every open browser and draws on the canvas live. Details are in the spec under "Implementation notes":
+  - The worker is its own process. It reaches boards through the collaboration server with the internal token instead of a Hocuspocus direct connection.
+  - The worker checks the Claude login at startup without a model call and refuses to start without one; in production it requires an API key.
+  - Four coding agents started in parallel ran into the session rate limit, so the lead finished the work alone and in order.
+  - Not verified yet: the worker in the Docker image (Docker Desktop was not running; it needs an API key there).

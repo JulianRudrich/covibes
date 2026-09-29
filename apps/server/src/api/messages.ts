@@ -1,14 +1,10 @@
 import type { DB } from '@covibes/db';
 import {
-  AGENT_KEYS,
   MESSAGE_PAGE_SIZE,
-  MESSAGE_STATUSES,
   parseMentions,
   projectIdSchema,
   sendMessageInputSchema,
-  type AgentKey,
   type ChatMessage,
-  type MessageStatus,
 } from '@covibes/shared';
 import { Hono } from 'hono';
 import type { Transaction } from 'kysely';
@@ -16,61 +12,10 @@ import type { Transaction } from 'kysely';
 import { apiError } from '@server/api/errors';
 import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
+import { selectMessages, toMessage } from '@server/chat/rows';
 import { withUser, type AppDb } from '@server/db/database';
 import type { LivePublisher } from '@server/realtime/realtime';
-
-function isAgentKey(value: string | null): value is AgentKey {
-  return (AGENT_KEYS as readonly (string | null)[]).includes(value);
-}
-
-function isStatus(value: string): value is MessageStatus {
-  return (MESSAGE_STATUSES as readonly string[]).includes(value);
-}
-
-function selectMessages(trx: Transaction<DB>) {
-  return trx
-    .selectFrom('messages')
-    .leftJoin('users', 'users.id', 'messages.author_user_id')
-    .select([
-      'messages.id',
-      'messages.project_id',
-      'messages.author_kind',
-      'messages.author_user_id',
-      'messages.author_agent_key',
-      'users.name as author_name',
-      'messages.content',
-      'messages.mentions',
-      'messages.reply_to',
-      'messages.status',
-      'messages.created_at',
-      'messages.updated_at',
-    ]);
-}
-
-type MessageRow = Awaited<ReturnType<ReturnType<typeof selectMessages>['executeTakeFirstOrThrow']>>;
-
-/** The API form of a row. Agents that this version does not know yet are left out. */
-function toMessage(row: MessageRow): ChatMessage | undefined {
-  let author: ChatMessage['author'];
-  if (row.author_kind === 'agent') {
-    if (!isAgentKey(row.author_agent_key)) return undefined;
-    author = { kind: 'agent', agentKey: row.author_agent_key };
-  } else {
-    if (!row.author_user_id) return undefined;
-    author = { kind: 'human', userId: row.author_user_id, name: row.author_name ?? '' };
-  }
-  return {
-    id: row.id,
-    projectId: row.project_id,
-    author,
-    content: row.content,
-    mentions: row.mentions.filter(isAgentKey),
-    replyTo: row.reply_to,
-    status: isStatus(row.status) ? row.status : 'complete',
-    createdAt: row.created_at.toISOString(),
-    updatedAt: row.updated_at.toISOString(),
-  };
-}
+import type { RateLimiter } from '@server/rate-limit';
 
 function membership(trx: Transaction<DB>, projectId: string, userId: string) {
   return trx
@@ -85,7 +30,7 @@ function membership(trx: Transaction<DB>, projectId: string, userId: string) {
  * `/api/projects/:projectId/messages` (spec 06). Reads and writes through `withUser`, so RLS checks
  * every row; the explicit role check only makes the answers clearer (403 for viewers).
  */
-export function messageRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
+export function messageRoutes(db: AppDb, auth: Auth, live: LivePublisher, limiter: RateLimiter) {
   const routes = new Hono<{ Variables: SessionVariables }>();
   routes.use(sessionMiddleware(auth));
 
@@ -120,6 +65,8 @@ export function messageRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
     const body: unknown = await c.req.json().catch(() => undefined);
     const input = sendMessageInputSchema.safeParse(body);
     if (!input.success) return apiError(c, 'invalid_input');
+    // Mentions start paid agent runs, so nobody may flood the chat.
+    if (!limiter.take(user.id)) return apiError(c, 'too_many_requests');
     const { id, content } = input.data;
 
     const result = await withUser(db, user.id, async (trx) => {

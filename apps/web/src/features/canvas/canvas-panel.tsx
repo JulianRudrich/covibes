@@ -1,6 +1,6 @@
 import '@xyflow/react/dist/base.css';
 
-import { addBlock, readNodes, type Author } from '@covibes/shared';
+import { addBlock, findFreeSpot, GRID_SIZE, readNodes, type Author } from '@covibes/shared';
 import {
   Background,
   BackgroundVariant,
@@ -19,7 +19,6 @@ import { PanelHeader } from '@web/components/ui/panel';
 import type { AwarenessUser } from '@web/features/canvas/awareness';
 import { BlockNode } from '@web/features/canvas/block-node';
 import type { BoardConnection } from '@web/features/canvas/board-connection';
-import { findFreeSpot, GRID_SIZE } from '@web/features/canvas/flow-mapping';
 import { LiveCursor } from '@web/features/canvas/live-cursor';
 import { useBoardDoc } from '@web/features/canvas/use-board-doc';
 import { useLiveCursors } from '@web/features/canvas/use-live-cursors';

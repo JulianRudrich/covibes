@@ -1,0 +1,32 @@
+import { defineEnv } from '@covibes/shared';
+import { z } from 'zod';
+
+/** Environment of the worker process (spec 07); it shares `.env` files with the server. */
+export const workerEnvSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    /** The web app's address; the collaboration server only accepts its origin. */
+    APP_URL: z.url().default('http://localhost:5173'),
+    /** Role covibes_admin: the job queue, runs and agent messages. */
+    DATABASE_ADMIN_URL: z.url(),
+    /** Shared secret of server and worker; with it the worker draws on boards for agents. */
+    INTERNAL_TOKEN: z.string().min(32),
+    /** WebSocket URL of the server's collaboration endpoint. */
+    COLLAB_URL: z.url({ protocol: /^wss?$/ }).default('ws://127.0.0.1:3001/api/collab'),
+    /**
+     * Read by the Claude Agent SDK itself. Unset, Claude runs on the local Claude Code login; an
+     * instance other people use needs the key (architecture "AI providers").
+     */
+    ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  })
+  .refine((env) => env.NODE_ENV !== 'production' || Boolean(env.ANTHROPIC_API_KEY), {
+    message:
+      'Production needs ANTHROPIC_API_KEY: a personal Claude subscription must not serve other people',
+    path: ['ANTHROPIC_API_KEY'],
+  });
+
+export type WorkerEnv = z.output<typeof workerEnvSchema>;
+
+export function loadWorkerEnv(source: Record<string, unknown> = process.env): WorkerEnv {
+  return defineEnv(workerEnvSchema, source);
+}

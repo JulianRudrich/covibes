@@ -88,7 +88,6 @@ describe('ChatMessageView', () => {
   });
 
   it.each([
-    ['moderator', 'Moderator', 'M'],
     ['backend', 'Backend', 'B'],
     ['critic', 'Kritiker', 'K'],
     ['data', 'Daten', 'D'],
@@ -105,6 +104,24 @@ describe('ChatMessageView', () => {
       `bg-agent-${key}-tint`,
       `text-agent-${key}-dark`,
     );
+  });
+
+  it('shows the moderator in its card with the badge "Agent · neutral"', () => {
+    render(<ChatMessageView item={agentMessage('moderator')} isOwn={false} />);
+    const card = screen.getByRole('article', { name: 'Moderator Agent · neutral 14:05' });
+
+    expect(card).toHaveClass(
+      'rounded-panel',
+      'border-agent-moderator-border',
+      'bg-agent-moderator-tint-2',
+      'p-3',
+    );
+    const avatar = card.querySelector('[role="img"]');
+    expect(avatar).toHaveClass('bg-agent-moderator', 'size-6', 'rounded-btn-s');
+    expect(avatar).toHaveTextContent('M');
+    expect(within(card).getByText('Moderator')).toHaveClass('text-agent-moderator-dark');
+    expect(within(card).getByText('Agent · neutral')).toHaveClass('bg-agent-moderator-tint');
+    expect(within(card).getByText('14:05')).toHaveClass('ml-auto');
   });
 
   it('ignores "isOwn" for agents', () => {
@@ -187,15 +204,65 @@ describe('ChatMessageView', () => {
     expect(within(text).getByText('@Daten')).toHaveClass('bg-agent-data-tint');
   });
 
-  it('renders a streaming message as it is', () => {
+  it('shows a streaming answer with typing dots instead of the time and a blinking caret', () => {
     render(
       <ChatMessageView
         item={{ ...agentMessage('backend'), status: 'streaming', content: 'Ich schau' }}
         isOwn={false}
       />,
     );
+    const article = screen.getByRole('article', { name: 'Backend Agent schreibt' });
 
-    expect(messageText(screen.getByRole('article'))).toHaveTextContent('Ich schau');
+    expect(within(article).queryByText('14:05')).not.toBeInTheDocument();
+    expect(within(article).getByText('schreibt')).toHaveClass('text-agent-backend-dark');
+    const text = messageText(article);
+    expect(text).toHaveTextContent('Ich schau');
+    expect(text.querySelector('.animate-caret-blink')).toHaveClass('bg-agent-backend');
+  });
+
+  it('shows only the caret while a streaming answer is still empty', () => {
+    render(
+      <ChatMessageView
+        item={{ ...agentMessage('moderator'), status: 'streaming', content: '' }}
+        isOwn={false}
+      />,
+    );
+    const text = messageText(screen.getByRole('article'));
+
+    expect(text).toHaveTextContent('');
+    expect(text.querySelector('.animate-caret-blink')).toBeInTheDocument();
+  });
+
+  it('shows the finished answer without dots and caret', () => {
+    render(<ChatMessageView item={agentMessage('moderator')} isOwn={false} />);
+    const article = screen.getByRole('article');
+
+    expect(within(article).queryByText('schreibt')).not.toBeInTheDocument();
+    expect(article.querySelector('.animate-caret-blink')).not.toBeInTheDocument();
+  });
+
+  it('says whom an answer replies to', () => {
+    render(
+      <ChatMessageView item={agentMessage('moderator')} isOwn={false} replyToName="Sam Stone" />,
+    );
+
+    expect(screen.getByText('Antwort an Sam Stone')).toHaveClass('text-meta', 'text-text-3');
+  });
+
+  it('marks an agent answer that failed', () => {
+    render(
+      <ChatMessageView
+        item={{
+          ...agentMessage('moderator'),
+          status: 'error',
+          content: 'Ich konnte gerade nicht antworten.',
+        }}
+        isOwn={false}
+      />,
+    );
+
+    expect(screen.getByText('Die Antwort ist fehlgeschlagen.')).toHaveClass('text-danger');
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 });
 

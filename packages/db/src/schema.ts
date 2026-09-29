@@ -12,6 +12,8 @@ export type Generated<T> =
     ? ColumnType<S, I | undefined, U>
     : ColumnType<T, T | undefined, T>;
 
+export type Int8 = ColumnType<string, bigint | number | string, bigint | number | string>;
+
 export type Json = JsonValue;
 
 export type JsonArray = JsonValue[];
@@ -23,6 +25,8 @@ export type JsonObject = {
 export type JsonPrimitive = boolean | number | string | null;
 
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
+export type Numeric = ColumnType<string, number | string, number | string>;
 
 export type ProjectRole = 'editor' | 'owner' | 'viewer';
 
@@ -44,6 +48,24 @@ export interface Accounts {
   user_id: string;
 }
 
+export interface AiRuns {
+  agent_key: string;
+  cost_usd: Generated<Numeric>;
+  created_at: Generated<Timestamp>;
+  error: string | null;
+  finished_at: Timestamp | null;
+  id: Generated<string>;
+  input_tokens: Generated<number>;
+  model: string | null;
+  output_tokens: Generated<number>;
+  project_id: string;
+  provider: string | null;
+  reply_message_id: string | null;
+  started_at: Timestamp | null;
+  status: Generated<string>;
+  trigger_message_id: string | null;
+}
+
 export interface Boards {
   created_at: Generated<Timestamp>;
   id: Generated<string>;
@@ -51,6 +73,69 @@ export interface Boards {
   position: Generated<number>;
   project_id: string;
   title: string;
+}
+
+export interface GraphileWorkerJobs {
+  attempts: number | null;
+  created_at: Timestamp | null;
+  flags: Json | null;
+  id: Int8 | null;
+  key: string | null;
+  last_error: string | null;
+  locked_at: Timestamp | null;
+  locked_by: string | null;
+  max_attempts: number | null;
+  priority: number | null;
+  queue_name: string | null;
+  revision: number | null;
+  run_at: Timestamp | null;
+  task_identifier: string | null;
+  updated_at: Timestamp | null;
+}
+
+export interface GraphileWorkerMigrations {
+  breaking: Generated<boolean>;
+  id: number;
+  ts: Generated<Timestamp>;
+}
+
+export interface GraphileWorkerPrivateJobQueues {
+  id: Generated<number>;
+  is_available: Generated<boolean>;
+  locked_at: Timestamp | null;
+  locked_by: string | null;
+  queue_name: string;
+}
+
+export interface GraphileWorkerPrivateJobs {
+  attempts: Generated<number>;
+  created_at: Generated<Timestamp>;
+  flags: Json | null;
+  id: Generated<Int8>;
+  is_available: Generated<boolean>;
+  job_queue_id: number | null;
+  key: string | null;
+  last_error: string | null;
+  locked_at: Timestamp | null;
+  locked_by: string | null;
+  max_attempts: Generated<number>;
+  payload: Generated<Json>;
+  priority: Generated<number>;
+  revision: Generated<number>;
+  run_at: Generated<Timestamp>;
+  task_id: number;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface GraphileWorkerPrivateKnownCrontabs {
+  identifier: string;
+  known_since: Timestamp;
+  last_execution: Timestamp | null;
+}
+
+export interface GraphileWorkerPrivateTasks {
+  id: Generated<number>;
+  identifier: string;
 }
 
 export interface Messages {
@@ -125,7 +210,14 @@ export interface YjsDocuments {
 
 export interface DB {
   accounts: Accounts;
+  ai_runs: AiRuns;
   boards: Boards;
+  'graphile_worker._private_job_queues': GraphileWorkerPrivateJobQueues;
+  'graphile_worker._private_jobs': GraphileWorkerPrivateJobs;
+  'graphile_worker._private_known_crontabs': GraphileWorkerPrivateKnownCrontabs;
+  'graphile_worker._private_tasks': GraphileWorkerPrivateTasks;
+  'graphile_worker.jobs': GraphileWorkerJobs;
+  'graphile_worker.migrations': GraphileWorkerMigrations;
   messages: Messages;
   project_members: ProjectMembers;
   projects: Projects;

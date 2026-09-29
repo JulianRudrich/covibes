@@ -48,9 +48,31 @@ export const sendMessageInputSchema = z.object({
 });
 export type SendMessageInput = z.input<typeof sendMessageInputSchema>;
 
+export const AI_RUN_STATUSES = ['queued', 'running', 'done', 'error'] as const;
+export type AiRunStatus = (typeof AI_RUN_STATUSES)[number];
+
+/** One agent answering one message (spec 07): waiting in its queue, working, finished or failed. */
+export const aiRunSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  agentKey: z.enum(AGENT_KEYS),
+  status: z.enum(AI_RUN_STATUSES),
+  triggerMessageId: z.string().nullable(),
+  replyMessageId: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type AiRun = z.infer<typeof aiRunSchema>;
+
 /**
  * Events on the live channel of a project (`LIVE_PATH?project=…`). The web app validates what
  * arrives with this schema; events it does not know (e.g. from a newer server) are dropped.
+ * - `message`: a new or changed message (also an agent message that starts or finishes streaming)
+ * - `message_delta`: text an agent just wrote, to append to its streaming message
+ * - `run`: an agent run changed its status (waiting, working, done, failed)
  */
-export const liveEventSchema = z.object({ type: z.literal('message'), message: chatMessageSchema });
+export const liveEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('message'), message: chatMessageSchema }),
+  z.object({ type: z.literal('message_delta'), messageId: z.string(), text: z.string() }),
+  z.object({ type: z.literal('run'), run: aiRunSchema }),
+]);
 export type LiveEvent = z.infer<typeof liveEventSchema>;

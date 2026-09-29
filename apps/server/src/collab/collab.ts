@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 
@@ -19,7 +20,18 @@ export type CollabContext = {
 type CollabDeps = {
   db: AppDatabase;
   auth: Auth;
+  /** Shared secret of the worker (spec 07). Unset, no connection gets service access. */
+  internalToken?: string;
 };
+
+/** The worker, drawing on a board for an agent (spec 07). */
+const SERVICE_USER = { id: 'service', name: 'Covibes', role: 'editor' } as const;
+
+/** Constant-time comparison; hashing first gives both sides the same length. */
+function sameSecret(given: string, expected: string): boolean {
+  const hash = (value: string) => createHash('sha256').update(value).digest();
+  return timingSafeEqual(hash(given), hash(expected));
+}
 
 /** Refuses a document; the client learns "permission denied" and nothing more. */
 class AccessDenied extends Error {
@@ -34,9 +46,9 @@ function toUint8Array(data: RawData): Uint8Array {
 /**
  * Hocuspocus for the Y.Docs of the boards, on the same HTTP server as the API (spec 05).
  * Access is checked per document: signed in via the session cookie, member of the board's project;
- * viewers only read.
+ * viewers only read. The worker connects with the internal token to draw for agents.
  */
-export function createCollab({ db, auth }: CollabDeps) {
+export function createCollab({ db, auth, internalToken }: CollabDeps) {
   const pendingStores = new Set<Promise<unknown>>();
 
   const hocuspocus = new Hocuspocus<CollabContext>({
@@ -46,9 +58,22 @@ export function createCollab({ db, auth }: CollabDeps) {
     debounce: 2_000,
     maxDebounce: 10_000,
 
-    async onAuthenticate({ documentName, requestHeaders, connectionConfig }) {
+    async onAuthenticate({ documentName, requestHeaders, connectionConfig, token }) {
       const boardId = boardIdFromDocumentName(documentName);
       if (!boardId) throw new AccessDenied();
+
+      // Browsers send no token; a wrong one falls through to the normal session check.
+      if (internalToken && token && sameSecret(token, internalToken)) {
+        const board = await db.admin
+          .selectFrom('boards')
+          .where('id', '=', boardId)
+          .select('project_id')
+          .executeTakeFirst();
+        if (!board) throw new AccessDenied();
+        const context: CollabContext = { user: SERVICE_USER, boardId, projectId: board.project_id };
+        return context;
+      }
+
       const session = await auth.api.getSession({ headers: requestHeaders });
       if (!session) throw new AccessDenied();
 

@@ -65,6 +65,7 @@ export function MessageList({ items, currentUserId, onRetry }: MessageListProps)
   }
 
   const now = new Date().toISOString();
+  const byId = new Map(items.map((item) => [item.id, item]));
   return (
     <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto">
       <ol aria-label={t('chat.messages')} className="m-0 flex list-none flex-col gap-[18px] p-4">
@@ -72,6 +73,9 @@ export function MessageList({ items, currentUserId, onRetry }: MessageListProps)
           const previous = items[index - 1];
           const newDay = !previous || !isSameLocalDay(previous.createdAt, item.createdAt);
           const isOwn = item.author.kind === 'human' && item.author.userId === currentUserId;
+          // "↳ Reply to Sam" only for answers to a person whose message is in the list.
+          const replied = item.replyTo === null ? undefined : byId.get(item.replyTo);
+          const replyToName = replied?.author.kind === 'human' ? replied.author.name : undefined;
           return (
             <Fragment key={item.id}>
               {newDay ? (
@@ -84,7 +88,12 @@ export function MessageList({ items, currentUserId, onRetry }: MessageListProps)
                 />
               ) : null}
               <li>
-                <ChatMessageView item={item} isOwn={isOwn} onRetry={onRetry} />
+                <ChatMessageView
+                  item={item}
+                  isOwn={isOwn}
+                  replyToName={replyToName}
+                  onRetry={onRetry}
+                />
               </li>
             </Fragment>
           );

@@ -2,6 +2,7 @@ import type { ChatMessage, LiveEvent } from '@covibes/shared';
 import { queryOptions, type QueryClient } from '@tanstack/react-query';
 
 import { mergeServerMessages, upsertMessage } from '@web/features/chat/message-cache';
+import { applyRunEvent } from '@web/features/chat/runs';
 import { messagesQueryKey, type ChatItem } from '@web/features/chat/types';
 import { api } from '@web/lib/api';
 
@@ -24,10 +25,24 @@ export function messagesQuery(projectId: string) {
   });
 }
 
-/** Applies a live channel event to the cached messages; ignored while the list is not loaded. */
+/**
+ * Applies a live channel event to the cache: run changes to the runs (`applyRunEvent`), everything
+ * else to the messages, which ignore events while the list is not loaded. Text deltas are appended
+ * to their message only while it is still streaming, so a delta that arrives after the finished
+ * message cannot change the stored text.
+ */
 export function applyLiveEvent(queryClient: QueryClient, projectId: string, event: LiveEvent) {
-  queryClient.setQueryData<ChatItem[]>(
-    messagesQueryKey(projectId),
-    (items) => items && upsertMessage(items, event.message),
-  );
+  if (event.type === 'run') {
+    applyRunEvent(queryClient, projectId, event.run);
+    return;
+  }
+  queryClient.setQueryData<ChatItem[]>(messagesQueryKey(projectId), (items) => {
+    if (!items) return items;
+    if (event.type === 'message') return upsertMessage(items, event.message);
+    return items.map((item) =>
+      item.id === event.messageId && item.status === 'streaming'
+        ? { ...item, content: item.content + event.text }
+        : item,
+    );
+  });
 }

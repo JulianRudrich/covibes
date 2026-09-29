@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
@@ -15,18 +16,20 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
 
+import { createBoardClient } from '@server/collab/board-client';
 import { createCollab, type Collab } from '@server/collab/collab';
 import { closedByServer, rawUpgrade, UNMASKED_FRAME } from '@server/test-sockets';
 import { APP_URL, createTestServer } from '@server/testing';
 import { attachWebSockets } from '@server/websockets';
 
 const test = createTestServer();
+const INTERNAL_TOKEN = 'internal-token-for-the-tests-0123456789';
 let collab: Collab;
 let server: Server;
 let port = 0;
 
 async function startServer() {
-  collab = createCollab({ db: test.db, auth: test.auth });
+  collab = createCollab({ db: test.db, auth: test.auth, internalToken: INTERNAL_TOKEN });
   const listener = getRequestListener(test.app.fetch);
   server = createServer((request, response) => {
     void listener(request, response);
@@ -229,5 +232,68 @@ describe('robustness', () => {
     await closed;
     const health = await fetch(`http://127.0.0.1:${String(port)}/health`);
     expect(health.ok).toBe(true);
+  });
+});
+
+describe('the worker', () => {
+  function boards(token = INTERNAL_TOKEN, onPort = port) {
+    return createBoardClient({
+      collabUrl: `ws://127.0.0.1:${String(onPort)}${test.env.COLLAB_PATH}`,
+      appUrl: APP_URL,
+      token,
+      timeoutMs: 5_000,
+    });
+  }
+  const moderator: Author = { kind: 'agent', agentKey: 'moderator' };
+
+  it('draws on a board with the internal token, and members see it live', async () => {
+    const owner = await test.signIn();
+    const { boardId } = await projectWithBoard(owner);
+    const member = connect(boardId, owner);
+    expect(await member.result).toBe('ok');
+
+    await boards().withBoard(boardId, (doc) => {
+      addBlock(doc, { id: randomUUID(), position: { x: 0, y: 0 }, label: 'API' }, moderator);
+    });
+
+    await until(() => readNodes(member.doc).some((node) => node.label === 'API'));
+    expect(readNodes(member.doc)[0]?.createdBy).toEqual(moderator);
+  });
+
+  it('is refused with a wrong token', async () => {
+    const owner = await test.signIn();
+    const { boardId } = await projectWithBoard(owner);
+
+    await expect(
+      boards('a-wrong-token-that-is-long-enough-000000').withBoard(boardId, () => undefined),
+    ).rejects.toThrow(/refused/);
+  });
+
+  it('cannot open boards that do not exist', async () => {
+    await expect(boards().withBoard(randomUUID(), () => undefined)).rejects.toThrow(/refused/);
+  });
+
+  it('gets no service access from a server without an internal token', async () => {
+    const owner = await test.signIn();
+    const { boardId } = await projectWithBoard(owner);
+    const plain = createCollab({ db: test.db, auth: test.auth });
+    const plainServer = createServer();
+    attachWebSockets(plainServer, {
+      appUrl: test.env.APP_URL,
+      routes: new Map([[test.env.COLLAB_PATH, plain.handleUpgrade]]),
+    });
+    await new Promise<void>((resolve) => {
+      plainServer.listen(0, '127.0.0.1', resolve);
+    });
+    try {
+      const plainPort = (plainServer.address() as AddressInfo).port;
+      await expect(
+        boards(INTERNAL_TOKEN, plainPort).withBoard(boardId, () => undefined),
+      ).rejects.toThrow(/refused/);
+    } finally {
+      await plain.close();
+      plainServer.closeAllConnections();
+      await new Promise((resolve) => plainServer.close(resolve));
+    }
   });
 });

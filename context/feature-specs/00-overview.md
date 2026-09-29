@@ -82,9 +82,9 @@ The prompt to the coding agent is always the same: "Read the spec, mark it as in
 ### 07 AI gateway, worker and moderator
 - **Goal:** complete the vertical slice:
   - Graphile Worker with the job `agent_turn` in one queue per agent
-  - `ai-gateway` with Claude via the Anthropic API
+  - `ai-gateway` with Claude through the Claude Agent SDK
   - streaming to everyone over the live channel
-  - a first canvas tool that creates a block through a direct connection
+  - a first canvas tool that creates a block through the collaboration server
   - usage metering per call
 - **Needs:** 05, 06
 - **Design:** main screen (available)

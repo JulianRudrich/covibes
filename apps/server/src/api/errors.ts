@@ -8,6 +8,7 @@ const ERRORS = {
   not_found: { status: 404, message: 'Not found.' },
   invalid_input: { status: 400, message: 'Invalid input.' },
   too_large: { status: 413, message: 'Request too large.' },
+  too_many_requests: { status: 429, message: 'Too many requests, please wait a moment.' },
   internal: { status: 500, message: 'Something went wrong.' },
 } as const satisfies Record<ApiErrorCode, { status: number; message: string }>;
 

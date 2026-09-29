@@ -16,9 +16,27 @@ const DOT_COLOR: Record<AgentKey, string> = {
 
 const DOT_DELAYS = ['[animation-delay:0s]', '[animation-delay:0.16s]', '[animation-delay:0.32s]'];
 
+/** Three 4 px dots in the agent's color that bounce one after the other while it types. */
+export function TypingDots({ agent }: { agent: AgentKey }) {
+  return (
+    <span className="flex items-center gap-[3px]" aria-hidden="true">
+      {DOT_DELAYS.map((delay) => (
+        <span
+          key={delay}
+          className={cn(
+            'size-1 animate-typing-dot rounded-full motion-reduce:animate-none',
+            DOT_COLOR[agent],
+            delay,
+          )}
+        />
+      ))}
+    </span>
+  );
+}
+
 /**
- * Status pill in the chat header (handoff: "Backend is typing · 1 waiting"). Prepared here; agents
- * start typing and waiting with spec 07. Without anything to report it renders nothing.
+ * Status pill in the chat header (handoff: "Backend is typing · 1 waiting"), derived from the
+ * agent runs. Without anything to report it renders nothing.
  */
 export function ChatStatusPill({ status }: { status: ChatStatus | null }) {
   const { t } = useTranslation();
@@ -32,20 +50,7 @@ export function ChatStatusPill({ status }: { status: ChatStatus | null }) {
 
   return (
     <Pill>
-      {typing === null ? null : (
-        <span className="flex items-center gap-[3px]" aria-hidden="true">
-          {DOT_DELAYS.map((delay) => (
-            <span
-              key={delay}
-              className={cn(
-                'size-1 animate-typing-dot rounded-full motion-reduce:animate-none',
-                DOT_COLOR[typing],
-                delay,
-              )}
-            />
-          ))}
-        </span>
-      )}
+      {typing === null ? null : <TypingDots agent={typing} />}
       <span role="status">{parts.join(' · ')}</span>
     </Pill>
   );

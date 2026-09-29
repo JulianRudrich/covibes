@@ -31,9 +31,12 @@ export {
   type Position,
   type Size,
 } from './canvas/model';
+export { findFreeSpot, GRID_SIZE } from './canvas/layout';
 export { APP_NAME, COLLAB_PATH, LIVE_PATH } from './constants';
 export { defineEnv, EnvValidationError } from './env';
 export {
+  AI_RUN_STATUSES,
+  aiRunSchema,
   chatMessageSchema,
   liveEventSchema,
   MESSAGE_MAX_LENGTH,
@@ -41,6 +44,8 @@ export {
   MESSAGE_STATUSES,
   messageAuthorSchema,
   sendMessageInputSchema,
+  type AiRun,
+  type AiRunStatus,
   type ChatMessage,
   type LiveEvent,
   type MessageAuthor,

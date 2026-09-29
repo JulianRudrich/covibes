@@ -55,7 +55,7 @@ Exact package versions are in the `package.json` files and in the implementation
 covibes/
 ├── apps/
 │   ├── web/        React app: UI only, no secrets
-│   └── server/     Covibes server: auth, api, realtime, collab, worker, ai-gateway, agents, rules, integrations
+│   └── server/     Covibes server: auth, api, realtime, collab, worker and tasks, ai-gateway, agents, tools, rules, integrations
 ├── packages/
 │   ├── shared/     types, Zod schemas, canvas model, agent format, tool schemas
 │   └── db/         migrations, migration runner, local PostgreSQL, generated DB types, database tests
@@ -83,10 +83,11 @@ During development Vite forwards `/api` to the server. Web app and API therefore
 | `auth/` | Better Auth: sign-in, sessions, two-factor, rate limits; middleware that attaches the user to every request |
 | `api/` | Hono routes for projects, members, chat, approvals, exports, invitations, read-only links, GitLab connection and webhooks |
 | `realtime/` | WebSocket channels per project: new messages, AI streaming, queue status, presence |
-| `collab/` | Hocuspocus: auth hook (session and project role), persistence in `yjs_documents`, direct connections for changes by agents |
-| `worker/` | Graphile Worker: all jobs, i.e. agent runs, observer, debates, plan, MR review, summaries, mails, token refresh, cron |
+| `collab/` | Hocuspocus: auth hook (session and project role, or the worker's internal token), persistence in `yjs_documents`; the board client the worker uses to change boards for agents |
+| `worker.ts`, `tasks/` | Graphile Worker as its own process: all jobs, i.e. agent runs, observer, debates, plan, MR review, summaries, mails, token refresh, cron |
 | `ai-gateway/` | the only path to models: provider registry, streaming, usage metering, limits, prompt caching |
-| `agents/` | agent runner, prompts as versioned files, tools |
+| `agents/` | agent definitions and prompts as versioned files |
+| `tools/` | the agents' tools with Zod schemas, e.g. `add_block` |
 | `rules/` | rule engine: decides for every tool action whether it runs directly, becomes a proposal, goes into the approval queue or is rejected |
 | `integrations/` | GitLab, web search, email |
 | `db/` | connections (app role and admin role), `withUser` transaction for every request on behalf of a user |
@@ -110,14 +111,14 @@ During development Vite forwards `/api` to the server. Web app and API therefore
 4. The worker runs `agent_turn`:
    1. load the context
    2. let `ai-gateway` stream
-   3. send the deltas to the channel `project:{projectId}`; if the worker runs as a separate process, this goes through Postgres `NOTIFY`
+   3. send the deltas in batches of about 50 ms via Postgres `NOTIFY` (channel `covibes_live`); the server's live bridge forwards them to `project:{projectId}`
    4. write the finished message into `messages`
 5. Everyone sees the queue status (waiting or working) through `ai_runs` and the channel.
 
 ### Canvas
 - There is one Y.Doc per board (`board:{boardId}`). React Flow renders from the Y.Doc.
 - **Awareness** carries three things: cursors, presence and **locks**, i.e. the ids of the blocks a human is currently editing.
-- **Changes by agents:** the worker opens a direct connection to the Y.Doc. Before that, the rule engine checks the mode and the locks.
+- **Changes by agents:** the worker runs as its own process, so it connects to the server's collaboration endpoint like a browser, authenticated with the internal token instead of a session. The server stays the only owner of every Y.Doc, and the change reaches everyone at once. Before that, the rule engine checks the mode and the locks.
   - Changed elements carry `lastChangedBy` and `lastChangedAt`; the client highlights them briefly.
   - Change history and undo run through Yjs.
 - **Proposals and variants** live in Postgres as `proposals`, not in the Y.Doc.
@@ -180,7 +181,7 @@ An agent's instructions cannot change this table.
 
 ### Limits and usage
 - The `ai-gateway` checks the limits per project and user before every call.
-- It writes tokens and costs to `usage`, broken down by day, project, user, agent and model.
+- It writes tokens and costs to `usage`, broken down by day, project, user, agent and model. Until that table exists (spec 31), every run stores its model, tokens and cost in `ai_runs`.
 - Stable context comes first in the prompt so that prompt caching applies: agent instructions, criteria, decision log.
 
 ## Canvas model (Y.Doc)

@@ -8,6 +8,9 @@ import type { Auth } from '@server/auth/auth';
 import { withUser, type Database } from '@server/db/database';
 import { acceptUpgrade, fetchHeaders, rejectUpgrade } from '@server/websockets';
 
+/** Enough for many tabs and devices of one person, but not for a flood of sockets. */
+export const MAX_CONNECTIONS_PER_USER = 20;
+
 /** Dead connections (e.g. a laptop that went to sleep) are dropped after at most two intervals. */
 const HEARTBEAT_MS = 30_000;
 
@@ -22,11 +25,15 @@ export type LivePublisher = { publish: (projectId: string, event: LiveEvent) => 
  */
 export function createRealtime({ db, auth }: RealtimeDeps) {
   const channels = new Map<string, Set<WebSocket>>();
+  const connectionsPerUser = new Map<string, number>();
   const alive = new WeakSet<WebSocket>();
   const webSockets = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
 
   /** The project id if the caller may join its channel, otherwise the HTTP status to answer. */
-  async function authorize(request: IncomingMessage, url: URL): Promise<string | 401 | 404> {
+  async function authorize(
+    request: IncomingMessage,
+    url: URL,
+  ): Promise<{ projectId: string; userId: string } | 401 | 404 | 429> {
     const projectId = projectIdSchema.safeParse(url.searchParams.get('project'));
     if (!projectId.success) return 404;
     const session = await auth.api.getSession({ headers: fetchHeaders(request.headers) });
@@ -39,10 +46,13 @@ export function createRealtime({ db, auth }: RealtimeDeps) {
         .select('role')
         .executeTakeFirst(),
     );
-    return membership ? projectId.data : 404;
+    if (!membership) return 404;
+    if ((connectionsPerUser.get(session.user.id) ?? 0) >= MAX_CONNECTIONS_PER_USER) return 429;
+    return { projectId: projectId.data, userId: session.user.id };
   }
 
-  function join(projectId: string, webSocket: WebSocket) {
+  function join(projectId: string, userId: string, webSocket: WebSocket) {
+    connectionsPerUser.set(userId, (connectionsPerUser.get(userId) ?? 0) + 1);
     let channel = channels.get(projectId);
     if (!channel) {
       channel = new Set();
@@ -54,6 +64,9 @@ export function createRealtime({ db, auth }: RealtimeDeps) {
     webSocket.on('close', () => {
       channel.delete(webSocket);
       if (channel.size === 0) channels.delete(projectId);
+      const remaining = (connectionsPerUser.get(userId) ?? 1) - 1;
+      if (remaining > 0) connectionsPerUser.set(userId, remaining);
+      else connectionsPerUser.delete(userId);
     });
   }
 
@@ -65,7 +78,7 @@ export function createRealtime({ db, auth }: RealtimeDeps) {
           return;
         }
         acceptUpgrade(webSockets, request, socket, head, (webSocket) => {
-          join(result, webSocket);
+          join(result.projectId, result.userId, webSocket);
         });
       },
       (error: unknown) => {
@@ -102,6 +115,7 @@ export function createRealtime({ db, auth }: RealtimeDeps) {
     for (const webSocket of webSockets.clients) webSocket.terminate();
     webSockets.close();
     channels.clear();
+    connectionsPerUser.clear();
   }
 
   /** Number of open connections per project, for tests. */

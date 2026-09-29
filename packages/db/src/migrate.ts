@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { Logger, runMigrations as runQueueMigrations } from 'graphile-worker';
 import pg from 'pg';
 
 import { paths } from './paths';
@@ -33,8 +34,16 @@ export function readMigrations(dir = paths.migrations): Migration[] {
     });
 }
 
-/** Applies all pending migrations in order, each in its own transaction. Returns their names. */
+// Graphile Worker logs every migration step; ours report what they applied themselves.
+const quietLogger = new Logger(() => () => undefined);
+
+/**
+ * Applies all pending migrations in order, each in its own transaction. Returns their names.
+ * The job queue (Graphile Worker, spec 07) brings its own schema `graphile_worker`; it is installed
+ * first, so our migrations can refer to it and no job is ever added before the queue exists.
+ */
 export async function migrate(adminUrl: string, dir = paths.migrations): Promise<string[]> {
+  await runQueueMigrations({ connectionString: adminUrl, logger: quietLogger });
   const migrations = readMigrations(dir);
   const client = new pg.Client({ connectionString: adminUrl });
   await client.connect();

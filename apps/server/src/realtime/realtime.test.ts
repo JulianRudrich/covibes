@@ -168,6 +168,20 @@ describe('live channel', () => {
     expect(await open(projectId, owner, 'https://evil.example')).toBe(403);
   });
 
+  it('refuses more than 20 open connections of one person', async () => {
+    const owner = await test.signIn();
+    const projectId = await createProject(owner);
+    const sockets: WebSocket[] = [];
+    for (let count = 0; count < 20; count += 1) {
+      const opened = await open(projectId, owner);
+      if (typeof opened === 'number') throw new Error(`refused: ${String(opened)}`);
+      sockets.push(opened.socket);
+    }
+
+    expect(await open(projectId, owner)).toBe(429);
+    for (const socket of sockets) socket.close();
+  });
+
   it('forgets closed connections', async () => {
     const owner = await test.signIn();
     const projectId = await createProject(owner);

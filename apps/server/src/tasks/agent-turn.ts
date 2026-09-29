@@ -1,0 +1,443 @@
+import type { DB } from '@covibes/db';
+import { readNodes, type CanvasNode, type ChatMessage } from '@covibes/shared';
+import type { Task } from 'graphile-worker';
+import { sql, type Kysely } from 'kysely';
+import { z } from 'zod';
+
+import { agentDefinition, type AgentDefinition } from '@server/agents/definitions/moderator';
+import {
+  GatewayConfigError,
+  type AgentReplyRequest,
+  type AgentReplyResult,
+  type AgentTool,
+} from '@server/ai-gateway';
+import { isAgentKey, loadMessage, selectMessages, toMessage } from '@server/chat/rows';
+import type { BoardAccess } from '@server/collab/board-client';
+import { MAX_DELTA_LENGTH, notifyLive } from '@server/realtime/notifications';
+import { addBlockTool } from '@server/tools/add-block';
+
+/** Name of the job the database trigger creates for every mention (migration 0005). */
+export const AGENT_TURN_TASK = 'agent_turn';
+
+/** Messages of the conversation the agent sees (spec 07). */
+const CONTEXT_MESSAGES = 30;
+/** Streamed text reaches the chat in batches, about this often. */
+const FLUSH_MS = 50;
+/** Longest message content (database constraint). */
+const MAX_CONTENT_LENGTH = 8000;
+const MAX_ERROR_LENGTH = 1000;
+
+const payloadSchema = z.object({ runId: z.uuid() });
+
+type Language = 'de' | 'en';
+
+/** What the agent says itself when it wrote no text or could not answer. */
+const NOTES: Record<Language, Record<'done' | 'retry' | 'failed' | 'unavailable', string>> = {
+  de: {
+    done: 'Erledigt.',
+    retry: 'Ich konnte gerade nicht antworten und versuche es gleich noch einmal.',
+    failed: 'Ich konnte leider nicht antworten. Bitte versuche es später noch einmal.',
+    unavailable:
+      'Ich kann gerade nicht antworten, weil der Zugang zur KI nicht eingerichtet ist. Bitte gib der Person Bescheid, die Covibes betreibt.',
+  },
+  en: {
+    done: 'Done.',
+    retry: "I couldn't answer just now and will try again in a moment.",
+    failed: "Sorry, I couldn't answer. Please try again later.",
+    unavailable:
+      "I can't answer right now because the access to the AI is not set up. Please tell the person who runs Covibes.",
+  },
+};
+
+export type AgentTurnDeps = {
+  /** Role covibes_admin: agent messages and runs are written by the worker only. */
+  admin: Kysely<DB>;
+  boards: BoardAccess;
+  /** The gateway's `streamAgentReply`; tests pass a scripted model. */
+  reply: (request: AgentReplyRequest) => Promise<AgentReplyResult>;
+  logger: { error: (message: string) => void };
+  flushMs?: number;
+};
+
+export type AgentTurnAttempt = {
+  /** Number of this attempt, starting at 1. */
+  attempt: number;
+  maxAttempts: number;
+  /** Fires when the worker shuts down; the run then fails and is retried later. */
+  signal?: AbortSignal;
+};
+
+type Run = {
+  id: string;
+  projectId: string;
+  triggerMessageId: string | null;
+  replyMessageId: string | null;
+};
+
+/**
+ * One answer of an agent (spec 07): mark the run as running, stream the reply into a new agent
+ * message while tools run along the way, then store text, usage and cost. Idempotent: a run that
+ * is finished is not executed again, and a retry reuses the reply message of the first attempt.
+ *
+ * Errors end in a friendly note in the message. While attempts remain, the run waits again and the
+ * error is rethrown, so Graphile Worker retries it; configuration errors are never retried.
+ */
+export async function runAgentTurn(
+  deps: AgentTurnDeps,
+  payload: unknown,
+  attempt: AgentTurnAttempt,
+): Promise<void> {
+  const { runId } = payloadSchema.parse(payload);
+  const row = await deps.admin
+    .selectFrom('ai_runs')
+    .select(['id', 'project_id', 'agent_key', 'status', 'trigger_message_id', 'reply_message_id'])
+    .where('id', '=', runId)
+    .executeTakeFirst();
+  // Gone with its project, or finished: nothing to do.
+  if (!row || row.status === 'done' || row.status === 'error') return;
+
+  const run: Run = {
+    id: row.id,
+    projectId: row.project_id,
+    triggerMessageId: row.trigger_message_id,
+    replyMessageId: row.reply_message_id,
+  };
+  const agent = isAgentKey(row.agent_key) ? agentDefinition(row.agent_key) : undefined;
+  if (!agent) {
+    // The trigger only creates runs for agents that can answer; this is a leftover of an old one.
+    await settleRun(deps.admin, run, { status: 'error', error: `No agent "${row.agent_key}"` });
+    return;
+  }
+
+  const project = await deps.admin
+    .selectFrom('projects')
+    .select(['name', 'language'])
+    .where('id', '=', run.projectId)
+    .executeTakeFirstOrThrow();
+  const language: Language = project.language === 'en' ? 'en' : 'de';
+
+  const messageId = await startRun(deps.admin, run, agent);
+  try {
+    const result = await converse(
+      deps,
+      { run, agent, projectName: project.name, messageId },
+      attempt,
+    );
+    await finishRun(deps.admin, run, messageId, result, NOTES[language].done);
+  } catch (error) {
+    const final = error instanceof GatewayConfigError || attempt.attempt >= attempt.maxAttempts;
+    const note =
+      error instanceof GatewayConfigError
+        ? NOTES[language].unavailable
+        : NOTES[language][final ? 'failed' : 'retry'];
+    await failRun(deps.admin, run, messageId, { final, note, reason: describe(error) });
+    if (!final) throw error;
+    deps.logger.error(`Run ${run.id} failed for good: ${describe(error)}`);
+  }
+}
+
+/** The Graphile Worker task for `agent_turn`. */
+export function agentTurnTask(deps: Omit<AgentTurnDeps, 'logger'>): Task {
+  return (payload, helpers) =>
+    runAgentTurn({ ...deps, logger: helpers.logger }, payload, {
+      attempt: helpers.job.attempts,
+      maxAttempts: helpers.job.max_attempts,
+      signal: helpers.abortSignal,
+    });
+}
+
+/** Marks the run as running and opens its reply message: new, or the one of an earlier attempt. */
+function startRun(admin: Kysely<DB>, run: Run, agent: AgentDefinition): Promise<string> {
+  return admin.transaction().execute(async (trx) => {
+    await trx
+      .updateTable('ai_runs')
+      .set({ status: 'running', started_at: sql`coalesce(started_at, now())`, error: null })
+      .where('id', '=', run.id)
+      .execute();
+
+    let messageId = run.replyMessageId;
+    if (messageId) {
+      await trx
+        .updateTable('messages')
+        .set({ content: '', status: 'streaming' })
+        .where('id', '=', messageId)
+        .execute();
+    } else {
+      const inserted = await trx
+        .insertInto('messages')
+        .values({
+          project_id: run.projectId,
+          author_kind: 'agent',
+          author_agent_key: agent.key,
+          content: '',
+          status: 'streaming',
+          reply_to: run.triggerMessageId,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      messageId = inserted.id;
+      await trx
+        .updateTable('ai_runs')
+        .set({ reply_message_id: messageId })
+        .where('id', '=', run.id)
+        .execute();
+    }
+
+    // The message first: the chat shows who is typing by the run's streaming reply.
+    await notifyLive(trx, { kind: 'message', projectId: run.projectId, messageId });
+    await notifyLive(trx, { kind: 'run', projectId: run.projectId, runId: run.id });
+    return messageId;
+  });
+}
+
+async function converse(
+  deps: AgentTurnDeps,
+  turn: { run: Run; agent: AgentDefinition; projectName: string; messageId: string },
+  attempt: AgentTurnAttempt,
+): Promise<AgentReplyResult> {
+  const { run, agent, messageId } = turn;
+  const [conversation, board] = await Promise.all([
+    loadConversation(deps.admin, run),
+    deps.admin
+      .selectFrom('boards')
+      .select('id')
+      .where('project_id', '=', run.projectId)
+      .where('kind', '=', 'main')
+      .executeTakeFirst(),
+  ]);
+  const nodes = board ? await deps.boards.withBoard(board.id, (doc) => readNodes(doc)) : [];
+
+  const tools: AgentTool[] = [];
+  if (board && agent.tools.includes('add_block')) {
+    tools.push(
+      addBlockTool({
+        boards: deps.boards,
+        boardId: board.id,
+        author: { kind: 'agent', agentKey: agent.key },
+      }),
+    );
+  }
+
+  const deltas = createDeltaStream(deps.flushMs ?? FLUSH_MS, async (text) => {
+    try {
+      await notifyLive(deps.admin, { kind: 'delta', projectId: run.projectId, messageId, text });
+    } catch (error) {
+      // Only the live preview suffers; the complete text is stored at the end.
+      deps.logger.error(`Run ${run.id} could not stream a delta: ${describe(error)}`);
+    }
+  });
+  try {
+    return await deps.reply({
+      model: agent.model,
+      system: agent.prompt,
+      prompt: buildPrompt({ projectName: turn.projectName, nodes, ...conversation }),
+      tools,
+      onText: deltas.push,
+      signal: attempt.signal,
+    });
+  } finally {
+    // All deltas are out before the message changes again, so none arrives after it.
+    await deltas.close();
+  }
+}
+
+/** The latest messages, oldest first, and the message the agent answers. */
+async function loadConversation(admin: Kysely<DB>, run: Run) {
+  const rows = await selectMessages(admin)
+    .where('messages.project_id', '=', run.projectId)
+    // Answers that are still streaming or failed are not part of the conversation.
+    .where('messages.status', '=', 'complete')
+    .orderBy('messages.created_at', 'desc')
+    .orderBy('messages.id', 'desc')
+    .limit(CONTEXT_MESSAGES)
+    .execute();
+  const messages = rows
+    .map(toMessage)
+    .filter((message) => message !== undefined)
+    .reverse();
+  const request =
+    messages.find((message) => message.id === run.triggerMessageId) ??
+    (run.triggerMessageId ? await loadMessage(admin, run.triggerMessageId) : undefined);
+  return { messages, request };
+}
+
+function authorName(message: ChatMessage): string {
+  if (message.author.kind === 'human') return message.author.name || 'Someone';
+  const { agentKey } = message.author;
+  return agentDefinition(agentKey)?.name ?? agentKey.charAt(0).toUpperCase() + agentKey.slice(1);
+}
+
+/** Chat text is data: it must not close the sections the prompt is built from. */
+function asData(text: string): string {
+  return text.replace(/<(\/?)(canvas|chat|request)>/gi, '‹$1$2›');
+}
+
+function describeNode(node: CanvasNode): string {
+  const subtitle = node.subtitle ? ` (${node.subtitle})` : '';
+  const position = `${String(Math.round(node.position.x))}, ${String(Math.round(node.position.y))}`;
+  return `- ${node.type} "${node.label}"${subtitle} at ${position}`;
+}
+
+/**
+ * The turn's context as one text: the canvas, the conversation and the message to answer. The
+ * agent's instructions come separately as the system prompt, so prompt caching applies to them.
+ */
+export function buildPrompt(context: {
+  projectName: string;
+  nodes: readonly CanvasNode[];
+  messages: readonly ChatMessage[];
+  request: ChatMessage | undefined;
+}): string {
+  const canvas =
+    context.nodes.length === 0
+      ? 'The main canvas is empty.'
+      : context.nodes.map(describeNode).join('\n');
+  const chat = context.messages
+    .map((message) => `${authorName(message)}: ${message.content}`)
+    .join('\n');
+  const request = context.request
+    ? `Answer this message from ${authorName(context.request)}:\n<request>\n${asData(context.request.content)}\n</request>`
+    : 'The message addressed to you was removed. Answer the latest message in the chat.';
+  return [
+    `Project: ${asData(context.projectName)}`,
+    `<canvas>\n${asData(canvas)}\n</canvas>`,
+    `<chat>\n${asData(chat)}\n</chat>`,
+    request,
+  ].join('\n\n');
+}
+
+/**
+ * Collects streamed text and sends it in batches, one after the other and at most
+ * `MAX_DELTA_LENGTH` per notification, so the chat updates smoothly without a notification per
+ * token.
+ */
+export function createDeltaStream(flushMs: number, send: (text: string) => Promise<void>) {
+  let buffer = '';
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let sending = Promise.resolve();
+
+  function flush() {
+    clearTimeout(timer);
+    timer = undefined;
+    const text = buffer;
+    buffer = '';
+    if (!text) return;
+    sending = sending.then(async () => {
+      for (const chunk of splitText(text, MAX_DELTA_LENGTH)) await send(chunk);
+    });
+  }
+
+  return {
+    push: (text: string) => {
+      buffer += text;
+      timer ??= setTimeout(flush, flushMs);
+    },
+    /** Sends what is left and resolves once everything is sent. */
+    close: async () => {
+      flush();
+      await sending;
+    },
+  };
+}
+
+/** Splits text into pieces of at most `max` UTF-16 units, never inside a surrogate pair. */
+export function splitText(text: string, max: number): string[] {
+  const pieces: string[] = [];
+  let rest = text;
+  while (rest.length > max) {
+    const end = isHighSurrogate(rest.charCodeAt(max - 1)) ? max - 1 : max;
+    pieces.push(rest.slice(0, end));
+    rest = rest.slice(end);
+  }
+  if (rest) pieces.push(rest);
+  return pieces;
+}
+
+function isHighSurrogate(code: number): boolean {
+  return code >= 0xd800 && code <= 0xdbff;
+}
+
+function limitLength(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return `${(splitText(text, max - 1)[0] ?? '').trimEnd()}…`;
+}
+
+function describe(error: unknown): string {
+  return limitLength(error instanceof Error ? error.message : String(error), MAX_ERROR_LENGTH);
+}
+
+async function finishRun(
+  admin: Kysely<DB>,
+  run: Run,
+  messageId: string,
+  result: AgentReplyResult,
+  emptyNote: string,
+) {
+  const { usage } = result;
+  await admin.transaction().execute(async (trx) => {
+    await trx
+      .updateTable('messages')
+      .set({
+        // An agent that only drew still says something, and a message is never empty.
+        content: limitLength(result.text.trim() || emptyNote, MAX_CONTENT_LENGTH),
+        status: 'complete',
+      })
+      .where('id', '=', messageId)
+      .execute();
+    await trx
+      .updateTable('ai_runs')
+      .set({
+        status: 'done',
+        provider: result.provider,
+        model: result.model,
+        // All input the model processed, cached or not; the cost accounts for the difference.
+        input_tokens: usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens,
+        output_tokens: usage.outputTokens,
+        cost_usd: result.costUsd.toFixed(6),
+        error: null,
+        finished_at: sql`now()`,
+      })
+      .where('id', '=', run.id)
+      .execute();
+    await notifyLive(trx, { kind: 'message', projectId: run.projectId, messageId });
+    await notifyLive(trx, { kind: 'run', projectId: run.projectId, runId: run.id });
+  });
+}
+
+async function failRun(
+  admin: Kysely<DB>,
+  run: Run,
+  messageId: string,
+  failure: { final: boolean; note: string; reason: string },
+) {
+  await admin.transaction().execute(async (trx) => {
+    await trx
+      .updateTable('messages')
+      .set({ content: failure.note, status: 'error' })
+      .where('id', '=', messageId)
+      .execute();
+    await notifyLive(trx, { kind: 'message', projectId: run.projectId, messageId });
+    // A run that will be retried waits again; the chat shows it as waiting.
+    await settleRun(trx, run, {
+      status: failure.final ? 'error' : 'queued',
+      error: failure.reason,
+    });
+  });
+}
+
+async function settleRun(
+  db: Kysely<DB>,
+  run: Run,
+  outcome: { status: 'queued' | 'error'; error: string },
+) {
+  await db
+    .updateTable('ai_runs')
+    .set({
+      status: outcome.status,
+      error: outcome.error,
+      finished_at: outcome.status === 'error' ? sql`now()` : null,
+    })
+    .where('id', '=', run.id)
+    .execute();
+  await notifyLive(db, { kind: 'run', projectId: run.projectId, runId: run.id });
+}

@@ -27,6 +27,8 @@ services:
     <<: *image
     command: ['node', 'dist/setup.js']
     restart: 'no'
+    healthcheck:
+      disable: true
     environment:
       DATABASE_SUPERUSER_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
       COVIBES_ADMIN_PASSWORD: ${COVIBES_ADMIN_PASSWORD:?Set COVIBES_ADMIN_PASSWORD in deploy/.env}
@@ -48,12 +50,32 @@ services:
       GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID:-}
       GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Set INTERNAL_TOKEN in deploy/.env}
     ports:
       # Only reachable from this server by default: the web server with HTTPS forwards to it.
       - '${COVIBES_BIND:-127.0.0.1}:${COVIBES_PORT:-3000}:3000'
     depends_on:
       setup:
         condition: service_completed_successfully
+
+  # Agent runs (spec 07): takes jobs from the queue, calls Claude and writes answers and blocks.
+  worker:
+    <<: *image
+    command: ['node', 'dist/worker.js']
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+    environment:
+      DATABASE_ADMIN_URL: postgres://covibes_admin:${COVIBES_ADMIN_PASSWORD}@db:5432/covibes
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Set INTERNAL_TOKEN in deploy/.env}
+      # The worker draws on boards through the app's collaboration endpoint, as its own origin.
+      COLLAB_URL: ws://app:3000/api/collab
+      APP_URL: ${APP_URL}
+      # Other people use this instance, so it needs an API key; a Claude subscription must not be used.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY in deploy/.env}
+    depends_on:
+      app:
+        condition: service_healthy
 
 volumes:
   db-data:

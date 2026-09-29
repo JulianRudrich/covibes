@@ -110,7 +110,8 @@
     "newBlock": "Neuer Block",
     "loading": "Canvas wird geladen …",
     "reconnecting": "Verbindung wird wiederhergestellt …",
-    "denied": "Du hast keinen Zugriff mehr auf dieses Canvas."
+    "denied": "Du hast keinen Zugriff mehr auf dieses Canvas.",
+    "justDrawn": "Gerade gezeichnet"
   },
   "chat": {
     "messages": "Nachrichten",
@@ -128,6 +129,10 @@
     "readOnly": "Du hast Lesezugriff.",
     "loadError": "Die Nachrichten konnten nicht geladen werden.",
     "typing": "{{name}} schreibt",
-    "waiting": "{{count}} wartet"
+    "waiting": "{{count}} wartet",
+    "typingShort": "schreibt",
+    "replyTo": "Antwort an {{name}}",
+    "agentNeutral": "Agent · neutral",
+    "agentError": "Die Antwort ist fehlgeschlagen."
   }
 }

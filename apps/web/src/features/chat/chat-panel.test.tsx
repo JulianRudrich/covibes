@@ -1,6 +1,6 @@
-import type { ChatMessage, LiveEvent } from '@covibes/shared';
+import type { AiRun, ChatMessage, LiveEvent } from '@covibes/shared';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@web/components/ui/tooltip';
@@ -23,6 +23,7 @@ vi.mock('@web/features/realtime/live-channel', () => ({
 const PROJECT_ID = '0b6a0b52-8f55-4c4e-9f6b-4ad2b3b3c0de';
 const OLGA = { id: '11111111-1111-4111-8111-111111111111', name: 'Olga Owner' };
 const MESSAGES_URL = `/api/projects/${PROJECT_ID}/messages`;
+const RUNS_URL = `/api/projects/${PROJECT_ID}/runs`;
 
 function message(overrides: Partial<ChatMessage> & Pick<ChatMessage, 'id' | 'content'>) {
   const now = new Date().toISOString();
@@ -52,6 +53,7 @@ function stubChatApi(history: ChatMessage[]) {
     const method = init?.method ?? 'GET';
     let answer: { status?: number; body: unknown } = { status: 404, body: {} };
     if (url === MESSAGES_URL && method === 'GET') answer = { body: history };
+    if (url === RUNS_URL && method === 'GET') answer = { body: [] };
     if (url === MESSAGES_URL && method === 'POST') {
       const respond = posts.shift();
       if (respond) answer = respond(init);
@@ -182,5 +184,59 @@ describe('ChatPanel', () => {
 
     expect(await screen.findByText('Du hast Lesezugriff.')).toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('streams an agent answer live and shows who types and waits in the header', async () => {
+    const question = message({
+      id: 'q1',
+      content: '@Moderator, zeichne einen Block API',
+      author: { kind: 'human', userId: OLGA.id, name: OLGA.name },
+    });
+    stubChatApi([question]);
+    renderPanel();
+    await screen.findByText('@Moderator');
+    const emit = (event: LiveEvent) => {
+      act(() => {
+        live.handlers?.onEvent(event);
+      });
+    };
+    const queued: AiRun = {
+      id: 'r1',
+      projectId: PROJECT_ID,
+      agentKey: 'moderator',
+      status: 'queued',
+      triggerMessageId: 'q1',
+      replyMessageId: null,
+      createdAt: new Date().toISOString(),
+    };
+    const answer = message({
+      id: 'a1',
+      content: '',
+      status: 'streaming',
+      author: { kind: 'agent', agentKey: 'moderator' },
+      replyTo: 'q1',
+    });
+
+    emit({ type: 'run', run: queued });
+    expect(await screen.findByText('1 wartet')).toBeInTheDocument();
+
+    emit({ type: 'run', run: { ...queued, status: 'running', replyMessageId: 'a1' } });
+    emit({ type: 'message', message: answer });
+    emit({ type: 'message_delta', messageId: 'a1', text: 'Ich zeichne' });
+    emit({ type: 'message_delta', messageId: 'a1', text: ' den Block.' });
+
+    expect(await screen.findByText('Moderator schreibt')).toBeInTheDocument();
+    expect(screen.getByText('Ich zeichne den Block.')).toBeInTheDocument();
+    expect(screen.getByText('Antwort an Olga Owner')).toBeInTheDocument();
+
+    emit({
+      type: 'message',
+      message: { ...answer, status: 'complete', content: 'Ich habe den Block „API“ gezeichnet.' },
+    });
+    emit({ type: 'run', run: { ...queued, status: 'done', replyMessageId: 'a1' } });
+
+    expect(await screen.findByText('Ich habe den Block „API“ gezeichnet.')).toBeInTheDocument();
+    expect(screen.queryByText('Moderator schreibt')).not.toBeInTheDocument();
+    expect(screen.queryByText('Ich zeichne den Block.')).not.toBeInTheDocument();
   });
 });

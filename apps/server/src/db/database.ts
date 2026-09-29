@@ -5,11 +5,17 @@ import pg from 'pg';
 import type { ServerEnv } from '@server/env';
 
 export type AppDb = Kysely<DB>;
+export type AdminDb = Kysely<DB>;
 
 export type Database = {
   /** Role covibes_app: every request on behalf of a user. RLS applies, always via `withUser`. */
   app: AppDb;
-  /** Role covibes_admin: only for the login library (and later the worker). */
+  /**
+   * Role covibes_admin, never for requests on behalf of a user: the worker, the live bridge
+   * (reading what the worker announced) and the collaboration storage.
+   */
+  admin: AdminDb;
+  /** The admin role's pool, for the login library and raw queries (LISTEN, bytea). */
   adminPool: pg.Pool;
   close: () => Promise<void>;
 };
@@ -17,15 +23,23 @@ export type Database = {
 export function createDatabase(
   env: Pick<ServerEnv, 'DATABASE_URL' | 'DATABASE_ADMIN_URL'>,
 ): Database {
-  const app = new Kysely<DB>({
-    dialect: new PostgresDialect({ pool: new pg.Pool({ connectionString: env.DATABASE_URL }) }),
-  });
+  const appPool = new pg.Pool({ connectionString: env.DATABASE_URL });
   const adminPool = new pg.Pool({ connectionString: env.DATABASE_ADMIN_URL });
+  // An idle connection that breaks (e.g. a database restart) is replaced; it must not end the server.
+  for (const pool of [appPool, adminPool]) {
+    pool.on('error', (error) => {
+      console.error('A database connection failed', error);
+    });
+  }
+  const app = new Kysely<DB>({ dialect: new PostgresDialect({ pool: appPool }) });
+  const admin = new Kysely<DB>({ dialect: new PostgresDialect({ pool: adminPool }) });
   return {
     app,
+    admin,
     adminPool,
+    // Destroying the admin Kysely instance also ends its pool.
     close: async () => {
-      await Promise.all([app.destroy(), adminPool.end()]);
+      await Promise.all([app.destroy(), admin.destroy()]);
     },
   };
 }

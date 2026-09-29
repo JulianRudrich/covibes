@@ -2,7 +2,13 @@
 export type ApiErrorBody = { error: { code: ApiErrorCode; message: string } };
 
 export type ApiErrorCode =
-  'unauthorized' | 'forbidden' | 'not_found' | 'invalid_input' | 'too_large' | 'internal';
+  | 'unauthorized'
+  | 'forbidden'
+  | 'not_found'
+  | 'invalid_input'
+  | 'too_large'
+  | 'too_many_requests'
+  | 'internal';
 
 /** `GET /api/config`: settings the web app may know before login. */
 export type PublicConfig = {

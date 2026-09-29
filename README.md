@@ -24,7 +24,8 @@ pnpm dev
 
 1. the database (PostgreSQL 18) including migrations
 2. the server
-3. the web app
+3. the worker, which runs the agents
+4. the web app
 
 Ctrl+C stops everything; the data is kept. The very first start creates the database, which takes about ten seconds.
 
@@ -44,11 +45,12 @@ Ctrl+C stops everything; the data is kept. The very first start creates the data
   - Passwords are generated randomly per machine on the first start and stored in `.data/local-secrets.json`.
   - The `.data/` folder is never committed.
 - **Login:** by a link sent via email. Locally no mail is sent; it ends up in the development mailbox at `/dev/mails`, which only exists in development mode.
+- **Agents:** the worker calls Claude through the Claude Agent SDK. Locally it uses the Claude Code login on this machine, so the agents run on your Claude subscription. Without a login it does not start and says why: run `claude`, then `/login`, or set `ANTHROPIC_API_KEY` in `apps/server/.env.local`.
 - **This machine only:** database, server and web app are only reachable locally (`127.0.0.1` or `localhost`). If Windows asks whether `node.exe` or `postgres.exe` may access the network, **decline**.
 
 ### Settings
 
-Nothing has to be configured for local development. `pnpm dev` passes the database addresses and the session secret to the server.
+Nothing has to be configured for local development. `pnpm dev` passes the database addresses, the session secret and the internal token to server and worker.
 
 Optional values, for example for signing in with GitLab, are documented in `apps/server/.env.example`. They go into `apps/server/.env.local`, which is never committed.
 
@@ -85,7 +87,7 @@ These three commands only work while `pnpm dev` is stopped.
 
 | Command | Purpose |
 |---|---|
-| `pnpm dev` | start database, server and web app |
+| `pnpm dev` | start database, server, worker and web app |
 | `pnpm build` | production build of all apps |
 | `pnpm lint` | ESLint |
 | `pnpm typecheck` | TypeScript check of all packages |
@@ -100,7 +102,7 @@ These three commands only work while `pnpm dev` is stopped.
 
 ```
 apps/web         React app (Vite)
-apps/server      Covibes server (Hono): login and API; later realtime, collaboration and worker
+apps/server      Covibes server (Hono): login, API, live channel, collaboration; worker for the agents
 packages/db      migrations, local database, database tests
 packages/shared  shared types, schemas and helpers
 scripts/         start script for `pnpm dev`

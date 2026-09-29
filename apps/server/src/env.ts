@@ -39,6 +39,11 @@ export const serverEnvSchema = z
       ),
     /** Built web app to serve in production (Docker image); unset while Vite serves it. */
     WEB_DIST_DIR: z.string().min(1).optional(),
+    /**
+     * Shared secret of server and worker (spec 07): with it the worker connects to the canvas of a
+     * board to draw for an agent. Unset, the collaboration server accepts no such connection.
+     */
+    INTERNAL_TOKEN: z.string().min(32).optional(),
   })
   .refine((env) => Boolean(env.GITLAB_CLIENT_ID) === Boolean(env.GITLAB_CLIENT_SECRET), {
     message: 'GITLAB_CLIENT_ID and GITLAB_CLIENT_SECRET must be set together',

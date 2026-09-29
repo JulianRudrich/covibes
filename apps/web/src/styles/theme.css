@@ -124,6 +124,14 @@
 
   /* Motion: typing dots (handoff: 1.2 s, 0.16 s offset per dot) */
   --animate-typing-dot: typing-dot 1.2s ease-in-out infinite;
+  /* Streaming caret (handoff: blinks once per second) */
+  --animate-caret-blink: caret-blink 1s step-end infinite;
+
+  @keyframes caret-blink {
+    50% {
+      opacity: 0;
+    }
+  }
 
   @keyframes typing-dot {
     0%,

@@ -7,7 +7,7 @@
 Build the product, starting with the vertical slice (specs 04 to 07). Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- nothing; next up is spec 07
+- Spec 07: AI gateway, worker and moderator (branch `spec/07-ai-moderator`)
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

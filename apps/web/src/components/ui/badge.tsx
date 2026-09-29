@@ -6,8 +6,8 @@ import { cn } from '@web/lib/cn';
 const AGENT_TONE: Record<AgentKey, string> = {
   moderator: 'bg-agent-moderator-tint text-agent-moderator-dark',
   backend: 'bg-agent-backend-tint text-agent-backend-dark',
-  kritiker: 'bg-agent-kritiker-tint text-agent-kritiker-dark',
-  daten: 'bg-agent-daten-tint text-agent-daten-dark',
+  critic: 'bg-agent-critic-tint text-agent-critic-dark',
+  data: 'bg-agent-data-tint text-agent-data-dark',
 };
 
 type BadgeProps = { children: ReactNode; agent?: AgentKey; className?: string };

@@ -40,8 +40,8 @@ const AGENT_RADIUS: Record<AvatarSize, string> = {
 const AGENT_BACKGROUND: Record<AgentKey, string> = {
   moderator: 'bg-agent-moderator',
   backend: 'bg-agent-backend',
-  kritiker: 'bg-agent-kritiker',
-  daten: 'bg-agent-daten',
+  critic: 'bg-agent-critic',
+  data: 'bg-agent-data',
 };
 
 export function Avatar(props: AvatarProps) {

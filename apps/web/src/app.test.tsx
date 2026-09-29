@@ -13,6 +13,19 @@ vi.mock('@web/lib/auth-client', () => ({
   },
 }));
 
+// The live canvas needs the collaboration server; its parts have their own tests.
+vi.mock('@web/features/canvas/canvas-panel', async () => {
+  const { createElement } = await import('react');
+  return {
+    CanvasPanel: (props: { boardId: string; readOnly: boolean }) =>
+      createElement('div', {
+        'data-testid': 'canvas-panel',
+        'data-board': props.boardId,
+        'data-readonly': String(props.readOnly),
+      }),
+  };
+});
+
 const OLGA = {
   id: '11111111-1111-4111-8111-111111111111',
   name: 'Olga',
@@ -32,6 +45,7 @@ const DETAILS: ProjectDetails = {
     { userId: '22222222-2222-4222-8222-222222222222', name: 'Alex Berg', role: 'editor' },
     { userId: OLGA.id, name: OLGA.name, role: 'owner' },
   ],
+  boards: [{ id: '33333333-3333-4333-8333-333333333333', title: 'Haupt-Canvas', kind: 'main' }],
 };
 const CONFIG: PublicConfig = { gitlabLogin: false, emailLogin: true, devMailbox: true };
 
@@ -198,7 +212,7 @@ describe('with a session', () => {
     expect(post?.[1]?.body).toBe(JSON.stringify({ name: 'Covibes V1' }));
   });
 
-  it('opens the workspace with the real members, the own one as „Du“', async () => {
+  it('opens the workspace with the real members, the own one as "Du"', async () => {
     stubApi({ [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }) });
     renderApp(`/p/${PROJECT.id}`);
 
@@ -207,9 +221,21 @@ describe('with a session', () => {
     const avatars = within(humans).getAllByRole('img');
     expect(avatars.map((avatar) => avatar.getAttribute('aria-label'))).toEqual(['Du', 'Alex Berg']);
     expect(within(humans).getByText('AB')).toBeInTheDocument();
+    const canvas = screen.getByTestId('canvas-panel');
+    expect(canvas).toHaveAttribute('data-board', DETAILS.boards[0]?.id);
+    expect(canvas).toHaveAttribute('data-readonly', 'false');
   });
 
-  it('shows „Projekt nicht gefunden“ for projects without access', async () => {
+  it('opens the canvas read-only for viewers', async () => {
+    stubApi({
+      [`GET /api/projects/${PROJECT.id}`]: () => ({ body: { ...DETAILS, role: 'viewer' } }),
+    });
+    renderApp(`/p/${PROJECT.id}`);
+
+    expect(await screen.findByTestId('canvas-panel')).toHaveAttribute('data-readonly', 'true');
+  });
+
+  it('shows "Projekt nicht gefunden" for projects without access', async () => {
     stubApi({});
     renderApp(`/p/${PROJECT.id}`);
 

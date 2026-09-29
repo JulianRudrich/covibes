@@ -4,8 +4,8 @@ import type { AgentKey, Phase } from '@covibes/shared';
 export const DEMO_AGENTS: { key: AgentKey; initials: string }[] = [
   { key: 'moderator', initials: 'M' },
   { key: 'backend', initials: 'B' },
-  { key: 'kritiker', initials: 'K' },
-  { key: 'daten', initials: 'D' },
+  { key: 'critic', initials: 'K' },
+  { key: 'data', initials: 'D' },
 ];
 
 export const DEMO_ACTIVE_PHASE: Phase = 'architecture';

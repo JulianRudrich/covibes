@@ -79,6 +79,8 @@ describe('projects', () => {
     // New users get the start of their address as name until profiles exist.
     expect(body.members).toHaveLength(1);
     expect(body.members[0]).toMatchObject({ name: 'olga', role: 'owner' });
+    expect(body.boards).toHaveLength(1);
+    expect(body.boards[0]).toMatchObject({ title: 'Haupt-Canvas', kind: 'main' });
   });
 
   it('keeps projects invisible for other users', async () => {

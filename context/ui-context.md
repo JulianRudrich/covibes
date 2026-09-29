@@ -91,15 +91,15 @@ In `apps/web` the tokens are a Tailwind v4 theme in `apps/web/src/styles/theme.c
   --color-agent-backend-dark: #2346B0;
   --color-agent-backend-tint: #EEF2FE;
   --color-agent-backend-border: #C9D6FB;
-  --color-agent-kritiker: #C84A14;
-  --color-agent-kritiker-dark: #9A360A;
-  --color-agent-kritiker-tint: #FBE7DC;
-  --color-agent-kritiker-tint-2: #FDF5F0;
-  --color-agent-kritiker-border: #F3CFBB;
-  --color-agent-daten: #8B4FD6;
-  --color-agent-daten-dark: #6532A8;
-  --color-agent-daten-tint: #F3ECFC;
-  --color-agent-daten-border: #DCCAF5;
+  --color-agent-critic: #C84A14;
+  --color-agent-critic-dark: #9A360A;
+  --color-agent-critic-tint: #FBE7DC;
+  --color-agent-critic-tint-2: #FDF5F0;
+  --color-agent-critic-border: #F3CFBB;
+  --color-agent-data: #8B4FD6;
+  --color-agent-data-dark: #6532A8;
+  --color-agent-data-tint: #F3ECFC;
+  --color-agent-data-border: #DCCAF5;
 
   /* Fonts (served locally via @fontsource-variable, never from Google Fonts) */
   --font-sans: "Geist Variable", "Geist", system-ui, sans-serif;

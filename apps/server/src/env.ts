@@ -1,4 +1,4 @@
-import { defineEnv } from '@covibes/shared';
+import { COLLAB_PATH, defineEnv } from '@covibes/shared';
 import { z } from 'zod';
 
 export const serverEnvSchema = z
@@ -14,6 +14,11 @@ export const serverEnvSchema = z
     /** Role covibes_admin: login library, migrations, worker. */
     DATABASE_ADMIN_URL: z.url(),
     BETTER_AUTH_SECRET: z.string().min(32),
+    /**
+     * WebSocket path of the collaboration server; below `/api`, so the web app's proxy covers it.
+     * The web app connects to `COLLAB_PATH` from `@covibes/shared`; only tests use another value.
+     */
+    COLLAB_PATH: z.string().startsWith('/').default(COLLAB_PATH),
     GITLAB_CLIENT_ID: z.string().min(1).optional(),
     GITLAB_CLIENT_SECRET: z.string().min(1).optional(),
     /** Only for a self-hosted GitLab; defaults to gitlab.com. */

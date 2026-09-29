@@ -6,7 +6,7 @@ Members of a project chat with each other live. `@` mentions of agents are recog
 ## Design decisions
 - **Look and behavior:** handoff README, section "2. Chat" (messages, divider "Today", composer, mention chips).
 - **Agents in messages:** agents never write through the client. Only the server creates agent messages (spec 07). RLS enforces this.
-- **Mentions:** stored as agent keys (`moderator`, `backend`, `kritiker`, `daten`) until the agent catalog of spec 14 arrives. The list of known keys lives in `packages/shared/src/agents/keys.ts`. Until spec 14, only `moderator` actively answers.
+- **Mentions:** stored as agent keys (`moderator`, `backend`, `critic`, `data`) until the agent catalog of spec 14 arrives. The list of known keys lives in `packages/shared/src/agents/keys.ts`. Until spec 14, only `moderator` actively answers.
 
 ## Implementation
 

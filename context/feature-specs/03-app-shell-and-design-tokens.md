@@ -31,7 +31,7 @@ All values come from `ui-context.md`:
 - **`IconButton`** is a 28 px ghost button with a mandatory `aria-label`.
 - **`Avatar`** comes in two kinds:
   - `kind="human"`: round
-  - `kind="agent"`: a square in the agent color; `agent` for now only `moderator`, `backend`, `kritiker` or `daten`
+  - `kind="agent"`: a square in the agent color; `agent` for now only `moderator`, `backend`, `critic` or `data`
 
   Sizes: 16, 24, 26 and 28 px.
 - **`Badge`**, **`Chip`** and **`Pill`** as used in the handoff.

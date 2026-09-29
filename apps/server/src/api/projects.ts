@@ -83,7 +83,25 @@ export function projectRoutes(db: AppDb, auth: Auth) {
         .select(['users.id as userId', 'users.name', 'project_members.role'])
         .orderBy('project_members.created_at')
         .execute();
-      return { id: project.id, name: project.name, role: project.role, members };
+      const boards = await trx
+        .selectFrom('boards')
+        .where('project_id', '=', projectId.data)
+        .select(['id', 'title', 'kind'])
+        .orderBy('kind', 'desc') // 'main' before 'extra'
+        .orderBy('position')
+        .orderBy('created_at')
+        .execute();
+      return {
+        id: project.id,
+        name: project.name,
+        role: project.role,
+        members,
+        boards: boards.map((board) => ({
+          id: board.id,
+          title: board.title,
+          kind: board.kind === 'main' ? ('main' as const) : ('extra' as const),
+        })),
+      };
     });
     if (!details) return apiError(c, 'not_found');
     return c.json<ProjectDetails>(details);

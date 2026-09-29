@@ -164,7 +164,7 @@ Header "Overview" (14 px/600). Below it three sections, each with padding 16, se
 
 ## State (prototype → product)
 ```ts
-type AgentId = 'moderator' | 'backend' | 'kritiker' | 'daten';
+type AgentId = 'moderator' | 'backend' | 'critic' | 'data';
 type Author = { kind: 'human'; userId: string } | { kind: 'agent'; agent: AgentId };
 
 type BlockState = 'normal' | 'ai_changed' | 'suggestion' | 'locked';

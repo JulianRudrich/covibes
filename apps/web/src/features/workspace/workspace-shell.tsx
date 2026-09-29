@@ -1,5 +1,5 @@
 import type { Phase } from '@covibes/shared';
-import { Plus } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Panel, PanelHeader, PanelTitle } from '@web/components/ui/panel';
@@ -19,10 +19,18 @@ type WorkspaceShellProps = {
   activePhase: Phase;
   members: WorkspaceMember[];
   user: SessionUser | null;
+  /** Content of the canvas panel: its header row and the canvas. */
+  canvas: ReactNode;
 };
 
 /** Main screen layout: header plus chat, canvas and overview panels (handoff "Main screen"). */
-export function WorkspaceShell({ projectName, activePhase, members, user }: WorkspaceShellProps) {
+export function WorkspaceShell({
+  projectName,
+  activePhase,
+  members,
+  user,
+  canvas,
+}: WorkspaceShellProps) {
   const { t } = useTranslation();
 
   return (
@@ -42,23 +50,7 @@ export function WorkspaceShell({ projectName, activePhase, members, user }: Work
           <EmptyHint>{t('empty.chat')}</EmptyHint>
         </Panel>
 
-        <Panel aria-label={t('panels.canvas')}>
-          <PanelHeader className="gap-1 px-3">
-            <span className="flex h-[30px] shrink-0 items-center rounded-md bg-bg-subtle px-3 font-medium whitespace-nowrap">
-              {t('workspace.mainCanvas')}
-            </span>
-            <button
-              type="button"
-              className="flex h-[30px] shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-ui whitespace-nowrap text-text-2b hover:bg-bg-subtle hover:text-text"
-            >
-              <Plus size={13} strokeWidth={2.2} aria-hidden="true" />
-              {t('workspace.addBoard')}
-            </button>
-          </PanelHeader>
-          <div className="relative grid canvas-dots">
-            <EmptyHint>{t('empty.canvas')}</EmptyHint>
-          </div>
-        </Panel>
+        <Panel aria-label={t('panels.canvas')}>{canvas}</Panel>
 
         <Panel aria-label={t('panels.overview')}>
           <PanelHeader>

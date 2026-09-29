@@ -102,6 +102,12 @@ export interface Verifications {
   value: string;
 }
 
+export interface YjsDocuments {
+  name: string;
+  state: Buffer;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface DB {
   accounts: Accounts;
   boards: Boards;
@@ -110,4 +116,5 @@ export interface DB {
   sessions: Sessions;
   users: Users;
   verifications: Verifications;
+  yjs_documents: YjsDocuments;
 }

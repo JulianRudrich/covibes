@@ -24,6 +24,7 @@ describe('loadServerEnv', () => {
       HOST: '127.0.0.1',
       APP_URL: 'http://localhost:5173',
       TRUSTED_PROXIES: [],
+      COLLAB_PATH: '/api/collab',
     });
   });
 

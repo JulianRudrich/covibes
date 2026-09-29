@@ -19,10 +19,15 @@ export type ProjectSummary = { id: string; name: string; role: ProjectRole; upda
 
 export type ProjectMember = { userId: string; name: string; role: ProjectRole };
 
+/** Every project has exactly one `main` board; more boards (`extra`) come later. */
+export type ProjectBoard = { id: string; title: string; kind: 'main' | 'extra' };
+
 /** `GET /api/projects/:projectId`. */
 export type ProjectDetails = {
   id: string;
   name: string;
   role: ProjectRole;
   members: ProjectMember[];
+  /** Ordered by position, the main board first. */
+  boards: ProjectBoard[];
 };

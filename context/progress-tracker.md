@@ -7,7 +7,7 @@
 Build the product, starting with the vertical slice (specs 04 to 07). Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 05: live canvas (branch `spec/05-canvas-live`, server part done)
+- nothing; next up is spec 06
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -47,12 +47,18 @@ Build the product, starting with the vertical slice (specs 04 to 07). Covibes is
 
   Lint, type check, format, 106 tests and build pass; verified in the browser with two users.
 - [x] **Spec 02b Docker deployment:** `Dockerfile`, `deploy/compose.yaml` (PostgreSQL, setup, app), guide `deploy/README.md`; sign-in by SMTP mail and/or GitLab. Verified with Docker Desktop: image build, start, sign-in by SMTP mail, projects, restart with persisted data.
+- [x] **Spec 05 live canvas:**
+  - one Y.Doc per board via Hocuspocus on the API server, stored in PostgreSQL, access checked per board (members only, viewers read-only)
+  - canvas with React Flow: blocks appear and move live, live cursors with names, button "Block", reconnect indicator
+  - agent keys renamed to English (`critic`, `data`)
+
+  Lint, type check, format, 161 tests and build pass; verified with two users (sync after 9 ms), server restart, offline change with reconnect, viewer and the Docker image.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **Spec 05:** live canvas (React Flow and Yjs via Hocuspocus).
-2. Then specs 06 and 07 (real-time chat, AI gateway and moderator).
+1. **Spec 06:** real-time chat.
+2. Then spec 07 (AI gateway, worker and moderator); it completes the vertical slice.
 3. What the owner contributes while building:
    - designs for new screens in Claude Design, or approval to derive them from the existing building blocks
    - **by spec 07:** access to an AI with an EU endpoint
@@ -60,6 +66,7 @@ Build the product, starting with the vertical slice (specs 04 to 07). Covibes is
 
 ## Open decisions
 - **Dark mode:** not decided yet.
+- **React Flow attribution:** the small "React Flow" link in the canvas corner stays for now. The MIT license allows hiding it; the makers ask commercial users to subscribe to React Flow Pro. Decide before the public launch.
 - **Hosting for the public launch:** decided at the end (spec 35). A private instance can be self-hosted with Docker (spec 02b).
 - **Sign-in on a self-hosted instance:** email link via SMTP, GitLab or both. Both are built in; the operator chooses when setting it up.
 - **Monetization:** the owner plans to sell Covibes once it is open to other users. Open: from when users pay and how (subscription, pricing, payment provider). `project-overview.md` currently says: V1 free, subscription later.
@@ -126,3 +133,5 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   - The Git history stays ready to publish at any time: professional, in English, Conventional Commits, one commit per spec.
   - There is no license file yet, so all rights are reserved. The license is chosen when the owner decides how to publish.
   - Every dependency must allow commercial use (see `code-standards.md`). All current dependencies do.
+- **2026-09-29, history verified:** every code commit on `main` was checked out on its own: install, type check, lint, format, tests and build pass for each. On Windows, the database tests need a short path; in a very long temp path `initdb` fails.
+- **2026-09-29, spec 05 implemented.** Details are in the spec under "Implementation notes". Agent keys are English now (`critic`, `data`).

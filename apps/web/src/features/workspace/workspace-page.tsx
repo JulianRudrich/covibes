@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { PageMessage } from '@web/components/page-message';
 import { sessionQuery } from '@web/features/auth/session';
+import { CanvasPanel } from '@web/features/canvas/canvas-panel';
 import { projectQuery } from '@web/features/projects/queries';
 import { DEMO_ACTIVE_PHASE } from '@web/features/workspace/demo-workspace';
 import { WorkspaceShell, type WorkspaceMember } from '@web/features/workspace/workspace-shell';
@@ -48,12 +49,25 @@ export function WorkspacePage() {
     }))
     .sort((a, b) => Number(b.isCurrentUser) - Number(a.isCurrentUser));
 
+  // Every project has a main board; it comes first. More boards follow in a later spec.
+  const mainBoard = project.data.boards[0];
+
   return (
     <WorkspaceShell
       projectName={project.data.name}
       activePhase={DEMO_ACTIVE_PHASE}
       members={members}
       user={user ?? null}
+      canvas={
+        mainBoard && user ? (
+          <CanvasPanel
+            key={mainBoard.id}
+            boardId={mainBoard.id}
+            user={{ id: user.id, name: user.name }}
+            readOnly={project.data.role === 'viewer'}
+          />
+        ) : null
+      }
     />
   );
 }

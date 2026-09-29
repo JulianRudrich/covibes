@@ -93,8 +93,8 @@
   "agents": {
     "moderator": "Moderator",
     "backend": "Backend",
-    "kritiker": "Kritiker",
-    "daten": "Daten"
+    "critic": "Kritiker",
+    "data": "Daten"
   },
   "panels": {
     "chat": "Chat",
@@ -103,7 +103,13 @@
   },
   "empty": {
     "chat": "Noch keine Nachrichten.",
-    "canvas": "Das Canvas ist noch leer.",
     "overview": "Hier erscheinen offene Punkte, Entscheidungen und Kriterien."
+  },
+  "canvas": {
+    "addBlock": "Block",
+    "newBlock": "Neuer Block",
+    "loading": "Canvas wird geladen …",
+    "reconnecting": "Verbindung wird wiederhergestellt …",
+    "denied": "Du hast keinen Zugriff mehr auf dieses Canvas."
   }
 }

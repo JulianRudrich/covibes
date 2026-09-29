@@ -50,5 +50,5 @@ export function createTestServer(overrides: Partial<Record<keyof ServerEnv, stri
     return cookie;
   }
 
-  return { app, env, outbox, signIn };
+  return { app, env, db, auth, outbox, signIn };
 }

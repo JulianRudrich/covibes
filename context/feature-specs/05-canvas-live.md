@@ -73,10 +73,25 @@ A project's main canvas is a shared Y.Doc. Two browsers see new blocks, moves an
 - Packages: `yjs`, `@hocuspocus/server`, `@hocuspocus/extension-database`, `@hocuspocus/provider`, `@xyflow/react`, `ws` (current versions, respecting pnpm's minimum release age). `pg` and Better Auth are already there.
 
 ## Checklist
-- [ ] Two browsers with two users in the same project: a created block appears for the other one in under a second; moving follows smoothly.
-- [ ] Both see the other's cursor with a name.
-- [ ] After a server restart all blocks are still there.
-- [ ] A non-member is rejected on connect. A viewer sees everything but cannot change anything. There are tests for the auth hook.
-- [ ] After a short interruption the app reconnects by itself, without data loss.
-- [ ] The tests for the shared model pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] Two browsers with two users in the same project: a created block appears for the other one in under a second; moving follows smoothly.
+- [x] Both see the other's cursor with a name.
+- [x] After a server restart all blocks are still there.
+- [x] A non-member is rejected on connect. A viewer sees everything but cannot change anything. There are tests for the auth hook.
+- [x] After a short interruption the app reconnects by itself, without data loss.
+- [x] The tests for the shared model pass.
+- [x] In the Docker image (spec 02b) the canvas WebSocket runs over the same port as web app and API.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-09-29)
+- **Server:** Hocuspocus 4 takes over WebSocket upgrades on `/api/collab` through `ws` (`handleConnection`). Only the web app's own origin may connect (protection against cross-site WebSocket hijacking). On shutdown the server stores all documents first and then closes the sockets without waiting for the close handshake.
+- **Web:** `BoardConnection` owns the Y.Doc and the provider; `useBoardDoc` creates it per board. `useYjsFlow` derives the React Flow state and keeps selection and an ongoing drag locally. `useLiveCursors` sends the own cursor in flow coordinates through the awareness; cursors of other tabs of the same user are not shown.
+- **Collaboration path:** `COLLAB_PATH` in `@covibes/shared` is the one value for server and web app; the server's environment variable only exists for tests.
+- **New blocks** land in the middle of the visible area on the 20 px grid; if that spot is taken, the nearest free one, preferring below and to the right.
+- **Agent keys** are English now (`critic`, `data`), because canvas blocks store the agent key as author.
+- **Verified** with `pnpm dev`, a browser and a second user connected like a browser:
+  - A block created by the second user appeared in the browser after 9 ms; dragging is written at most once per frame.
+  - Cursors show up in both directions with the name.
+  - After a server restart all blocks were there. A block created while the server was down was synced after the automatic reconnect.
+  - A viewer's attempt to add a block was ignored by the server; the viewer sees no "Block" button and cannot drag.
+  - In the Docker image, canvas, API and web app run over one port; the security headers block nothing.
+- **Still open for later specs:** the z-order of overlapping blocks follows the Y.Doc and can differ between browsers (spec 08); the React Flow attribution in the corner stays until the owner decides about a React Flow Pro subscription.

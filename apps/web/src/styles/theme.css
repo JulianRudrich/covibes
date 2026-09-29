@@ -1,5 +1,5 @@
 /*
- * Design tokens from context/ui-context.md (source: Claude Design handoff "Hauptbildschirm").
+ * Design tokens from context/ui-context.md (source: Claude Design handoff "Main screen").
  * This is the only file in apps/web allowed to contain raw color values; `pnpm check:tokens` enforces it.
  */
 @theme {
@@ -65,15 +65,15 @@
   --color-agent-backend-dark: #2346b0;
   --color-agent-backend-tint: #eef2fe;
   --color-agent-backend-border: #c9d6fb;
-  --color-agent-kritiker: #c84a14;
-  --color-agent-kritiker-dark: #9a360a;
-  --color-agent-kritiker-tint: #fbe7dc;
-  --color-agent-kritiker-tint-2: #fdf5f0;
-  --color-agent-kritiker-border: #f3cfbb;
-  --color-agent-daten: #8b4fd6;
-  --color-agent-daten-dark: #6532a8;
-  --color-agent-daten-tint: #f3ecfc;
-  --color-agent-daten-border: #dccaf5;
+  --color-agent-critic: #c84a14;
+  --color-agent-critic-dark: #9a360a;
+  --color-agent-critic-tint: #fbe7dc;
+  --color-agent-critic-tint-2: #fdf5f0;
+  --color-agent-critic-border: #f3cfbb;
+  --color-agent-data: #8b4fd6;
+  --color-agent-data-dark: #6532a8;
+  --color-agent-data-tint: #f3ecfc;
+  --color-agent-data-border: #dccaf5;
 
   /* Aliases for components added later via the shadcn CLI. */
   --color-background: var(--color-bg-panel);

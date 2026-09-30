@@ -1,5 +1,12 @@
 import type { DB } from '@covibes/db';
-import { readNodes, type CanvasNode, type ChatMessage, type NodeLock } from '@covibes/shared';
+import {
+  readEdges,
+  readNodes,
+  type CanvasEdge,
+  type CanvasNode,
+  type ChatMessage,
+  type NodeLock,
+} from '@covibes/shared';
 import type { Task } from 'graphile-worker';
 import { sql, type Kysely } from 'kysely';
 import { z } from 'zod';
@@ -16,7 +23,20 @@ import { isAgentKey, loadMessage, selectMessages, toMessage } from '@server/chat
 import type { BoardAccess } from '@server/collab/board-client';
 import { MAX_DELTA_LENGTH, notifyLive } from '@server/realtime/notifications';
 import { addBlockTool } from '@server/tools/add-block';
+import { addFrameTool } from '@server/tools/add-frame';
+import { addNoteTool } from '@server/tools/add-note';
+import { connectBlocksTool } from '@server/tools/connect-blocks';
+import { describePosition, type CanvasToolOptions } from '@server/tools/placement';
 import { updateBlockTool } from '@server/tools/update-block';
+
+/** The canvas tools by the names agent definitions use. */
+const CANVAS_TOOLS: Readonly<Record<string, (options: CanvasToolOptions) => AgentTool>> = {
+  add_block: addBlockTool,
+  update_block: updateBlockTool,
+  connect_blocks: connectBlocksTool,
+  add_note: addNoteTool,
+  add_frame: addFrameTool,
+};
 
 /** Name of the job the database trigger creates for every mention (migration 0005). */
 export const AGENT_TURN_TASK = 'agent_turn';
@@ -241,19 +261,22 @@ async function converse(
   const canvas = board
     ? await deps.boards.withBoard(board.id, (doc, session) => ({
         nodes: readNodes(doc),
+        edges: readEdges(doc),
         locks: session.locks(),
       }))
-    : { nodes: [], locks: new Map<string, NodeLock>() };
+    : { nodes: [], edges: [], locks: new Map<string, NodeLock>() };
 
   const tools: AgentTool[] = [];
   if (board) {
-    const toolOptions = {
+    const toolOptions: CanvasToolOptions = {
       boards: deps.boards,
       boardId: board.id,
-      author: { kind: 'agent', agentKey: agent.key } as const,
+      author: { kind: 'agent', agentKey: agent.key },
     };
-    if (agent.tools.includes('add_block')) tools.push(addBlockTool(toolOptions));
-    if (agent.tools.includes('update_block')) tools.push(updateBlockTool(toolOptions));
+    for (const name of agent.tools) {
+      const create = CANVAS_TOOLS[name];
+      if (create) tools.push(create(toolOptions));
+    }
   }
 
   const deltas = createDeltaStream(deps.flushMs ?? FLUSH_MS, async (text) => {
@@ -310,13 +333,60 @@ function asData(text: string): string {
   return text.replace(/<(\/?)(canvas|chat|request)>/gi, '‹$1$2›');
 }
 
-/** One line per node, with the id the tools take and who is editing it right now. */
-function describeNode(node: CanvasNode, lock: NodeLock | undefined): string {
+const NODE_NAMES: Record<CanvasNode['type'], string> = {
+  block: 'block',
+  sticky: 'note',
+  frame: 'frame',
+};
+
+/**
+ * One line per node, with the id the tools take, the frame it belongs to and who is editing it
+ * right now.
+ */
+function describeNode(
+  node: CanvasNode,
+  lock: NodeLock | undefined,
+  frames: ReadonlyMap<string, CanvasNode>,
+): string {
   const subtitle = node.subtitle ? ` (${node.subtitle})` : '';
   const type = node.type === 'block' && node.blockType ? `, type ${node.blockType}` : '';
-  const position = `${String(Math.round(node.position.x))}, ${String(Math.round(node.position.y))}`;
+  const size =
+    node.type === 'frame'
+      ? `, ${String(Math.round(node.size.width))} × ${String(Math.round(node.size.height))}`
+      : '';
+  const frame = node.frameId ? frames.get(node.frameId) : undefined;
+  const inFrame = frame ? `, in frame "${frame.label}"` : '';
   const editing = lock ? `, ${lock.name} is editing it` : '';
-  return `- ${node.type} "${node.label}"${subtitle}${type} at ${position}, id ${node.id}${editing}`;
+  const where = `at ${describePosition(node.position)}${size}`;
+  return `- ${NODE_NAMES[node.type]} "${node.label}"${subtitle}${type} ${where}, id ${node.id}${inFrame}${editing}`;
+}
+
+/** One line per arrow, by the titles of its blocks. */
+function describeEdge(edge: CanvasEdge, nodes: ReadonlyMap<string, CanvasNode>): string {
+  const from = nodes.get(edge.source)?.label ?? edge.source;
+  const to = nodes.get(edge.target)?.label ?? edge.target;
+  const label = edge.label ? `: ${edge.label}` : '';
+  return `- "${from}" → "${to}"${label}, id ${edge.id}`;
+}
+
+/** The canvas overview: frames first, then blocks and notes, then the arrows. */
+function describeCanvas(
+  nodes: readonly CanvasNode[],
+  edges: readonly CanvasEdge[],
+  locks: ReadonlyMap<string, NodeLock> | undefined,
+): string {
+  if (nodes.length === 0) return 'The main canvas is empty.';
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const frames = new Map(
+    nodes.filter((node) => node.type === 'frame').map((node) => [node.id, node]),
+  );
+  const ordered = [
+    ...nodes.filter((node) => node.type === 'frame'),
+    ...nodes.filter((node) => node.type !== 'frame'),
+  ];
+  const lines = ordered.map((node) => describeNode(node, locks?.get(node.id), frames));
+  if (edges.length > 0) lines.push('Arrows:', ...edges.map((edge) => describeEdge(edge, byId)));
+  return lines.join('\n');
 }
 
 /**
@@ -326,14 +396,12 @@ function describeNode(node: CanvasNode, lock: NodeLock | undefined): string {
 export function buildPrompt(context: {
   projectName: string;
   nodes: readonly CanvasNode[];
+  edges?: readonly CanvasEdge[];
   locks?: ReadonlyMap<string, NodeLock>;
   messages: readonly ChatMessage[];
   request: ChatMessage | undefined;
 }): string {
-  const canvas =
-    context.nodes.length === 0
-      ? 'The main canvas is empty.'
-      : context.nodes.map((node) => describeNode(node, context.locks?.get(node.id))).join('\n');
+  const canvas = describeCanvas(context.nodes, context.edges ?? [], context.locks);
   const chat = context.messages
     .map((message) => `${authorName(message)}: ${message.content}`)
     .join('\n');

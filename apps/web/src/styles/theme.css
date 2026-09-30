@@ -23,6 +23,7 @@
   --color-border-strong: #d9dfe7;
   --color-border-soft: #e3e8ee;
   --color-frame-border: #cfd7e1;
+  --color-border-float: #dfe4ea;
   --color-divider-strong: #cfd6df;
   --color-edge: #8792a2;
   --color-text: #0f1720;
@@ -52,6 +53,8 @@
   --color-note: #fdf6d3;
   --color-note-border: #ecdd98;
   --color-note-text: #3a3312;
+  --color-note-meta: #5e5424;
+  --color-note-avatar: #f1e5ad;
   --color-link: #2346b0;
   --color-link-hover: #16317f;
   --color-focus-soft: #d5dde6;
@@ -62,6 +65,7 @@
   --color-agent-moderator-tint: #dcf0f2;
   --color-agent-moderator-tint-2: #f4fafb;
   --color-agent-moderator-border: #cde6e9;
+  --color-agent-moderator-border-2: #bfe3e6;
   --color-agent-backend: #3563e9;
   --color-agent-backend-dark: #2346b0;
   --color-agent-backend-tint: #eef2fe;
@@ -71,6 +75,7 @@
   --color-agent-critic-tint: #fbe7dc;
   --color-agent-critic-tint-2: #fdf5f0;
   --color-agent-critic-border: #f3cfbb;
+  --color-agent-critic-border-2: #e9b89d;
   --color-agent-data: #8b4fd6;
   --color-agent-data-dark: #6532a8;
   --color-agent-data-tint: #f3ecfc;
@@ -118,6 +123,7 @@
   --shadow-block: 0 1px 2px rgba(16, 24, 40, 0.05), 0 2px 8px rgba(16, 24, 40, 0.04);
   --shadow-float: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.08);
   --shadow-lock: 0 0 0 4px rgba(30, 39, 51, 0.07);
+  --shadow-note: 0 1px 2px rgba(110, 90, 20, 0.08), 0 6px 14px rgba(110, 90, 20, 0.08);
   --shadow-button-primary:
     inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 1px 2px rgba(16, 24, 40, 0.24);
   --shadow-button-secondary: 0 1px 2px rgba(16, 24, 40, 0.05);

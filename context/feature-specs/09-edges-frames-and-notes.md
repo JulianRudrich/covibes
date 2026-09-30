@@ -65,11 +65,25 @@ Blocks can be connected with labeled arrows, grouped in frames and supplemented 
 - Packages: none new
 
 ## Checklist
-- [ ] Arrows, labels, notes and frames match the handoff at 100 %, compared with the prototype.
-- [ ] Two browsers: arrows, notes and frames appear, change and disappear live for both.
-- [ ] A block dropped into a frame belongs to it; moving the frame moves it along; the count "{{count}} Blöcke" is right.
-- [ ] Deleting a block removes its arrows; deleting a frame keeps its content.
-- [ ] `@Moderator` connects two blocks with a label, adds a note and puts blocks into a new frame on request.
-- [ ] The derived interactions were checked from screenshots.
-- [ ] Tests for the shared model, the arrow anchoring and the three tools pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] Arrows, labels, notes and frames match the handoff at 100 %, compared with the prototype.
+- [x] Two browsers: arrows, notes and frames appear, change and disappear live for both.
+- [x] A block dropped into a frame belongs to it; moving the frame moves it along; the count "{{count}} Blöcke" is right.
+- [x] Deleting a block removes its arrows; deleting a frame keeps its content.
+- [x] `@Moderator` connects two blocks with a label, adds a note and puts blocks into a new frame on request.
+- [x] The derived interactions were checked from screenshots.
+- [x] Tests for the shared model, the arrow anchoring and the three tools pass.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-09-30)
+- **Model:** edges carry `lastChangedBy` and `lastChangedAt` like nodes; the connection rules live in `canvas/edges.ts`. `updateNode` replaces `updateBlock`. `moveNodes` moves many nodes in one change; a frame takes its members along, and the members keep their last change, since nobody changed them. After a drop, `placeNodes` (for all dropped nodes at once, instead of `placeNode` per node) sets the frame. Resizing a frame also updates the membership of its members and of the nodes under its new bounds.
+- **Layers:** frames lie at the bottom, arrows above them (so they stay visible inside frames), blocks and notes on top. Selection does not lift a node to the top, so a selected frame never covers its blocks.
+- **Arrows:** anchored from the positions of the blocks (`arrow-geometry.ts`), spread along the edge they share, and ending 4 px before the target so the arrowhead of the handoff touches it. React Flow only draws an edge between nodes with a source and a target handle, so every block has two invisible anchors; the first live test showed no arrows without them. The four connection points appear on hover and on the selected block; while an arrow is drawn, the whole of every other block accepts it.
+- **Agent changes** are marked on notes and frames like on blocks: border, ring and "Gerade gezeichnet".
+- **Room for arrows:** new elements now keep the distances of the handoff to existing ones, about 40 px side by side and 100 px one below the other, instead of 20 px (spec 05). Otherwise an arrow and its label did not fit between two blocks.
+- **New tokens:** `note-meta`, `note-avatar`, `border-float` (edge labels, later the toolbar), `agent-moderator-border-2`, `agent-critic-border-2` and `shadow-note`, all from the handoff.
+- **Agents:** `connect_blocks`, `add_note` and `add_frame`. The canvas overview in the prompt lists frames first, then blocks and notes with their frame, then the arrows by the titles of their blocks. `add_frame` leaves out blocks that someone is editing and says so.
+- **Verified** with `pnpm dev`:
+  - One request made the moderator draw a frame "Architektur" with three blocks, two labeled arrows and a note.
+  - A person connected two blocks by dragging from a connection point onto the other block. The first try failed: the drop area was shifted by half the block's width (React Flow places handles with `transform`), which is fixed.
+  - A label was edited by double-click. Moving the frame moved its blocks but not the note outside. Resizing it from the lower left corner stored size and position; the note, now inside, joined the frame.
+- **Known limits:** the moderator places blocks one after the other without a layout; auto-layout comes with spec 10. Notes and frames cannot be connected, by design.

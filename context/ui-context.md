@@ -49,6 +49,7 @@ In `apps/web` the tokens are a Tailwind v4 theme in `apps/web/src/styles/theme.c
   --color-border-strong: #D9DFE7;
   --color-border-soft: #E3E8EE;    /* chips */
   --color-frame-border: #CFD7E1;
+  --color-border-float: #DFE4EA; /* toolbar, edge labels */
   --color-divider-strong: #CFD6DF; /* divider between humans and agents in the header */
   --color-edge: #8792A2;
   --color-text: #0F1720;
@@ -78,6 +79,8 @@ In `apps/web` the tokens are a Tailwind v4 theme in `apps/web/src/styles/theme.c
   --color-note: #FDF6D3;
   --color-note-border: #ECDD98;
   --color-note-text: #3A3312;
+  --color-note-meta: #5E5424;   /* footer "Notiz · name" */
+  --color-note-avatar: #F1E5AD; /* avatar in the note footer */
   --color-link: #2346B0;
   --color-link-hover: #16317F;
   --color-focus-soft: #D5DDE6; /* composer focus */
@@ -88,6 +91,7 @@ In `apps/web` the tokens are a Tailwind v4 theme in `apps/web/src/styles/theme.c
   --color-agent-moderator-tint: #DCF0F2;
   --color-agent-moderator-tint-2: #F4FAFB;
   --color-agent-moderator-border: #CDE6E9;
+  --color-agent-moderator-border-2: #BFE3E6; /* edge labels, canvas references */
   --color-agent-backend: #3563E9;
   --color-agent-backend-dark: #2346B0;
   --color-agent-backend-tint: #EEF2FE;
@@ -97,6 +101,7 @@ In `apps/web` the tokens are a Tailwind v4 theme in `apps/web/src/styles/theme.c
   --color-agent-critic-tint: #FBE7DC;
   --color-agent-critic-tint-2: #FDF5F0;
   --color-agent-critic-border: #F3CFBB;
+  --color-agent-critic-border-2: #E9B89D;
   --color-agent-data: #8B4FD6;
   --color-agent-data-dark: #6532A8;
   --color-agent-data-tint: #F3ECFC;
@@ -130,6 +135,7 @@ In `apps/web` the tokens are a Tailwind v4 theme in `apps/web/src/styles/theme.c
   --shadow-block: 0 1px 2px rgba(16,24,40,.05), 0 2px 8px rgba(16,24,40,.04);
   --shadow-float: 0 1px 2px rgba(16,24,40,.06), 0 8px 24px rgba(16,24,40,.08);
   --shadow-lock: 0 0 0 4px rgba(30,39,51,.07);
+  --shadow-note: 0 1px 2px rgba(110,90,20,.08), 0 6px 14px rgba(110,90,20,.08);
   --shadow-button-primary: inset 0 1px 0 rgba(255,255,255,.12), 0 1px 2px rgba(16,24,40,.24);
   --shadow-button-secondary: 0 1px 2px rgba(16,24,40,.05);
   --shadow-phase-active: 0 1px 2px rgba(16,24,40,.10), 0 0 0 1px rgba(16,24,40,.05);

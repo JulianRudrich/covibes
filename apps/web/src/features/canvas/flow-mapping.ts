@@ -1,30 +1,62 @@
-import type { AgentKey, Author, CanvasEdge, CanvasNode, NodeLock } from '@covibes/shared';
+import type { AgentKey, Author, CanvasEdge, CanvasNode, NodeLock, Size } from '@covibes/shared';
 import type { Edge, Node } from '@xyflow/react';
 
-export type BlockNodeData = {
+import type { ArrowGeometry } from '@web/features/canvas/arrow-geometry';
+
+/** What every element on the canvas shows: its text, who made it and who changed it. */
+type CommonData = {
   label: string;
-  subtitle: string;
-  /** One of `BLOCK_TYPES`, `null` for the generic block, or a type of a later version. */
-  blockType: string | null;
   createdBy: Author;
   /** The agent that made the last change, or null when it was a human. */
   changedByAgent: AgentKey | null;
   lastChangedAt: string;
-  /** Someone else editing this block right now, or null (spec 08). */
+  /** Someone else editing this element right now, or null (spec 08). */
   lockedBy: { name: string } | null;
+  size: Size;
 };
-export type BlockFlowNode = Node<BlockNodeData, 'block'>;
 
-/** How long a block shows that an agent just changed it (spec 07). */
+export type BlockNodeData = CommonData & {
+  subtitle: string;
+  /** One of `BLOCK_TYPES`, `null` for the generic block, or a type of a later version. */
+  blockType: string | null;
+};
+export type NoteNodeData = CommonData;
+export type FrameNodeData = CommonData & {
+  /** Blocks inside the frame, for "5 Blöcke". */
+  blockCount: number;
+};
+
+export type BlockFlowNode = Node<BlockNodeData, 'block'>;
+export type NoteFlowNode = Node<NoteNodeData, 'sticky'>;
+export type FrameFlowNode = Node<FrameNodeData, 'frame'>;
+export type CanvasFlowNode = BlockFlowNode | NoteFlowNode | FrameFlowNode;
+
+export type ArrowEdgeData = {
+  label: string;
+  /** The agent of the last change of the arrow or of its target, whichever is newer. */
+  changedByAgent: AgentKey | null;
+  lastChangedAt: string;
+  /** Path and label position, computed by the board from where the blocks are right now. */
+  geometry?: ArrowGeometry;
+};
+export type ArrowFlowEdge = Edge<ArrowEdgeData, 'arrow'>;
+
+/** How long an element shows that an agent just changed it (spec 07). */
 export const JUST_DRAWN_MS = 5000;
 
 /**
- * Milliseconds for which a block still shows the state "just changed by AI" at `now`: 0 after a
- * human change or once the agent's change is 5 s old. A change stamped in the future (the clocks of
- * server and browser differ) counts as made right now, so the state never lasts longer than 5 s.
+ * Stacking layers: frames at the bottom, arrows above them (so they stay visible inside frames),
+ * blocks and notes on top.
+ */
+export const LAYER = { frame: 0, edge: 1, node: 2 } as const;
+
+/**
+ * Milliseconds for which an element still shows the state "just changed by AI" at `now`: 0 after
+ * a human change or once the agent's change is 5 s old. A change stamped in the future (the clocks
+ * of server and browser differ) counts as made right now, so the state never lasts longer than 5 s.
  */
 export function justDrawnRemainingMs(
-  data: Pick<BlockNodeData, 'changedByAgent' | 'lastChangedAt'>,
+  data: Pick<CommonData, 'changedByAgent' | 'lastChangedAt'>,
   now: number,
 ): number {
   if (data.changedByAgent === null) return 0;
@@ -35,68 +67,132 @@ export function justDrawnRemainingMs(
 export type FlowLocks = { locks: ReadonlyMap<string, NodeLock>; ownClientId: number };
 
 /**
- * Stacking order: the last changed node lies on top, ties by id. The order of a Y.Map can differ
- * between clients, so without sorting overlapping blocks could stack differently per browser.
+ * Stacking order within a layer: the last changed element lies on top, ties by id. The order of a
+ * Y.Map can differ between clients, so without sorting overlapping elements could stack
+ * differently per browser.
  */
 function byLastChange(a: CanvasNode, b: CanvasNode): number {
   if (a.lastChangedAt !== b.lastChangedAt) return a.lastChangedAt < b.lastChangedAt ? -1 : 1;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
+function agentOf(author: Author): AgentKey | null {
+  return author.kind === 'agent' ? author.agentKey : null;
+}
+
+function commonData(node: CanvasNode, lockedBy: { name: string } | null): CommonData {
+  return {
+    label: node.label,
+    createdBy: node.createdBy,
+    changedByAgent: agentOf(node.lastChangedBy),
+    lastChangedAt: node.lastChangedAt,
+    lockedBy,
+    size: node.size,
+  };
+}
+
+function toFlowNode(
+  node: CanvasNode,
+  lockedBy: { name: string } | null,
+  blockCounts: ReadonlyMap<string, number>,
+): CanvasFlowNode {
+  const base = { id: node.id, position: node.position };
+  switch (node.type) {
+    case 'block':
+      return {
+        ...base,
+        type: 'block',
+        zIndex: LAYER.node,
+        data: { ...commonData(node, lockedBy), subtitle: node.subtitle, blockType: node.blockType },
+      };
+    case 'sticky':
+      return { ...base, type: 'sticky', zIndex: LAYER.node, data: commonData(node, lockedBy) };
+    case 'frame':
+      return {
+        ...base,
+        type: 'frame',
+        zIndex: LAYER.frame,
+        width: node.size.width,
+        height: node.size.height,
+        data: { ...commonData(node, lockedBy), blockCount: blockCounts.get(node.id) ?? 0 },
+      };
+  }
+}
+
 /**
- * React Flow nodes from the Y.Doc snapshot. UI state that only lives in this browser (selection,
- * measured size, an ongoing drag) is carried over from `previous`; while a node is dragged here, its
- * local position wins until the drag ends and is written to the Y.Doc. A block that someone else
- * edits can neither be dragged nor deleted here.
- * Sticky notes and frames follow with spec 09; until then only blocks are shown.
+ * React Flow nodes from the Y.Doc snapshot, frames first. UI state that only lives in this browser
+ * (selection, measured size, an ongoing drag or resize) is carried over from `previous`; while a
+ * node is dragged or resized here, its local position and size win until the change ends and is
+ * written to the Y.Doc. An element that someone else edits can neither be dragged nor deleted here.
  */
 export function toFlowNodes(
   canvasNodes: readonly CanvasNode[],
-  previous: readonly BlockFlowNode[],
+  previous: readonly CanvasFlowNode[],
   { locks, ownClientId }: FlowLocks,
-): BlockFlowNode[] {
+): CanvasFlowNode[] {
   const previousById = new Map(previous.map((node) => [node.id, node]));
-  return canvasNodes
-    .filter((node) => node.type === 'block')
-    .sort(byLastChange)
-    .map((node) => {
-      const lock = locks.get(node.id);
-      const lockedBy = lock && lock.clientId !== ownClientId ? { name: lock.name } : null;
-      const flowNode: BlockFlowNode = {
-        id: node.id,
-        type: 'block',
-        position: node.position,
-        data: {
-          label: node.label,
-          subtitle: node.subtitle,
-          blockType: node.blockType,
-          createdBy: node.createdBy,
-          changedByAgent: node.lastChangedBy.kind === 'agent' ? node.lastChangedBy.agentKey : null,
-          lastChangedAt: node.lastChangedAt,
-          lockedBy,
-        },
-      };
-      if (lockedBy) {
-        flowNode.draggable = false;
-        flowNode.deletable = false;
-      }
-      const local = previousById.get(node.id);
-      if (!local) return flowNode;
-      if (local.dragging) flowNode.position = local.position;
-      if (local.selected !== undefined) flowNode.selected = local.selected;
-      if (local.dragging !== undefined) flowNode.dragging = local.dragging;
-      if (local.measured !== undefined) flowNode.measured = local.measured;
-      return flowNode;
-    });
+  const blockCounts = new Map<string, number>();
+  for (const node of canvasNodes) {
+    if (node.type === 'block' && node.frameId) {
+      blockCounts.set(node.frameId, (blockCounts.get(node.frameId) ?? 0) + 1);
+    }
+  }
+  const sorted = [...canvasNodes].sort(byLastChange);
+  const ordered = [
+    ...sorted.filter((node) => node.type === 'frame'),
+    ...sorted.filter((node) => node.type !== 'frame'),
+  ];
+
+  return ordered.map((node) => {
+    const lock = locks.get(node.id);
+    const lockedBy = lock && lock.clientId !== ownClientId ? { name: lock.name } : null;
+    const flowNode = toFlowNode(node, lockedBy, blockCounts);
+    if (lockedBy) {
+      flowNode.draggable = false;
+      flowNode.deletable = false;
+    }
+    const local = previousById.get(node.id);
+    if (!local) return flowNode;
+    if (local.dragging) flowNode.position = local.position;
+    if (local.resizing) {
+      flowNode.position = local.position;
+      flowNode.width = local.width;
+      flowNode.height = local.height;
+    }
+    if (local.selected !== undefined) flowNode.selected = local.selected;
+    if (local.dragging !== undefined) flowNode.dragging = local.dragging;
+    if (local.resizing !== undefined) flowNode.resizing = local.resizing;
+    if (local.measured !== undefined) flowNode.measured = local.measured;
+    return flowNode;
+  });
 }
 
-export function toFlowEdges(canvasEdges: readonly CanvasEdge[]): Edge[] {
-  return canvasEdges.map((edge) => ({
-    id: edge.id,
-    source: edge.source,
-    target: edge.target,
-    sourceHandle: edge.sourceHandle,
-    targetHandle: edge.targetHandle,
-    label: edge.label,
-  }));
+/**
+ * React Flow edges from the Y.Doc snapshot. An arrow shows an agent change of itself or of its
+ * target (handoff: "if the target or the edge was just changed by AI"), whichever is newer.
+ * Selection is carried over from `previous`.
+ */
+export function toFlowEdges(
+  canvasEdges: readonly CanvasEdge[],
+  canvasNodes: readonly CanvasNode[],
+  previous: readonly ArrowFlowEdge[] = [],
+): ArrowFlowEdge[] {
+  const nodes = new Map(canvasNodes.map((node) => [node.id, node]));
+  const selected = new Set(previous.filter((edge) => edge.selected).map((edge) => edge.id));
+  return canvasEdges.map((edge) => {
+    const target = nodes.get(edge.target);
+    const latest =
+      target && target.lastChangedAt > edge.lastChangedAt
+        ? { by: target.lastChangedBy, at: target.lastChangedAt }
+        : { by: edge.lastChangedBy, at: edge.lastChangedAt };
+    return {
+      id: edge.id,
+      type: 'arrow',
+      source: edge.source,
+      target: edge.target,
+      zIndex: LAYER.edge,
+      selected: selected.has(edge.id),
+      data: { label: edge.label, changedByAgent: agentOf(latest.by), lastChangedAt: latest.at },
+    };
+  });
 }

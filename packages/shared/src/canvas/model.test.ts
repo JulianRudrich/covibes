@@ -1,18 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 
+import { addEdge } from './edges';
 import {
   addBlock,
+  addFrame,
+  addNote,
   authorOrigin,
   boardDocumentName,
   boardIdFromDocumentName,
   getEdgesMap,
   getNodesMap,
   moveNode,
+  moveNodes,
+  placeNodes,
   readEdges,
   readNodes,
   removeNodes,
-  updateBlock,
+  resizeFrame,
+  updateNode,
   type Author,
 } from './model';
 
@@ -21,6 +27,8 @@ const MODERATOR: Author = { kind: 'agent', agentKey: 'moderator' };
 const BLOCK_ID = '22222222-2222-4222-8222-222222222222';
 const OTHER_ID = '33333333-3333-4333-8333-333333333333';
 const EDGE_ID = '44444444-4444-4444-8444-444444444444';
+const NOTE_ID = '55555555-5555-4555-8555-555555555555';
+const FRAME_ID = '66666666-6666-4666-8666-666666666666';
 
 function syncedPair() {
   const a = new Y.Doc();
@@ -138,7 +146,7 @@ describe('block types', () => {
   });
 });
 
-describe('updateBlock', () => {
+describe('updateNode', () => {
   it('changes texts and type and records who changed it', () => {
     const doc = new Y.Doc();
     addBlock(doc, { id: BLOCK_ID, position: { x: 0, y: 0 }, label: 'API' }, OLGA);
@@ -147,9 +155,9 @@ describe('updateBlock', () => {
       origins.push(transaction.origin);
     });
 
-    expect(
-      updateBlock(doc, BLOCK_ID, { label: ' Gateway ', blockType: 'service' }, MODERATOR),
-    ).toBe(true);
+    expect(updateNode(doc, BLOCK_ID, { label: ' Gateway ', blockType: 'service' }, MODERATOR)).toBe(
+      true,
+    );
 
     expect(readNodes(doc)[0]).toMatchObject({
       label: 'Gateway',
@@ -175,7 +183,7 @@ describe('updateBlock', () => {
       OLGA,
     );
 
-    updateBlock(doc, BLOCK_ID, { subtitle: '', blockType: null }, OLGA);
+    updateNode(doc, BLOCK_ID, { subtitle: '', blockType: null }, OLGA);
 
     expect(readNodes(doc)[0]).toMatchObject({ label: 'API', subtitle: '', blockType: null });
   });
@@ -184,10 +192,172 @@ describe('updateBlock', () => {
     const doc = new Y.Doc();
     addBlock(doc, { id: BLOCK_ID, position: { x: 0, y: 0 }, label: 'API' }, OLGA);
 
-    expect(() => updateBlock(doc, BLOCK_ID, { label: '  ' }, OLGA)).toThrow();
-    expect(() => updateBlock(doc, BLOCK_ID, { blockType: 'queue' as never }, OLGA)).toThrow();
-    expect(updateBlock(doc, OTHER_ID, { label: 'Nope' }, OLGA)).toBe(false);
+    expect(() => updateNode(doc, BLOCK_ID, { label: '  ' }, OLGA)).toThrow();
+    expect(() => updateNode(doc, BLOCK_ID, { blockType: 'queue' as never }, OLGA)).toThrow();
+    expect(updateNode(doc, OTHER_ID, { label: 'Nope' }, OLGA)).toBe(false);
     expect(readNodes(doc)[0]?.label).toBe('API');
+  });
+});
+
+describe('notes and frames', () => {
+  it('adds a note with its size and author', () => {
+    const doc = new Y.Doc();
+    const note = addNote(
+      doc,
+      { id: NOTE_ID, position: { x: 10, y: 20 }, text: ' Offline? ' },
+      OLGA,
+    );
+
+    expect(note).toMatchObject({
+      type: 'sticky',
+      label: 'Offline?',
+      size: { width: 176, height: 124 },
+      frameId: null,
+      createdBy: OLGA,
+    });
+    expect(readNodes(doc)).toEqual([note]);
+  });
+
+  it('adds a frame in the default size and refuses one that is too small', () => {
+    const doc = new Y.Doc();
+    const frame = addFrame(
+      doc,
+      { id: FRAME_ID, position: { x: 0, y: 0 }, title: 'Architektur' },
+      OLGA,
+    );
+
+    expect(frame).toMatchObject({
+      type: 'frame',
+      label: 'Architektur',
+      size: { width: 480, height: 320 },
+    });
+    expect(() =>
+      addFrame(
+        doc,
+        {
+          id: OTHER_ID,
+          position: { x: 0, y: 0 },
+          title: 'Klein',
+          size: { width: 100, height: 400 },
+        },
+        OLGA,
+      ),
+    ).toThrow();
+  });
+
+  it('lets notes and frames change only their text', () => {
+    const doc = new Y.Doc();
+    addNote(doc, { id: NOTE_ID, position: { x: 0, y: 0 }, text: 'Idee' }, OLGA);
+
+    expect(updateNode(doc, NOTE_ID, { label: 'Bessere Idee' }, MODERATOR)).toBe(true);
+    expect(readNodes(doc)[0]).toMatchObject({ label: 'Bessere Idee', lastChangedBy: MODERATOR });
+    expect(() => updateNode(doc, NOTE_ID, { subtitle: 'x' }, OLGA)).toThrow();
+    expect(() => updateNode(doc, NOTE_ID, { blockType: 'database' }, OLGA)).toThrow();
+  });
+});
+
+/** A frame at 0, 0 (480 × 320) with a block inside and a block outside. */
+function docWithFrame() {
+  const doc = new Y.Doc();
+  addFrame(doc, { id: FRAME_ID, position: { x: 0, y: 0 }, title: 'Architektur' }, OLGA);
+  addBlock(doc, { id: BLOCK_ID, position: { x: 40, y: 60 }, label: 'API' }, OLGA);
+  addBlock(doc, { id: OTHER_ID, position: { x: 700, y: 60 }, label: 'DB' }, OLGA);
+  placeNodes(doc, [BLOCK_ID, OTHER_ID], OLGA);
+  return doc;
+}
+
+function node(doc: Y.Doc, id: string) {
+  const found = readNodes(doc).find((candidate) => candidate.id === id);
+  if (!found) throw new Error(`Node ${id} is missing`);
+  return found;
+}
+
+describe('frame membership', () => {
+  it('puts a node into the frame its center lies in and out again', () => {
+    const doc = docWithFrame();
+    expect(node(doc, BLOCK_ID).frameId).toBe(FRAME_ID);
+    expect(node(doc, OTHER_ID).frameId).toBeNull();
+
+    moveNode(doc, OTHER_ID, { x: 200, y: 180 }, OLGA);
+    moveNode(doc, BLOCK_ID, { x: 900, y: 60 }, OLGA);
+    placeNodes(doc, [OTHER_ID, BLOCK_ID], OLGA);
+
+    expect(node(doc, OTHER_ID).frameId).toBe(FRAME_ID);
+    expect(node(doc, BLOCK_ID).frameId).toBeNull();
+  });
+
+  it('never puts a frame into another frame', () => {
+    const doc = docWithFrame();
+    addFrame(doc, { id: NOTE_ID, position: { x: 100, y: 100 }, title: 'Innen' }, OLGA);
+
+    placeNodes(doc, [NOTE_ID], OLGA);
+
+    expect(node(doc, NOTE_ID).frameId).toBeNull();
+  });
+
+  it('moves the members along with the frame, without marking them as changed', () => {
+    const doc = docWithFrame();
+    const before = node(doc, BLOCK_ID);
+
+    moveNode(doc, FRAME_ID, { x: 100, y: 50 }, MODERATOR);
+
+    expect(node(doc, BLOCK_ID)).toMatchObject({
+      position: { x: 140, y: 110 },
+      lastChangedBy: before.lastChangedBy,
+      lastChangedAt: before.lastChangedAt,
+    });
+    expect(node(doc, OTHER_ID).position).toEqual({ x: 700, y: 60 });
+  });
+
+  it('does not move a member twice when it is moved together with its frame', () => {
+    const doc = docWithFrame();
+
+    moveNodes(
+      doc,
+      [
+        [BLOCK_ID, { x: 140, y: 110 }],
+        [FRAME_ID, { x: 100, y: 50 }],
+      ],
+      OLGA,
+    );
+
+    expect(node(doc, BLOCK_ID).position).toEqual({ x: 140, y: 110 });
+  });
+
+  it('lets membership follow a resized frame', () => {
+    const doc = docWithFrame();
+
+    expect(resizeFrame(doc, FRAME_ID, { size: { width: 900, height: 320 } }, OLGA)).toBe(true);
+    expect(node(doc, OTHER_ID).frameId).toBe(FRAME_ID);
+
+    resizeFrame(
+      doc,
+      FRAME_ID,
+      { position: { x: 600, y: 0 }, size: { width: 300, height: 320 } },
+      OLGA,
+    );
+    expect(node(doc, FRAME_ID)).toMatchObject({
+      position: { x: 600, y: 0 },
+      size: { width: 300, height: 320 },
+    });
+    expect(node(doc, BLOCK_ID).frameId).toBeNull();
+    expect(node(doc, OTHER_ID).frameId).toBe(FRAME_ID);
+  });
+
+  it('refuses a frame below the minimum size and ignores other nodes', () => {
+    const doc = docWithFrame();
+
+    expect(() => resizeFrame(doc, FRAME_ID, { size: { width: 200, height: 320 } }, OLGA)).toThrow();
+    expect(resizeFrame(doc, BLOCK_ID, { size: { width: 300, height: 300 } }, OLGA)).toBe(false);
+  });
+
+  it('keeps the members when the frame is removed', () => {
+    const doc = docWithFrame();
+
+    removeNodes(doc, [FRAME_ID], OLGA);
+
+    expect(node(doc, BLOCK_ID).frameId).toBeNull();
+    expect(readNodes(doc)).toHaveLength(2);
   });
 });
 
@@ -196,21 +366,7 @@ describe('removeNodes', () => {
     const doc = new Y.Doc();
     addBlock(doc, { id: BLOCK_ID, position: { x: 0, y: 0 }, label: 'API' }, OLGA);
     addBlock(doc, { id: OTHER_ID, position: { x: 0, y: 200 }, label: 'DB' }, OLGA);
-    const edge = new Y.Map<unknown>();
-    doc.transact(() => {
-      for (const [key, value] of Object.entries({
-        id: EDGE_ID,
-        source: BLOCK_ID,
-        target: OTHER_ID,
-        sourceHandle: null,
-        targetHandle: null,
-        label: 'SQL',
-        createdBy: OLGA,
-      })) {
-        edge.set(key, value);
-      }
-      getEdgesMap(doc).set(EDGE_ID, edge);
-    });
+    addEdge(doc, { id: EDGE_ID, source: BLOCK_ID, target: OTHER_ID, label: 'SQL' }, OLGA);
     expect(readEdges(doc)).toHaveLength(1);
 
     removeNodes(doc, [OTHER_ID, 'unknown'], OLGA);

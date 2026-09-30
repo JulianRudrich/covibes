@@ -4,10 +4,16 @@ import type { NodeProps } from '@xyflow/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { BlockActionsProvider, type BlockActions } from '@web/features/canvas/block-actions';
+import { CanvasActionsProvider, type CanvasActions } from '@web/features/canvas/canvas-actions';
 import { BlockNode } from '@web/features/canvas/block-node';
 import type { BlockFlowNode, BlockNodeData } from '@web/features/canvas/flow-mapping';
 import { aiRing } from '@web/lib/styles';
+
+// The points for arrows need a running React Flow; they are checked in the browser.
+vi.mock('@web/features/canvas/connection-handles', () => ({
+  ArrowAnchors: () => null,
+  ConnectionHandles: () => null,
+}));
 
 const NOW = Date.parse('2026-09-29T10:00:00.000Z');
 const OLGA: Author = { kind: 'human', userId: '00000000-0000-4000-8000-000000000001' };
@@ -28,6 +34,7 @@ function nodeProps(
       changedByAgent: null,
       lastChangedAt: new Date(NOW).toISOString(),
       lockedBy: null,
+      size: { width: 180, height: 96 },
       ...data,
     },
     dragging: false,
@@ -43,13 +50,15 @@ function nodeProps(
   };
 }
 
-function blockActions(overrides: Partial<BlockActions> = {}): BlockActions {
+function blockActions(overrides: Partial<CanvasActions> = {}): CanvasActions {
   return {
     readOnly: false,
     editingId: null,
     startEditing: vi.fn(),
     finishEditing: vi.fn(),
+    finishEdgeEditing: vi.fn(),
     setType: vi.fn(),
+    resizeFrame: vi.fn(),
     authorOf: (author) =>
       author.kind === 'agent'
         ? { name: 'Moderator', initials: 'M' }
@@ -66,10 +75,10 @@ function changedAgo(ageMs: number): string {
 function renderBlock(
   data: Partial<BlockNodeData>,
   node: Partial<NodeProps<BlockFlowNode>> = {},
-  actions: BlockActions = blockActions(),
+  actions: CanvasActions = blockActions(),
 ) {
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <BlockActionsProvider value={actions}>{children}</BlockActionsProvider>
+    <CanvasActionsProvider value={actions}>{children}</CanvasActionsProvider>
   );
   const view = render(<BlockNode {...nodeProps(data, node)} />, { wrapper });
   const block = view.container.firstElementChild;

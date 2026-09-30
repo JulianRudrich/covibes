@@ -2,6 +2,11 @@ import { randomUUID } from 'node:crypto';
 
 import {
   addBlock,
+  addEdge,
+  addFrame,
+  addNote,
+  placeNodes,
+  readEdges,
   readNodes,
   type ChatMessage,
   type LiveEvent,
@@ -253,7 +258,13 @@ describe('agent turn', () => {
     const call = model.mock.calls[0]?.[0];
     expect(call).toMatchObject({ model: 'claude-opus-5-5' });
     expect(call?.system).toContain('You are the moderator in Covibes');
-    expect(call?.tools.map((tool) => tool.name)).toEqual(['add_block', 'update_block']);
+    expect(call?.tools.map((tool) => tool.name)).toEqual([
+      'add_block',
+      'update_block',
+      'connect_blocks',
+      'add_note',
+      'add_frame',
+    ]);
     expect(call?.prompt).toContain(
       `<canvas>\n- block "Web-App" (React), type app at 100, 200, id ${blockId}, Sam is editing it\n</canvas>`,
     );
@@ -426,6 +437,41 @@ describe('quotaNote', () => {
 });
 
 describe('buildPrompt', () => {
+  it('lists frames first, then blocks and notes with their frame, then the arrows', () => {
+    const doc = memoryBoards().doc(randomUUID());
+    const author = { kind: 'agent', agentKey: 'moderator' } as const;
+    const [frame, api, db, note, edge] = [1, 2, 3, 4, 5].map(
+      (n) => `0000000${String(n)}-0000-4000-8000-000000000000`,
+    ) as [string, string, string, string, string];
+    addFrame(doc, { id: frame, position: { x: 0, y: 0 }, title: 'Architektur' }, author);
+    addBlock(doc, { id: api, position: { x: 40, y: 60 }, label: 'API' }, author);
+    addBlock(doc, { id: db, position: { x: 40, y: 200 }, label: 'DB' }, author);
+    addNote(doc, { id: note, position: { x: 600, y: 0 }, text: 'Offline?' }, author);
+    placeNodes(doc, [api, db, note], author);
+    addEdge(doc, { id: edge, source: api, target: db, label: 'SQL' }, author);
+
+    const prompt = buildPrompt({
+      projectName: 'Demo',
+      nodes: readNodes(doc),
+      edges: readEdges(doc),
+      messages: [],
+      request: undefined,
+    });
+
+    expect(prompt).toContain(
+      [
+        '<canvas>',
+        `- frame "Architektur" at 0, 0, 480 × 320, id ${frame}`,
+        `- block "API" at 40, 60, id ${api}, in frame "Architektur"`,
+        `- block "DB" at 40, 200, id ${db}, in frame "Architektur"`,
+        `- note "Offline?" at 600, 0, id ${note}`,
+        'Arrows:',
+        `- "API" → "DB": SQL, id ${edge}`,
+        '</canvas>',
+      ].join('\n'),
+    );
+  });
+
   it('keeps chat text from closing the sections of the prompt', () => {
     const message: ChatMessage = {
       id: randomUUID(),

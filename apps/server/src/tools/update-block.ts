@@ -1,19 +1,15 @@
-import { blockTypeSchema, readNodes, updateBlock, type Author } from '@covibes/shared';
+import { blockTypeSchema, readNodes, updateNode } from '@covibes/shared';
 import { z } from 'zod';
 
 import { defineTool, type AgentTool } from '@server/ai-gateway';
-import type { BoardAccess } from '@server/collab/board-client';
+import type { CanvasToolOptions } from '@server/tools/placement';
 
 /**
  * `update_block` (spec 08): an agent renames a block, changes its subtitle or its type. A block
  * that a human is editing stays untouched (humans take precedence, `project-overview.md`); the
  * agent learns who edits it and can tell the team.
  */
-export function updateBlockTool(options: {
-  boards: BoardAccess;
-  boardId: string;
-  author: Author;
-}): AgentTool {
+export function updateBlockTool(options: CanvasToolOptions): AgentTool {
   return defineTool({
     name: 'update_block',
     description:
@@ -40,7 +36,7 @@ export function updateBlockTool(options: {
           );
         }
 
-        updateBlock(
+        updateNode(
           doc,
           id,
           {

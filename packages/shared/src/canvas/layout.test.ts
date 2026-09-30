@@ -43,11 +43,21 @@ describe('findFreeSpot', () => {
     expect(isSeparated(spot, taken)).toBe(true);
   });
 
-  it('puts the next block right below the previous one', () => {
+  it('puts the next block below the previous one, with room for an arrow in between', () => {
     const first = findFreeSpot([], { x: 390, y: 308 });
     const second = findFreeSpot([canvasNode('a', first.x, first.y)], { x: 390, y: 308 });
 
-    expect(second).toEqual({ x: first.x, y: first.y + BLOCK_SIZE.height + 20 });
+    expect(second).toEqual({ x: first.x, y: first.y + BLOCK_SIZE.height + 100 });
+  });
+
+  it('keeps the distance of the handoff to blocks side by side', () => {
+    // The spots below and above are taken, so the next one is to the right.
+    const left = canvasNode('a', 300, 260);
+    const below = canvasNode('b', 300, 456);
+    const above = canvasNode('c', 300, 64);
+    const spot = findFreeSpot([left, below, above], { x: 390, y: 308 });
+
+    expect(spot).toEqual({ x: 300 + BLOCK_SIZE.width + 40, y: 260 });
   });
 
   it('finds a spot outside a crowded area', () => {

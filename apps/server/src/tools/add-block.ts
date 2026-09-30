@@ -1,45 +1,17 @@
 import { randomUUID } from 'node:crypto';
 
-import {
-  addBlock,
-  blockTypeSchema,
-  findFreeSpot,
-  readNodes,
-  type Author,
-  type CanvasNode,
-  type Position,
-} from '@covibes/shared';
+import { addBlock, blockTypeSchema, findFreeSpot, readNodes } from '@covibes/shared';
 import { z } from 'zod';
 
 import { defineTool, type AgentTool } from '@server/ai-gateway';
-import type { BoardAccess } from '@server/collab/board-client';
-
-/** Roughly the middle of the visible canvas at the default view (100 %, no scrolling). */
-const DEFAULT_CENTER: Position = { x: 360, y: 320 };
-
-/** New blocks go next to the existing ones: around their center, or in view on an empty board. */
-function centerOf(nodes: readonly CanvasNode[]): Position {
-  if (nodes.length === 0) return DEFAULT_CENTER;
-  const sum = nodes.reduce(
-    (total, node) => ({
-      x: total.x + node.position.x + node.size.width / 2,
-      y: total.y + node.position.y + node.size.height / 2,
-    }),
-    { x: 0, y: 0 },
-  );
-  return { x: sum.x / nodes.length, y: sum.y / nodes.length };
-}
+import { centerOfNodes, describePosition, type CanvasToolOptions } from '@server/tools/placement';
 
 /**
  * `add_block` (spec 07): an agent adds a block to the project's main board. It writes through the
  * live Y.Doc with the shared `addBlock`, so the block appears for everyone at once and carries the
  * agent as its author.
  */
-export function addBlockTool(options: {
-  boards: BoardAccess;
-  boardId: string;
-  author: Author;
-}): AgentTool {
+export function addBlockTool(options: CanvasToolOptions): AgentTool {
   return defineTool({
     name: 'add_block',
     description:
@@ -56,7 +28,7 @@ export function addBlockTool(options: {
       options.boards.withBoard(options.boardId, (doc) => {
         const nodes = readNodes(doc);
         const position =
-          x !== undefined && y !== undefined ? { x, y } : findFreeSpot(nodes, centerOf(nodes));
+          x !== undefined && y !== undefined ? { x, y } : findFreeSpot(nodes, centerOfNodes(nodes));
         const id = randomUUID();
         addBlock(
           doc,
@@ -64,7 +36,7 @@ export function addBlockTool(options: {
           options.author,
         );
         return Promise.resolve(
-          `Added the block "${title}" (id ${id}) at ${String(Math.round(position.x))}, ${String(Math.round(position.y))}.`,
+          `Added the block "${title}" (id ${id}) at ${describePosition(position)}.`,
         );
       }),
   });

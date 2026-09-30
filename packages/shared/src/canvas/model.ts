@@ -48,11 +48,18 @@ export const canvasEdgeSchema = z.object({
   targetHandle: z.string().max(40).nullable(),
   label: z.string().max(120),
   createdBy: authorSchema,
+  lastChangedBy: authorSchema,
+  lastChangedAt: z.iso.datetime(),
 });
 export type CanvasEdge = z.infer<typeof canvasEdgeSchema>;
 
 /** Blocks have a fixed size in the design handoff (180 × 96). */
 export const BLOCK_SIZE: Size = { width: 180, height: 96 };
+/** Sticky notes are 176 × 124 in the handoff. */
+export const NOTE_SIZE: Size = { width: 176, height: 124 };
+/** A new frame; frames can be resized, but not below `FRAME_MIN_SIZE` (spec 09). */
+export const FRAME_SIZE: Size = { width: 480, height: 320 };
+export const FRAME_MIN_SIZE: Size = { width: 240, height: 160 };
 
 /**
  * Kinds of blocks this version offers (spec 08); `null` is the generic block. Stored nodes accept
@@ -69,27 +76,47 @@ export const BLOCK_TYPES = [
 export type BlockType = (typeof BLOCK_TYPES)[number];
 export const blockTypeSchema = z.enum(BLOCK_TYPES);
 
-const blockLabelSchema = z.string().trim().min(1).max(200);
+const nodeTextSchema = z.string().trim().min(1).max(200);
 const blockSubtitleSchema = z.string().trim().max(200);
+const frameSizeSchema = z.object({
+  width: z.number().min(FRAME_MIN_SIZE.width),
+  height: z.number().min(FRAME_MIN_SIZE.height),
+});
 
 export const addBlockInputSchema = z.object({
   /** Created by the caller (`crypto.randomUUID()`), so the new block can be selected right away. */
   id: z.uuid(),
   position: positionSchema,
-  label: blockLabelSchema,
+  label: nodeTextSchema,
   subtitle: blockSubtitleSchema.default(''),
   blockType: blockTypeSchema.nullable().default(null),
 });
 export type AddBlockInput = z.input<typeof addBlockInputSchema>;
 
-export const updateBlockInputSchema = z
+export const addNoteInputSchema = z.object({
+  id: z.uuid(),
+  position: positionSchema,
+  text: nodeTextSchema,
+});
+export type AddNoteInput = z.input<typeof addNoteInputSchema>;
+
+export const addFrameInputSchema = z.object({
+  id: z.uuid(),
+  position: positionSchema,
+  title: nodeTextSchema,
+  size: frameSizeSchema.default(FRAME_SIZE),
+});
+export type AddFrameInput = z.input<typeof addFrameInputSchema>;
+
+/** Texts of a node: title and subtitle of a block, the text of a note, the title of a frame. */
+export const updateNodeInputSchema = z
   .object({
-    label: blockLabelSchema,
+    label: nodeTextSchema,
     subtitle: blockSubtitleSchema,
     blockType: blockTypeSchema.nullable(),
   })
   .partial();
-export type UpdateBlockInput = z.input<typeof updateBlockInputSchema>;
+export type UpdateNodeInput = z.input<typeof updateNodeInputSchema>;
 
 type NodeFields = Y.Map<unknown>;
 
@@ -109,18 +136,15 @@ export function authorOrigin(author: Author): string {
   return author.kind === 'human' ? `human:${author.userId}` : `agent:${author.agentKey}`;
 }
 
-export function addBlock(doc: Y.Doc, input: AddBlockInput, author: Author): CanvasNode {
-  const data = addBlockInputSchema.parse(input);
+/** Stores a new node, stamped as created and last changed by its author. */
+function insertNode(
+  doc: Y.Doc,
+  fields: Omit<CanvasNode, 'createdBy' | 'lastChangedBy' | 'lastChangedAt'>,
+  author: Author,
+): CanvasNode {
   const createdBy = authorSchema.parse(author);
   const node: CanvasNode = {
-    id: data.id,
-    type: 'block',
-    blockType: data.blockType,
-    position: data.position,
-    size: BLOCK_SIZE,
-    label: data.label,
-    subtitle: data.subtitle,
-    frameId: null,
+    ...fields,
     createdBy,
     lastChangedBy: createdBy,
     lastChangedAt: new Date().toISOString(),
@@ -129,55 +153,240 @@ export function addBlock(doc: Y.Doc, input: AddBlockInput, author: Author): Canv
   if (nodes.has(node.id)) throw new Error(`Node ${node.id} already exists`);
 
   doc.transact(() => {
-    const fields: NodeFields = new Y.Map();
-    for (const [key, value] of Object.entries(node)) fields.set(key, value);
-    nodes.set(node.id, fields);
+    const map: NodeFields = new Y.Map();
+    for (const [key, value] of Object.entries(node)) map.set(key, value);
+    nodes.set(node.id, map);
   }, authorOrigin(createdBy));
   return node;
 }
 
-/** Moves a node; returns false if it does not exist (e.g. removed by someone else meanwhile). */
-export function moveNode(doc: Y.Doc, id: string, position: Position, author: Author): boolean {
-  const target = positionSchema.parse(position);
+export function addBlock(doc: Y.Doc, input: AddBlockInput, author: Author): CanvasNode {
+  const data = addBlockInputSchema.parse(input);
+  return insertNode(
+    doc,
+    {
+      id: data.id,
+      type: 'block',
+      blockType: data.blockType,
+      position: data.position,
+      size: BLOCK_SIZE,
+      label: data.label,
+      subtitle: data.subtitle,
+      frameId: null,
+    },
+    author,
+  );
+}
+
+/** A sticky note for an unfinished thought (spec 09); its text is the node's label. */
+export function addNote(doc: Y.Doc, input: AddNoteInput, author: Author): CanvasNode {
+  const data = addNoteInputSchema.parse(input);
+  return insertNode(
+    doc,
+    {
+      id: data.id,
+      type: 'sticky',
+      blockType: null,
+      position: data.position,
+      size: NOTE_SIZE,
+      label: data.text,
+      subtitle: '',
+      frameId: null,
+    },
+    author,
+  );
+}
+
+/** A frame: a labeled area that holds a diagram (spec 09). Its title is the node's label. */
+export function addFrame(doc: Y.Doc, input: AddFrameInput, author: Author): CanvasNode {
+  const data = addFrameInputSchema.parse(input);
+  return insertNode(
+    doc,
+    {
+      id: data.id,
+      type: 'frame',
+      blockType: null,
+      position: data.position,
+      size: data.size,
+      label: data.title,
+      subtitle: '',
+      frameId: null,
+    },
+    author,
+  );
+}
+
+function stampChange(fields: NodeFields, changedBy: Author, at: string) {
+  fields.set('lastChangedBy', changedBy);
+  fields.set('lastChangedAt', at);
+}
+
+function readPosition(fields: NodeFields): Position | undefined {
+  const parsed = positionSchema.safeParse(fields.get('position'));
+  return parsed.success ? parsed.data : undefined;
+}
+
+/**
+ * Moves nodes as one change. A frame takes its members along, except members that are moved
+ * themselves (e.g. selected together with the frame); members keep their last change, since
+ * nobody changed them. Unknown ids are skipped.
+ */
+export function moveNodes(
+  doc: Y.Doc,
+  moves: Iterable<readonly [string, Position]>,
+  author: Author,
+): void {
+  const targets = new Map(
+    Array.from(moves, ([id, position]) => [id, positionSchema.parse(position)] as const),
+  );
   const changedBy = authorSchema.parse(author);
-  const fields = getNodesMap(doc).get(id);
-  if (!fields) return false;
+  const nodes = getNodesMap(doc);
+  if (![...targets.keys()].some((id) => nodes.has(id))) return;
 
   doc.transact(() => {
-    fields.set('position', target);
-    fields.set('lastChangedBy', changedBy);
-    fields.set('lastChangedAt', new Date().toISOString());
+    const at = new Date().toISOString();
+    for (const [id, position] of targets) {
+      const fields = nodes.get(id);
+      if (!fields) continue;
+      const before = readPosition(fields);
+      fields.set('position', position);
+      stampChange(fields, changedBy, at);
+      if (fields.get('type') !== 'frame' || !before) continue;
+
+      const dx = position.x - before.x;
+      const dy = position.y - before.y;
+      for (const [memberId, member] of nodes) {
+        if (member.get('frameId') !== id || targets.has(memberId)) continue;
+        const current = readPosition(member);
+        if (current) member.set('position', { x: current.x + dx, y: current.y + dy });
+      }
+    }
   }, authorOrigin(changedBy));
+}
+
+/** Moves one node; returns false if it does not exist (e.g. removed by someone else meanwhile). */
+export function moveNode(doc: Y.Doc, id: string, position: Position, author: Author): boolean {
+  const target = positionSchema.parse(position);
+  if (!getNodesMap(doc).has(id)) return false;
+  moveNodes(doc, [[id, target]], author);
   return true;
 }
 
 /**
- * Changes the texts or the type of a block; returns false if it does not exist (e.g. removed by
- * someone else meanwhile). Other kinds of nodes are left alone.
+ * Changes the texts of a node or the type of a block; returns false if the node does not exist
+ * (e.g. removed by someone else meanwhile). Notes and frames only have their text or title.
  */
-export function updateBlock(
+export function updateNode(
   doc: Y.Doc,
   id: string,
-  changes: UpdateBlockInput,
+  changes: UpdateNodeInput,
   author: Author,
 ): boolean {
-  const data = updateBlockInputSchema.parse(changes);
+  const data = updateNodeInputSchema.parse(changes);
   const changedBy = authorSchema.parse(author);
   const fields = getNodesMap(doc).get(id);
-  if (fields?.get('type') !== 'block') return false;
+  if (!fields) return false;
+  const type = fields.get('type');
+  if (type !== 'block' && (data.subtitle !== undefined || data.blockType !== undefined)) {
+    throw new Error(`A ${String(type)} has neither a subtitle nor a type`);
+  }
 
   doc.transact(() => {
     // A key passed as `undefined` survives parsing; it means "unchanged", not "clear".
     for (const [key, value] of Object.entries(data) as [string, unknown][]) {
       if (value !== undefined) fields.set(key, value);
     }
-    fields.set('lastChangedBy', changedBy);
-    fields.set('lastChangedAt', new Date().toISOString());
+    stampChange(fields, changedBy, new Date().toISOString());
   }, authorOrigin(changedBy));
   return true;
 }
 
-/** Removes nodes and every edge that touches one of them, as one change of the author. */
+function centerOf(node: Pick<CanvasNode, 'position' | 'size'>): Position {
+  return {
+    x: node.position.x + node.size.width / 2,
+    y: node.position.y + node.size.height / 2,
+  };
+}
+
+function contains(area: Pick<CanvasNode, 'position' | 'size'>, point: Position): boolean {
+  return (
+    point.x >= area.position.x &&
+    point.x <= area.position.x + area.size.width &&
+    point.y >= area.position.y &&
+    point.y <= area.position.y + area.size.height
+  );
+}
+
+/** The frame a node belongs to by its center: the topmost frame that contains it, or null. */
+function frameFor(node: CanvasNode, frames: readonly CanvasNode[]): string | null {
+  const center = centerOf(node);
+  let found: CanvasNode | null = null;
+  for (const frame of frames) {
+    if (!contains(frame, center)) continue;
+    // Frames stack by their last change, like all nodes; the latest one lies on top.
+    if (!found || frame.lastChangedAt > found.lastChangedAt) found = frame;
+  }
+  return found?.id ?? null;
+}
+
+/** Sets `frameId` of the given nodes from where their centers lie now. */
+function placeIn(doc: Y.Doc, ids: Iterable<string>, origin: string) {
+  const snapshot = readNodes(doc);
+  const frames = snapshot.filter((node) => node.type === 'frame');
+  const byId = new Map(snapshot.map((node) => [node.id, node]));
+  const nodes = getNodesMap(doc);
+  doc.transact(() => {
+    for (const id of ids) {
+      const node = byId.get(id);
+      if (!node || node.type === 'frame') continue;
+      const frameId = frameFor(node, frames);
+      if (frameId !== node.frameId) nodes.get(id)?.set('frameId', frameId);
+    }
+  }, origin);
+}
+
+/**
+ * After a drop, a node belongs to the frame in which its center lies, or to none (spec 09).
+ * Frames themselves are never members: frames are not nested in V1.
+ */
+export function placeNodes(doc: Y.Doc, ids: Iterable<string>, author: Author): void {
+  placeIn(doc, ids, authorOrigin(authorSchema.parse(author)));
+}
+
+/**
+ * Resizes a frame; from a top or left corner its position changes too. Membership follows the
+ * new bounds: nodes whose center the frame now covers join, members left outside leave.
+ */
+export function resizeFrame(
+  doc: Y.Doc,
+  id: string,
+  bounds: { size: Size; position?: Position },
+  author: Author,
+): boolean {
+  const size = frameSizeSchema.parse(bounds.size);
+  const position = bounds.position ? positionSchema.parse(bounds.position) : undefined;
+  const changedBy = authorSchema.parse(author);
+  const fields = getNodesMap(doc).get(id);
+  if (fields?.get('type') !== 'frame') return false;
+
+  const origin = authorOrigin(changedBy);
+  doc.transact(() => {
+    fields.set('size', size);
+    if (position) fields.set('position', position);
+    stampChange(fields, changedBy, new Date().toISOString());
+    const area = { position: position ?? readPosition(fields) ?? { x: 0, y: 0 }, size };
+    const affected = readNodes(doc)
+      .filter((node) => node.frameId === id || contains(area, centerOf(node)))
+      .map((node) => node.id);
+    placeIn(doc, affected, origin);
+  }, origin);
+  return true;
+}
+
+/**
+ * Removes nodes and every edge that touches one of them, as one change of the author. The members
+ * of a removed frame stay on the canvas, outside of any frame.
+ */
 export function removeNodes(doc: Y.Doc, ids: readonly string[], author: Author): void {
   const removedBy = authorSchema.parse(author);
   const nodes = getNodesMap(doc);
@@ -187,6 +396,10 @@ export function removeNodes(doc: Y.Doc, ids: readonly string[], author: Author):
 
   doc.transact(() => {
     for (const id of removed) nodes.delete(id);
+    for (const member of nodes.values()) {
+      const frameId = member.get('frameId');
+      if (typeof frameId === 'string' && removed.has(frameId)) member.set('frameId', null);
+    }
     for (const [edgeId, fields] of edges) {
       const ends = [fields.get('source'), fields.get('target')];
       if (ends.some((end) => typeof end === 'string' && removed.has(end))) edges.delete(edgeId);

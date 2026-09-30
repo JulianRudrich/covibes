@@ -7,7 +7,7 @@
 Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 09: edges, frames and sticky notes (branch `spec/09-edges-frames-notes`)
+- nothing
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -77,11 +77,18 @@ Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is d
   - the moderator changes blocks with `update_block` and leaves blocks alone that someone edits
 
   Lint, type check, format, 445 tests and build pass; verified with `pnpm dev` and a second member.
+- [x] **Spec 09 edges, frames and sticky notes:**
+  - arrows between blocks as in the handoff: Béziers anchored from the positions, spread along an edge, labels in mono, agent color right after an agent change
+  - frames with title and block count; dropped nodes join the frame they lie in, a moved frame takes its content along, resizable at the corners
+  - sticky notes with the creator in the footer; editing in place for notes, frame titles and arrow labels
+  - the moderator draws arrows, notes and frames; new elements keep room for arrows between them
+
+  Lint, type check, format, 508 tests and build pass; verified with `pnpm dev`.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **Spec 09:** edges, frames and sticky notes, then specs 10 and 11.
+1. **Spec 10:** toolbar, zoom, auto-layout and undo, then spec 11.
 2. What the owner contributes while building:
    - **by spec 12:** designs in Claude Design for the blocks of mind map, data model and flow
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -177,3 +184,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-09-29, M2 specs worked out:** specs 08 to 11 are ready. The owner decided four points on the coding agent's recommendation: the proposal state moves to spec 13, interactions missing in the handoff are derived and accepted from screenshots, agents get the tools for every new canvas element, and undo covers one's own changes first. The owner also approved EPL-2.0 for ELK. Spec 12 waits for designs of the mind map, data model and flow blocks.
 - **2026-09-30, spec 08 implemented.** Details are in the spec under "Implementation notes". The owner left the details of derived interactions to the coding agent; fundamental decisions stay with the owner. During the live test the Claude subscription's session limit ran out, which showed that a used-up quota leads to pointless quick retries and an unclear note; the fix comes next.
 - **2026-09-30, fix for spec 07:** a used-up Claude quota ends a run at once with a note on how long it takes until the quota is free again, instead of three pointless retries. A test of the live stream that failed now and then under load waits for the final events now. Details are in spec 07 under "Implementation notes".
+- **2026-09-30, spec 09 implemented.** Details are in the spec under "Implementation notes". The live test found two faults that the unit tests could not see, both fixed: arrows were not drawn (React Flow needs handles on both ends) and the drop area for new arrows was shifted. New elements now keep the distances of the handoff, so arrows fit between them.

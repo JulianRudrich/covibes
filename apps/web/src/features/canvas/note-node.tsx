@@ -1,0 +1,109 @@
+import type { NodeProps } from '@xyflow/react';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { Avatar } from '@web/components/ui/avatar';
+import { AGENT_BORDER } from '@web/features/canvas/agent-look';
+import { useCanvasActions } from '@web/features/canvas/canvas-actions';
+import type { NoteFlowNode, NoteNodeData } from '@web/features/canvas/flow-mapping';
+import { useFocusOnMount, useInPlaceEditing } from '@web/features/canvas/in-place-editing';
+import { EditCaret, JustDrawnPill, LockPill } from '@web/features/canvas/node-chrome';
+import { useJustDrawnBy } from '@web/features/canvas/use-just-drawn';
+import { cn } from '@web/lib/cn';
+import { aiRing } from '@web/lib/styles';
+
+/**
+ * A sticky note for an unfinished thought (spec 09, handoff "Sticky note"): yellow, slightly
+ * rotated, with its creator in the footer. It shows locks and agent changes like a block.
+ */
+export function NoteNode({ id, data, selected }: NodeProps<NoteFlowNode>) {
+  const actions = useCanvasActions();
+  const justDrawnBy = useJustDrawnBy(data);
+  const lockedBy = data.lockedBy;
+  const agent = lockedBy ? null : justDrawnBy;
+  const editing = actions.editingId === id;
+
+  return (
+    <div
+      className={cn(
+        'relative flex h-[124px] w-[176px] -rotate-[1.5deg] flex-col justify-between gap-2 rounded-[4px_4px_14px_4px] bg-note p-3.5 transition-[border-color,box-shadow] duration-200 motion-reduce:transition-none',
+        lockedBy
+          ? 'cursor-not-allowed border-[1.5px] border-human shadow-lock'
+          : agent
+            ? cn('border-[1.5px]', AGENT_BORDER[agent])
+            : 'border border-note-border shadow-note',
+        selected && !lockedBy && 'outline-2 outline-offset-2 outline-ink',
+      )}
+      style={agent ? { boxShadow: aiRing(agent) } : undefined}
+    >
+      {data.changedByAgent ? (
+        <JustDrawnPill agent={data.changedByAgent} visible={agent !== null} />
+      ) : null}
+      {lockedBy ? <LockPill name={lockedBy.name} /> : null}
+
+      {editing ? (
+        <NoteEditor id={id} text={data.label} />
+      ) : (
+        <div className="line-clamp-4 min-h-0 text-display leading-snug font-semibold break-words text-note-text">
+          {data.label}
+          {lockedBy ? <EditCaret /> : null}
+        </div>
+      )}
+      <NoteFooter data={data} />
+    </div>
+  );
+}
+
+function NoteFooter({ data }: { data: NoteNodeData }) {
+  const { t } = useTranslation();
+  const { authorOf } = useCanvasActions();
+  const { name, initials } = authorOf(data.createdBy);
+  return (
+    <div className="flex shrink-0 items-center gap-1.5 text-meta text-note-meta">
+      {data.createdBy.kind === 'agent' ? (
+        <Avatar
+          kind="agent"
+          agent={data.createdBy.agentKey}
+          size={16}
+          label={name}
+          initials={initials}
+        />
+      ) : (
+        <span
+          role="img"
+          aria-label={name}
+          className="grid size-4 shrink-0 place-items-center rounded-full bg-note-avatar text-[9px] font-semibold text-note-text"
+        >
+          <span aria-hidden="true">{initials}</span>
+        </span>
+      )}
+      <span className="truncate">{t('canvas.noteBy', { name })}</span>
+    </div>
+  );
+}
+
+function NoteEditor({ id, text }: { id: string; text: string }) {
+  const { t } = useTranslation();
+  const { finishEditing } = useCanvasActions();
+  const [draft, setDraft] = useState(text);
+  const { onKeyDown, onBlur } = useInPlaceEditing((save) => {
+    finishEditing(id, save ? { label: draft } : null);
+  });
+  const input = useFocusOnMount<HTMLTextAreaElement>();
+
+  return (
+    <textarea
+      ref={input}
+      value={draft}
+      maxLength={200}
+      rows={4}
+      aria-label={t('canvas.noteText')}
+      onChange={(event) => {
+        setDraft(event.target.value);
+      }}
+      onKeyDown={onKeyDown}
+      onBlur={onBlur}
+      className="nodrag min-h-0 flex-1 resize-none bg-transparent p-0 text-display leading-snug font-semibold text-note-text outline-none"
+    />
+  );
+}

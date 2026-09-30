@@ -1,37 +1,47 @@
-import { BLOCK_SIZE, type CanvasNode, type Position } from './model';
+import { BLOCK_SIZE, type CanvasNode, type Position, type Size } from './model';
 
-// Where new blocks go (spec 05 and 07): the same rule for people and agents.
+// Where new elements go (spec 05, 07 and 09): the same rule for people and agents.
 
-/** Grid of the canvas background; new blocks snap to it. */
+/** Grid of the canvas background; new elements snap to it. */
 export const GRID_SIZE = 20;
 const MAX_RINGS = 12;
+/**
+ * Room between elements, as in the handoff (about 40 px side by side, 110 px one below the
+ * other), so arrows and their labels fit in between.
+ */
+const GAP_X = 2 * GRID_SIZE;
+const GAP_Y = 5 * GRID_SIZE;
 
 function snap(value: number) {
   return Math.round(value / GRID_SIZE) * GRID_SIZE;
 }
 
-function overlaps(position: Position, node: CanvasNode) {
-  const gap = GRID_SIZE;
+function overlaps(position: Position, size: Size, node: CanvasNode) {
   return (
-    position.x < node.position.x + node.size.width + gap &&
-    position.x + BLOCK_SIZE.width + gap > node.position.x &&
-    position.y < node.position.y + node.size.height + gap &&
-    position.y + BLOCK_SIZE.height + gap > node.position.y
+    position.x < node.position.x + node.size.width + GAP_X &&
+    position.x + size.width + GAP_X > node.position.x &&
+    position.y < node.position.y + node.size.height + GAP_Y &&
+    position.y + size.height + GAP_Y > node.position.y
   );
 }
 
 /**
- * Top-left position for a new block near `center` (usually the middle of the visible canvas) that
- * does not cover an existing node. Searches outwards on a block-sized grid, nearest spots first;
- * among equally near spots, below and to the right come before above and to the left.
+ * Top-left position for a new element of `size` (a block by default) near `center`, usually the
+ * middle of the visible canvas, that keeps its distance to every existing node. Searches outwards
+ * on a grid of the element's size plus that distance, nearest spots first; among equally near
+ * spots, below and to the right come before above and to the left.
  */
-export function findFreeSpot(nodes: readonly CanvasNode[], center: Position): Position {
+export function findFreeSpot(
+  nodes: readonly CanvasNode[],
+  center: Position,
+  size: Size = BLOCK_SIZE,
+): Position {
   const start = {
-    x: snap(center.x - BLOCK_SIZE.width / 2),
-    y: snap(center.y - BLOCK_SIZE.height / 2),
+    x: snap(center.x - size.width / 2),
+    y: snap(center.y - size.height / 2),
   };
-  const stepX = BLOCK_SIZE.width + GRID_SIZE;
-  const stepY = BLOCK_SIZE.height + GRID_SIZE;
+  const stepX = size.width + GAP_X;
+  const stepY = size.height + GAP_Y;
 
   const offsets: { dx: number; dy: number; distance: number }[] = [];
   for (let dy = -MAX_RINGS; dy <= MAX_RINGS; dy += 1) {
@@ -43,7 +53,7 @@ export function findFreeSpot(nodes: readonly CanvasNode[], center: Position): Po
 
   for (const { dx, dy } of offsets) {
     const candidate = { x: start.x + dx * stepX, y: start.y + dy * stepY };
-    if (!nodes.some((node) => overlaps(candidate, node))) return candidate;
+    if (!nodes.some((node) => overlaps(candidate, size, node))) return candidate;
   }
   return start;
 }

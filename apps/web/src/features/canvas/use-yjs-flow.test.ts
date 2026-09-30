@@ -1,4 +1,14 @@
-import { addBlock, moveNode, readNodes, type Author, type NodeLock } from '@covibes/shared';
+import {
+  addBlock,
+  addEdge,
+  addFrame,
+  moveNode,
+  placeNodes,
+  readEdges,
+  readNodes,
+  type Author,
+  type NodeLock,
+} from '@covibes/shared';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
@@ -11,6 +21,8 @@ const SAM_ID = '00000000-0000-4000-8000-000000000002';
 const SAM: Author = { kind: 'human', userId: SAM_ID };
 const BLOCK_ID = '00000000-0000-4000-8000-0000000000aa';
 const OTHER_ID = '00000000-0000-4000-8000-0000000000bb';
+const EDGE_ID = '00000000-0000-4000-8000-0000000000cc';
+const FRAME_ID = '00000000-0000-4000-8000-0000000000dd';
 const OWN_CLIENT = 1;
 
 // Created once per test, like the memoized locks of the board.
@@ -194,5 +206,86 @@ describe('useYjsFlow', () => {
     });
 
     expect(result.current.nodes[0]).toMatchObject({ selected: true, position: { x: 100, y: 0 } });
+  });
+
+  it('selects and deletes arrows', () => {
+    const doc = docWithBlock();
+    addBlock(doc, { id: OTHER_ID, position: { x: 0, y: 200 }, label: 'DB' }, ME);
+    addEdge(doc, { id: EDGE_ID, source: BLOCK_ID, target: OTHER_ID, label: 'SQL' }, ME);
+    const settings = options(ME, false);
+    const { result } = renderHook(() => useYjsFlow(doc, settings));
+    expect(result.current.edges).toMatchObject([{ id: EDGE_ID, data: { label: 'SQL' } }]);
+
+    act(() => {
+      result.current.onEdgesChange([{ type: 'select', id: EDGE_ID, selected: true }]);
+    });
+    expect(result.current.edges[0]?.selected).toBe(true);
+
+    act(() => {
+      result.current.onEdgesChange([{ type: 'remove', id: EDGE_ID }]);
+    });
+    expect(readEdges(doc)).toEqual([]);
+    expect(result.current.edges).toEqual([]);
+  });
+
+  it('lets viewers not delete arrows', () => {
+    const doc = docWithBlock();
+    addBlock(doc, { id: OTHER_ID, position: { x: 0, y: 200 }, label: 'DB' }, ME);
+    addEdge(doc, { id: EDGE_ID, source: BLOCK_ID, target: OTHER_ID }, ME);
+    const settings = options(ME, true);
+    const { result } = renderHook(() => useYjsFlow(doc, settings));
+
+    act(() => {
+      result.current.onEdgesChange([{ type: 'remove', id: EDGE_ID }]);
+    });
+
+    expect(readEdges(doc)).toHaveLength(1);
+  });
+
+  it('puts a block dropped into a frame into it', () => {
+    const doc = docWithBlock();
+    addFrame(doc, { id: FRAME_ID, position: { x: 400, y: 0 }, title: 'Architektur' }, ME);
+    const settings = options(ME, false);
+    const { result } = renderHook(() => useYjsFlow(doc, settings));
+
+    act(() => {
+      result.current.onNodesChange([
+        { type: 'position', id: BLOCK_ID, position: { x: 500, y: 100 }, dragging: true },
+      ]);
+      result.current.onNodesChange([
+        { type: 'position', id: BLOCK_ID, position: { x: 500, y: 100 }, dragging: false },
+      ]);
+    });
+
+    expect(readNodes(doc).find((node) => node.id === BLOCK_ID)?.frameId).toBe(FRAME_ID);
+    expect(result.current.nodes.find((node) => node.id === FRAME_ID)?.data).toMatchObject({
+      blockCount: 1,
+    });
+  });
+
+  it('does not treat the move of a frame resized at a corner as a drag', () => {
+    const doc = docWithBlock();
+    addFrame(doc, { id: FRAME_ID, position: { x: 0, y: 0 }, title: 'Architektur' }, ME);
+    placeNodes(doc, [BLOCK_ID], ME);
+    expect(readNodes(doc).find((node) => node.id === BLOCK_ID)?.frameId).toBe(FRAME_ID);
+    const settings = options(ME, false);
+    const { result } = renderHook(() => useYjsFlow(doc, settings));
+
+    act(() => {
+      result.current.onNodesChange([
+        { type: 'position', id: FRAME_ID, position: { x: -100, y: 0 } },
+        {
+          type: 'dimensions',
+          id: FRAME_ID,
+          dimensions: { width: 580, height: 320 },
+          resizing: true,
+          setAttributes: true,
+        },
+      ]);
+    });
+
+    // The block inside did not move along; the resize writes the frame's bounds itself.
+    expect(readNodes(doc).find((node) => node.id === BLOCK_ID)?.position).toEqual({ x: 0, y: 0 });
+    expect(readNodes(doc).find((node) => node.id === FRAME_ID)?.position).toEqual({ x: 0, y: 0 });
   });
 });

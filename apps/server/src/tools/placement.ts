@@ -1,0 +1,31 @@
+import type { Author, CanvasNode, Position } from '@covibes/shared';
+
+import type { BoardAccess } from '@server/collab/board-client';
+
+/** What every canvas tool needs: the board it works on and the agent it acts for. */
+export type CanvasToolOptions = {
+  boards: BoardAccess;
+  boardId: string;
+  author: Author;
+};
+
+/** Roughly the middle of the visible canvas at the default view (100 %, no scrolling). */
+const DEFAULT_CENTER: Position = { x: 360, y: 320 };
+
+/** New elements go next to the existing ones: around their center, or in view on an empty board. */
+export function centerOfNodes(nodes: readonly CanvasNode[]): Position {
+  if (nodes.length === 0) return DEFAULT_CENTER;
+  const sum = nodes.reduce(
+    (total, node) => ({
+      x: total.x + node.position.x + node.size.width / 2,
+      y: total.y + node.position.y + node.size.height / 2,
+    }),
+    { x: 0, y: 0 },
+  );
+  return { x: sum.x / nodes.length, y: sum.y / nodes.length };
+}
+
+/** A position for the model to read, e.g. "40, 60". */
+export function describePosition(position: Position): string {
+  return `${String(Math.round(position.x))}, ${String(Math.round(position.y))}`;
+}

@@ -7,16 +7,20 @@ import {
   addNote,
   authorOrigin,
   BLOCK_SIZE,
+  computeLayout,
   edgeProblem,
   FRAME_MIN_SIZE,
   FRAME_SIZE,
+  frameAt,
   getNodesMap,
   GRID_SIZE,
   moveNodes,
+  newBlockType,
   NOTE_SIZE,
   placeNodes,
   readEdges,
   readNodes,
+  readsLeftToRight,
   resizeFrame,
   updateEdgeLabel,
   updateNode,
@@ -49,7 +53,6 @@ import { useTranslation } from 'react-i18next';
 
 import { PanelHeader } from '@web/components/ui/panel';
 import { arrowGeometries, type Rect } from '@web/features/canvas/arrow-geometry';
-import { computeLayout, loadElk } from '@web/features/canvas/auto-layout';
 import { BOARD_PANEL_ID, boardTabId } from '@web/features/canvas/board-ids';
 import { BlockNode } from '@web/features/canvas/block-node';
 import type { BoardConnection } from '@web/features/canvas/board-connection';
@@ -60,6 +63,7 @@ import {
 } from '@web/features/canvas/canvas-actions';
 import { ArrowMarkers, CanvasArrow } from '@web/features/canvas/canvas-arrow';
 import { CanvasToolbar } from '@web/features/canvas/canvas-toolbar';
+import { loadElk } from '@web/features/canvas/elk';
 import { FrameNode } from '@web/features/canvas/frame-node';
 import { LiveCursor } from '@web/features/canvas/live-cursor';
 import { NoteNode } from '@web/features/canvas/note-node';
@@ -188,7 +192,21 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
         { ...node.position, width: node.data.size.width, height: node.data.size.height },
       ]),
     );
-    const geometries = arrowGeometries(edges, rects);
+    // In mind maps and data models, arrows follow the reading direction (spec 12).
+    const sideways = new Set(
+      nodes
+        .filter((node) => node.type === 'block' && readsLeftToRight(node.data.diagramType))
+        .map((node) => node.id),
+    );
+    const geometries = arrowGeometries(
+      edges.map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        sideways: sideways.has(edge.source) && sideways.has(edge.target),
+      })),
+      rects,
+    );
     return edges.map((edge) => {
       const geometry = geometries.get(edge.id);
       return edge.data && geometry ? { ...edge, data: { ...edge.data, geometry } } : edge;
@@ -258,14 +276,28 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
         const node = readNodes(doc).find((candidate) => candidate.id === id);
         const label = changes?.label.trim() ?? '';
         if (node && label) {
-          const subtitle = changes?.subtitle?.trim();
-          const update =
-            node.type === 'block' ? { label, subtitle: subtitle ?? node.subtitle } : { label };
+          const subtitle = node.type === 'block' ? changes?.subtitle?.trim() : undefined;
+          // Fields only count when the editor had them, i.e. for entities (spec 12).
+          const fields =
+            changes?.fields && JSON.stringify(changes.fields) !== JSON.stringify(node.fields)
+              ? changes.fields
+              : undefined;
           const changed =
-            label !== node.label || (node.type === 'block' && update.subtitle !== node.subtitle);
+            label !== node.label ||
+            (subtitle !== undefined && subtitle !== node.subtitle) ||
+            fields !== undefined;
           if (changed) {
             beginChange();
-            updateNode(doc, id, update, author);
+            updateNode(
+              doc,
+              id,
+              {
+                label,
+                ...(subtitle !== undefined ? { subtitle } : {}),
+                ...(fields ? { fields } : {}),
+              },
+              author,
+            );
           }
         }
         stopEditing();
@@ -281,6 +313,11 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
         if (readOnly || lockedByOthers(id)) return;
         beginChange();
         updateNode(doc, id, { blockType }, author);
+      },
+      setDiagramType: (id, diagramType) => {
+        if (readOnly || lockedByOthers(id)) return;
+        beginChange();
+        updateNode(doc, id, { diagramType }, author);
       },
       resizeFrame: (id, bounds) => {
         if (readOnly || lockedByOthers(id)) return;
@@ -353,9 +390,18 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
       }
       const at = placement.kind === 'point' ? placement.at : placement.from;
       if (tool === 'block') {
+        // In a diagram, a new block gets the diagram's type (spec 12).
+        const current = readNodes(doc);
+        const frame = frameAt(current, at);
+        const blockType = frame
+          ? newBlockType(
+              frame.diagramType,
+              current.filter((node) => node.frameId === frame.id),
+            )
+          : null;
         addBlock(
           doc,
-          { id, position: centeredOn(at, BLOCK_SIZE), label: t('canvas.newBlock') },
+          { id, position: centeredOn(at, BLOCK_SIZE), label: t('canvas.newBlock'), blockType },
           author,
         );
       } else {

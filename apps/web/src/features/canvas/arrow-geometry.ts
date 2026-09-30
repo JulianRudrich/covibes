@@ -1,6 +1,7 @@
 // Where arrows start and end (spec 09, handoff "Arrows"): from the bottom edge of the source into
 // the top edge of the target as a cubic Bézier; blocks side by side are connected straight from
-// the right to the left edge. Several arrows on the same edge of a block are spread evenly.
+// the right to the left edge. Several arrows on the same edge of a block are spread evenly. In
+// diagrams that read from left to right (spec 12) arrows use the sides more often.
 
 export type Rect = { x: number; y: number; width: number; height: number };
 export type Side = 'top' | 'right' | 'bottom' | 'left';
@@ -14,7 +15,13 @@ export type ArrowGeometry = {
   target: Point;
 };
 
-type ArrowEnds = { id: string; source: string; target: string };
+type ArrowEnds = {
+  id: string;
+  source: string;
+  target: string;
+  /** The arrow lies in a diagram that reads from left to right, e.g. a mind map (spec 12). */
+  sideways?: boolean;
+};
 
 const MIN_CURVE = 30;
 /** The path stops short of the target, so the tip of the arrowhead touches its edge (handoff). */
@@ -24,11 +31,18 @@ function center(rect: Rect): Point {
   return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
 }
 
-/** The sides an arrow leaves the source and enters the target. */
-export function arrowSides(source: Rect, target: Rect): { from: Side; to: Side } {
+/**
+ * The sides an arrow leaves the source and enters the target. Blocks side by side use their
+ * facing edges; `sideways`, they do so whenever the target lies more beside than below or above.
+ */
+export function arrowSides(source: Rect, target: Rect, sideways = false): { from: Side; to: Side } {
   const verticalOverlap =
     Math.min(source.y + source.height, target.y + target.height) - Math.max(source.y, target.y);
-  if (verticalOverlap > 0) {
+  const horizontalGap = Math.max(
+    target.x - (source.x + source.width),
+    source.x - (target.x + target.width),
+  );
+  if (verticalOverlap > 0 || (sideways && horizontalGap > 0 && horizontalGap >= -verticalOverlap)) {
     if (target.x >= source.x + source.width) return { from: 'right', to: 'left' };
     if (target.x + target.width <= source.x) return { from: 'left', to: 'right' };
   }
@@ -106,7 +120,7 @@ export function arrowGeometries(
     const source = rects.get(edge.source);
     const target = rects.get(edge.target);
     if (!source || !target) continue;
-    const { from, to } = arrowSides(source, target);
+    const { from, to } = arrowSides(source, target, edge.sideways);
     sides.set(edge.id, { from, to });
     const along = (side: Side, other: Rect) =>
       side === 'top' || side === 'bottom' ? center(other).x : center(other).y;

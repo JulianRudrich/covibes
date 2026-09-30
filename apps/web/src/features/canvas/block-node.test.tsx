@@ -30,6 +30,8 @@ function nodeProps(
       label: 'API',
       subtitle: 'Dienst',
       blockType: null,
+      fields: [],
+      diagramType: null,
       createdBy: OLGA,
       changedByAgent: null,
       lastChangedAt: new Date(NOW).toISOString(),
@@ -58,6 +60,7 @@ function blockActions(overrides: Partial<CanvasActions> = {}): CanvasActions {
     editingId: null,
     startEditing: vi.fn(),
     finishEditing: vi.fn(),
+    setDiagramType: vi.fn(),
     finishEdgeEditing: vi.fn(),
     setType: vi.fn(),
     resizeFrame: vi.fn(),
@@ -113,7 +116,8 @@ describe('BlockNode', () => {
     it('shows icon tile, title, subtitle and the author line in the handoff size', () => {
       const { block } = renderBlock({ blockType: 'database', label: 'PostgreSQL' });
 
-      expect(block).toHaveClass('h-[96px]', 'w-[180px]', 'rounded-panel', 'bg-bg-panel');
+      expect(block).toHaveClass('w-[180px]', 'rounded-panel', 'bg-bg-panel');
+      expect(block).toHaveStyle({ height: '96px' });
       expect(block.querySelector('.lucide-database')).toBeInTheDocument();
       expect(screen.getByText('PostgreSQL')).toHaveClass('truncate');
       expect(screen.getByText('Dienst')).toHaveClass('text-text-3');
@@ -298,7 +302,10 @@ describe('BlockNode', () => {
     });
 
     it('opens the type menu from the icon tile and changes the type', () => {
-      const { actions } = renderBlock({ blockType: 'server' }, { selected: true });
+      const { actions } = renderBlock(
+        { blockType: 'server', diagramType: 'architecture' },
+        { selected: true },
+      );
 
       fireEvent.keyDown(screen.getByRole('button', { name: 'Art des Blocks ändern' }), {
         key: 'Enter',
@@ -317,6 +324,32 @@ describe('BlockNode', () => {
 
       fireEvent.click(screen.getByRole('menuitem', { name: 'Datenbank' }));
       expect(actions.setType).toHaveBeenCalledWith('block-1', 'database');
+    });
+
+    it('offers the types of a mind map inside one, and all types by diagram elsewhere', () => {
+      const { unmount } = renderBlock(
+        { blockType: 'idea', diagramType: 'mindmap' },
+        { selected: true },
+      );
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Art des Blocks ändern' }), {
+        key: 'Enter',
+      });
+      expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+        'Block',
+        'Kernthema',
+        'Idee',
+      ]);
+      unmount();
+
+      renderBlock({ blockType: null, diagramType: null }, { selected: true });
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Art des Blocks ändern' }), {
+        key: 'Enter',
+      });
+      const menu = screen.getByRole('menu');
+      expect(menu).toHaveTextContent('MindmapKernthemaIdeeArchitektur');
+      expect(screen.getAllByRole('menuitem')).toHaveLength(15);
+      expect(screen.getByRole('menuitem', { name: 'Entität' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Verzweigung' })).toBeInTheDocument();
     });
 
     it('offers no type menu to viewers', () => {
@@ -395,6 +428,76 @@ describe('BlockNode', () => {
 
       expect(onKeyDown).not.toHaveBeenCalled();
       document.removeEventListener('keydown', onKeyDown);
+    });
+  });
+});
+
+describe('entity blocks', () => {
+  const FIELDS = [
+    { name: 'id', type: 'uuid' },
+    { name: 'email', type: 'text' },
+  ];
+
+  it('lists the fields in mono and grows with them', () => {
+    const { block } = renderBlock({
+      blockType: 'entity',
+      label: 'Nutzer',
+      fields: FIELDS,
+      size: { width: 180, height: 148 },
+    });
+
+    expect(block).toHaveStyle({ height: '148px' });
+    expect(block.querySelector('.lucide-table')).toBeInTheDocument();
+    const list = screen.getByRole('list', { name: 'Felder' });
+    expect(list).toHaveClass('font-mono');
+    expect(list.querySelectorAll('li')).toHaveLength(2);
+    expect(list).toHaveTextContent('iduuidemailtext');
+  });
+
+  it('says how many fields are not shown', () => {
+    const fields = Array.from({ length: 11 }, (_, index) => ({
+      name: `f${String(index)}`,
+      type: '',
+    }));
+    renderBlock({ blockType: 'entity', fields });
+
+    const list = screen.getByRole('list', { name: 'Felder' });
+    expect(list.querySelectorAll('li')).toHaveLength(9);
+    expect(list).toHaveTextContent('+ 3 weitere');
+  });
+
+  it('shows no fields for other types', () => {
+    renderBlock({ blockType: 'service', fields: FIELDS });
+    expect(screen.queryByRole('list', { name: 'Felder' })).not.toBeInTheDocument();
+  });
+
+  it('edits the fields one per line; Enter starts a new line, Ctrl + Enter saves', () => {
+    const actions = blockActions({ editingId: 'block-1' });
+    renderBlock({ blockType: 'entity', label: 'Nutzer', fields: FIELDS }, {}, actions);
+
+    const text = screen.getByRole('textbox', { name: 'Felder' });
+    expect(text).toHaveValue('id uuid\nemail text');
+    fireEvent.change(text, { target: { value: 'id uuid\nemail text\nname' } });
+    fireEvent.keyDown(text, { key: 'Enter' });
+    expect(actions.finishEditing).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(text, { key: 'Enter', ctrlKey: true });
+    expect(actions.finishEditing).toHaveBeenCalledWith('block-1', {
+      label: 'Nutzer',
+      subtitle: 'Dienst',
+      fields: [...FIELDS, { name: 'name', type: '' }],
+    });
+  });
+
+  it('keeps the editor of other blocks without fields', () => {
+    const actions = blockActions({ editingId: 'block-1' });
+    renderBlock({ blockType: 'service', label: 'API' }, {}, actions);
+
+    expect(screen.queryByRole('textbox', { name: 'Felder' })).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Titel' }), { key: 'Enter' });
+    expect(actions.finishEditing).toHaveBeenCalledWith('block-1', {
+      label: 'API',
+      subtitle: 'Dienst',
     });
   });
 });

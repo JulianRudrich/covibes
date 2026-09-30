@@ -25,6 +25,7 @@ import { MAX_DELTA_LENGTH, notifyLive } from '@server/realtime/notifications';
 import { addBlockTool } from '@server/tools/add-block';
 import { addFrameTool } from '@server/tools/add-frame';
 import { addNoteTool } from '@server/tools/add-note';
+import { arrangeFrameTool } from '@server/tools/arrange-frame';
 import { connectBlocksTool } from '@server/tools/connect-blocks';
 import { describePosition, type CanvasToolOptions } from '@server/tools/placement';
 import { updateBlockTool } from '@server/tools/update-block';
@@ -36,6 +37,7 @@ const CANVAS_TOOLS: Readonly<Record<string, (options: CanvasToolOptions) => Agen
   connect_blocks: connectBlocksTool,
   add_note: addNoteTool,
   add_frame: addFrameTool,
+  arrange_frame: arrangeFrameTool,
 };
 
 /** Name of the job the database trigger creates for every mention (migration 0005). */
@@ -349,7 +351,16 @@ function describeNode(
   frames: ReadonlyMap<string, CanvasNode>,
 ): string {
   const subtitle = node.subtitle ? ` (${node.subtitle})` : '';
-  const type = node.type === 'block' && node.blockType ? `, type ${node.blockType}` : '';
+  const type =
+    node.type === 'block' && node.blockType
+      ? `, type ${node.blockType}`
+      : node.type === 'frame' && node.diagramType
+        ? `, diagram ${node.diagramType}`
+        : '';
+  const fields =
+    node.type === 'block' && node.blockType === 'entity' && node.fields.length > 0
+      ? `, fields: ${node.fields.map((field) => `${field.name}${field.type ? ` ${field.type}` : ''}`).join(', ')}`
+      : '';
   const size =
     node.type === 'frame'
       ? `, ${String(Math.round(node.size.width))} × ${String(Math.round(node.size.height))}`
@@ -358,7 +369,7 @@ function describeNode(
   const inFrame = frame ? `, in frame "${frame.label}"` : '';
   const editing = lock ? `, ${lock.name} is editing it` : '';
   const where = `at ${describePosition(node.position)}${size}`;
-  return `- ${NODE_NAMES[node.type]} "${node.label}"${subtitle}${type} ${where}, id ${node.id}${inFrame}${editing}`;
+  return `- ${NODE_NAMES[node.type]} "${node.label}"${subtitle}${type} ${where}, id ${node.id}${inFrame}${fields}${editing}`;
 }
 
 /** One line per arrow, by the titles of its blocks. */

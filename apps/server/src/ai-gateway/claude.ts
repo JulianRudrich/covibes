@@ -28,8 +28,12 @@ import {
 /** Name of the in-process MCP server; the model sees the tools as `mcp__covibes__<name>`. */
 const TOOL_SERVER = 'covibes';
 
-/** Model round trips per reply; a chat answer with a few tool calls needs far fewer. */
-const MAX_TURNS = 6;
+/**
+ * Model round trips per reply. A diagram takes several in a row (its frame, then its blocks, then
+ * the arrows, then arranging it; spec 12), a request for a few diagrams more; the limit only stops
+ * a model that goes in circles. The first live test with 6 ran out while drawing three diagrams.
+ */
+const MAX_TURNS = 16;
 
 /** A hanging tool would block the agent's queue; after this the model gets an error instead. */
 const TOOL_TIMEOUT_MS = 60_000;

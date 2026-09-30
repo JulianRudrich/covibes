@@ -29,6 +29,8 @@ const LOCAL_DATA: BlockNodeData = {
   label: '',
   subtitle: '',
   blockType: null,
+  fields: [],
+  diagramType: null,
   createdBy: AUTHOR,
   changedByAgent: null,
   lastChangedAt: CHANGED_AT,
@@ -53,6 +55,8 @@ function canvasNode(
     label: `Node ${id}`,
     subtitle: '',
     frameId: null,
+    diagramType: null,
+    fields: [],
     createdBy: AUTHOR,
     lastChangedBy,
     lastChangedAt,
@@ -97,6 +101,8 @@ describe('toFlowNodes', () => {
         label: 'Node a',
         subtitle: '',
         blockType: 'database',
+        fields: [],
+        diagramType: null,
         createdBy: AUTHOR,
         changedByAgent: null,
         lastChangedAt: CHANGED_AT,
@@ -104,6 +110,24 @@ describe('toFlowNodes', () => {
         size: BLOCK_SIZE,
       },
     });
+  });
+
+  it('passes the diagram type of a frame to it and to its blocks', () => {
+    const fields = [{ name: 'id', type: 'uuid' }];
+    const nodes = toFlowNodes(
+      [
+        { ...canvasNode('f', 0, 0, 'frame'), diagramType: 'datamodel' },
+        { ...canvasNode('user', 40, 60), frameId: 'f', blockType: 'entity', fields },
+        canvasNode('free', 900, 60),
+      ],
+      [],
+      NO_LOCKS,
+    );
+    const byId = new Map(nodes.map((node) => [node.id, node]));
+
+    expect(byId.get('f')?.data).toMatchObject({ diagramType: 'datamodel', blockCount: 1 });
+    expect(byId.get('user')?.data).toMatchObject({ diagramType: 'datamodel', fields });
+    expect(byId.get('free')?.data).toMatchObject({ diagramType: null });
   });
 
   it('maps notes and frames, frames first and with the number of their blocks', () => {

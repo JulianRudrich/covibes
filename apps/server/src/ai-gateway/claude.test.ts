@@ -159,7 +159,7 @@ describe('streamAgentReply', () => {
       model: 'claude-opus-5-5',
       systemPrompt: 'You are the moderator.',
       effort: 'medium',
-      maxTurns: 6,
+      maxTurns: 16,
       includePartialMessages: true,
       tools: [],
       strictMcpConfig: true,

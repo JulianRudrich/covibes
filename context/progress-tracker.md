@@ -1,13 +1,13 @@
 # Progress Tracker
 
 ## Current phase
-**M1 completed (2026-09-29): the vertical slice runs.** Next is M2 (canvas); the product is built spec by spec.
+**M2 completed (2026-09-30): the canvas is complete** with blocks, arrows, frames, notes, toolbar, undo, boards and diagram types. Next is M3 (AI core); the product is built spec by spec.
 
 ## Current goal
-Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is developed locally; the public launch comes at the end.
+Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog, observer, decisions, variants, debates, custom agents and knowledge. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 12: diagram types (branch `spec/12-diagram-types`)
+- nothing; M2 is complete, the specs of M3 are next to be worked out
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -97,11 +97,18 @@ Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is d
   - one live channel per project for chat and boards; whoever has a deleted board open lands on the main canvas with a note
 
   Lint, type check, format, 558 tests and build pass; verified with `pnpm dev` and a second tab.
+- [x] **Spec 12 diagram types. M2 completed:**
+  - frames of the types mind map, architecture, data model, flow and sitemap, chosen in the frame header; each diagram with its block types, entities with fields
+  - auto-layout presets per type, now shared code that the worker uses too; the whole board keeps every diagram's shape
+  - the moderator draws diagrams in typed frames and arranges them with `arrange_frame`
+  - a growing frame no longer takes the blocks of other frames and moves away from its neighbors
+
+  Lint, type check, format, 593 tests and build pass; verified with `pnpm dev`, including three diagrams drawn by `@Moderator` in one reply.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **Spec 12:** diagram types, then M3 (specs 13 and later still have to be worked out).
+1. **M3 (AI core):** work out specs 13 to 20 in detail, starting with spec 13 (rule engine and proposals), then build them in order.
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -202,3 +209,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-09-30, spec 10 implemented.** Details are in the spec under "Implementation notes". The live test found three faults the unit tests could not see, all fixed: the mode Verbinden did not start arrows (React Flow had not measured the new handles), a drawn frame took blocks away from another frame, and a newly placed element did not get the focus while it was still hidden.
 - **2026-09-30, spec 11 implemented.** Details are in the spec under "Implementation notes". The live channel of a project moved from the chat to the workspace, so chat and boards share one connection. A test found that reloading the project by key prefix also reloaded the chat; reloads now hit only the exact query.
 - **2026-09-30, design at the end:** decided by the owner. Specs no longer wait for drafts from Claude Design; missing looks are derived from the prototype and collected in `ui-context.md` for a design pass at the end (new spec 36, before the acceptance test). Spec 12 was worked out on this basis.
+- **2026-09-30, spec 12 implemented; M2 completed.** Details are in the spec under "Implementation notes". The live test with the moderator found three faults that the unit tests could not see, all fixed: a growing frame took the blocks of other frames, arranged frames covered each other, and a request for three diagrams ran out of the six round trips an agent reply was allowed; the limit is now 16.

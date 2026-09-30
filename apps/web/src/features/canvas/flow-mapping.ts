@@ -1,4 +1,12 @@
-import type { AgentKey, Author, CanvasEdge, CanvasNode, NodeLock, Size } from '@covibes/shared';
+import type {
+  AgentKey,
+  Author,
+  CanvasEdge,
+  CanvasNode,
+  EntityField,
+  NodeLock,
+  Size,
+} from '@covibes/shared';
 import type { Edge, Node } from '@xyflow/react';
 
 import type { ArrowGeometry } from '@web/features/canvas/arrow-geometry';
@@ -19,11 +27,17 @@ export type BlockNodeData = CommonData & {
   subtitle: string;
   /** One of `BLOCK_TYPES`, `null` for the generic block, or a type of a later version. */
   blockType: string | null;
+  /** The fields of an entity (spec 12). */
+  fields: EntityField[];
+  /** The diagram type of the frame the block lies in, or null outside a typed frame (spec 12). */
+  diagramType: string | null;
 };
 export type NoteNodeData = CommonData;
 export type FrameNodeData = CommonData & {
   /** Blocks inside the frame, for "5 Blöcke". */
   blockCount: number;
+  /** One of `DIAGRAM_TYPES`, null for a free frame, or a type of a later version (spec 12). */
+  diagramType: string | null;
 };
 
 export type BlockFlowNode = Node<BlockNodeData, 'block'>;
@@ -95,6 +109,7 @@ function toFlowNode(
   node: CanvasNode,
   lockedBy: { name: string } | null,
   blockCounts: ReadonlyMap<string, number>,
+  frameTypes: ReadonlyMap<string, string | null>,
 ): CanvasFlowNode {
   const base = { id: node.id, position: node.position };
   switch (node.type) {
@@ -103,7 +118,13 @@ function toFlowNode(
         ...base,
         type: 'block',
         zIndex: LAYER.node,
-        data: { ...commonData(node, lockedBy), subtitle: node.subtitle, blockType: node.blockType },
+        data: {
+          ...commonData(node, lockedBy),
+          subtitle: node.subtitle,
+          blockType: node.blockType,
+          fields: node.fields,
+          diagramType: node.frameId ? (frameTypes.get(node.frameId) ?? null) : null,
+        },
       };
     case 'sticky':
       return { ...base, type: 'sticky', zIndex: LAYER.node, data: commonData(node, lockedBy) };
@@ -114,7 +135,11 @@ function toFlowNode(
         zIndex: LAYER.frame,
         width: node.size.width,
         height: node.size.height,
-        data: { ...commonData(node, lockedBy), blockCount: blockCounts.get(node.id) ?? 0 },
+        data: {
+          ...commonData(node, lockedBy),
+          blockCount: blockCounts.get(node.id) ?? 0,
+          diagramType: node.diagramType,
+        },
       };
   }
 }
@@ -132,10 +157,12 @@ export function toFlowNodes(
 ): CanvasFlowNode[] {
   const previousById = new Map(previous.map((node) => [node.id, node]));
   const blockCounts = new Map<string, number>();
+  const frameTypes = new Map<string, string | null>();
   for (const node of canvasNodes) {
     if (node.type === 'block' && node.frameId) {
       blockCounts.set(node.frameId, (blockCounts.get(node.frameId) ?? 0) + 1);
     }
+    if (node.type === 'frame') frameTypes.set(node.id, node.diagramType);
   }
   const sorted = [...canvasNodes].sort(byLastChange);
   const ordered = [
@@ -146,7 +173,7 @@ export function toFlowNodes(
   return ordered.map((node) => {
     const lock = locks.get(node.id);
     const lockedBy = lock && lock.clientId !== ownClientId ? { name: lock.name } : null;
-    const flowNode = toFlowNode(node, lockedBy, blockCounts);
+    const flowNode = toFlowNode(node, lockedBy, blockCounts, frameTypes);
     if (lockedBy) {
       flowNode.draggable = false;
       flowNode.deletable = false;

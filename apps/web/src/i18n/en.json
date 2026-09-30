@@ -130,8 +130,28 @@
       "service": "Service",
       "database": "Database",
       "repository": "Repository",
-      "metric": "Metric"
+      "metric": "Metric",
+      "topic": "Central topic",
+      "idea": "Idea",
+      "entity": "Entity",
+      "start": "Start",
+      "step": "Step",
+      "decision": "Branch",
+      "end": "End",
+      "page": "Page"
     },
+    "diagramTypes": {
+      "none": "Free frame",
+      "mindmap": "Mind map",
+      "architecture": "Architecture",
+      "datamodel": "Data model",
+      "flow": "Flow",
+      "sitemap": "Sitemap"
+    },
+    "changeDiagramType": "Change diagram type",
+    "entityFields": "Fields",
+    "entityFieldsPlaceholder": "One field per line, e.g. id uuid",
+    "moreFields": "+ {{count}} more",
     "toolbar": "Tools",
     "tools": {
       "block": "Block",

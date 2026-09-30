@@ -24,6 +24,15 @@ export type Size = z.infer<typeof sizeSchema>;
 
 export const CANVAS_NODE_TYPES = ['block', 'sticky', 'frame'] as const;
 
+/** The fields of an entity in a data model (spec 12), e.g. `id uuid`. */
+export const ENTITY_FIELDS_MAX = 20;
+export const entityFieldSchema = z.object({
+  name: z.string().trim().min(1).max(40),
+  type: z.string().trim().max(40).default(''),
+});
+export type EntityField = z.output<typeof entityFieldSchema>;
+export const entityFieldsSchema = z.array(entityFieldSchema).max(ENTITY_FIELDS_MAX);
+
 export const canvasNodeSchema = z.object({
   id: z.uuid(),
   type: z.enum(CANVAS_NODE_TYPES),
@@ -34,6 +43,16 @@ export const canvasNodeSchema = z.object({
   label: z.string().max(200),
   subtitle: z.string().max(200),
   frameId: z.uuid().nullable(),
+  /**
+   * The diagram in a frame (spec 12); null is a free frame. Like block types, any string is read,
+   * so a type from a later version shows as a free frame. Missing in documents from before.
+   */
+  diagramType: z.string().min(1).max(40).nullable().default(null),
+  /** The fields of an entity block (spec 12); missing in documents from before. */
+  fields: z
+    .array(z.object({ name: z.string().max(40), type: z.string().max(40) }))
+    .max(ENTITY_FIELDS_MAX)
+    .default([]),
   createdBy: authorSchema,
   lastChangedBy: authorSchema,
   lastChangedAt: z.iso.datetime(),
@@ -61,9 +80,15 @@ export const NOTE_SIZE: Size = { width: 176, height: 124 };
 export const FRAME_SIZE: Size = { width: 480, height: 320 };
 export const FRAME_MIN_SIZE: Size = { width: 240, height: 160 };
 
+/** Rows an entity card shows before "+ n weitere", their height and the room around them. */
+export const ENTITY_VISIBLE_FIELDS = 8;
+export const ENTITY_FIELD_HEIGHT = 22;
+const ENTITY_FIELDS_PADDING = 8;
+
 /**
- * Kinds of blocks this version offers (spec 08); `null` is the generic block. Stored nodes accept
- * any type string, so a type added by a later version shows as a generic block instead of breaking.
+ * Kinds of blocks this version offers (specs 08 and 12); `null` is the generic block. Stored nodes
+ * accept any type string, so a type added by a later version shows as a generic block instead of
+ * breaking.
  */
 export const BLOCK_TYPES = [
   'app',
@@ -72,9 +97,68 @@ export const BLOCK_TYPES = [
   'database',
   'repository',
   'metric',
+  'topic',
+  'idea',
+  'entity',
+  'start',
+  'step',
+  'decision',
+  'end',
+  'page',
 ] as const;
 export type BlockType = (typeof BLOCK_TYPES)[number];
 export const blockTypeSchema = z.enum(BLOCK_TYPES);
+
+/** The diagrams a frame can hold (spec 12); the roadmap follows in spec 26. */
+export const DIAGRAM_TYPES = ['mindmap', 'architecture', 'datamodel', 'flow', 'sitemap'] as const;
+export type DiagramType = (typeof DIAGRAM_TYPES)[number];
+export const diagramTypeSchema = z.enum(DIAGRAM_TYPES);
+
+export function isDiagramType(value: unknown): value is DiagramType {
+  return (DIAGRAM_TYPES as readonly unknown[]).includes(value);
+}
+
+/** The block types of each diagram; the generic block fits everywhere. */
+export const DIAGRAM_BLOCK_TYPES: Readonly<Record<DiagramType, readonly BlockType[]>> = {
+  mindmap: ['topic', 'idea'],
+  architecture: ['app', 'server', 'service', 'database', 'repository', 'metric'],
+  datamodel: ['entity'],
+  flow: ['start', 'step', 'decision', 'end'],
+  sitemap: ['page'],
+};
+
+/**
+ * The type of a new block in a frame of `diagramType` with these members: a mind map starts with
+ * its central topic and continues with ideas; architecture and free frames start generic.
+ */
+export function newBlockType(
+  diagramType: string | null,
+  members: readonly Pick<CanvasNode, 'blockType'>[],
+): BlockType | null {
+  switch (diagramType) {
+    case 'mindmap':
+      return members.some((member) => member.blockType === 'topic') ? 'idea' : 'topic';
+    case 'datamodel':
+      return 'entity';
+    case 'flow':
+      return 'step';
+    case 'sitemap':
+      return 'page';
+    default:
+      return null;
+  }
+}
+
+/** The size of a block: entities grow with the fields they show (spec 12). */
+export function blockSize(blockType: string | null, fields: readonly EntityField[]): Size {
+  if (blockType !== 'entity' || fields.length === 0) return BLOCK_SIZE;
+  const shown = Math.min(fields.length, ENTITY_VISIBLE_FIELDS);
+  const rows = shown + (fields.length > ENTITY_VISIBLE_FIELDS ? 1 : 0);
+  return {
+    width: BLOCK_SIZE.width,
+    height: BLOCK_SIZE.height + ENTITY_FIELDS_PADDING + rows * ENTITY_FIELD_HEIGHT,
+  };
+}
 
 const nodeTextSchema = z.string().trim().min(1).max(200);
 const blockSubtitleSchema = z.string().trim().max(200);
@@ -90,6 +174,9 @@ export const addBlockInputSchema = z.object({
   label: nodeTextSchema,
   subtitle: blockSubtitleSchema.default(''),
   blockType: blockTypeSchema.nullable().default(null),
+  fields: entityFieldsSchema.default([]),
+  /** The frame the block belongs to, whatever lies under its center (e.g. an agent's diagram). */
+  frameId: z.uuid().nullable().default(null),
 });
 export type AddBlockInput = z.input<typeof addBlockInputSchema>;
 
@@ -105,15 +192,21 @@ export const addFrameInputSchema = z.object({
   position: positionSchema,
   title: nodeTextSchema,
   size: frameSizeSchema.default(FRAME_SIZE),
+  diagramType: diagramTypeSchema.nullable().default(null),
 });
 export type AddFrameInput = z.input<typeof addFrameInputSchema>;
 
-/** Texts of a node: title and subtitle of a block, the text of a note, the title of a frame. */
+/**
+ * Changes of a node: title, subtitle, type and fields of a block, the text of a note, the title
+ * and diagram type of a frame.
+ */
 export const updateNodeInputSchema = z
   .object({
     label: nodeTextSchema,
     subtitle: blockSubtitleSchema,
     blockType: blockTypeSchema.nullable(),
+    fields: entityFieldsSchema,
+    diagramType: diagramTypeSchema.nullable(),
   })
   .partial();
 export type UpdateNodeInput = z.input<typeof updateNodeInputSchema>;
@@ -162,6 +255,9 @@ function insertNode(
 
 export function addBlock(doc: Y.Doc, input: AddBlockInput, author: Author): CanvasNode {
   const data = addBlockInputSchema.parse(input);
+  if (data.frameId && getNodesMap(doc).get(data.frameId)?.get('type') !== 'frame') {
+    throw new Error(`Frame ${data.frameId} does not exist`);
+  }
   return insertNode(
     doc,
     {
@@ -169,10 +265,12 @@ export function addBlock(doc: Y.Doc, input: AddBlockInput, author: Author): Canv
       type: 'block',
       blockType: data.blockType,
       position: data.position,
-      size: BLOCK_SIZE,
+      size: blockSize(data.blockType, data.fields),
       label: data.label,
       subtitle: data.subtitle,
-      frameId: null,
+      frameId: data.frameId,
+      diagramType: null,
+      fields: data.fields,
     },
     author,
   );
@@ -192,6 +290,8 @@ export function addNote(doc: Y.Doc, input: AddNoteInput, author: Author): Canvas
       label: data.text,
       subtitle: '',
       frameId: null,
+      diagramType: null,
+      fields: [],
     },
     author,
   );
@@ -211,6 +311,8 @@ export function addFrame(doc: Y.Doc, input: AddFrameInput, author: Author): Canv
       label: data.title,
       subtitle: '',
       frameId: null,
+      diagramType: data.diagramType,
+      fields: [],
     },
     author,
   );
@@ -273,8 +375,9 @@ export function moveNode(doc: Y.Doc, id: string, position: Position, author: Aut
 }
 
 /**
- * Changes the texts of a node or the type of a block; returns false if the node does not exist
- * (e.g. removed by someone else meanwhile). Notes and frames only have their text or title.
+ * Changes the texts of a node, the type and fields of a block or the diagram type of a frame;
+ * returns false if the node does not exist (e.g. removed by someone else meanwhile). Notes only
+ * have their text. A block's size follows its type and fields.
  */
 export function updateNode(
   doc: Y.Doc,
@@ -287,14 +390,31 @@ export function updateNode(
   const fields = getNodesMap(doc).get(id);
   if (!fields) return false;
   const type = fields.get('type');
-  if (type !== 'block' && (data.subtitle !== undefined || data.blockType !== undefined)) {
-    throw new Error(`A ${String(type)} has neither a subtitle nor a type`);
+  const blockOnly = [data.subtitle, data.blockType, data.fields].some(
+    (value) => value !== undefined,
+  );
+  if (type !== 'block' && blockOnly) {
+    throw new Error(`A ${String(type)} has neither a subtitle, a type nor fields`);
+  }
+  if (type !== 'frame' && data.diagramType !== undefined) {
+    throw new Error(`A ${String(type)} has no diagram type`);
   }
 
   doc.transact(() => {
     // A key passed as `undefined` survives parsing; it means "unchanged", not "clear".
     for (const [key, value] of Object.entries(data) as [string, unknown][]) {
       if (value !== undefined) fields.set(key, value);
+    }
+    if (type === 'block' && (data.blockType !== undefined || data.fields !== undefined)) {
+      const blockType = fields.get('blockType');
+      const entityFields = entityFieldsSchema.safeParse(fields.get('fields') ?? []);
+      fields.set(
+        'size',
+        blockSize(
+          typeof blockType === 'string' ? blockType : null,
+          entityFields.success ? entityFields.data : [],
+        ),
+      );
     }
     stampChange(fields, changedBy, new Date().toISOString());
   }, authorOrigin(changedBy));
@@ -317,16 +437,20 @@ function contains(area: Pick<CanvasNode, 'position' | 'size'>, point: Position):
   );
 }
 
-/** The frame a node belongs to by its center: the topmost frame that contains it, or null. */
-function frameFor(node: CanvasNode, frames: readonly CanvasNode[]): string | null {
-  const center = centerOf(node);
+/** The topmost frame that contains `point`, or null. */
+export function frameAt(nodes: readonly CanvasNode[], point: Position): CanvasNode | null {
   let found: CanvasNode | null = null;
-  for (const frame of frames) {
-    if (!contains(frame, center)) continue;
+  for (const frame of nodes) {
+    if (frame.type !== 'frame' || !contains(frame, point)) continue;
     // Frames stack by their last change, like all nodes; the latest one lies on top.
     if (!found || frame.lastChangedAt > found.lastChangedAt) found = frame;
   }
-  return found?.id ?? null;
+  return found;
+}
+
+/** The frame a node belongs to by its center: the topmost frame that contains it, or null. */
+function frameFor(node: CanvasNode, frames: readonly CanvasNode[]): string | null {
+  return frameAt(frames, centerOf(node))?.id ?? null;
 }
 
 /** Sets `frameId` of the given nodes from where their centers lie now. */
@@ -355,7 +479,9 @@ export function placeNodes(doc: Y.Doc, ids: Iterable<string>, author: Author): v
 
 /**
  * Resizes a frame; from a top or left corner its position changes too. Membership follows the
- * new bounds: nodes whose center the frame now covers join, members left outside leave.
+ * new bounds: free nodes whose center the frame now covers join, members left outside leave (and
+ * join whatever frame lies under them). Members of other frames stay where they belong, so a
+ * frame that grows over another one never takes its diagram (spec 12).
  */
 export function resizeFrame(
   doc: Y.Doc,
@@ -375,10 +501,15 @@ export function resizeFrame(
     if (position) fields.set('position', position);
     stampChange(fields, changedBy, new Date().toISOString());
     const area = { position: position ?? readPosition(fields) ?? { x: 0, y: 0 }, size };
-    const affected = readNodes(doc)
-      .filter((node) => node.frameId === id || contains(area, centerOf(node)))
-      .map((node) => node.id);
-    placeIn(doc, affected, origin);
+    const nodes = getNodesMap(doc);
+    const leaving: string[] = [];
+    for (const node of readNodes(doc)) {
+      if (node.type === 'frame') continue;
+      const inside = contains(area, centerOf(node));
+      if (node.frameId === id && !inside) leaving.push(node.id);
+      if (!node.frameId && inside) nodes.get(node.id)?.set('frameId', id);
+    }
+    placeIn(doc, leaving, origin);
   }, origin);
   return true;
 }

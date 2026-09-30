@@ -1,10 +1,17 @@
-import { FRAME_MIN_SIZE } from '@covibes/shared';
+import { FRAME_MIN_SIZE, isDiagramType } from '@covibes/shared';
 import { NodeResizer, type NodeProps } from '@xyflow/react';
-import { Frame } from 'lucide-react';
-import { useState } from 'react';
+import { Check } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@web/components/ui/dropdown-menu';
 import { AGENT_BORDER } from '@web/features/canvas/agent-look';
+import { DIAGRAM_TYPE_CHOICES, diagramIcon } from '@web/features/canvas/block-types';
 import { useCanvasActions } from '@web/features/canvas/canvas-actions';
 import type { FrameFlowNode } from '@web/features/canvas/flow-mapping';
 import { useFocusOnMount, useInPlaceEditing } from '@web/features/canvas/in-place-editing';
@@ -15,7 +22,8 @@ import { aiRing } from '@web/lib/styles';
 
 /**
  * A frame, a labeled area that holds a diagram (spec 09, handoff "Frame 'Architecture'"). It lies
- * below everything else; a selected frame can be resized at its corners.
+ * below everything else; a selected frame can be resized at its corners. Its header shows the
+ * diagram type, which the icon of a selected frame changes (spec 12).
  */
 export function FrameNode({ id, data, selected }: NodeProps<FrameFlowNode>) {
   const { t } = useTranslation();
@@ -25,6 +33,8 @@ export function FrameNode({ id, data, selected }: NodeProps<FrameFlowNode>) {
   const agent = lockedBy ? null : justDrawnBy;
   const editing = actions.editingId === id;
   const canChange = !actions.readOnly && !lockedBy;
+  const Icon = diagramIcon(data.diagramType);
+  const count = t('canvas.blockCount', { count: data.blockCount });
 
   return (
     <div
@@ -58,7 +68,13 @@ export function FrameNode({ id, data, selected }: NodeProps<FrameFlowNode>) {
       {lockedBy ? <LockPill name={lockedBy.name} /> : null}
 
       <div className="absolute top-3 right-3.5 left-3.5 flex items-center gap-2 text-ui">
-        <Frame size={14} strokeWidth={2} className="shrink-0 text-text-2b" aria-hidden="true" />
+        <DiagramMenu
+          id={id}
+          diagramType={data.diagramType}
+          enabled={selected && canChange && !editing}
+        >
+          <Icon size={14} strokeWidth={2} className="shrink-0 text-text-2b" aria-hidden="true" />
+        </DiagramMenu>
         {editing ? (
           <FrameTitleEditor id={id} title={data.label} />
         ) : (
@@ -68,10 +84,65 @@ export function FrameNode({ id, data, selected }: NodeProps<FrameFlowNode>) {
           </span>
         )}
         <span className="shrink-0 text-status text-text-3">
-          {t('canvas.blockCount', { count: data.blockCount })}
+          {isDiagramType(data.diagramType)
+            ? `${t(`canvas.diagramTypes.${data.diagramType}`)} · ${count}`
+            : count}
         </span>
       </div>
     </div>
+  );
+}
+
+/** The icon of a selected frame that may be changed opens the menu of diagram types. */
+function DiagramMenu({
+  id,
+  diagramType,
+  enabled,
+  children,
+}: {
+  id: string;
+  diagramType: string | null;
+  enabled: boolean;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const { setDiagramType } = useCanvasActions();
+  if (!enabled) return children;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className="nodrag grid size-5 shrink-0 cursor-pointer place-items-center rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        aria-label={t('canvas.changeDiagramType')}
+      >
+        {children}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[180px]">
+        {DIAGRAM_TYPE_CHOICES.map((choice) => {
+          const ChoiceIcon = diagramIcon(choice);
+          const current = isDiagramType(diagramType) ? diagramType : null;
+          return (
+            <DropdownMenuItem
+              key={choice ?? 'none'}
+              onSelect={() => {
+                setDiagramType(id, choice);
+              }}
+            >
+              <ChoiceIcon size={15} strokeWidth={1.8} className="text-text-2" aria-hidden="true" />
+              {t(`canvas.diagramTypes.${choice ?? 'none'}`)}
+              {choice === current ? (
+                <Check
+                  size={14}
+                  strokeWidth={2}
+                  className="ml-auto text-text-2"
+                  aria-hidden="true"
+                />
+              ) : null}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

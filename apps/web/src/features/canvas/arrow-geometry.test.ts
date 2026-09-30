@@ -26,6 +26,17 @@ describe('arrowSides', () => {
 });
 
 describe('arrowPath', () => {
+  it('uses the sides in diagrams that read from left to right', () => {
+    const source = block(0, 0);
+    const beside = block(400, 200);
+    const below = block(100, 400);
+    expect(arrowSides(source, beside)).toEqual({ from: 'bottom', to: 'top' });
+    expect(arrowSides(source, beside, true)).toEqual({ from: 'right', to: 'left' });
+    expect(arrowSides(beside, source, true)).toEqual({ from: 'left', to: 'right' });
+    // A target that lies more below than beside keeps the vertical anchors.
+    expect(arrowSides(source, below, true)).toEqual({ from: 'bottom', to: 'top' });
+  });
+
   it('is a straight line between blocks on one line, as "REST" in the handoff', () => {
     expect(arrowPath({ x: 232, y: 132 }, 'right', { x: 326, y: 132 }, 'left')).toEqual({
       path: 'M 232 132 L 326 132',

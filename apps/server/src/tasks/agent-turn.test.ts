@@ -266,6 +266,7 @@ describe('agent turn', () => {
       'connect_blocks',
       'add_note',
       'add_frame',
+      'arrange_frame',
     ]);
     expect(call?.prompt).toContain(
       `<canvas>\n- block "Web-App" (React), type app at 100, 200, id ${blockId}, Sam is editing it\n</canvas>`,
@@ -471,6 +472,45 @@ describe('buildPrompt', () => {
         `- "API" → "DB": SQL, id ${edge}`,
         '</canvas>',
       ].join('\n'),
+    );
+  });
+
+  it('names the diagram type of frames and the fields of entities', () => {
+    const doc = memoryBoards().doc(randomUUID());
+    const author = { kind: 'agent', agentKey: 'moderator' } as const;
+    const [frame, user] = [1, 2].map((n) => `0000000${String(n)}-0000-4000-8000-000000000000`) as [
+      string,
+      string,
+    ];
+    addFrame(
+      doc,
+      { id: frame, position: { x: 0, y: 0 }, title: 'Daten', diagramType: 'datamodel' },
+      author,
+    );
+    addBlock(
+      doc,
+      {
+        id: user,
+        position: { x: 40, y: 60 },
+        label: 'Nutzer',
+        blockType: 'entity',
+        fields: [{ name: 'id', type: 'uuid' }, { name: 'email' }],
+      },
+      author,
+    );
+    placeNodes(doc, [user], author);
+
+    const prompt = buildPrompt({
+      projectName: 'Demo',
+      nodes: readNodes(doc),
+      edges: readEdges(doc),
+      messages: [],
+      request: undefined,
+    });
+
+    expect(prompt).toContain(`- frame "Daten", diagram datamodel at 0, 0, 480 × 320, id ${frame}`);
+    expect(prompt).toContain(
+      `- block "Nutzer", type entity at 40, 60, id ${user}, in frame "Daten", fields: id uuid, email`,
     );
   });
 

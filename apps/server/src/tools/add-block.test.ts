@@ -39,7 +39,7 @@ describe('add_block', () => {
     });
 
     const [block] = readNodes(doc);
-    expect(answer).toBe(`Added the block "API" (id ${block?.id ?? ''}) at 40, 60.`);
+    expect(answer).toBe(`Added the block "API" of type service (id ${block?.id ?? ''}) at 40, 60.`);
     expect(readNodes(doc)).toEqual([
       expect.objectContaining({
         label: 'API',

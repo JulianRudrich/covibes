@@ -15,6 +15,8 @@ function canvasNode(id: string, x: number, y: number, type: CanvasNode['type'] =
     label: `Block ${id}`,
     subtitle: '',
     frameId: null,
+    diagramType: null,
+    fields: [],
     createdBy: AUTHOR,
     lastChangedBy: AUTHOR,
     lastChangedAt: '2026-09-29T10:00:00.000Z',

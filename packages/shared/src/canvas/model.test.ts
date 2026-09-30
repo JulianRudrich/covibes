@@ -7,12 +7,17 @@ import {
   addFrame,
   addNote,
   authorOrigin,
+  BLOCK_SIZE,
+  blockSize,
   boardDocumentName,
   boardIdFromDocumentName,
+  DIAGRAM_BLOCK_TYPES,
+  DIAGRAM_TYPES,
   getEdgesMap,
   getNodesMap,
   moveNode,
   moveNodes,
+  newBlockType,
   placeNodes,
   readEdges,
   readNodes,
@@ -253,6 +258,131 @@ describe('notes and frames', () => {
     expect(readNodes(doc)[0]).toMatchObject({ label: 'Bessere Idee', lastChangedBy: MODERATOR });
     expect(() => updateNode(doc, NOTE_ID, { subtitle: 'x' }, OLGA)).toThrow();
     expect(() => updateNode(doc, NOTE_ID, { blockType: 'database' }, OLGA)).toThrow();
+    expect(() => updateNode(doc, NOTE_ID, { fields: [] }, OLGA)).toThrow();
+    expect(() => updateNode(doc, NOTE_ID, { diagramType: 'flow' }, OLGA)).toThrow();
+  });
+});
+
+describe('diagram types', () => {
+  it('gives a frame a type, changes and clears it; only frames have one', () => {
+    const doc = new Y.Doc();
+    addFrame(
+      doc,
+      { id: FRAME_ID, position: { x: 0, y: 0 }, title: 'Ideen', diagramType: 'mindmap' },
+      OLGA,
+    );
+    expect(readNodes(doc)[0]?.diagramType).toBe('mindmap');
+
+    expect(updateNode(doc, FRAME_ID, { diagramType: 'datamodel' }, MODERATOR)).toBe(true);
+    expect(readNodes(doc)[0]).toMatchObject({ diagramType: 'datamodel', lastChangedBy: MODERATOR });
+    updateNode(doc, FRAME_ID, { diagramType: null }, OLGA);
+    expect(readNodes(doc)[0]?.diagramType).toBeNull();
+
+    expect(() => updateNode(doc, FRAME_ID, { diagramType: 'roadmap' as never }, OLGA)).toThrow();
+    addBlock(doc, { id: BLOCK_ID, position: { x: 0, y: 0 }, label: 'API' }, OLGA);
+    expect(() => updateNode(doc, BLOCK_ID, { diagramType: 'flow' }, OLGA)).toThrow();
+    expect(() => updateNode(doc, FRAME_ID, { fields: [] }, OLGA)).toThrow();
+  });
+
+  it('reads documents from before diagram types and a type from a later version', () => {
+    const doc = new Y.Doc();
+    addFrame(doc, { id: FRAME_ID, position: { x: 0, y: 0 }, title: 'Alt' }, OLGA);
+    addBlock(doc, { id: BLOCK_ID, position: { x: 40, y: 60 }, label: 'API' }, OLGA);
+    for (const fields of getNodesMap(doc).values()) {
+      fields.delete('diagramType');
+      fields.delete('fields');
+    }
+    expect(readNodes(doc).map(({ diagramType, fields }) => ({ diagramType, fields }))).toEqual([
+      { diagramType: null, fields: [] },
+      { diagramType: null, fields: [] },
+    ]);
+
+    getNodesMap(doc).get(FRAME_ID)?.set('diagramType', 'roadmap');
+    expect(node(doc, FRAME_ID).diagramType).toBe('roadmap');
+  });
+
+  it('picks the type of a new block from the diagram', () => {
+    expect(newBlockType('mindmap', [])).toBe('topic');
+    expect(newBlockType('mindmap', [{ blockType: 'idea' }])).toBe('topic');
+    expect(newBlockType('mindmap', [{ blockType: 'topic' }])).toBe('idea');
+    expect(newBlockType('datamodel', [])).toBe('entity');
+    expect(newBlockType('flow', [])).toBe('step');
+    expect(newBlockType('sitemap', [])).toBe('page');
+    expect(newBlockType('architecture', [])).toBeNull();
+    expect(newBlockType(null, [])).toBeNull();
+    expect(newBlockType('roadmap', [])).toBeNull();
+    // Every diagram offers the type it gives new blocks.
+    for (const diagram of DIAGRAM_TYPES) {
+      const type = newBlockType(diagram, []);
+      if (type) expect(DIAGRAM_BLOCK_TYPES[diagram]).toContain(type);
+    }
+  });
+});
+
+describe('entity fields', () => {
+  const FIELDS = [
+    { name: 'id', type: 'uuid' },
+    { name: 'email', type: 'text' },
+  ];
+
+  it('stores the fields of an entity and grows the block with them', () => {
+    const doc = new Y.Doc();
+    addBlock(
+      doc,
+      {
+        id: BLOCK_ID,
+        position: { x: 0, y: 0 },
+        label: 'Nutzer',
+        blockType: 'entity',
+        fields: [
+          { name: ' id ', type: ' uuid ' },
+          { name: 'email', type: 'text' },
+        ],
+      },
+      OLGA,
+    );
+    expect(readNodes(doc)[0]).toMatchObject({
+      fields: FIELDS,
+      size: { width: 180, height: 96 + 8 + 2 * 22 },
+    });
+
+    updateNode(doc, BLOCK_ID, { fields: [{ name: 'id' }] }, MODERATOR);
+    expect(readNodes(doc)[0]).toMatchObject({
+      fields: [{ name: 'id', type: '' }],
+      size: { width: 180, height: 96 + 8 + 22 },
+    });
+    // Another type shows no fields and has the usual size; the fields stay for a way back.
+    updateNode(doc, BLOCK_ID, { blockType: 'service' }, OLGA);
+    expect(readNodes(doc)[0]).toMatchObject({ size: BLOCK_SIZE, fields: [{ name: 'id' }] });
+    updateNode(doc, BLOCK_ID, { blockType: 'entity' }, OLGA);
+    expect(readNodes(doc)[0]?.size.height).toBe(96 + 8 + 22);
+  });
+
+  it('shows at most 8 fields and a row for the rest', () => {
+    const many = Array.from({ length: 12 }, (_, index) => ({
+      name: `f${String(index)}`,
+      type: '',
+    }));
+    expect(blockSize('entity', many)).toEqual({ width: 180, height: 96 + 8 + 9 * 22 });
+    expect(blockSize('entity', [])).toEqual(BLOCK_SIZE);
+    expect(blockSize('service', many)).toEqual(BLOCK_SIZE);
+  });
+
+  it('refuses fields without a name, too long ones and more than 20', () => {
+    const doc = new Y.Doc();
+    const block = {
+      id: BLOCK_ID,
+      position: { x: 0, y: 0 },
+      label: 'Nutzer',
+      blockType: 'entity',
+    } as const;
+    expect(() =>
+      addBlock(doc, { ...block, fields: [{ name: ' ', type: 'text' }] }, OLGA),
+    ).toThrow();
+    expect(() => addBlock(doc, { ...block, fields: [{ name: 'x'.repeat(41) }] }, OLGA)).toThrow();
+    const tooMany = Array.from({ length: 21 }, (_, index) => ({ name: `f${String(index)}` }));
+    expect(() => addBlock(doc, { ...block, fields: tooMany }, OLGA)).toThrow();
+    expect(readNodes(doc)).toEqual([]);
   });
 });
 
@@ -342,6 +472,44 @@ describe('frame membership', () => {
     });
     expect(node(doc, BLOCK_ID).frameId).toBeNull();
     expect(node(doc, OTHER_ID).frameId).toBe(FRAME_ID);
+  });
+
+  it('never takes the members of another frame when it grows over it', () => {
+    const doc = docWithFrame();
+    const second = '77777777-7777-4777-8777-777777777777';
+    addFrame(doc, { id: second, position: { x: 660, y: 0 }, title: 'Daten' }, OLGA);
+    placeNodes(doc, [OTHER_ID], OLGA);
+    expect(node(doc, OTHER_ID).frameId).toBe(second);
+
+    // The first frame grows over the second one and is now the latest change on top.
+    resizeFrame(doc, FRAME_ID, { size: { width: 1400, height: 400 } }, MODERATOR);
+
+    expect(node(doc, OTHER_ID).frameId).toBe(second);
+    expect(node(doc, BLOCK_ID).frameId).toBe(FRAME_ID);
+  });
+
+  it('adds a block straight into a frame', () => {
+    const doc = docWithFrame();
+    const id = '88888888-8888-4888-8888-888888888888';
+    // Far outside the frame: membership does not depend on where the block lies.
+    addBlock(
+      doc,
+      { id, position: { x: 2000, y: 2000 }, label: 'Idee', frameId: FRAME_ID },
+      MODERATOR,
+    );
+    expect(node(doc, id).frameId).toBe(FRAME_ID);
+    expect(() =>
+      addBlock(
+        doc,
+        {
+          id: '99999999-9999-4999-8999-999999999999',
+          position: { x: 0, y: 0 },
+          label: 'X',
+          frameId: BLOCK_ID,
+        },
+        OLGA,
+      ),
+    ).toThrow('does not exist');
   });
 
   it('refuses a frame below the minimum size and ignores other nodes', () => {

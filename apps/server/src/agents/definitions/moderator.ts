@@ -24,7 +24,7 @@ export const MODERATOR: AgentDefinition = {
   provider: 'anthropic',
   model: 'claude-opus-5-5',
   prompt: loadPrompt('moderator'),
-  tools: ['add_block', 'update_block', 'connect_blocks', 'add_note', 'add_frame'],
+  tools: ['add_block', 'update_block', 'connect_blocks', 'add_note', 'add_frame', 'arrange_frame'],
 };
 
 const DEFINITIONS: ReadonlyMap<string, AgentDefinition> = new Map([[MODERATOR.key, MODERATOR]]);

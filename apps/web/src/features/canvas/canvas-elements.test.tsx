@@ -35,6 +35,7 @@ function canvasActions(overrides: Partial<CanvasActions> = {}): CanvasActions {
     finishEditing: vi.fn(),
     finishEdgeEditing: vi.fn(),
     setType: vi.fn(),
+    setDiagramType: vi.fn(),
     resizeFrame: vi.fn(),
     authorOf: (author) =>
       author.kind === 'agent'
@@ -147,7 +148,14 @@ describe('FrameNode', () => {
       ...nodeBase,
       id: 'frame-1',
       type: 'frame',
-      data: { ...common, label: 'Architektur', size: FRAME_SIZE, blockCount: 5, ...data },
+      data: {
+        ...common,
+        label: 'Architektur',
+        size: FRAME_SIZE,
+        blockCount: 5,
+        diagramType: null,
+        ...data,
+      },
     };
     const view = render(<FrameNode {...props} />, { wrapper: withActions(actions) });
     const frame = view.container.firstElementChild;
@@ -168,6 +176,74 @@ describe('FrameNode', () => {
     renderFrame({ blockCount: 1 });
 
     expect(screen.getByText('1 Block')).toBeInTheDocument();
+  });
+
+  it('shows its diagram type with icon and name', () => {
+    const { frame } = renderFrame({ label: 'Nutzer und Projekte', diagramType: 'datamodel' });
+
+    expect(screen.getByText('Datenmodell · 5 Blöcke')).toHaveClass('text-text-3');
+    expect(frame.querySelector('.lucide-table-properties')).toBeInTheDocument();
+    expect(frame.querySelector('.lucide-frame')).not.toBeInTheDocument();
+  });
+
+  it('shows a type from a later version as a free frame', () => {
+    const { frame } = renderFrame({ diagramType: 'roadmap' });
+
+    expect(screen.getByText('5 Blöcke')).toBeInTheDocument();
+    expect(frame.querySelector('.lucide-frame')).toBeInTheDocument();
+  });
+
+  it('changes the diagram type from the icon of a selected frame', () => {
+    const actions = canvasActions();
+    const { unmount } = render(
+      <FrameNode
+        {...{
+          ...nodeBase,
+          id: 'frame-1',
+          type: 'frame',
+          data: { ...common, label: 'Ideen', size: FRAME_SIZE, blockCount: 2, diagramType: null },
+        }}
+      />,
+      { wrapper: withActions(actions) },
+    );
+    // Only a selected frame offers the menu.
+    expect(screen.queryByRole('button', { name: 'Diagrammtyp ändern' })).not.toBeInTheDocument();
+    unmount();
+
+    render(
+      <FrameNode
+        {...{
+          ...nodeBase,
+          id: 'frame-1',
+          type: 'frame',
+          selected: true,
+          data: {
+            ...common,
+            label: 'Ideen',
+            size: FRAME_SIZE,
+            blockCount: 2,
+            diagramType: 'mindmap',
+          },
+        }}
+      />,
+      { wrapper: withActions(actions) },
+    );
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Diagrammtyp ändern' }), {
+      key: 'Enter',
+    });
+    const items = screen.getAllByRole('menuitem');
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Freier Rahmen',
+      'Mindmap',
+      'Architektur',
+      'Datenmodell',
+      'Ablauf',
+      'Sitemap',
+    ]);
+    expect(items[1]?.querySelector('.lucide-check')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Ablauf' }));
+    expect(actions.setDiagramType).toHaveBeenCalledWith('frame-1', 'flow');
   });
 
   it('edits its title in place and drops the change with Escape', () => {

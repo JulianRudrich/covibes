@@ -7,7 +7,7 @@
 Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog, observer, decisions, variants, debates, custom agents and knowledge. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- nothing; spec 14 is next to be worked out
+- Spec 14: agent format, catalog and project team (branch `spec/14-agent-catalog-and-team`)
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -115,7 +115,7 @@ Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M3 (AI core):** spec 14 (agent format, catalog and project team) is worked out next, then specs 15 to 20 one after the other.
+1. **M3 (AI core):** spec 14 (agent format, catalog and project team) is worked out and in progress; specs 15 to 20 follow one after the other.
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -140,6 +140,7 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   - Every canvas spec gives the agents the tools for its elements.
   - Undo covers one's own changes; undoing agent changes follows with a history view.
   - Auto-layout uses ELK (`elkjs`, EPL-2.0 approved for unmodified use).
+- **Agents** (2026-09-30): the catalog has the moderator and nine specialists as in `project-overview.md`. A new project starts with the moderator only, who proposes fitting specialists. All catalog agents use Claude Opus 5.5 by default; owners can choose another model per agent.
 - **Design at the end** (2026-09-30): development continues with the prototype design. Looks the handoff does not have are derived from its tokens and building blocks and listed in `ui-context.md`; design changes, improvements and new designs come together in a design pass before the acceptance test (spec 36).
 - **Canvas:** structured, with sticky notes. How agents draw depends on the situation:
   - When asked, an agent changes the canvas directly.

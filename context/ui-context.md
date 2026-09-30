@@ -230,11 +230,12 @@ Since 2026-09-30 the app is built with the prototype design; design changes, imp
 - the tool modes of the toolbar, the placement cursor and the connect mode (spec 10)
 - inactive board tabs, the tab menu, renaming in place, the delete dialog with the `danger` button and the note pill over the canvas (spec 11)
 - proposals (spec 13): proposed notes and frames with the dashed agent border and tint, the dashed outline and the pill "Vorschlag" on blocks that a proposal changes or moves, the completed lines under "Wartet auf dich" for rejected proposals, and the project menu with "Nur Vorschläge"
+- agents (spec 14): the colors of product, frontend, DevOps, security, ML and content (base, dark, tint, border, derived from the system of the four handoff agents), the avatar letters of all agents, and the team popover of the header
 - diagram types (spec 12): the type icon and name in the frame header and its menu, the block types of mind map, data model, flow and sitemap as block cards with their own icons, entity cards with fields in Geist Mono, arrows from the right to the left edge in mind maps and data models
 
 ## Still to be designed
 To be designed in Claude Design in spec 36; until then derived from the tokens and building blocks as above:
-- **Agent colors** for the remaining catalog agents (product, frontend & UX, DevOps & infrastructure, security & privacy, ML engineer, content & SEO) and a rule for custom agents. The system stays the same: base, dark, tint and border, white text with at least 4.5:1.
+- **Agent colors:** a final design of the six colors derived in spec 14, and a rule for custom agents (spec 19). The system stays the same: base, dark, tint and border, white text with at least 4.5:1.
 - own shapes per diagram type (e.g. decisions, mind map nodes)
 - the building block overview (design system page)
 - the variant comparison A/B on the canvas

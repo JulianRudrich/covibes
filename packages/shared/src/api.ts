@@ -8,6 +8,7 @@ export type ApiErrorCode =
   | 'invalid_input'
   | 'too_large'
   | 'too_many_requests'
+  | 'limit_reached'
   | 'internal';
 
 /** `GET /api/config`: settings the web app may know before login. */

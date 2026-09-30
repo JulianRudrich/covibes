@@ -1,5 +1,11 @@
-import type { ProjectDetails, ProjectSummary, PublicConfig } from '@covibes/shared';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import type {
+  LiveEvent,
+  ProjectBoard,
+  ProjectDetails,
+  ProjectSummary,
+  PublicConfig,
+} from '@covibes/shared';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { authClient } from '@web/lib/auth-client';
@@ -28,14 +34,30 @@ vi.mock('@web/features/chat/chat-panel', async () => {
 vi.mock('@web/features/canvas/canvas-panel', async () => {
   const { createElement } = await import('react');
   return {
-    CanvasPanel: (props: { boardId: string; readOnly: boolean }) =>
-      createElement('div', {
-        'data-testid': 'canvas-panel',
-        'data-board': props.boardId,
-        'data-readonly': String(props.readOnly),
-      }),
+    CanvasPanel: (props: { boardId: string; readOnly: boolean; notice: string | null }) =>
+      createElement(
+        'div',
+        {
+          'data-testid': 'canvas-panel',
+          'data-board': props.boardId,
+          'data-readonly': String(props.readOnly),
+        },
+        props.notice,
+      ),
   };
 });
+// The live channel is replaced; tests send its events by hand.
+const live = vi.hoisted(() => ({
+  handlers: undefined as undefined | { onEvent: (event: LiveEvent) => void; onConnect: () => void },
+}));
+vi.mock('@web/features/realtime/live-channel', () => ({
+  useLiveChannel: (
+    _projectId: string,
+    handlers: { onEvent: (event: LiveEvent) => void; onConnect: () => void },
+  ) => {
+    live.handlers = handlers;
+  },
+}));
 
 const OLGA = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -57,6 +79,11 @@ const DETAILS: ProjectDetails = {
     { userId: OLGA.id, name: OLGA.name, role: 'owner' },
   ],
   boards: [{ id: '33333333-3333-4333-8333-333333333333', title: 'Haupt-Canvas', kind: 'main' }],
+};
+const EXTRA_BOARD: ProjectBoard = {
+  id: '44444444-4444-4444-8444-444444444444',
+  title: 'Ablauf',
+  kind: 'extra',
 };
 const CONFIG: PublicConfig = { gitlabLogin: false, emailLogin: true, devMailbox: true };
 
@@ -248,6 +275,49 @@ describe('with a session', () => {
 
     expect(await screen.findByTestId('canvas-panel')).toHaveAttribute('data-readonly', 'true');
     expect(screen.getByTestId('chat-panel')).toHaveAttribute('data-readonly', 'true');
+  });
+
+  it('opens the board named in the address and falls back to the main canvas', async () => {
+    stubApi({
+      [`GET /api/projects/${PROJECT.id}`]: () => ({
+        body: { ...DETAILS, boards: [...DETAILS.boards, EXTRA_BOARD] },
+      }),
+    });
+    const router = renderApp(`/p/${PROJECT.id}?board=${EXTRA_BOARD.id}`);
+    expect(await screen.findByTestId('canvas-panel')).toHaveAttribute('data-board', EXTRA_BOARD.id);
+
+    // An unknown board (e.g. an old link) opens the main canvas without a note.
+    await act(() =>
+      router.navigate({
+        to: '/p/$projectId',
+        params: { projectId: PROJECT.id },
+        search: { board: '55555555-5555-4555-8555-555555555555' },
+      }),
+    );
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({});
+    });
+    expect(screen.getByTestId('canvas-panel')).toHaveAttribute('data-board', DETAILS.boards[0]?.id);
+    expect(screen.getByTestId('canvas-panel')).toBeEmptyDOMElement();
+  });
+
+  it('opens the main canvas with a note when someone deletes the open board', async () => {
+    let boards: ProjectDetails['boards'] = [...DETAILS.boards, EXTRA_BOARD];
+    stubApi({ [`GET /api/projects/${PROJECT.id}`]: () => ({ body: { ...DETAILS, boards } }) });
+    const router = renderApp(`/p/${PROJECT.id}?board=${EXTRA_BOARD.id}`);
+    expect(await screen.findByTestId('canvas-panel')).toHaveAttribute('data-board', EXTRA_BOARD.id);
+
+    boards = DETAILS.boards;
+    act(() => {
+      live.handlers?.onEvent({ type: 'boards' });
+    });
+
+    const canvas = screen.getByTestId('canvas-panel');
+    await waitFor(() => {
+      expect(canvas).toHaveAttribute('data-board', DETAILS.boards[0]?.id);
+    });
+    expect(canvas).toHaveTextContent('Dieses Board wurde gelöscht.');
+    expect(router.state.location.search).toEqual({});
   });
 
   it('shows "Projekt nicht gefunden" for projects without access', async () => {

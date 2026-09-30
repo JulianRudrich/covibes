@@ -31,7 +31,11 @@ export function messagesQuery(projectId: string) {
  * to their message only while it is still streaming, so a delta that arrives after the finished
  * message cannot change the stored text.
  */
-export function applyLiveEvent(queryClient: QueryClient, projectId: string, event: LiveEvent) {
+export function applyLiveEvent(
+  queryClient: QueryClient,
+  projectId: string,
+  event: Exclude<LiveEvent, { type: 'boards' }>,
+) {
   if (event.type === 'run') {
     applyRunEvent(queryClient, projectId, event.run);
     return;

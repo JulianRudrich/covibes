@@ -1,24 +1,12 @@
 import type { AiRun, ChatMessage, LiveEvent } from '@covibes/shared';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@web/components/ui/tooltip';
 import { ChatPanel } from '@web/features/chat/chat-panel';
+import { applyLiveEvent } from '@web/features/chat/queries';
 import { createQueryClient } from '@web/lib/query-client';
-
-// The live channel is replaced; the test drives its events by hand.
-const live = vi.hoisted(() => ({
-  handlers: undefined as undefined | { onEvent: (event: LiveEvent) => void; onConnect: () => void },
-}));
-vi.mock('@web/features/realtime/live-channel', () => ({
-  useLiveChannel: (
-    _projectId: string,
-    handlers: { onEvent: (event: LiveEvent) => void; onConnect: () => void },
-  ) => {
-    live.handlers = handlers;
-  },
-}));
 
 const PROJECT_ID = '0b6a0b52-8f55-4c4e-9f6b-4ad2b3b3c0de';
 const OLGA = { id: '11111111-1111-4111-8111-111111111111', name: 'Olga Owner' };
@@ -104,10 +92,6 @@ function sendByEnter(text: string) {
 }
 
 describe('ChatPanel', () => {
-  beforeEach(() => {
-    live.handlers = undefined;
-  });
-
   it('shows the history with a divider for today', async () => {
     stubChatApi([message({ id: 'a1', content: 'Hallo @Backend' })]);
     renderPanel();
@@ -161,21 +145,18 @@ describe('ChatPanel', () => {
     expect(screen.getAllByText('Hallo Team')).toHaveLength(1);
   });
 
-  it('adds messages from the live channel and reloads when the channel connects', async () => {
-    const { fetchMock } = stubChatApi([]);
-    renderPanel();
+  it('shows messages that arrive on the live channel', async () => {
+    stubChatApi([]);
+    const queryClient = renderPanel();
     await screen.findByText('Noch keine Nachrichten.');
 
-    live.handlers?.onEvent({ type: 'message', message: message({ id: 'b1', content: 'Live!' }) });
-    expect(await screen.findByText('Live!')).toBeInTheDocument();
-
-    const loads = () =>
-      fetchMock.mock.calls.filter(([url, init]) => url === MESSAGES_URL && !init?.method).length;
-    const before = loads();
-    live.handlers?.onConnect();
-    await waitFor(() => {
-      expect(loads()).toBe(before + 1);
+    act(() => {
+      applyLiveEvent(queryClient, PROJECT_ID, {
+        type: 'message',
+        message: message({ id: 'b1', content: 'Live!' }),
+      });
     });
+    expect(await screen.findByText('Live!')).toBeInTheDocument();
   });
 
   it('shows viewers a hint instead of the composer', async () => {
@@ -193,11 +174,11 @@ describe('ChatPanel', () => {
       author: { kind: 'human', userId: OLGA.id, name: OLGA.name },
     });
     stubChatApi([question]);
-    renderPanel();
+    const queryClient = renderPanel();
     await screen.findByText('@Moderator');
-    const emit = (event: LiveEvent) => {
+    const emit = (event: Exclude<LiveEvent, { type: 'boards' }>) => {
       act(() => {
-        live.handlers?.onEvent(event);
+        applyLiveEvent(queryClient, PROJECT_ID, event);
       });
     };
     const queued: AiRun = {

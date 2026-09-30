@@ -60,7 +60,6 @@
     "humansLabel": "People",
     "agentsLabel": "Agents",
     "mainCanvas": "Main canvas",
-    "addBoard": "Board",
     "loading": "Loading project …",
     "loadError": "The project could not be loaded.",
     "notFound": {
@@ -142,7 +141,21 @@
       "autoLayout": "Auto-layout"
     },
     "zoomIn": "Zoom in",
-    "zoomOut": "Zoom out"
+    "zoomOut": "Zoom out",
+    "boards": {
+      "label": "Boards",
+      "add": "Board",
+      "menu": "Menu for “{{title}}”",
+      "rename": "Rename",
+      "titleLabel": "Board name",
+      "delete": "Delete",
+      "deleteTitle": "Delete “{{title}}”?",
+      "deleteText": "Everything on this board will be deleted. This cannot be undone.",
+      "deleteConfirm": "Delete board",
+      "deleted": "This board was deleted.",
+      "limit": "A project has at most {{max}} boards.",
+      "failed": "That did not work. Please try again."
+    }
   },
   "chat": {
     "messages": "Messages",

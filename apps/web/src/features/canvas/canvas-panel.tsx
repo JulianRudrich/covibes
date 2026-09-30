@@ -37,13 +37,20 @@ import {
   type EdgeTypes,
   type NodeTypes,
 } from '@xyflow/react';
-import { Plus } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PanelHeader } from '@web/components/ui/panel';
 import { arrowGeometries, type Rect } from '@web/features/canvas/arrow-geometry';
 import { computeLayout, loadElk } from '@web/features/canvas/auto-layout';
+import { BOARD_PANEL_ID, boardTabId } from '@web/features/canvas/board-ids';
 import { BlockNode } from '@web/features/canvas/block-node';
 import type { BoardConnection } from '@web/features/canvas/board-connection';
 import {
@@ -73,6 +80,10 @@ const CONNECTION_LINE_STYLE = { stroke: 'var(--color-edge)', strokeWidth: 1.5 };
 
 type CanvasPanelProps = {
   boardId: string;
+  /** The board tabs of the header (spec 11). */
+  tabs: ReactNode;
+  /** A short note over the canvas, e.g. that the open board was deleted. */
+  notice: string | null;
   user: AwarenessUser;
   /** The project's members; the author lines show their names. */
   members: readonly ProjectMember[];
@@ -80,51 +91,57 @@ type CanvasPanelProps = {
   readOnly: boolean;
 };
 
-/** Header and live canvas of a board, as the two rows of the canvas panel (spec 05). */
-export function CanvasPanel(props: CanvasPanelProps) {
+/**
+ * Header and live canvas of the open board, as the two rows of the canvas panel (specs 05 and 11).
+ * Another board gets a canvas of its own, so each board keeps its connection only while it is
+ * shown.
+ */
+export function CanvasPanel({ boardId, tabs, notice, ...canvas }: CanvasPanelProps) {
   return (
-    <ReactFlowProvider>
-      <CanvasPanelContent {...props} />
-    </ReactFlowProvider>
+    <>
+      <PanelHeader className="gap-1 px-3">{tabs}</PanelHeader>
+
+      <div
+        id={BOARD_PANEL_ID}
+        role="tabpanel"
+        aria-labelledby={boardTabId(boardId)}
+        className="relative min-h-0 bg-bg-canvas"
+      >
+        <ReactFlowProvider key={boardId}>
+          <BoardCanvas boardId={boardId} {...canvas} />
+        </ReactFlowProvider>
+        {notice ? <NoticePill>{notice}</NoticePill> : null}
+      </div>
+    </>
   );
 }
 
-function CanvasPanelContent({ boardId, user, members, readOnly }: CanvasPanelProps) {
+function BoardCanvas({
+  boardId,
+  user,
+  members,
+  readOnly,
+}: Omit<CanvasPanelProps, 'tabs' | 'notice'>) {
   const { t } = useTranslation();
   const { connection, status, loaded, denied } = useBoardDoc(boardId);
   const author = useMemo<Author>(() => ({ kind: 'human', userId: user.id }), [user.id]);
 
   return (
     <>
-      <PanelHeader className="gap-1 px-3">
-        <span className="flex h-[30px] shrink-0 items-center rounded-md bg-bg-subtle px-3 font-medium whitespace-nowrap">
-          {t('workspace.mainCanvas')}
-        </span>
-        <button
-          type="button"
-          className="flex h-[30px] shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-ui whitespace-nowrap text-text-2b hover:bg-bg-subtle hover:text-text"
-        >
-          <Plus size={13} strokeWidth={2.2} aria-hidden="true" />
-          {t('workspace.addBoard')}
-        </button>
-      </PanelHeader>
-
-      <div className="relative min-h-0 bg-bg-canvas">
-        {denied ? (
-          <CanvasMessage>{t('canvas.denied')}</CanvasMessage>
-        ) : connection && loaded ? (
-          <Board
-            connection={connection}
-            user={user}
-            members={members}
-            author={author}
-            readOnly={readOnly}
-          />
-        ) : (
-          <CanvasMessage>{t('canvas.loading')}</CanvasMessage>
-        )}
-        {loaded && !denied && status !== 'connected' ? <ReconnectingPill /> : null}
-      </div>
+      {denied ? (
+        <CanvasMessage>{t('canvas.denied')}</CanvasMessage>
+      ) : connection && loaded ? (
+        <Board
+          connection={connection}
+          user={user}
+          members={members}
+          author={author}
+          readOnly={readOnly}
+        />
+      ) : (
+        <CanvasMessage>{t('canvas.loading')}</CanvasMessage>
+      )}
+      {loaded && !denied && status !== 'connected' ? <ReconnectingPill /> : null}
     </>
   );
 }
@@ -481,6 +498,17 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
 function CanvasMessage({ children }: { children: string }) {
   return (
     <div className="absolute inset-0 grid place-items-center p-6 text-center text-ui text-text-3">
+      {children}
+    </div>
+  );
+}
+
+function NoticePill({ children }: { children: string }) {
+  return (
+    <div
+      role="status"
+      className="absolute top-3 left-1/2 z-10 flex h-[26px] -translate-x-1/2 items-center rounded-[13px] bg-bg-panel px-3 text-status whitespace-nowrap text-text-body shadow-float"
+    >
       {children}
     </div>
   );

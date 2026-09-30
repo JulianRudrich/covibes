@@ -8,11 +8,13 @@ import {
   nodeLocks,
   readNodes,
   type Author,
+  type ProjectBoard,
   type ProjectDetails,
   type ProjectSummary,
 } from '@covibes/shared';
 import { getRequestListener } from '@hono/node-server';
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider';
+import type { Hono } from 'hono';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
@@ -26,12 +28,15 @@ import { attachWebSockets } from '@server/websockets';
 const test = createTestServer();
 const INTERNAL_TOKEN = 'internal-token-for-the-tests-0123456789';
 let collab: Collab;
+// The API on the same collaboration server as the WebSockets, as in production.
+let api: Hono;
 let server: Server;
 let port = 0;
 
 async function startServer() {
   collab = createCollab({ db: test.db, auth: test.auth, internalToken: INTERNAL_TOKEN });
-  const listener = getRequestListener(test.app.fetch);
+  api = test.appWith(collab);
+  const listener = getRequestListener(api.fetch);
   server = createServer((request, response) => {
     void listener(request, response);
   });
@@ -222,6 +227,67 @@ describe('persistence', () => {
     const second = connect(boardId, owner);
     expect(await second.result).toBe('ok');
     expect(readNodes(second.doc).map((node) => node.label)).toEqual(['Bleibt']);
+  });
+});
+
+describe('deleting a board', () => {
+  async function storedDocument(boardId: string) {
+    const { rowCount } = await test.db.adminPool.query(
+      'select 1 from yjs_documents where name = $1',
+      [boardDocumentName(boardId)],
+    );
+    return rowCount === 1;
+  }
+
+  it('closes the connections and removes the canvas for good', async () => {
+    const owner = await test.signIn();
+    const { projectId } = await projectWithBoard(owner);
+    const created = await api.request(`/api/projects/${projectId}/boards`, {
+      method: 'POST',
+      headers: { cookie: owner, origin: APP_URL },
+    });
+    expect(created.status).toBe(201);
+    const board = (await created.json()) as ProjectBoard;
+
+    const open = connect(board.id, owner);
+    expect(await open.result).toBe('ok');
+    let closed = false;
+    open.provider.on('close', () => {
+      closed = true;
+    });
+    addBlock(
+      open.doc,
+      { id: crypto.randomUUID(), position: { x: 0, y: 0 }, label: 'Weg damit' },
+      { kind: 'agent', agentKey: 'backend' },
+    );
+    await until(() => open.provider.unsyncedChanges === 0);
+    collab.hocuspocus.flushPendingStores();
+    const deadline = Date.now() + 3_000;
+    while (!(await storedDocument(board.id)) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(await storedDocument(board.id)).toBe(true);
+
+    // A change right before the delete would be stored after it, if nothing stopped it.
+    addBlock(
+      open.doc,
+      { id: crypto.randomUUID(), position: { x: 300, y: 0 }, label: 'Kurz davor' },
+      { kind: 'agent', agentKey: 'backend' },
+    );
+    await until(() => open.provider.unsyncedChanges === 0);
+    const deleted = await api.request(`/api/projects/${projectId}/boards/${board.id}`, {
+      method: 'DELETE',
+      headers: { cookie: owner, origin: APP_URL },
+    });
+    expect(deleted.status).toBe(204);
+
+    await until(() => closed);
+    await until(
+      () => !collab.hocuspocus.documents.has(boardDocumentName(board.id)),
+      collab.hocuspocus.configuration.maxDebounce + 1_000,
+    );
+    expect(await storedDocument(board.id)).toBe(false);
+    expect(await connect(board.id, owner).result).toBe('denied');
   });
 });
 

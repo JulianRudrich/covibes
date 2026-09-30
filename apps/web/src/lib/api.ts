@@ -33,5 +33,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     const body: unknown = await response.json().catch(() => undefined);
     throw new ApiError(response.status, isApiErrorBody(body) ? body.error.code : 'internal');
   }
+  // "No content", e.g. after deleting something.
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }

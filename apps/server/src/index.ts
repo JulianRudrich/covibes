@@ -37,7 +37,7 @@ const liveBridge = startLiveBridge({ adminPool: db.adminPool, admin: db.admin, l
 
 const server = serve(
   {
-    fetch: createApp({ env, db, auth, mail, live: realtime }).fetch,
+    fetch: createApp({ env, db, auth, mail, live: realtime, documents: collab }).fetch,
     port: env.PORT,
     hostname: env.HOST,
   },

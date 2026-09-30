@@ -10,15 +10,19 @@ export function DropdownMenuContent({
   children,
   className,
   align = 'end',
+  onCloseAutoFocus,
 }: {
   children: ReactNode;
   className?: string;
   align?: ComponentProps<typeof MenuPrimitive.Content>['align'];
+  /** Where the focus goes when the menu closes; by default back to the trigger. */
+  onCloseAutoFocus?: ComponentProps<typeof MenuPrimitive.Content>['onCloseAutoFocus'];
 }) {
   return (
     <MenuPrimitive.Portal>
       <MenuPrimitive.Content
         align={align}
+        onCloseAutoFocus={onCloseAutoFocus}
         sideOffset={6}
         className={cn(
           'z-50 min-w-[200px] rounded-card border border-border bg-bg-panel p-1 shadow-float',

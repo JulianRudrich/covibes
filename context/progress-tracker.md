@@ -7,7 +7,7 @@
 Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 11: additional boards (branch `spec/11-additional-boards`)
+- nothing; spec 12 waits for the designs of its blocks
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -91,11 +91,17 @@ Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is d
   - undo and redo of one's own changes with Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y
 
   Lint, type check, format, 527 tests and build pass; verified with `pnpm dev` and a second tab.
+- [x] **Spec 11 additional boards:**
+  - API to create, rename and delete boards, at most 20 per project; the main canvas stays as it is; a deleted board's canvas is removed for good
+  - board tabs as in the handoff with renaming in place, a tab menu and a delete dialog; the open board is part of the address
+  - one live channel per project for chat and boards; whoever has a deleted board open lands on the main canvas with a note
+
+  Lint, type check, format, 558 tests and build pass; verified with `pnpm dev` and a second tab.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **Spec 11:** additional boards.
+1. **Spec 12** (diagram types) waits for the designs of the mind map, data model and flow blocks. Until they exist, M3 can be prepared: specs 13 and later still have to be worked out.
 2. What the owner contributes while building:
    - **by spec 12:** designs in Claude Design for the blocks of mind map, data model and flow
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -193,3 +199,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-09-30, fix for spec 07:** a used-up Claude quota ends a run at once with a note on how long it takes until the quota is free again, instead of three pointless retries. A test of the live stream that failed now and then under load waits for the final events now. Details are in spec 07 under "Implementation notes".
 - **2026-09-30, spec 09 implemented.** Details are in the spec under "Implementation notes". The live test found two faults that the unit tests could not see, both fixed: arrows were not drawn (React Flow needs handles on both ends) and the drop area for new arrows was shifted. New elements now keep the distances of the handoff, so arrows fit between them.
 - **2026-09-30, spec 10 implemented.** Details are in the spec under "Implementation notes". The live test found three faults the unit tests could not see, all fixed: the mode Verbinden did not start arrows (React Flow had not measured the new handles), a drawn frame took blocks away from another frame, and a newly placed element did not get the focus while it was still hidden.
+- **2026-09-30, spec 11 implemented.** Details are in the spec under "Implementation notes". The live channel of a project moved from the chat to the workspace, so chat and boards share one connection. A test found that reloading the project by key prefix also reloaded the chat; reloads now hit only the exact query.

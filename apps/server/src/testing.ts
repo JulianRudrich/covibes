@@ -4,6 +4,7 @@ import { afterAll, expect, inject } from 'vitest';
 
 import { createApp } from '@server/app';
 import { createAuth } from '@server/auth/auth';
+import { createCollab, type BoardDocuments } from '@server/collab/collab';
 import { createDatabase } from '@server/db/database';
 import { loadServerEnv, type ServerEnv } from '@server/env';
 import { createMailSetup } from '@server/integrations/mail/mailer';
@@ -26,10 +27,15 @@ export function createTestServer(overrides: Partial<Record<keyof ServerEnv, stri
   const mail = createMailSetup(env);
   const auth = createAuth({ env, adminPool: db.adminPool, mailer: mail.mailer });
   const realtime = createRealtime({ db, auth });
-  const app = createApp({ env, db, auth, mail, live: realtime });
+  const collab = createCollab({ db, auth, internalToken: env.INTERNAL_TOKEN });
+  /** The app with another collaboration server, e.g. one a test starts and stops itself. */
+  const appWith = (documents: BoardDocuments) =>
+    createApp({ env, db, auth, mail, live: realtime, documents });
+  const app = appWith(collab);
   const { outbox } = mail;
   afterAll(async () => {
     realtime.close();
+    await collab.close();
     await db.close();
   });
 
@@ -55,5 +61,5 @@ export function createTestServer(overrides: Partial<Record<keyof ServerEnv, stri
     return cookie;
   }
 
-  return { app, env, db, auth, realtime, outbox, signIn };
+  return { app, appWith, env, db, auth, realtime, collab, outbox, signIn };
 }

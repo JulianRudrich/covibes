@@ -1,15 +1,13 @@
-import { useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { PanelHeader, PanelTitle } from '@web/components/ui/panel';
 import { Composer } from '@web/features/chat/composer';
 import { MessageList } from '@web/features/chat/message-list';
-import { applyLiveEvent, messagesQuery } from '@web/features/chat/queries';
-import { chatStatus, runsQuery, runsQueryKey } from '@web/features/chat/runs';
+import { messagesQuery } from '@web/features/chat/queries';
+import { chatStatus, runsQuery } from '@web/features/chat/runs';
 import { ChatStatusPill } from '@web/features/chat/status-pill';
-import { messagesQueryKey } from '@web/features/chat/types';
 import { useSendMessage } from '@web/features/chat/use-send-message';
-import { useLiveChannel } from '@web/features/realtime/live-channel';
 
 type ChatPanelProps = {
   projectId: string;
@@ -20,35 +18,14 @@ type ChatPanelProps = {
 
 /**
  * Header and content of the chat panel (specs 06 and 07): history, live updates including
- * streaming agent answers, the status pill of the agent runs and the composer.
+ * streaming agent answers, the status pill of the agent runs and the composer. The live updates
+ * arrive through the project's live channel (`useProjectLive`), which writes them into the cache.
  */
 export function ChatPanel({ projectId, user, readOnly }: ChatPanelProps) {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const messages = useQuery(messagesQuery(projectId));
   const runs = useQuery(runsQuery(projectId));
   const { send, retry } = useSendMessage(projectId, { userId: user.id, name: user.name });
-
-  // The reload has to start after the channel opened. A request still running from before (the
-  // first load) may have read its data earlier, and React Query would reuse it instead of asking
-  // again; so it is cancelled first, which keeps anything the live channel already wrote.
-  function reload(queryKey: QueryKey) {
-    void queryClient
-      .cancelQueries({ queryKey })
-      .then(() => queryClient.invalidateQueries({ queryKey }));
-  }
-
-  useLiveChannel(projectId, {
-    onEvent: (event) => {
-      applyLiveEvent(queryClient, projectId, event);
-    },
-    // Messages sent and runs changed before the channel opened (or while it was down) arrive with
-    // the reload.
-    onConnect: () => {
-      reload(messagesQueryKey(projectId));
-      reload(runsQueryKey(projectId));
-    },
-  });
 
   return (
     <>

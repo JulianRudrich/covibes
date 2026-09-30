@@ -12,6 +12,8 @@ const buttonVariants = cva(
         secondary:
           'border border-border-strong bg-bg-panel text-text-body shadow-button-secondary hover:bg-bg-secondary-hover',
         ghost: 'bg-transparent text-text-body hover:bg-bg-subtle',
+        /** Confirms something that cannot be undone, e.g. deleting a board. */
+        danger: 'bg-danger text-on-ink shadow-button-primary hover:bg-danger/90',
       },
       size: {
         m: 'h-[30px] rounded-md px-3 text-ui',

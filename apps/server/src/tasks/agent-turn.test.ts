@@ -211,7 +211,9 @@ describe('agent turn', () => {
           ? 'delta'
           : event.type === 'message'
             ? `message:${event.message.status}`
-            : `run:${event.run.status}`,
+            : event.type === 'run'
+              ? `run:${event.run.status}`
+              : event.type,
       );
     await until(() => {
       const latest = summarize().slice(-2);

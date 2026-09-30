@@ -93,15 +93,24 @@ export {
 } from './messages';
 export { PHASES, phaseStatuses, type Phase, type PhaseStatus } from './phases';
 export {
+  BOARD_TITLE_MAX_LENGTH,
+  boardIdSchema,
+  boardTitleSchema,
+  createBoardInputSchema,
   createProjectInputSchema,
+  MAX_BOARDS_PER_PROJECT,
+  nextBoardTitle,
   PROJECT_NAME_MAX_LENGTH,
   PROJECT_ROLES,
   projectIdSchema,
   projectNameSchema,
+  renameBoardInputSchema,
+  type CreateBoardInput,
   type CreateProjectInput,
   type ProjectBoard,
   type ProjectDetails,
   type ProjectMember,
   type ProjectRole,
   type ProjectSummary,
+  type RenameBoardInput,
 } from './projects';

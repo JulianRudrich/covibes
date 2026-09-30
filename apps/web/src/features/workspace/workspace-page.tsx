@@ -1,13 +1,17 @@
+import type { ProjectDetails } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
-import { getRouteApi, Link } from '@tanstack/react-router';
+import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageMessage } from '@web/components/page-message';
-import { sessionQuery } from '@web/features/auth/session';
+import { sessionQuery, type SessionUser } from '@web/features/auth/session';
+import { BoardTabs } from '@web/features/canvas/board-tabs';
 import { CanvasPanel } from '@web/features/canvas/canvas-panel';
 import { ChatPanel } from '@web/features/chat/chat-panel';
 import { projectQuery } from '@web/features/projects/queries';
 import { DEMO_ACTIVE_PHASE } from '@web/features/workspace/demo-workspace';
+import { useProjectLive } from '@web/features/workspace/use-project-live';
 import { WorkspaceShell, type WorkspaceMember } from '@web/features/workspace/workspace-shell';
 import { ApiError } from '@web/lib/api';
 
@@ -41,8 +45,67 @@ export function WorkspacePage() {
     );
   }
 
+  return <Workspace project={project.data} user={user ?? null} />;
+}
+
+/** How long a note over the canvas stays. */
+const NOTICE_MS = 5_000;
+
+/** A short note that disappears by itself; a new one starts the time again. */
+function useNotice() {
+  const [notice, setNotice] = useState<{ text: string; at: number } | null>(null);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => {
+      setNotice(null);
+    }, NOTICE_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [notice]);
+  const show = useCallback((text: string) => {
+    setNotice({ text, at: Date.now() });
+  }, []);
+  return { notice: notice?.text ?? null, show };
+}
+
+function Workspace({ project, user }: { project: ProjectDetails; user: SessionUser | null }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { board: requested } = route.useSearch();
+  const { notice, show: showNotice } = useNotice();
+  useProjectLive(project.id);
+
+  // The main canvas comes first; it is open unless the address names another board.
+  const activeBoard =
+    project.boards.find((board) => board.id === requested) ??
+    project.boards.find((board) => board.kind === 'main');
+
+  const selectBoard = useCallback(
+    (boardId: string, replace = false) =>
+      navigate({
+        to: '/p/$projectId',
+        params: { projectId: project.id },
+        search: boardId === mainBoardId(project) ? {} : { board: boardId },
+        replace,
+      }),
+    [navigate, project],
+  );
+
+  // A board that disappears while it is open was deleted by someone else; unknown boards in the
+  // address (e.g. an old link) just open the main canvas.
+  const knownBoards = useRef(new Set<string>());
+  useEffect(() => {
+    if (requested !== undefined && !project.boards.some((board) => board.id === requested)) {
+      if (knownBoards.current.has(requested)) showNotice(t('canvas.boards.deleted'));
+      const main = mainBoardId(project);
+      if (main) void selectBoard(main, true);
+    }
+    for (const board of project.boards) knownBoards.current.add(board.id);
+  }, [project, requested, selectBoard, showNotice, t]);
+
   // The signed-in user comes first and is shown as "you".
-  const members: WorkspaceMember[] = project.data.members
+  const members: WorkspaceMember[] = project.members
     .map((member) => ({
       id: member.userId,
       name: member.name,
@@ -50,37 +113,49 @@ export function WorkspacePage() {
     }))
     .sort((a, b) => Number(b.isCurrentUser) - Number(a.isCurrentUser));
 
-  // Every project has a main board; it comes first. More boards follow in a later spec.
-  const mainBoard = project.data.boards[0];
-  const readOnly = project.data.role === 'viewer';
+  const readOnly = project.role === 'viewer';
 
   return (
     <WorkspaceShell
-      projectName={project.data.name}
+      projectName={project.name}
       activePhase={DEMO_ACTIVE_PHASE}
       members={members}
-      user={user ?? null}
+      user={user}
       chat={
         user ? (
           <ChatPanel
-            key={project.data.id}
-            projectId={project.data.id}
+            key={project.id}
+            projectId={project.id}
             user={{ id: user.id, name: user.name }}
             readOnly={readOnly}
           />
         ) : null
       }
       canvas={
-        mainBoard && user ? (
+        activeBoard && user ? (
           <CanvasPanel
-            key={mainBoard.id}
-            boardId={mainBoard.id}
+            boardId={activeBoard.id}
+            tabs={
+              <BoardTabs
+                projectId={project.id}
+                boards={project.boards}
+                activeBoardId={activeBoard.id}
+                readOnly={readOnly}
+                onSelect={(boardId) => selectBoard(boardId)}
+                onNotice={showNotice}
+              />
+            }
+            notice={notice}
             user={{ id: user.id, name: user.name }}
-            members={project.data.members}
+            members={project.members}
             readOnly={readOnly}
           />
         ) : null
       }
     />
   );
+}
+
+function mainBoardId(project: ProjectDetails): string | undefined {
+  return project.boards.find((board) => board.kind === 'main')?.id;
 }

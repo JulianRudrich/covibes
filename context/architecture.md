@@ -81,9 +81,9 @@ During development Vite forwards `/api` to the server. Web app and API therefore
 | Module | Responsibility |
 |---|---|
 | `auth/` | Better Auth: sign-in, sessions, two-factor, rate limits; middleware that attaches the user to every request |
-| `api/` | Hono routes for projects, members, chat, approvals, exports, invitations, read-only links, GitLab connection and webhooks |
-| `realtime/` | WebSocket channels per project: new messages, AI streaming, queue status, presence |
-| `collab/` | Hocuspocus: auth hook (session and project role, or the worker's internal token), persistence in `yjs_documents`; the board client the worker uses to change boards for agents |
+| `api/` | Hono routes for projects, boards, members, chat, approvals, exports, invitations, read-only links, GitLab connection and webhooks |
+| `realtime/` | WebSocket channels per project: new messages, AI streaming, queue status, changed boards, presence |
+| `collab/` | Hocuspocus: auth hook (session and project role, or the worker's internal token), persistence in `yjs_documents`, removal of a deleted board's document; the board client the worker uses to change boards for agents |
 | `worker.ts`, `tasks/` | Graphile Worker as its own process: all jobs, i.e. agent runs, observer, debates, plan, MR review, summaries, mails, token refresh, cron |
 | `ai-gateway/` | the only path to models: provider registry, streaming, usage metering, limits, prompt caching |
 | `agents/` | agent definitions and prompts as versioned files |

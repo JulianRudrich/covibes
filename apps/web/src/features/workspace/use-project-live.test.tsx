@@ -1,0 +1,131 @@
+import type { ChatMessage, LiveEvent, ProjectDetails } from '@covibes/shared';
+import { QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { act, render, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+
+import { messagesQuery } from '@web/features/chat/queries';
+import { runsQuery } from '@web/features/chat/runs';
+import { projectQuery } from '@web/features/projects/queries';
+import { useProjectLive } from '@web/features/workspace/use-project-live';
+import { createQueryClient } from '@web/lib/query-client';
+import { stubApi } from '@web/test-utils';
+
+// The live channel is replaced; the test sends its events by hand.
+const live = vi.hoisted(() => ({
+  handlers: undefined as undefined | { onEvent: (event: LiveEvent) => void; onConnect: () => void },
+}));
+vi.mock('@web/features/realtime/live-channel', () => ({
+  useLiveChannel: (
+    _projectId: string,
+    handlers: { onEvent: (event: LiveEvent) => void; onConnect: () => void },
+  ) => {
+    live.handlers = handlers;
+  },
+}));
+
+const PROJECT_ID = '0b6a0b52-8f55-4c4e-9f6b-4ad2b3b3c0de';
+const PROJECT_URL = `/api/projects/${PROJECT_ID}`;
+const MESSAGES_URL = `${PROJECT_URL}/messages`;
+const RUNS_URL = `${PROJECT_URL}/runs`;
+const DETAILS: ProjectDetails = {
+  id: PROJECT_ID,
+  name: 'Covibes',
+  role: 'owner',
+  members: [],
+  boards: [{ id: '33333333-3333-4333-8333-333333333333', title: 'Haupt-Canvas', kind: 'main' }],
+};
+
+/** The workspace's queries plus the live channel, as the workspace page has them. */
+function renderLive() {
+  const queryClient = createQueryClient();
+  function Harness() {
+    useQuery(projectQuery(PROJECT_ID));
+    useQuery(messagesQuery(PROJECT_ID));
+    useQuery(runsQuery(PROJECT_ID));
+    useProjectLive(PROJECT_ID);
+    return null;
+  }
+  render(
+    <QueryClientProvider client={queryClient}>
+      <Harness />
+    </QueryClientProvider>,
+  );
+  return queryClient;
+}
+
+function loads(fetchMock: ReturnType<typeof stubApi>, url: string) {
+  return fetchMock.mock.calls.filter(([called, init]) => called === url && !init?.method).length;
+}
+
+describe('useProjectLive', () => {
+  it('puts messages into the chat and reloads the boards when they change', async () => {
+    const fetchMock = stubApi({
+      [`GET ${PROJECT_URL}`]: () => ({ body: DETAILS }),
+      [`GET ${MESSAGES_URL}`]: () => ({ body: [] }),
+      [`GET ${RUNS_URL}`]: () => ({ body: [] }),
+    });
+    const queryClient = renderLive();
+    await waitFor(() => {
+      expect(queryClient.getQueryData(messagesQuery(PROJECT_ID).queryKey)).toEqual([]);
+    });
+    const now = new Date().toISOString();
+    const message: ChatMessage = {
+      id: 'm1',
+      projectId: PROJECT_ID,
+      author: { kind: 'human', userId: 'u1', name: 'Alex' },
+      content: 'Live!',
+      mentions: [],
+      replyTo: null,
+      status: 'complete',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    act(() => {
+      live.handlers?.onEvent({ type: 'message', message });
+    });
+    expect(queryClient.getQueryData(messagesQuery(PROJECT_ID).queryKey)).toMatchObject([
+      { id: 'm1', content: 'Live!' },
+    ]);
+
+    const urls = [PROJECT_URL, MESSAGES_URL, RUNS_URL];
+    const before = urls.map((url) => loads(fetchMock, url));
+    act(() => {
+      live.handlers?.onEvent({ type: 'boards' });
+    });
+    await waitFor(() => {
+      expect(loads(fetchMock, PROJECT_URL)).toBe((before[0] ?? 0) + 1);
+    });
+    // Messages and runs, whose keys start with the project's, are left alone.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(urls.map((url) => loads(fetchMock, url))).toEqual([
+      (before[0] ?? 0) + 1,
+      before[1],
+      before[2],
+    ]);
+  });
+
+  it('reloads chat, runs and boards whenever the channel connects', async () => {
+    const fetchMock = stubApi({
+      [`GET ${PROJECT_URL}`]: () => ({ body: DETAILS }),
+      [`GET ${MESSAGES_URL}`]: () => ({ body: [] }),
+      [`GET ${RUNS_URL}`]: () => ({ body: [] }),
+    });
+    const queryClient = renderLive();
+    await waitFor(() => {
+      expect(queryClient.isFetching()).toBe(0);
+    });
+    const urls = [PROJECT_URL, MESSAGES_URL, RUNS_URL];
+    const before = urls.map((url) => loads(fetchMock, url));
+
+    act(() => {
+      live.handlers?.onConnect();
+    });
+
+    await waitFor(() => {
+      expect(urls.map((url) => loads(fetchMock, url))).toEqual(before.map((count) => count + 1));
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(urls.map((url) => loads(fetchMock, url))).toEqual(before.map((count) => count + 1));
+  });
+});

@@ -4,11 +4,13 @@ import { bodyLimit } from 'hono/body-limit';
 import { csrf } from 'hono/csrf';
 import { HTTPException } from 'hono/http-exception';
 
+import { boardRoutes } from '@server/api/boards';
 import { apiError } from '@server/api/errors';
 import { messageRoutes } from '@server/api/messages';
 import { projectRoutes } from '@server/api/projects';
 import { runRoutes } from '@server/api/runs';
 import { AUTH_BASE_PATH, gitlabLoginEnabled, type Auth } from '@server/auth/auth';
+import type { BoardDocuments } from '@server/collab/collab';
 import type { Database } from '@server/db/database';
 import type { ServerEnv } from '@server/env';
 import type { MailSetup } from '@server/integrations/mail/mailer';
@@ -28,9 +30,11 @@ export type AppDeps = {
   auth: Auth;
   mail: MailSetup;
   live: LivePublisher;
+  /** The collaboration server, which removes the canvas of a deleted board. */
+  documents: BoardDocuments;
 };
 
-export function createApp({ env, db, auth, mail, live }: AppDeps): Hono {
+export function createApp({ env, db, auth, mail, live, documents }: AppDeps): Hono {
   const app = new Hono();
 
   if (env.NODE_ENV === 'production') app.use('*', securityHeaders(env.APP_URL));
@@ -66,6 +70,7 @@ export function createApp({ env, db, auth, mail, live }: AppDeps): Hono {
   const messageLimiter = createRateLimiter({ limit: MESSAGES_PER_MINUTE, windowMs: 60_000 });
   app.route('/api/projects/:projectId/messages', messageRoutes(db.app, auth, live, messageLimiter));
   app.route('/api/projects/:projectId/runs', runRoutes(db.app, auth));
+  app.route('/api/projects/:projectId/boards', boardRoutes(db.app, auth, live, documents));
   app.route('/api/projects', projectRoutes(db.app, auth));
 
   // In the Docker image the server also delivers the web app (spec 02b); locally Vite does.

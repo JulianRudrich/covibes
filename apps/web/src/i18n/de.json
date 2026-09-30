@@ -60,7 +60,6 @@
     "humansLabel": "Menschen",
     "agentsLabel": "Agents",
     "mainCanvas": "Haupt-Canvas",
-    "addBoard": "Board",
     "loading": "Projekt wird geladen …",
     "loadError": "Das Projekt konnte nicht geladen werden.",
     "notFound": {
@@ -142,7 +141,21 @@
       "autoLayout": "Auto-Layout"
     },
     "zoomIn": "Vergrößern",
-    "zoomOut": "Verkleinern"
+    "zoomOut": "Verkleinern",
+    "boards": {
+      "label": "Boards",
+      "add": "Board",
+      "menu": "Menü für „{{title}}“",
+      "rename": "Umbenennen",
+      "titleLabel": "Name des Boards",
+      "delete": "Löschen",
+      "deleteTitle": "„{{title}}“ löschen?",
+      "deleteText": "Alles auf diesem Board wird gelöscht. Das lässt sich nicht rückgängig machen.",
+      "deleteConfirm": "Board löschen",
+      "deleted": "Dieses Board wurde gelöscht.",
+      "limit": "Ein Projekt hat höchstens {{max}} Boards.",
+      "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+    }
   },
   "chat": {
     "messages": "Nachrichten",

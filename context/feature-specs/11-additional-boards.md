@@ -42,10 +42,35 @@ Next to the main canvas, a project can have further boards as tabs. Editors crea
 - Packages: none new
 
 ## Checklist
-- [ ] Tabs and "+ Board" match the handoff; the derived interactions were checked from screenshots.
-- [ ] An editor creates, renames and deletes a board; a second browser sees it live. A viewer can only switch.
-- [ ] The main canvas cannot be renamed or deleted, also not through the API.
-- [ ] A deleted board's canvas is gone for good; whoever had it open lands on the main canvas with a note.
-- [ ] A reload keeps the open board.
-- [ ] Tests for the API and the tabs pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] Tabs and "+ Board" match the handoff; the derived interactions were checked from screenshots.
+- [x] An editor creates, renames and deletes a board; a second browser sees it live. A viewer can only switch.
+- [x] The main canvas cannot be renamed or deleted, also not through the API.
+- [x] A deleted board's canvas is gone for good; whoever had it open lands on the main canvas with a note.
+- [x] A reload keeps the open board.
+- [x] Tests for the API and the tabs pass.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-09-30)
+- **API** (`api/boards.ts`):
+  - `POST` accepts an empty body. Without a title the board is named "Board N" with the lowest free N from 2 on (`nextBoardTitle` in `packages/shared`), so "Board 2" comes back after it was deleted.
+  - The limit of 20 is checked under a transaction lock per project, so requests at the same moment cannot pass it together; a test sends 20 at once. Above the limit the server answers 409 with the new error code `limit_reached`.
+  - The main canvas answers 403 to renaming and deleting, viewers get 403 for every change, and boards of other projects look like unknown ones (404).
+- **Deleting a board:** the server first announces the change, then closes the connections to the board and deletes its stored document (`deleteBoard` in `collab.ts`). Hocuspocus stores a document once more after its last connection closed; for deleted boards that store is skipped, and a store already running is awaited, otherwise the canvas would come back. A test changes the board right before deleting it.
+- **One live channel per project:** it moved from the chat panel to the workspace (`useProjectLive`), so chat and boards share one connection; live connections are limited per person (spec 07). The event `boards` loads only the project again: the keys of messages and runs start with the project's key, and a reload by prefix would have cancelled and repeated the chat's requests, which a test showed.
+- **Tabs** (`board-tabs.tsx`):
+  - WAI-ARIA tabs: the arrow keys, Home and End move between the tabs, Enter opens one. Opening waits for Enter because it connects to another canvas.
+  - The main canvas shows "Haupt-Canvas" from the translations, since it cannot be renamed. Other tabs are `text-2b` with `bg-subtle` on hover, titles are cut at 200 px, and many tabs scroll sideways.
+  - The menu opens on the chevron of the open board or by right-click on any other board, below its tab, which stays highlighted meanwhile. The main canvas has no menu.
+  - Renaming by double-click or from the menu: the title is selected, Enter or leaving the field saves, Escape cancels, an empty title keeps the old one. Renaming and deleting show at once and are undone with a note if the server refuses.
+  - Deleting asks in the dialog building block with a new button variant `danger` (tokens `danger` and `on-ink`). Deleting the open board opens the main canvas first, so the person deleting sees no note.
+- **Notes over the canvas:** a pill at the top for 5 s: "Dieses Board wurde gelöscht.", the limit, or a change that failed.
+- **Address:** only other boards appear in it (`?board=`); the main canvas keeps the plain address. An unknown board (e.g. an old link) opens the main canvas without a note and cleans up the address.
+- **One canvas per board:** each board gets its own React Flow provider, so connection, undo history and view start fresh when switching.
+- `api()` in the web app returns nothing for 204 answers.
+- **Verified** with `pnpm dev` in two tabs:
+  - "+ Board" created and opened "Board 2"; a block drawn there was still there after a reload, with the board open.
+  - Renamed to "Datenmodell" by double-click; the other tab showed the new title at once.
+  - Deleted from the menu of the open board: the deleting tab went to the main canvas without a note, the other tab with "Dieses Board wurde gelöscht.".
+  - The menu of another board opened by right-click below its tab; deleting that board left the open one alone. A new board took the free name "Board 2" again.
+  - Viewers are covered by the tests of the API and the tabs; a live check would have needed a second account in the same browser.
+- **Known limits:** tabs cannot be reordered, and agents only work on the main canvas (both out of scope).

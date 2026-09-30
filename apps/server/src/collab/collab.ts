@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 
-import { boardIdFromDocumentName, type ProjectRole } from '@covibes/shared';
+import { boardDocumentName, boardIdFromDocumentName, type ProjectRole } from '@covibes/shared';
 import { Database } from '@hocuspocus/extension-database';
 import { Hocuspocus } from '@hocuspocus/server';
 import { WebSocketServer, type RawData } from 'ws';
@@ -50,6 +50,9 @@ function toUint8Array(data: RawData): Uint8Array {
  */
 export function createCollab({ db, auth, internalToken }: CollabDeps) {
   const pendingStores = new Set<Promise<unknown>>();
+  // Documents of deleted boards. Hocuspocus still stores a document after its last connection
+  // closed; for these it must not, or the deleted canvas would come back.
+  const deletedDocuments = new Set<string>();
 
   const hocuspocus = new Hocuspocus<CollabContext>({
     name: 'covibes',
@@ -109,6 +112,7 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
           return rows[0] ? new Uint8Array(rows[0].state) : null;
         },
         store: async ({ documentName, state }) => {
+          if (deletedDocuments.has(documentName)) return;
           const stored = db.adminPool.query(
             `insert into yjs_documents (name, state, updated_at) values ($1, $2, now())
              on conflict (name) do update set state = excluded.state, updated_at = now()`,
@@ -143,6 +147,19 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
     });
   }
 
+  /**
+   * Removes the canvas of a deleted board (spec 11): closes every connection to it and deletes the
+   * stored document. The board row must be gone already, so nobody can connect again.
+   */
+  async function deleteBoard(boardId: string) {
+    const documentName = boardDocumentName(boardId);
+    deletedDocuments.add(documentName);
+    hocuspocus.closeConnections(documentName);
+    // A store that started before could otherwise write the document again after the delete.
+    await Promise.allSettled([...pendingStores]);
+    await db.adminPool.query('delete from yjs_documents where name = $1', [documentName]);
+  }
+
   /** Closes all connections and waits until every document is stored. */
   async function close() {
     hocuspocus.closeConnections();
@@ -159,7 +176,10 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
     webSockets.close();
   }
 
-  return { hocuspocus, handleUpgrade, close };
+  return { hocuspocus, handleUpgrade, deleteBoard, close };
 }
 
 export type Collab = ReturnType<typeof createCollab>;
+
+/** What the API needs from the collaboration server. */
+export type BoardDocuments = Pick<Collab, 'deleteBoard'>;

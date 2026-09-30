@@ -115,7 +115,7 @@ The prompt to the coding agent is always the same: "Read the spec, mark it as in
 ### 12 Diagram types
 - **Goal:** frames with a diagram type: mind map, architecture, data model, flow and sitemap. Each type has matching block types and its own layout preset.
 - **Needs:** 10
-- **Design:** **required:** blocks for mind map, data model and flow. The spec is worked out once the designs exist.
+- **Design:** derived from the prototype (owner decision, 2026-09-30); revisited in spec 36
 
 ## M3: AI core
 
@@ -132,7 +132,7 @@ The prompt to the coding agent is always the same: "Read the spec, mark it as in
 ### 14 Agent format, catalog and project team
 - **Goal:** the shared agent definition format and the initial catalog. The moderator proposes the team; agents can be added or removed. Provider and model can be chosen per agent.
 - **Needs:** 13
-- **Design:** **required:** colors for all catalog agents and the team selection
+- **Design:** **required:** colors for all catalog agents and the team selection; derived from the agent color system until spec 36
 
 ### 15 Observer: offering help and raised hands
 - **Goal:** a debounced observer job that recognizes consensus and being stuck, offers help and creates raised hands (at most two).
@@ -248,6 +248,13 @@ The prompt to the coding agent is always the same: "Read the spec, mark it as in
 - **Needs:** 21
 - **Design:** **required**
 
+### 36 Design pass
+- **Timing:** after the features of V1, before spec 34
+- **Goal:** the owner designs in Claude Design what was derived from the prototype (list in `ui-context.md`, "Derived looks") and what is still missing, e.g. agent colors, diagram shapes, plan editor, settings and the mobile view. The coding agent then brings the app in line.
+- **Needs:** all UI specs
+- **Design:** **required:** this is where the designs are made
+- **Done when:** every entry under "Derived looks" is either confirmed or replaced by a design.
+
 ### 34 Acceptance: dry run as an E2E test
 - **Goal:** the scenario from `dry-run.md` runs as a Playwright test against `staging`, with two or three browser contexts.
 - **Needs:** all, including 35 (for `staging`)
@@ -274,9 +281,10 @@ The prompt to the coding agent is always the same: "Read the spec, mark it as in
 - Specs generally run in numerical order. Exceptions:
   - 02b was pulled forward on 2026-09-28 (self-hosted instance with Docker).
   - 35 comes before 34, at the latest before other users use Covibes.
+  - 36 comes before 34, so the acceptance test runs against the final design.
 - Possible in parallel:
   - 02a next to 03
   - 05 next to 06
   - 19 and 20 next to 15–18
   - M4 partly next to M3
-- **Design lead time:** specs marked "Design required" are only worked out once the draft from Claude Design exists. The owner designs it before the milestone.
+- **Design at the end** (owner decision, 2026-09-30, replacing the design lead time): specs do not wait for drafts from Claude Design. Where "Design: required" is noted, the coding agent derives the look from the prototype's tokens and building blocks and lists it in `ui-context.md` under "Derived looks". Design changes, improvements and new designs come together in spec 36.

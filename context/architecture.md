@@ -188,13 +188,14 @@ An agent's instructions cannot change this table.
 
 ```
 Y.Doc "board:{boardId}"
-├── nodes: Y.Map<nodeId, Y.Map>   id, type (block | sticky | frame), blockType, position, size, label, color,
-│                                 frameId, createdBy {kind: human | agent, id}, lastChangedBy, lastChangedAt
-├── edges: Y.Map<edgeId, Y.Map>   id, source, target, sourceHandle, targetHandle, label, createdBy
-└── meta:  Y.Map                  diagram type per frame, layout settings
+├── nodes: Y.Map<nodeId, Y.Map>   id, type (block | sticky | frame), blockType, position, size, label, subtitle,
+│                                 frameId, diagramType (frames), fields (entity blocks),
+│                                 createdBy {kind: human | agent, id}, lastChangedBy, lastChangedAt
+└── edges: Y.Map<edgeId, Y.Map>   id, source, target, sourceHandle, targetHandle, label, createdBy,
+                                  lastChangedBy, lastChangedAt
 ```
 
-This is the first version; the vertical slice confirms it.
+The diagram type lives on its frame (spec 12), not in a separate `meta` map, so it moves, disappears and is undone together with the frame. Auto-layout with its presets per diagram type is shared code in `packages/shared`, used by the web app and by the worker for agents.
 
 ## Data model (Postgres, first version)
 
@@ -309,7 +310,6 @@ Claude brings web search and web fetch as tools. Providers added later get equiv
 ## Open (resolved in the feature specs)
 - hosting for the public launch (spec 35)
 - library for the PDF export
-- ELK layout presets per diagram type
 - the route for GPT, Gemini and Mistral once a second provider is needed
 - default models per catalog agent, after the evals
 - provider for web search (spec 20) and for sending email in production

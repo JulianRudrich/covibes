@@ -220,13 +220,21 @@ Every block is 180 × 96, has radius 12, a 30 px icon tile, title and subtitle a
 - **Locks and live cursors** run through the **Yjs awareness** of Hocuspocus. The look stays the same.
 - **The variant comparison A/B** is already part of V1 according to `project-overview.md`; the handoff says "V2". It still needs to be designed, see below.
 - The contents of the prototype (chat, blocks, decisions) become seed data and test fixtures.
-- **Interactions the handoff does not show** (selection, editing in place, the block type menu, connection points, tool modes, board tabs) are derived from these tokens and building blocks in the canvas specs (owner decision, 2026-09-29); the coding agent decides them and checks them from screenshots (owner decision, 2026-09-30).
+- **Interactions and looks the handoff does not show** are derived from these tokens and building blocks (owner decisions, 2026-09-29 and 2026-09-30); the coding agent decides them, checks them from screenshots and lists them under "Derived looks" for the design pass (spec 36).
 - **Toolbar:** the prototype shows "Block" as the active tool; the app starts without an active tool, so a click on the canvas never creates something by accident (spec 10).
 - **The proposal state** of blocks and dashed proposal edges are built with spec 13, together with the proposals themselves.
 
+## Derived looks
+Since 2026-09-30 the app is built with the prototype design; design changes, improvements and new designs come together in the design pass at the end (spec 36, owner decision). Until then, looks the handoff does not show are derived from these tokens and building blocks and listed here, so the design pass knows what to confirm or replace:
+- selection, editing in place, the block type menu and connection points (spec 08, 09)
+- the tool modes of the toolbar, the placement cursor and the connect mode (spec 10)
+- inactive board tabs, the tab menu, renaming in place, the delete dialog with the `danger` button and the note pill over the canvas (spec 11)
+- diagram types (spec 12): the type icon and name in the frame header and its menu, the block types of mind map, data model, flow and sitemap as block cards with their own icons, entity cards with fields in Geist Mono, arrows from the right to the left edge in mind maps and data models
+
 ## Still to be designed
-The design is created in Claude Design before the corresponding feature spec is built. Until then: do not improvise beyond these tokens and building blocks.
+To be designed in Claude Design in spec 36; until then derived from the tokens and building blocks as above:
 - **Agent colors** for the remaining catalog agents (product, frontend & UX, DevOps & infrastructure, security & privacy, ML engineer, content & SEO) and a rule for custom agents. The system stays the same: base, dark, tint and border, white text with at least 4.5:1.
+- own shapes per diagram type (e.g. decisions, mind map nodes)
 - the building block overview (design system page)
 - the variant comparison A/B on the canvas
 - the "project plan" phase with plan editor, suggestions per section, versions and roadmap

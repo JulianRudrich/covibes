@@ -7,7 +7,7 @@
 Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- nothing; spec 12 waits for the designs of its blocks
+- nothing yet; spec 12 is next
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -20,7 +20,7 @@ Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is d
 - [x] Design: the owner designed the main screen in Claude Design. The handoff is in `context/design/main-screen/`; `ui-context.md` is derived from it.
 - [x] Spec overview (`feature-specs/00-overview.md`) approved by the owner
 - [x] Specs 01–07 worked out in detail (M0 foundation and M1 vertical slice)
-- [x] Specs 08–11 worked out in detail (M2 canvas); spec 12 is worked out once its designs exist
+- [x] Specs 08–11 worked out in detail (M2 canvas); spec 12 followed on 2026-09-30 with looks derived from the prototype
 - [x] **Spec 01 monorepo and tooling:**
   - pnpm workspaces with `apps/web`, `apps/server` and `packages/shared`
   - TypeScript strict, ESLint, Prettier, Vitest, environment variables via Zod
@@ -101,9 +101,9 @@ Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is d
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **Spec 12** (diagram types) waits for the designs of the mind map, data model and flow blocks. Until they exist, M3 can be prepared: specs 13 and later still have to be worked out.
+1. **Spec 12:** diagram types, then M3 (specs 13 and later still have to be worked out).
 2. What the owner contributes while building:
-   - **by spec 12:** designs in Claude Design for the blocks of mind map, data model and flow
+   - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
 3. **At the very end (public launch):** spec 35 (launch preparation): hosting location, OAuth application on GitLab.com, domain, legal texts, monitoring.
 
@@ -126,6 +126,7 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   - Every canvas spec gives the agents the tools for its elements.
   - Undo covers one's own changes; undoing agent changes follows with a history view.
   - Auto-layout uses ELK (`elkjs`, EPL-2.0 approved for unmodified use).
+- **Design at the end** (2026-09-30): development continues with the prototype design. Looks the handoff does not have are derived from its tokens and building blocks and listed in `ui-context.md`; design changes, improvements and new designs come together in a design pass before the acceptance test (spec 36).
 - **Canvas:** structured, with sticky notes. How agents draw depends on the situation:
   - When asked, an agent changes the canvas directly.
   - When acting on its own, it makes a proposal.
@@ -200,3 +201,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-09-30, spec 09 implemented.** Details are in the spec under "Implementation notes". The live test found two faults that the unit tests could not see, both fixed: arrows were not drawn (React Flow needs handles on both ends) and the drop area for new arrows was shifted. New elements now keep the distances of the handoff, so arrows fit between them.
 - **2026-09-30, spec 10 implemented.** Details are in the spec under "Implementation notes". The live test found three faults the unit tests could not see, all fixed: the mode Verbinden did not start arrows (React Flow had not measured the new handles), a drawn frame took blocks away from another frame, and a newly placed element did not get the focus while it was still hidden.
 - **2026-09-30, spec 11 implemented.** Details are in the spec under "Implementation notes". The live channel of a project moved from the chat to the workspace, so chat and boards share one connection. A test found that reloading the project by key prefix also reloaded the chat; reloads now hit only the exact query.
+- **2026-09-30, design at the end:** decided by the owner. Specs no longer wait for drafts from Claude Design; missing looks are derived from the prototype and collected in `ui-context.md` for a design pass at the end (new spec 36, before the acceptance test). Spec 12 was worked out on this basis.

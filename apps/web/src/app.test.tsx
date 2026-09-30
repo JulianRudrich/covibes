@@ -79,6 +79,7 @@ const DETAILS: ProjectDetails = {
     { userId: OLGA.id, name: OLGA.name, role: 'owner' },
   ],
   boards: [{ id: '33333333-3333-4333-8333-333333333333', title: 'Haupt-Canvas', kind: 'main' }],
+  proposalsOnly: false,
 };
 const EXTRA_BOARD: ProjectBoard = {
   id: '44444444-4444-4444-8444-444444444444',
@@ -254,7 +255,7 @@ describe('with a session', () => {
     stubApi({ [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }) });
     renderApp(`/p/${PROJECT.id}`);
 
-    expect(await screen.findByRole('link', { name: /Covibes V1/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Covibes V1/ })).toBeInTheDocument();
     const humans = screen.getByRole('group', { name: 'Menschen' });
     const avatars = within(humans).getAllByRole('img');
     expect(avatars.map((avatar) => avatar.getAttribute('aria-label'))).toEqual(['Du', 'Alex Berg']);
@@ -265,6 +266,46 @@ describe('with a session', () => {
     const chat = screen.getByTestId('chat-panel');
     expect(chat).toHaveAttribute('data-project', PROJECT.id);
     expect(chat).toHaveAttribute('data-readonly', 'false');
+  });
+
+  it('lets the owner switch the proposals-only mode in the project menu', async () => {
+    const api = stubApi({
+      [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+      [`PATCH /api/projects/${PROJECT.id}`]: () => ({ status: 204, body: null }),
+    });
+    const router = renderApp(`/p/${PROJECT.id}`);
+
+    const menu = await screen.findByRole('button', { name: /Covibes V1/ });
+    fireEvent.keyDown(menu, { key: 'Enter' });
+    const mode = await screen.findByRole('menuitemcheckbox', { name: 'Nur Vorschläge' });
+    expect(mode).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(mode);
+
+    await waitFor(() => {
+      expect(api).toHaveBeenCalledWith(
+        `/api/projects/${PROJECT.id}`,
+        expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ proposalsOnly: true }) }),
+      );
+    });
+    fireEvent.keyDown(menu, { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Zur Projektliste' }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/');
+    });
+  });
+
+  it('shows editors the proposals-only mode without letting them switch it', async () => {
+    stubApi({
+      [`GET /api/projects/${PROJECT.id}`]: () => ({
+        body: { ...DETAILS, role: 'editor', proposalsOnly: true },
+      }),
+    });
+    renderApp(`/p/${PROJECT.id}`);
+
+    fireEvent.keyDown(await screen.findByRole('button', { name: /Covibes V1/ }), { key: 'Enter' });
+    const mode = await screen.findByRole('menuitemcheckbox', { name: 'Nur Vorschläge' });
+    expect(mode).toHaveAttribute('aria-checked', 'true');
+    expect(mode).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('opens canvas and chat read-only for viewers', async () => {

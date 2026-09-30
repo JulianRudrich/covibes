@@ -176,7 +176,7 @@ describe('ChatPanel', () => {
     stubChatApi([question]);
     const queryClient = renderPanel();
     await screen.findByText('@Moderator');
-    const emit = (event: Exclude<LiveEvent, { type: 'boards' }>) => {
+    const emit = (event: Extract<LiveEvent, { type: 'message' | 'message_delta' | 'run' }>) => {
       act(() => {
         applyLiveEvent(queryClient, PROJECT_ID, event);
       });

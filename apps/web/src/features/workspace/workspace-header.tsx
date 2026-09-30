@@ -1,27 +1,40 @@
 import type { Phase } from '@covibes/shared';
-import { Link } from '@tanstack/react-router';
-import { ChevronDown } from 'lucide-react';
+import { useNavigate } from '@tanstack/react-router';
+import { Check, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@web/components/logo';
 import { Avatar } from '@web/components/ui/avatar';
 import { Button } from '@web/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@web/components/ui/dropdown-menu';
 import { Tooltip } from '@web/components/ui/tooltip';
 import { AccountMenu } from '@web/features/account/account-menu';
 import type { SessionUser } from '@web/features/auth/session';
 import { DEMO_AGENTS } from '@web/features/workspace/demo-workspace';
 import { PhaseIndicator } from '@web/features/workspace/phase-indicator';
-import type { WorkspaceMember } from '@web/features/workspace/workspace-shell';
+import type { ProjectSettings, WorkspaceMember } from '@web/features/workspace/workspace-shell';
 import { initialsOf } from '@web/lib/format';
 
 type WorkspaceHeaderProps = {
   projectName: string;
+  settings: ProjectSettings;
   activePhase: Phase;
   members: WorkspaceMember[];
   user: SessionUser | null;
 };
 
-export function WorkspaceHeader({ projectName, activePhase, members, user }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({
+  projectName,
+  settings,
+  activePhase,
+  members,
+  user,
+}: WorkspaceHeaderProps) {
   const { t } = useTranslation();
 
   return (
@@ -34,14 +47,7 @@ export function WorkspaceHeader({ projectName, activePhase, members, user }: Wor
         <span aria-hidden="true" className="text-display text-text-faint">
           /
         </span>
-        <Link
-          to="/"
-          aria-label={`${projectName}, ${t('workspace.projectMenu')}`}
-          className="flex h-[30px] min-w-0 items-center gap-1.5 rounded-btn-s px-2 text-ui font-medium whitespace-nowrap text-text no-underline hover:bg-bg-hover-app hover:text-text"
-        >
-          <span className="truncate">{projectName}</span>
-          <ChevronDown size={14} className="shrink-0 text-text-3" aria-hidden="true" />
-        </Link>
+        <ProjectMenu projectName={projectName} settings={settings} />
       </div>
 
       <div className="justify-self-center">
@@ -100,5 +106,54 @@ export function WorkspaceHeader({ projectName, activePhase, members, user }: Wor
         </Button>
       </div>
     </header>
+  );
+}
+
+/**
+ * The project name opens the project menu: back to the project list, and the proposals-only mode
+ * (spec 13), which only owners switch until the project settings exist (spec 16).
+ */
+function ProjectMenu({
+  projectName,
+  settings,
+}: {
+  projectName: string;
+  settings: ProjectSettings;
+}) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`${projectName}, ${t('workspace.projectMenu')}`}
+        className="flex h-[30px] min-w-0 cursor-pointer items-center gap-1.5 rounded-btn-s px-2 text-ui font-medium whitespace-nowrap text-text hover:bg-bg-hover-app focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+      >
+        <span className="truncate">{projectName}</span>
+        <ChevronDown size={14} className="shrink-0 text-text-3" aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuItem
+          onSelect={() => {
+            void navigate({ to: '/' });
+          }}
+        >
+          {t('workspace.toProjects')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          role="menuitemcheckbox"
+          aria-checked={settings.proposalsOnly}
+          disabled={!settings.canChange}
+          className="data-disabled:cursor-default data-disabled:opacity-60"
+          onSelect={() => {
+            settings.onProposalsOnlyChange(!settings.proposalsOnly);
+          }}
+        >
+          {t('workspace.proposalsOnly')}
+          {settings.proposalsOnly ? (
+            <Check size={14} strokeWidth={2} className="ml-auto text-text-2" aria-hidden="true" />
+          ) : null}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

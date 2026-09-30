@@ -1,8 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
 import {
-  addBlock,
-  authorOrigin,
   blockSize,
   blockTypeSchema,
   ENTITY_FIELDS_MAX,
@@ -10,15 +8,15 @@ import {
   FRAME_PADDING,
   newBlockType,
   readNodes,
-  resizeFrame,
   type CanvasNode,
+  type CanvasOperationInput,
   type Position,
   type Size,
 } from '@covibes/shared';
-import type * as Y from 'yjs';
 import { z } from 'zod';
 
 import { defineTool, type AgentTool } from '@server/ai-gateway';
+import { proposedNote, writeCanvas } from '@server/tools/canvas-writer';
 import { centerOfNodes, describePosition, type CanvasToolOptions } from '@server/tools/placement';
 
 /** The fields of an entity as agents pass them (spec 12). */
@@ -51,40 +49,36 @@ function spotIn(frame: CanvasNode, nodes: readonly CanvasNode[], size: Size): Po
   );
 }
 
-/** Grows a frame so that the block with `id` lies inside it, with the frame's padding. */
-function growAround(doc: Y.Doc, frame: CanvasNode, id: string, options: CanvasToolOptions) {
-  const block = readNodes(doc).find((node) => node.id === id);
-  if (!block) return;
-  const left = Math.min(frame.position.x, block.position.x - FRAME_PADDING.left);
-  const top = Math.min(frame.position.y, block.position.y - FRAME_PADDING.top);
+/** The bounds of a frame grown so that a block at `position` lies inside, or null if it does. */
+function grownAround(frame: CanvasNode, position: Position, size: Size) {
+  const left = Math.min(frame.position.x, position.x - FRAME_PADDING.left);
+  const top = Math.min(frame.position.y, position.y - FRAME_PADDING.top);
   const right = Math.max(
     frame.position.x + frame.size.width,
-    block.position.x + block.size.width + FRAME_PADDING.right,
+    position.x + size.width + FRAME_PADDING.right,
   );
   const bottom = Math.max(
     frame.position.y + frame.size.height,
-    block.position.y + block.size.height + FRAME_PADDING.bottom,
+    position.y + size.height + FRAME_PADDING.bottom,
   );
   const grown =
     left < frame.position.x ||
     top < frame.position.y ||
     right > frame.position.x + frame.size.width ||
     bottom > frame.position.y + frame.size.height;
-  if (grown) {
-    resizeFrame(
-      doc,
-      frame.id,
-      { position: { x: left, y: top }, size: { width: right - left, height: bottom - top } },
-      options.author,
-    );
-  }
+  return grown
+    ? {
+        id: frame.id,
+        position: { x: left, y: top },
+        size: { width: right - left, height: bottom - top },
+      }
+    : null;
 }
 
 /**
- * `add_block` (specs 07 and 12): an agent adds a block to the project's main board, optionally
- * into a frame, where it gets the type of the frame's diagram unless another is given. It writes
- * through the live Y.Doc with the shared `addBlock`, so the block appears for everyone at once and
- * carries the agent as its author.
+ * `add_block` (specs 07, 12 and 13): an agent adds a block to the project's main board, optionally
+ * into a frame, where it gets the type of the frame's diagram unless another is given. Directly it
+ * appears for everyone at once with the agent as its author; otherwise it becomes a proposal.
  */
 export function addBlockTool(options: CanvasToolOptions): AgentTool {
   return defineTool({
@@ -100,10 +94,9 @@ export function addBlockTool(options: CanvasToolOptions): AgentTool {
       x: z.number().optional(),
       y: z.number().optional(),
     },
-    // Rule engine: spec 13. Until then every call runs directly.
     run: ({ title, subtitle, type, fields, frameId, x, y }) =>
-      options.boards.withBoard(options.boardId, (doc) => {
-        const nodes = readNodes(doc);
+      writeCanvas(options, (view) => {
+        const nodes = readNodes(view);
         const frame = frameId
           ? nodes.find((node) => node.id === frameId && node.type === 'frame')
           : undefined;
@@ -134,10 +127,10 @@ export function addBlockTool(options: CanvasToolOptions): AgentTool {
               : findFreeSpot(nodes, centerOfNodes(nodes), size);
 
         const id = randomUUID();
-        doc.transact(() => {
-          addBlock(
-            doc,
-            {
+        const operations: CanvasOperationInput[] = [
+          {
+            op: 'add_block',
+            block: {
               id,
               position,
               label: title,
@@ -146,15 +139,19 @@ export function addBlockTool(options: CanvasToolOptions): AgentTool {
               fields: entityFields,
               frameId: frame?.id ?? null,
             },
-            options.author,
-          );
-          if (frame) growAround(doc, frame, id, options);
-        }, authorOrigin(options.author));
+          },
+        ];
+        const grown = frame ? grownAround(frame, position, size) : null;
+        if (grown) operations.push({ op: 'arrange', moves: [], frame: grown });
+
         const typeNote = blockType ? ` of type ${blockType}` : '';
         const where = frame ? ` in the frame "${frame.label}"` : '';
-        return Promise.resolve(
-          `Added the block "${title}"${typeNote} (id ${id})${where} at ${describePosition(position)}.`,
-        );
+        const what = `the block "${title}"${typeNote} (id ${id})${where}`;
+        return {
+          operations,
+          done: `Added ${what} at ${describePosition(position)}.`,
+          proposed: proposedNote(`to add ${what}`),
+        };
       }),
   });
 }

@@ -87,6 +87,15 @@ describe('live bridge', () => {
     ]);
   });
 
+  it('forwards changed proposals of an agent (spec 13)', async () => {
+    const { projectId } = await projectWithMessage('Vorschlag');
+
+    await notifyLive(test.db.admin, { kind: 'proposals', projectId });
+
+    await until(() => eventsFor(projectId).length === 1);
+    expect(eventsFor(projectId)).toEqual([{ type: 'proposals' }]);
+  });
+
   it('ignores malformed notifications and rows that no longer exist', async () => {
     const { projectId } = await projectWithMessage('Plain text');
 

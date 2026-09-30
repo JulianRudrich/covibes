@@ -122,8 +122,9 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - Changed elements carry `lastChangedBy` and `lastChangedAt`; the client highlights them briefly.
   - Change history and undo run through Yjs.
 - **Proposals and variants** live in Postgres as `proposals`, not in the Y.Doc.
+  - A canvas proposal holds operations (add a block, a note, a frame or an arrow; change a node; arrange), the same ones the tools apply directly (`packages/shared`, `canvas/operations.ts`).
   - The client shows them dashed or as a comparison view.
-  - Only "Apply" writes them into the Y.Doc.
+  - Only "Apply" writes them into the Y.Doc: the server applies the operations through a direct connection of the collaboration server, with the agent as author.
 
 ### Plan
 - The plan is a Y.Doc of its own (`plan:{projectId}`) and is edited with Tiptap.
@@ -142,7 +143,7 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - model: `provider`, `model`, `effort`
   - visibility: `scope` (catalog, personal or project)
 - **Moderator:** a catalog agent with additional rights. It asks for criteria, records decisions, brings in specialists and leads debates.
-- **Intent:** at the start of every run the agent runner determines the intent of the triggering message: instruction or question. It passes the intent to the rule engine. Observer runs always count as own initiative.
+- **Intent:** at the start of every run the agent runner determines the intent of the triggering message: instruction or question. A small model with fixed instructions classifies it next to the agent's reply; if it fails, the message counts as a question. It passes the intent to the rule engine. Observer runs always count as own initiative.
 - **Observer job:** it reads the new messages since its last run and decides to:
   - offer help, on consensus or when the team is stuck
   - create a raised hand (at most two open)

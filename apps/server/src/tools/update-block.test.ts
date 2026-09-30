@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { addBlock, readNodes } from '@covibes/shared';
 import { describe, expect, it } from 'vitest';
 
-import { memoryBoards } from '@server/test-boards';
+import { memoryBoards, memoryRules } from '@server/test-boards';
 import { updateBlockTool } from '@server/tools/update-block';
 
 const BOARD_ID = randomUUID();
@@ -20,7 +20,7 @@ function setup() {
     OLGA,
   );
   const tool = updateBlockTool({ boards, boardId: BOARD_ID, author: MODERATOR });
-  return { board, blockId, tool, lock };
+  return { board, blockId, tool, lock, boards };
 }
 
 describe('update_block', () => {
@@ -47,14 +47,19 @@ describe('update_block', () => {
     expect(readNodes(board)[0]).toMatchObject({ label: 'API', subtitle: '', blockType: null });
   });
 
-  it('leaves a block alone that someone is editing and says who it is', async () => {
-    const { board, blockId, tool, lock } = setup();
+  it('proposes the change of a block that someone is editing and says who it is', async () => {
+    const { board, blockId, lock, boards } = setup();
     lock(blockId, 'Sam');
+    const { rules, operations, reasons } = memoryRules('instruction');
+    const tool = updateBlockTool({ boards, boardId: BOARD_ID, author: MODERATOR, rules });
 
-    await expect(tool.run({ id: blockId, title: 'Gateway' })).rejects.toThrow(
-      'Sam is editing the block "API" right now',
-    );
+    const answer = await tool.run({ id: blockId, title: 'Gateway' });
+
+    expect(answer).toContain('Sam is editing the block "API" right now');
+    expect(answer).toContain('proposal');
     expect(readNodes(board)[0]).toMatchObject({ label: 'API', lastChangedBy: OLGA });
+    expect(operations).toEqual([{ op: 'update_node', id: blockId, changes: { label: 'Gateway' } }]);
+    expect(reasons).toEqual(['locked']);
   });
 
   it('reports an unknown block and a call without changes', async () => {

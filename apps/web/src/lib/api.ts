@@ -5,6 +5,8 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly code: ApiErrorCode | 'network',
+    /** What the server adds for the text, e.g. the name of someone editing a block. */
+    readonly detail?: string,
   ) {
     super(`API request failed: ${String(status)} ${code}`);
     this.name = 'ApiError';
@@ -31,7 +33,9 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   if (!response.ok) {
     const body: unknown = await response.json().catch(() => undefined);
-    throw new ApiError(response.status, isApiErrorBody(body) ? body.error.code : 'internal');
+    throw isApiErrorBody(body)
+      ? new ApiError(response.status, body.error.code, body.error.detail)
+      : new ApiError(response.status, 'internal');
   }
   // "No content", e.g. after deleting something.
   if (response.status === 204) return undefined as T;

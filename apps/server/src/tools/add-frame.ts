@@ -1,18 +1,17 @@
 import { randomUUID } from 'node:crypto';
 
 import {
-  addFrame,
   diagramTypeSchema,
   findFreeSpot,
   FRAME_MIN_SIZE,
   FRAME_SIZE,
-  placeNodes,
   readNodes,
   type CanvasNode,
 } from '@covibes/shared';
 import { z } from 'zod';
 
 import { defineTool, type AgentTool } from '@server/ai-gateway';
+import { proposedNote, writeCanvas } from '@server/tools/canvas-writer';
 import { centerOfNodes, describePosition, type CanvasToolOptions } from '@server/tools/placement';
 
 /** Space between the blocks and the edge of a frame drawn around them; it holds the title. */
@@ -48,16 +47,24 @@ export function addFrameTool(options: CanvasToolOptions): AgentTool {
       diagramType: diagramTypeSchema.optional(),
       blockIds: z.array(z.string().min(1).max(100)).max(50).optional(),
     },
-    // Rule engine: spec 13. Until then every call runs directly.
-    run: async ({ title, diagramType, blockIds }) =>
-      await options.boards.withBoard(options.boardId, (doc, session) => {
-        const nodes = readNodes(doc);
+    run: ({ title, diagramType, blockIds }) =>
+      writeCanvas(options, (view, session) => {
+        const nodes = readNodes(view);
         const id = randomUUID();
         const typeNote = diagramType ? ` of type ${diagramType}` : '';
         if (!blockIds || blockIds.length === 0) {
           const position = findFreeSpot(nodes, centerOfNodes(nodes), FRAME_SIZE);
-          addFrame(doc, { id, position, title, diagramType: diagramType ?? null }, options.author);
-          return `Added the frame "${title}"${typeNote} (id ${id}) at ${describePosition(position)}.`;
+          const what = `the frame "${title}"${typeNote} (id ${id})`;
+          return {
+            operations: [
+              {
+                op: 'add_frame',
+                frame: { id, position, title, diagramType: diagramType ?? null },
+              },
+            ],
+            done: `Added ${what} at ${describePosition(position)}.`,
+            proposed: proposedNote(`to add ${what}`),
+          };
         }
 
         const byId = new Map(nodes.map((node) => [node.id, node]));
@@ -77,16 +84,6 @@ export function addFrameTool(options: CanvasToolOptions): AgentTool {
           );
         }
 
-        addFrame(
-          doc,
-          { id, title, diagramType: diagramType ?? null, ...around(blocks) },
-          options.author,
-        );
-        placeNodes(
-          doc,
-          blocks.map((block) => block.id),
-          options.author,
-        );
         const skipped = locked
           .map(
             (blockId) =>
@@ -94,9 +91,19 @@ export function addFrameTool(options: CanvasToolOptions): AgentTool {
           )
           .join(', ');
         const count = `${String(blocks.length)} ${blocks.length === 1 ? 'block' : 'blocks'}`;
-        return `Added the frame "${title}"${typeNote} (id ${id}) around ${count}.${
-          skipped ? ` Left out ${skipped}.` : ''
-        }`;
+        const what = `the frame "${title}"${typeNote} (id ${id}) around ${count}`;
+        const leftOut = skipped ? ` Left out ${skipped}.` : '';
+        return {
+          operations: [
+            {
+              op: 'add_frame',
+              frame: { id, title, diagramType: diagramType ?? null, ...around(blocks) },
+              members: blocks.map((block) => block.id),
+            },
+          ],
+          done: `Added ${what}.${leftOut}`,
+          proposed: `${proposedNote(`to add ${what}`)}${leftOut}`,
+        };
       }),
   });
 }

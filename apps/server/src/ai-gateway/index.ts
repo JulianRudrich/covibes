@@ -1,4 +1,9 @@
-export { checkClaudeAccess, streamAgentReply, type ClaudeAccess } from '@server/ai-gateway/claude';
+export {
+  checkClaudeAccess,
+  completeText,
+  streamAgentReply,
+  type ClaudeAccess,
+} from '@server/ai-gateway/claude';
 export {
   estimateCostUsd,
   resolveModel,

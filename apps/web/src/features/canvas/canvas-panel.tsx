@@ -29,6 +29,7 @@ import {
   type BlockType,
   type Position,
   type ProjectMember,
+  type Proposal,
   type Size,
 } from '@covibes/shared';
 import {
@@ -68,6 +69,9 @@ import { FrameNode } from '@web/features/canvas/frame-node';
 import { LiveCursor } from '@web/features/canvas/live-cursor';
 import { NoteNode } from '@web/features/canvas/note-node';
 import { PlacementLayer, type Placement } from '@web/features/canvas/placement-layer';
+import { ProposalLayer } from '@web/features/proposals/proposal-layer';
+import { proposalOverlay } from '@web/features/proposals/proposal-overlay';
+import type { Decision } from '@web/features/proposals/queries';
 import { useBoardDoc } from '@web/features/canvas/use-board-doc';
 import { useLiveCursors } from '@web/features/canvas/use-live-cursors';
 import { useNodeLocks } from '@web/features/canvas/use-node-locks';
@@ -93,6 +97,9 @@ type CanvasPanelProps = {
   members: readonly ProjectMember[];
   /** Viewers see everything live but cannot change anything. */
   readOnly: boolean;
+  /** The open proposals of the project; the canvas shows those of its board (spec 13). */
+  proposals: readonly Proposal[];
+  onDecide: (proposal: Proposal, decision: Decision) => void;
 };
 
 /**
@@ -125,6 +132,8 @@ function BoardCanvas({
   user,
   members,
   readOnly,
+  proposals,
+  onDecide,
 }: Omit<CanvasPanelProps, 'tabs' | 'notice'>) {
   const { t } = useTranslation();
   const { connection, status, loaded, denied } = useBoardDoc(boardId);
@@ -136,11 +145,14 @@ function BoardCanvas({
         <CanvasMessage>{t('canvas.denied')}</CanvasMessage>
       ) : connection && loaded ? (
         <Board
+          boardId={boardId}
           connection={connection}
           user={user}
           members={members}
           author={author}
           readOnly={readOnly}
+          proposals={proposals}
+          onDecide={onDecide}
         />
       ) : (
         <CanvasMessage>{t('canvas.loading')}</CanvasMessage>
@@ -151,11 +163,14 @@ function BoardCanvas({
 }
 
 type BoardProps = {
+  boardId: string;
   connection: BoardConnection;
   user: AwarenessUser;
   members: readonly ProjectMember[];
   author: Author;
   readOnly: boolean;
+  proposals: readonly Proposal[];
+  onDecide: (proposal: Proposal, decision: Decision) => void;
 };
 
 function snap(value: number) {
@@ -167,7 +182,16 @@ function centeredOn(point: Position, size: Size): Position {
   return { x: snap(point.x - size.width / 2), y: snap(point.y - size.height / 2) };
 }
 
-function Board({ connection, user, members, author, readOnly }: BoardProps) {
+function Board({
+  boardId,
+  connection,
+  user,
+  members,
+  author,
+  readOnly,
+  proposals,
+  onDecide,
+}: BoardProps) {
   const { t } = useTranslation();
   const { doc } = connection;
   const { locks, ownClientId, setEditing } = useNodeLocks(connection.provider);
@@ -184,14 +208,29 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
   const { cursors, onPointerMove, onPointerLeave } = useLiveCursors(connection.provider, user);
   const undo = useUndo(doc, author, !readOnly);
 
+  // Where every element is right now, also while one is dragged here.
+  const rects = useMemo(
+    () =>
+      new Map<string, Rect>(
+        nodes.map((node) => [
+          node.id,
+          { ...node.position, width: node.data.size.width, height: node.data.size.height },
+        ]),
+      ),
+    [nodes],
+  );
+  // What the open proposals of this board show on top of it (spec 13).
+  const overlay = useMemo(
+    () => proposalOverlay(proposals, boardId, new Set(rects.keys())),
+    [proposals, boardId, rects],
+  );
+  const proposalsById = useMemo(
+    () => new Map(proposals.map((proposal) => [proposal.id, proposal])),
+    [proposals],
+  );
+
   // Arrows are anchored from where the blocks are right now, also while one is dragged here.
   const shownEdges = useMemo(() => {
-    const rects = new Map<string, Rect>(
-      nodes.map((node) => [
-        node.id,
-        { ...node.position, width: node.data.size.width, height: node.data.size.height },
-      ]),
-    );
     // In mind maps and data models, arrows follow the reading direction (spec 12).
     const sideways = new Set(
       nodes
@@ -211,7 +250,7 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
       const geometry = geometries.get(edge.id);
       return edge.data && geometry ? { ...edge, data: { ...edge.data, geometry } } : edge;
     });
-  }, [nodes, edges]);
+  }, [nodes, edges, rects]);
 
   const lockedByOthers = useCallback(
     (id: string) => {
@@ -524,6 +563,13 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
           bgColor="var(--color-bg-canvas)"
         />
         <ViewportPortal>
+          <ProposalLayer
+            overlay={overlay}
+            rects={rects}
+            proposals={proposalsById}
+            canDecide={!readOnly}
+            onDecide={onDecide}
+          />
           {cursors.map((cursor) => (
             <LiveCursor key={cursor.clientId} cursor={cursor} />
           ))}

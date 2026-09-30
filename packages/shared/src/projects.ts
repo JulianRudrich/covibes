@@ -12,6 +12,15 @@ export const PROJECT_ROLES = ['viewer', 'editor', 'owner'] as const;
 export type ProjectRole = (typeof PROJECT_ROLES)[number];
 
 export const createProjectInputSchema = z.object({ name: projectNameSchema });
+
+/** `PATCH /api/projects/:projectId` (owners): the settings that exist so far. */
+export const updateProjectInputSchema = z.object({ proposalsOnly: z.boolean() });
+export type UpdateProjectInput = z.infer<typeof updateProjectInputSchema>;
+
+/** `projects.settings` as stored; unknown keys from later versions are kept. */
+export const projectSettingsSchema = z.looseObject({
+  proposalsOnly: z.boolean().optional().catch(undefined),
+});
 export type CreateProjectInput = z.infer<typeof createProjectInputSchema>;
 
 /** One entry of `GET /api/projects`. */
@@ -59,4 +68,6 @@ export type ProjectDetails = {
   members: ProjectMember[];
   /** Ordered by position, the main board first. */
   boards: ProjectBoard[];
+  /** Even instructions to agents arrive as proposals first (spec 13). */
+  proposalsOnly: boolean;
 };

@@ -10,10 +10,16 @@ const ERRORS = {
   too_large: { status: 413, message: 'Request too large.' },
   too_many_requests: { status: 429, message: 'Too many requests, please wait a moment.' },
   limit_reached: { status: 409, message: 'The limit is reached.' },
+  already_decided: { status: 409, message: 'This was decided already.' },
+  being_edited: { status: 409, message: 'Someone is editing this right now.' },
   internal: { status: 500, message: 'Something went wrong.' },
 } as const satisfies Record<ApiErrorCode, { status: number; message: string }>;
 
-export function apiError(c: Context, code: ApiErrorCode) {
+/** An error answer; `detail` gives the web app what its text needs, e.g. a name. */
+export function apiError(c: Context, code: ApiErrorCode, detail?: string) {
   const { status, message } = ERRORS[code];
-  return c.json<ApiErrorBody>({ error: { code, message } }, status);
+  return c.json<ApiErrorBody>(
+    { error: { code, message, ...(detail === undefined ? {} : { detail }) } },
+    status,
+  );
 }

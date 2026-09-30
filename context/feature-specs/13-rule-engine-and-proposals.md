@@ -72,11 +72,37 @@ Agents change the canvas directly only on a clear instruction. What they contrib
 - Packages: none new
 
 ## Checklist
-- [ ] On "zeichne …" the moderator draws directly; on a question it answers and its canvas change arrives as one dashed proposal.
-- [ ] Proposed blocks and arrows match the handoff at 100 %; derived looks were checked from screenshots and are listed in `ui-context.md`.
-- [ ] "Übernehmen" on the canvas or in the overview turns the proposal into normal elements of the agent for everyone; "Verwerfen" removes it; the counter follows live in a second browser.
-- [ ] A change of a block that someone is editing becomes a proposal; applying it while the block is still being edited is refused with the name.
-- [ ] In the proposals-only mode even "zeichne …" arrives as a proposal; only owners can switch the mode.
-- [ ] Viewers see proposals but cannot decide them, also not through the API.
-- [ ] Tests for the rule table, the operations, the tools in both modes and the API pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] On "zeichne …" the moderator draws directly; on a question it answers and its canvas change arrives as one dashed proposal.
+- [x] Proposed blocks and arrows match the handoff at 100 %; derived looks were checked from screenshots and are listed in `ui-context.md`.
+- [x] "Übernehmen" on the canvas or in the overview turns the proposal into normal elements of the agent for everyone; "Verwerfen" removes it; the counter follows live in a second browser.
+- [x] A change of a block that someone is editing becomes a proposal; applying it while the block is still being edited is refused with the name.
+- [x] In the proposals-only mode even "zeichne …" arrives as a proposal; only owners can switch the mode.
+- [x] Viewers see proposals but cannot decide them, also not through the API.
+- [x] Tests for the rule table, the operations, the tools in both modes and the API pass.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-09-30)
+- **Operations** (`packages/shared/src/canvas/operations.ts`): the canvas tools describe every change as operations, whether it runs directly or as a proposal, so both paths use the same code. Applying skips what no longer fits and is therefore safe to repeat. `withOperations` gives a copy of the board with a proposal applied; tools plan on it, so an arrow can lead to a block proposed a moment earlier in the same reply.
+- **Rule engine** (`apps/server/src/rules/`): `decide` is a pure function over intent, proposals-only mode and lock; `writeCanvas` in the tools runs it for every call. A tool that is not allowed is also refused there, although agents only get their allowed tools anyway.
+- **Intent:** Claude Haiku 4.5 through the new `completeText` of the gateway, with fixed instructions and the message as data. It runs next to the agent's reply and adds its cost to the run (about $0.0002). Haiku takes no effort level, so the registry now says per model whether it does.
+- **Proposals:**
+  - One row per run in `proposals`; a retry continues it. Several tool calls at once are written one after the other, so they never create two rows.
+  - Besides the operations, a proposal stores the titles of the existing elements it refers to (`names`), so the overview can say "„API“ ändern" without loading the board.
+  - Applying claims the decision in the database first and then writes through a direct connection of the collaboration server, which also reads the locks from the awareness. If someone edits a node the proposal changes, the claim is rolled back and the answer is 409 with the editor's name.
+- **Locks:** `update_block` on a block someone edits now becomes a proposal with the reason `locked` instead of being refused.
+- **Web:**
+  - The proposals of the open board are drawn in React Flow's viewport as an overlay: cards, dashed arrows with their label in the agent tint, and a dashed outline with the pill "Vorschlag" around existing elements that a proposal changes or moves. As an overlay they need no place in the board's node state and always lie above it.
+  - "Wartet auf dich" shows its cards for all boards; the summary of a proposal of another board opens that board.
+  - Deciding removes the proposal at once and brings it back with a note if the server refuses. The lines "… übernommen" and "… verworfen" belong to the browser session.
+  - The project name in the header opens the project menu with "Zur Projektliste" and "Nur Vorschläge"; for editors and viewers the mode shows but cannot be switched.
+- **Live:** the worker announces changed proposals through `NOTIFY` (`proposals`); deciding and switching the mode announce `proposals` and `project` directly. The live channel reloads the proposals after (re)connecting.
+- **Verified** with `pnpm dev`:
+  - A question ("fehlt im Datenmodell nicht noch eine Tabelle für die Mitglieder?") became one proposal: the entity "ProjectMember" and a dashed arrow "1:n" from "Project", as a card in the moderator's tint and in "Wartet auf dich". The moderator said that it proposed the table and that the team can apply it.
+  - "Übernehmen" in the overview turned it into the moderator's entity with its four fields; the counter went to 0 and the line "ProjectMember übernommen" appeared.
+  - With "Nur Vorschläge" switched on, "zeichne … eine Tabelle „User“" became a proposal with three arrows; "Verwerfen" on the canvas removed it.
+  - In a second tab a new proposal appeared at once, and applying it there removed it in the first tab while the block "Export" appeared.
+  - "ordne den Rahmen neu an" ran directly, without a proposal.
+  - Asked again for the table it had proposed before, the moderator saw that its proposal had been rejected and did not propose it again unasked.
+  - Locks and viewers are covered by the tests of the tools and the API; they were not tried live.
+- **Before the live test** the subscription's session limit had been used up; the note of spec 07 showed the waiting time, and the test continued once it was free again.
+- **Known limits:** a proposal cannot be edited before it is applied; proposals by humans and undoing an applied proposal are out of scope. The completed lines under "Wartet auf dich" only live in the browser session.

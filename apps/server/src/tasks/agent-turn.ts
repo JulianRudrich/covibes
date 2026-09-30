@@ -1,9 +1,11 @@
 import type { DB } from '@covibes/db';
 import {
+  projectSettingsSchema,
   readEdges,
   readNodes,
   type CanvasEdge,
   type CanvasNode,
+  type CanvasOperation,
   type ChatMessage,
   type NodeLock,
 } from '@covibes/shared';
@@ -22,6 +24,8 @@ import {
 import { isAgentKey, loadMessage, selectMessages, toMessage } from '@server/chat/rows';
 import type { BoardAccess } from '@server/collab/board-client';
 import { MAX_DELTA_LENGTH, notifyLive } from '@server/realtime/notifications';
+import { classifyIntent } from '@server/rules/intent';
+import { describeOperations, loadOpenProposals, openRunProposal } from '@server/tasks/run-proposal';
 import { addBlockTool } from '@server/tools/add-block';
 import { addFrameTool } from '@server/tools/add-frame';
 import { addNoteTool } from '@server/tools/add-note';
@@ -104,6 +108,13 @@ export type AgentTurnDeps = {
   boards: BoardAccess;
   /** The gateway's `streamAgentReply`; tests pass a scripted model. */
   reply: (request: AgentReplyRequest) => Promise<AgentReplyResult>;
+  /** The gateway's `completeText`, for the intent of the triggering message (spec 13). */
+  complete: (request: {
+    model: string;
+    system: string;
+    prompt: string;
+    signal?: AbortSignal;
+  }) => Promise<AgentReplyResult>;
   logger: { error: (message: string) => void };
   flushMs?: number;
 };
@@ -160,16 +171,18 @@ export async function runAgentTurn(
 
   const project = await deps.admin
     .selectFrom('projects')
-    .select(['name', 'language'])
+    .select(['name', 'language', 'settings'])
     .where('id', '=', run.projectId)
     .executeTakeFirstOrThrow();
   const language: Language = project.language === 'en' ? 'en' : 'de';
+  const settings = projectSettingsSchema.safeParse(project.settings);
+  const proposalsOnly = settings.success && settings.data.proposalsOnly === true;
 
   const messageId = await startRun(deps.admin, run, agent);
   try {
     const result = await converse(
       deps,
-      { run, agent, projectName: project.name, messageId },
+      { run, agent, projectName: project.name, messageId, proposalsOnly },
       attempt,
     );
     await finishRun(deps.admin, run, messageId, result, NOTES[language].done);
@@ -247,7 +260,13 @@ function startRun(admin: Kysely<DB>, run: Run, agent: AgentDefinition): Promise<
 
 async function converse(
   deps: AgentTurnDeps,
-  turn: { run: Run; agent: AgentDefinition; projectName: string; messageId: string },
+  turn: {
+    run: Run;
+    agent: AgentDefinition;
+    projectName: string;
+    messageId: string;
+    proposalsOnly: boolean;
+  },
   attempt: AgentTurnAttempt,
 ): Promise<AgentReplyResult> {
   const { run, agent, messageId } = turn;
@@ -267,6 +286,13 @@ async function converse(
         locks: session.locks(),
       }))
     : { nodes: [], edges: [], locks: new Map<string, NodeLock>() };
+  const proposals = await loadOpenProposals(deps.admin, run.projectId);
+
+  // The rule engine needs the intent of the message (spec 13). It is classified next to the
+  // agent's reply, so the reply does not wait; the first canvas tool does.
+  const intent = conversation.request
+    ? classifyIntent(deps.complete, conversation.request.content, attempt.signal)
+    : Promise.resolve({ intent: 'question' as const, costUsd: 0, inputTokens: 0, outputTokens: 0 });
 
   const tools: AgentTool[] = [];
   if (board) {
@@ -274,6 +300,16 @@ async function converse(
       boards: deps.boards,
       boardId: board.id,
       author: { kind: 'agent', agentKey: agent.key },
+      rules: {
+        intent: intent.then((result) => result.intent),
+        proposalsOnly: turn.proposalsOnly,
+        proposal: await openRunProposal(deps.admin, {
+          id: run.id,
+          projectId: run.projectId,
+          boardId: board.id,
+          agentKey: agent.key,
+        }),
+      },
     };
     for (const name of agent.tools) {
       const create = CANVAS_TOOLS[name];
@@ -290,14 +326,30 @@ async function converse(
     }
   });
   try {
-    return await deps.reply({
+    const result = await deps.reply({
       model: agent.model,
       system: agent.prompt,
-      prompt: buildPrompt({ projectName: turn.projectName, ...canvas, ...conversation }),
+      prompt: buildPrompt({
+        projectName: turn.projectName,
+        ...canvas,
+        proposals,
+        ...conversation,
+      }),
       tools,
       onText: deltas.push,
       signal: attempt.signal,
     });
+    // The classification belongs to the run: its tokens and cost count too.
+    const classified = await intent;
+    return {
+      ...result,
+      usage: {
+        ...result.usage,
+        inputTokens: result.usage.inputTokens + classified.inputTokens,
+        outputTokens: result.usage.outputTokens + classified.outputTokens,
+      },
+      costUsd: result.costUsd + classified.costUsd,
+    };
   } finally {
     // All deltas are out before the message changes again, so none arrives after it.
     await deltas.close();
@@ -409,10 +461,24 @@ export function buildPrompt(context: {
   nodes: readonly CanvasNode[];
   edges?: readonly CanvasEdge[];
   locks?: ReadonlyMap<string, NodeLock>;
+  /** Open proposals of the project (spec 13), so agents do not propose the same again. */
+  proposals?: readonly { id: string; agentKey: string; operations: CanvasOperation[] }[];
   messages: readonly ChatMessage[];
   request: ChatMessage | undefined;
 }): string {
-  const canvas = describeCanvas(context.nodes, context.edges ?? [], context.locks);
+  const proposals = context.proposals ?? [];
+  const canvas = [
+    describeCanvas(context.nodes, context.edges ?? [], context.locks),
+    ...(proposals.length > 0
+      ? [
+          'Open proposals (not on the canvas until someone applies them):',
+          ...proposals.map(
+            (proposal) =>
+              `- by ${proposal.agentKey}: ${describeOperations(proposal.operations, context.nodes)}`,
+          ),
+        ]
+      : []),
+  ].join('\n');
   const chat = context.messages
     .map((message) => `${authorName(message)}: ${message.content}`)
     .join('\n');

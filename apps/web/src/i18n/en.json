@@ -66,7 +66,9 @@
       "title": "Project not found",
       "text": "This project does not exist, or you have no access to it.",
       "back": "To the project list"
-    }
+    },
+    "toProjects": "To the project list",
+    "proposalsOnly": "Proposals only"
   },
   "devMails": {
     "title": "Development mailbox",
@@ -198,5 +200,34 @@
     "replyTo": "Reply to {{name}}",
     "agentNeutral": "Agent · neutral",
     "agentError": "The answer failed."
+  },
+  "proposals": {
+    "header": "Proposal · {{agent}}",
+    "apply": "Apply",
+    "reject": "Reject",
+    "marker": "Proposal",
+    "kind": "Proposal",
+    "summary": {
+      "addBlock": "Add block <b>{{name}}</b>",
+      "addNote": "Add note <b>{{name}}</b>",
+      "addFrame": "Add frame <b>{{name}}</b>",
+      "addEdge": "Arrow <b>{{from}}</b> → <b>{{to}}</b>",
+      "updateNode": "Change <b>{{name}}</b>",
+      "arrangeFrame": "Arrange <b>{{name}}</b>",
+      "move": "Move elements"
+    },
+    "more_one": "+ 1 more change",
+    "more_other": "+ {{count}} more changes",
+    "applied": "<b>{{name}}</b> applied",
+    "rejected": "<b>{{name}}</b> rejected",
+    "errors": {
+      "beingEdited": "{{name}} is editing something this proposal changes. Please try again in a moment.",
+      "alreadyDecided": "This proposal was decided already.",
+      "failed": "That did not work. Please try again."
+    }
+  },
+  "overview": {
+    "waiting": "Waiting for you",
+    "waitingCount": "{{count}} open"
   }
 }

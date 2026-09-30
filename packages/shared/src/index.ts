@@ -94,6 +94,23 @@ export {
   type LayoutResult,
 } from './canvas/auto-layout';
 export { findFreeSpot, GRID_SIZE } from './canvas/layout';
+export {
+  applyOperations,
+  canvasOperationSchema,
+  changedNodeIds,
+  withOperations,
+  type ApplyResult,
+  type CanvasOperation,
+  type CanvasOperationInput,
+} from './canvas/operations';
+export {
+  PROPOSAL_REASONS,
+  PROPOSAL_STATUSES,
+  proposalSchema,
+  type Proposal,
+  type ProposalReason,
+  type ProposalStatus,
+} from './proposals';
 export { APP_NAME, COLLAB_PATH, LIVE_PATH } from './constants';
 export { defineEnv, EnvValidationError } from './env';
 export {
@@ -127,7 +144,9 @@ export {
   PROJECT_ROLES,
   projectIdSchema,
   projectNameSchema,
+  projectSettingsSchema,
   renameBoardInputSchema,
+  updateProjectInputSchema,
   type CreateBoardInput,
   type CreateProjectInput,
   type ProjectBoard,
@@ -136,4 +155,5 @@ export {
   type ProjectRole,
   type ProjectSummary,
   type RenameBoardInput,
+  type UpdateProjectInput,
 } from './projects';

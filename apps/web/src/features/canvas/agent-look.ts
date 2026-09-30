@@ -49,6 +49,17 @@ export const AGENT_LABEL: Readonly<Record<AgentKey, string>> = {
   data: 'border-agent-data-border bg-agent-data-tint text-agent-data-dark',
 };
 
+/**
+ * A proposal of the agent (spec 13, handoff state "Proposal"): its base color for the dashed
+ * border, its tint (slightly transparent) behind the content.
+ */
+export const AGENT_PROPOSAL: Readonly<Record<AgentKey, string>> = {
+  moderator: 'border-agent-moderator bg-agent-moderator-tint/95',
+  backend: 'border-agent-backend bg-agent-backend-tint/95',
+  critic: 'border-agent-critic bg-agent-critic-tint/95',
+  data: 'border-agent-data bg-agent-data-tint/95',
+};
+
 /** The agent's base color as a CSS value, for SVG strokes and arrowheads. */
 export function agentColor(agent: AgentKey): string {
   return `var(--color-agent-${agent})`;

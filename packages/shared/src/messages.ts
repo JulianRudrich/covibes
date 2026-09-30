@@ -70,11 +70,15 @@ export type AiRun = z.infer<typeof aiRunSchema>;
  * - `message_delta`: text an agent just wrote, to append to its streaming message
  * - `run`: an agent run changed its status (waiting, working, done, failed)
  * - `boards`: a board was created, renamed or deleted; the project's boards are loaded again
+ * - `proposals`: an agent proposed something, or a proposal was applied or rejected (spec 13)
+ * - `project`: the project's settings changed, e.g. the proposals-only mode
  */
 export const liveEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('message'), message: chatMessageSchema }),
   z.object({ type: z.literal('message_delta'), messageId: z.string(), text: z.string() }),
   z.object({ type: z.literal('run'), run: aiRunSchema }),
   z.object({ type: z.literal('boards') }),
+  z.object({ type: z.literal('proposals') }),
+  z.object({ type: z.literal('project') }),
 ]);
 export type LiveEvent = z.infer<typeof liveEventSchema>;

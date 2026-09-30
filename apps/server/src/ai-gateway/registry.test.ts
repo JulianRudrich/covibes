@@ -9,6 +9,16 @@ describe('resolveModel', () => {
       id: 'claude-opus-5-5',
       provider: 'anthropic',
       prices: { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
+      effort: true,
+    });
+  });
+
+  it('knows Claude Haiku 4.5 for short classifications, without an effort level', () => {
+    expect(resolveModel('claude-haiku-4-5-20251001')).toEqual({
+      id: 'claude-haiku-4-5-20251001',
+      provider: 'anthropic',
+      prices: { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 },
+      effort: false,
     });
   });
 

@@ -25,6 +25,8 @@ export const liveNotificationSchema = z.discriminatedUnion('kind', [
     text: z.string().min(1).max(MAX_DELTA_LENGTH),
   }),
   z.object({ kind: z.literal('run'), projectId: z.uuid(), runId: z.uuid() }),
+  // An agent proposed something (spec 13); clients load the open proposals again.
+  z.object({ kind: z.literal('proposals'), projectId: z.uuid() }),
 ]);
 export type LiveNotification = z.infer<typeof liveNotificationSchema>;
 
@@ -51,6 +53,8 @@ export async function toLiveEvent(admin: Kysely<DB>, notification: LiveNotificat
       const run = await loadRun(admin, notification.runId);
       return run && { type: 'run' as const, run };
     }
+    case 'proposals':
+      return { type: 'proposals' as const };
   }
 }
 

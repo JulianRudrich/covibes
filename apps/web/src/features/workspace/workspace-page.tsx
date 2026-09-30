@@ -1,4 +1,4 @@
-import type { ProjectDetails } from '@covibes/shared';
+import type { ProjectDetails, Proposal } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -9,7 +9,14 @@ import { sessionQuery, type SessionUser } from '@web/features/auth/session';
 import { BoardTabs } from '@web/features/canvas/board-tabs';
 import { CanvasPanel } from '@web/features/canvas/canvas-panel';
 import { ChatPanel } from '@web/features/chat/chat-panel';
-import { projectQuery } from '@web/features/projects/queries';
+import { projectQuery, useUpdateProject } from '@web/features/projects/queries';
+import {
+  decidedQueryKey,
+  proposalsQuery,
+  useProposalDecisions,
+  type DecidedProposal,
+} from '@web/features/proposals/queries';
+import { WaitingForYou } from '@web/features/proposals/waiting-for-you';
 import { DEMO_ACTIVE_PHASE } from '@web/features/workspace/demo-workspace';
 import { useProjectLive } from '@web/features/workspace/use-project-live';
 import { WorkspaceShell, type WorkspaceMember } from '@web/features/workspace/workspace-shell';
@@ -115,9 +122,35 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
 
   const readOnly = project.role === 'viewer';
 
+  // Proposals of agents (spec 13): on the canvas of their board and under "Wartet auf dich".
+  const proposals = useQuery(proposalsQuery(project.id)).data ?? NO_PROPOSALS;
+  const decided = useQuery({
+    queryKey: decidedQueryKey(project.id),
+    queryFn: () => NO_DECISIONS,
+    initialData: NO_DECISIONS,
+    staleTime: Infinity,
+  }).data;
+  const { decide } = useProposalDecisions(project.id, (failure) => {
+    showNotice(
+      failure.reason === 'being_edited'
+        ? t('proposals.errors.beingEdited', { name: failure.name })
+        : failure.reason === 'already_decided'
+          ? t('proposals.errors.alreadyDecided')
+          : t('proposals.errors.failed'),
+    );
+  });
+  const updateProject = useUpdateProject(project.id);
+
   return (
     <WorkspaceShell
       projectName={project.name}
+      settings={{
+        proposalsOnly: project.proposalsOnly,
+        canChange: project.role === 'owner',
+        onProposalsOnlyChange: (proposalsOnly) => {
+          updateProject.mutate({ proposalsOnly });
+        },
+      }}
       activePhase={DEMO_ACTIVE_PHASE}
       members={members}
       user={user}
@@ -149,12 +182,29 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
             user={{ id: user.id, name: user.name }}
             members={project.members}
             readOnly={readOnly}
+            proposals={proposals}
+            onDecide={decide}
+          />
+        ) : null
+      }
+      overview={
+        proposals.length > 0 || decided.length > 0 ? (
+          <WaitingForYou
+            proposals={proposals}
+            decided={decided}
+            canDecide={!readOnly}
+            onDecide={decide}
+            activeBoardId={activeBoard?.id ?? null}
+            onOpenBoard={(boardId) => void selectBoard(boardId)}
           />
         ) : null
       }
     />
   );
 }
+
+const NO_PROPOSALS: Proposal[] = [];
+const NO_DECISIONS: DecidedProposal[] = [];
 
 function mainBoardId(project: ProjectDetails): string | undefined {
   return project.boards.find((board) => board.kind === 'main')?.id;

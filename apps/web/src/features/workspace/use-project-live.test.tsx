@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { messagesQuery } from '@web/features/chat/queries';
 import { runsQuery } from '@web/features/chat/runs';
 import { projectQuery } from '@web/features/projects/queries';
+import { proposalsQuery } from '@web/features/proposals/queries';
 import { useProjectLive } from '@web/features/workspace/use-project-live';
 import { createQueryClient } from '@web/lib/query-client';
 import { stubApi } from '@web/test-utils';
@@ -27,12 +28,14 @@ const PROJECT_ID = '0b6a0b52-8f55-4c4e-9f6b-4ad2b3b3c0de';
 const PROJECT_URL = `/api/projects/${PROJECT_ID}`;
 const MESSAGES_URL = `${PROJECT_URL}/messages`;
 const RUNS_URL = `${PROJECT_URL}/runs`;
+const PROPOSALS_URL = `${PROJECT_URL}/proposals`;
 const DETAILS: ProjectDetails = {
   id: PROJECT_ID,
   name: 'Covibes',
   role: 'owner',
   members: [],
   boards: [{ id: '33333333-3333-4333-8333-333333333333', title: 'Haupt-Canvas', kind: 'main' }],
+  proposalsOnly: false,
 };
 
 /** The workspace's queries plus the live channel, as the workspace page has them. */
@@ -42,6 +45,7 @@ function renderLive() {
     useQuery(projectQuery(PROJECT_ID));
     useQuery(messagesQuery(PROJECT_ID));
     useQuery(runsQuery(PROJECT_ID));
+    useQuery(proposalsQuery(PROJECT_ID));
     useProjectLive(PROJECT_ID);
     return null;
   }
@@ -103,6 +107,34 @@ describe('useProjectLive', () => {
       before[1],
       before[2],
     ]);
+  });
+
+  it('reloads the proposals and the project settings when they change', async () => {
+    const fetchMock = stubApi({
+      [`GET ${PROJECT_URL}`]: () => ({ body: DETAILS }),
+      [`GET ${MESSAGES_URL}`]: () => ({ body: [] }),
+      [`GET ${RUNS_URL}`]: () => ({ body: [] }),
+      [`GET ${PROPOSALS_URL}`]: () => ({ body: [] }),
+    });
+    const queryClient = renderLive();
+    await waitFor(() => {
+      expect(queryClient.isFetching()).toBe(0);
+    });
+    const urls = [PROJECT_URL, PROPOSALS_URL, MESSAGES_URL];
+    const before = urls.map((url) => loads(fetchMock, url));
+
+    act(() => {
+      live.handlers?.onEvent({ type: 'proposals' });
+      live.handlers?.onEvent({ type: 'project' });
+    });
+
+    await waitFor(() => {
+      expect(urls.map((url) => loads(fetchMock, url))).toEqual([
+        (before[0] ?? 0) + 1,
+        (before[1] ?? 0) + 1,
+        before[2],
+      ]);
+    });
   });
 
   it('reloads chat, runs and boards whenever the channel connects', async () => {

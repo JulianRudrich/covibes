@@ -34,7 +34,7 @@ export function messagesQuery(projectId: string) {
 export function applyLiveEvent(
   queryClient: QueryClient,
   projectId: string,
-  event: Exclude<LiveEvent, { type: 'boards' }>,
+  event: Extract<LiveEvent, { type: 'message' | 'message_delta' | 'run' }>,
 ) {
   if (event.type === 'run') {
     applyRunEvent(queryClient, projectId, event.run);

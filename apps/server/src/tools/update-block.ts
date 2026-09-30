@@ -1,14 +1,15 @@
-import { blockTypeSchema, readNodes, updateNode } from '@covibes/shared';
+import { blockTypeSchema, readNodes } from '@covibes/shared';
 import { z } from 'zod';
 
 import { defineTool, type AgentTool } from '@server/ai-gateway';
 import { entityFieldsInput } from '@server/tools/add-block';
+import { writeCanvas } from '@server/tools/canvas-writer';
 import type { CanvasToolOptions } from '@server/tools/placement';
 
 /**
- * `update_block` (specs 08 and 12): an agent renames a block, changes its subtitle, its type or
- * the fields of an entity. A block that a human is editing stays untouched (humans take
- * precedence, `project-overview.md`); the agent learns who edits it and can tell the team.
+ * `update_block` (specs 08, 12 and 13): an agent renames a block, changes its subtitle, its type
+ * or the fields of an entity. Humans take precedence (`project-overview.md`): the change of a
+ * block that someone is editing becomes a proposal, and the agent learns who edits it.
  */
 export function updateBlockTool(options: CanvasToolOptions): AgentTool {
   return defineTool({
@@ -26,38 +27,39 @@ export function updateBlockTool(options: CanvasToolOptions): AgentTool {
       if ([title, subtitle, type, fields].every((value) => value === undefined)) {
         throw new Error('Nothing to change: pass a title, a subtitle, a type or fields.');
       }
-      return await options.boards.withBoard(options.boardId, (doc, session) => {
-        const block = readNodes(doc).find((node) => node.id === id && node.type === 'block');
+      return await writeCanvas(options, (view, session) => {
+        const block = readNodes(view).find((node) => node.id === id && node.type === 'block');
         if (!block) throw new Error(`There is no block with the id ${id}.`);
-
-        // Rule engine: spec 13. Until then a locked block is refused instead of becoming a proposal.
-        const lock = session.locks().get(id);
         const blockType = type === undefined ? block.blockType : type === 'none' ? null : type;
         if (fields && fields.length > 0 && blockType !== 'entity') {
           throw new Error(
             'Only entities have fields: set the type "entity" or leave the fields out.',
           );
         }
-        if (lock) {
-          throw new Error(
-            `${lock.name} is editing the block "${block.label}" right now, so it was not changed. Tell the team and ask them to mention you again once the block is free.`,
-          );
-        }
 
-        updateNode(
-          doc,
-          id,
-          {
-            ...(title !== undefined && { label: title }),
-            ...(subtitle !== undefined && { subtitle }),
-            ...(type !== undefined && { blockType: type === 'none' ? null : type }),
-            ...(fields !== undefined && {
-              fields: fields.map((field) => ({ name: field.name, type: field.type ?? '' })),
-            }),
-          },
-          options.author,
-        );
-        return `Changed the block "${title ?? block.label}".`;
+        const lock = session.locks().get(id);
+        const name = title ?? block.label;
+        return {
+          operations: [
+            {
+              op: 'update_node',
+              id,
+              changes: {
+                ...(title !== undefined && { label: title }),
+                ...(subtitle !== undefined && { subtitle }),
+                ...(type !== undefined && { blockType: type === 'none' ? null : type }),
+                ...(fields !== undefined && {
+                  fields: fields.map((field) => ({ name: field.name, type: field.type ?? '' })),
+                }),
+              },
+            },
+          ],
+          lockedTarget: lock !== undefined,
+          done: `Changed the block "${name}".`,
+          proposed: lock
+            ? `${lock.name} is editing the block "${block.label}" right now, so your change became a proposal: it is not on the canvas until someone in the team applies it. Tell the team.`
+            : `Proposed to change the block "${block.label}". This is a proposal: it is not on the canvas until someone in the team applies it.`,
+        };
       });
     },
   });

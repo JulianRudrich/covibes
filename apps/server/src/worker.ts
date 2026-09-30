@@ -5,7 +5,12 @@ import { Kysely, PostgresDialect } from 'kysely';
 import pg from 'pg';
 
 import { MODERATOR } from '@server/agents/definitions/moderator';
-import { checkClaudeAccess, GatewayConfigError, streamAgentReply } from '@server/ai-gateway';
+import {
+  checkClaudeAccess,
+  completeText,
+  GatewayConfigError,
+  streamAgentReply,
+} from '@server/ai-gateway';
 import { createBoardClient } from '@server/collab/board-client';
 import { releaseAbandonedJobs } from '@server/tasks/abandoned-jobs';
 import { AGENT_TURN_TASK, agentTurnTask } from '@server/tasks/agent-turn';
@@ -72,7 +77,14 @@ const runner = await run({
   noHandleSignals: true,
   // No scheduled jobs yet; without this the worker looks for a crontab file.
   parsedCronItems: [],
-  taskList: { [AGENT_TURN_TASK]: agentTurnTask({ admin, boards, reply: streamAgentReply }) },
+  taskList: {
+    [AGENT_TURN_TASK]: agentTurnTask({
+      admin,
+      boards,
+      reply: streamAgentReply,
+      complete: completeText,
+    }),
+  },
 });
 
 // Take no new jobs, give running ones a few seconds, then abort them; they are retried later.

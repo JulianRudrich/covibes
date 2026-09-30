@@ -14,6 +14,8 @@ export type ModelInfo = {
   id: string;
   provider: 'anthropic';
   prices: ModelPrices;
+  /** Whether the model takes an effort level; small models answer without one. */
+  effort: boolean;
 };
 
 // Prices from https://platform.claude.com/docs/en/about-claude/pricing, checked on 2026-09-29.
@@ -23,6 +25,14 @@ const MODELS: readonly ModelInfo[] = [
     id: 'claude-opus-5-5',
     provider: 'anthropic',
     prices: { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
+    effort: true,
+  },
+  // Small and fast, for short classifications such as the intent of a message (spec 13).
+  {
+    id: 'claude-haiku-4-5-20251001',
+    provider: 'anthropic',
+    prices: { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 },
+    effort: false,
   },
 ];
 

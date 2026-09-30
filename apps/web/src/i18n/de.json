@@ -66,7 +66,9 @@
       "title": "Projekt nicht gefunden",
       "text": "Dieses Projekt gibt es nicht, oder du hast keinen Zugriff darauf.",
       "back": "Zur Projektliste"
-    }
+    },
+    "toProjects": "Zur Projektliste",
+    "proposalsOnly": "Nur Vorschläge"
   },
   "devMails": {
     "title": "Entwicklungs-Postfach",
@@ -198,5 +200,34 @@
     "replyTo": "Antwort an {{name}}",
     "agentNeutral": "Agent · neutral",
     "agentError": "Die Antwort ist fehlgeschlagen."
+  },
+  "proposals": {
+    "header": "Vorschlag · {{agent}}",
+    "apply": "Übernehmen",
+    "reject": "Verwerfen",
+    "marker": "Vorschlag",
+    "kind": "Vorschlag",
+    "summary": {
+      "addBlock": "Block <b>{{name}}</b> hinzufügen",
+      "addNote": "Notiz <b>{{name}}</b> hinzufügen",
+      "addFrame": "Rahmen <b>{{name}}</b> hinzufügen",
+      "addEdge": "Pfeil <b>{{from}}</b> → <b>{{to}}</b>",
+      "updateNode": "<b>{{name}}</b> ändern",
+      "arrangeFrame": "<b>{{name}}</b> anordnen",
+      "move": "Elemente verschieben"
+    },
+    "more_one": "+ 1 weitere Änderung",
+    "more_other": "+ {{count}} weitere Änderungen",
+    "applied": "<b>{{name}}</b> übernommen",
+    "rejected": "<b>{{name}}</b> verworfen",
+    "errors": {
+      "beingEdited": "{{name}} bearbeitet gerade etwas, das der Vorschlag ändert. Versuche es gleich noch einmal.",
+      "alreadyDecided": "Über diesen Vorschlag wurde schon entschieden.",
+      "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+    }
+  },
+  "overview": {
+    "waiting": "Wartet auf dich",
+    "waitingCount": "{{count}} offen"
   }
 }

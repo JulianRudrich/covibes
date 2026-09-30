@@ -142,6 +142,23 @@ export async function streamAgentReply(request: AgentReplyRequest): Promise<Agen
   };
 }
 
+/**
+ * A short text answer without tools, e.g. a classification (spec 13). The same isolated run as an
+ * agent reply, only nothing streams and no tool is offered.
+ */
+export function completeText(request: {
+  model: string;
+  system: string;
+  prompt: string;
+  signal?: AbortSignal;
+}): Promise<AgentReplyResult> {
+  return streamAgentReply({
+    ...request,
+    tools: [],
+    onText: () => undefined,
+  });
+}
+
 export type ClaudeAccess = {
   provider: 'anthropic';
   model: string;
@@ -237,7 +254,7 @@ async function isolatedOptions(
   return {
     model: model.id,
     systemPrompt: request.system,
-    effort: 'medium',
+    ...(model.effort ? { effort: 'medium' as const } : {}),
     maxTurns: MAX_TURNS,
     includePartialMessages: true,
     abortController,

@@ -2,10 +2,17 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 
-import { boardDocumentName, boardIdFromDocumentName, type ProjectRole } from '@covibes/shared';
+import {
+  boardDocumentName,
+  boardIdFromDocumentName,
+  nodeLocks,
+  type NodeLock,
+  type ProjectRole,
+} from '@covibes/shared';
 import { Database } from '@hocuspocus/extension-database';
 import { Hocuspocus } from '@hocuspocus/server';
 import { WebSocketServer, type RawData } from 'ws';
+import type * as Y from 'yjs';
 
 import type { Auth } from '@server/auth/auth';
 import { withUser, type Database as AppDatabase } from '@server/db/database';
@@ -160,6 +167,28 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
     await db.adminPool.query('delete from yjs_documents where name = $1', [documentName]);
   }
 
+  /**
+   * Changes a board from the server (spec 13: applying a proposal). `fn` gets the live document
+   * and who edits which node, read from the awareness of everyone on the board; its changes reach
+   * them at once and are stored like theirs.
+   */
+  async function changeBoard<T>(
+    board: { boardId: string; projectId: string },
+    fn: (doc: Y.Doc, locks: ReadonlyMap<string, NodeLock>) => T | Promise<T>,
+  ): Promise<T> {
+    const connection = await hocuspocus.openDirectConnection(boardDocumentName(board.boardId), {
+      user: SERVICE_USER,
+      ...board,
+    });
+    try {
+      const { document } = connection;
+      if (!document) throw new Error(`Board ${board.boardId} could not be opened`);
+      return await fn(document, nodeLocks(document.awareness.getStates()));
+    } finally {
+      await connection.disconnect();
+    }
+  }
+
   /** Closes all connections and waits until every document is stored. */
   async function close() {
     hocuspocus.closeConnections();
@@ -176,10 +205,10 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
     webSockets.close();
   }
 
-  return { hocuspocus, handleUpgrade, deleteBoard, close };
+  return { hocuspocus, handleUpgrade, deleteBoard, changeBoard, close };
 }
 
 export type Collab = ReturnType<typeof createCollab>;
 
 /** What the API needs from the collaboration server. */
-export type BoardDocuments = Pick<Collab, 'deleteBoard'>;
+export type BoardDocuments = Pick<Collab, 'deleteBoard' | 'changeBoard'>;

@@ -3,6 +3,7 @@ import type {
   ProjectBoard,
   ProjectDetails,
   ProjectSummary,
+  UpdateProjectInput,
 } from '@covibes/shared';
 import { queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
@@ -100,4 +101,27 @@ export function useBoardMutations(projectId: string) {
   });
 
   return { create, rename, remove };
+}
+
+/** The owner switches the proposals-only mode (spec 13); shown at once, undone if refused. */
+export function useUpdateProject(projectId: string) {
+  const queryClient = useQueryClient();
+  const { queryKey } = projectQuery(projectId);
+  return useMutation({
+    mutationFn: (input: UpdateProjectInput) =>
+      api<undefined>(`/projects/${encodeURIComponent(projectId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      }),
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey, exact: true });
+      const previous = queryClient.getQueryData(queryKey);
+      queryClient.setQueryData(queryKey, (project) => project && { ...project, ...input });
+      return { previous };
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previous) queryClient.setQueryData(queryKey, context.previous);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey, exact: true }),
+  });
 }

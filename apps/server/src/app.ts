@@ -8,6 +8,7 @@ import { boardRoutes } from '@server/api/boards';
 import { apiError } from '@server/api/errors';
 import { messageRoutes } from '@server/api/messages';
 import { projectRoutes } from '@server/api/projects';
+import { proposalRoutes } from '@server/api/proposals';
 import { runRoutes } from '@server/api/runs';
 import { AUTH_BASE_PATH, gitlabLoginEnabled, type Auth } from '@server/auth/auth';
 import type { BoardDocuments } from '@server/collab/collab';
@@ -71,7 +72,8 @@ export function createApp({ env, db, auth, mail, live, documents }: AppDeps): Ho
   app.route('/api/projects/:projectId/messages', messageRoutes(db.app, auth, live, messageLimiter));
   app.route('/api/projects/:projectId/runs', runRoutes(db.app, auth));
   app.route('/api/projects/:projectId/boards', boardRoutes(db.app, auth, live, documents));
-  app.route('/api/projects', projectRoutes(db.app, auth));
+  app.route('/api/projects/:projectId/proposals', proposalRoutes(db.app, auth, live, documents));
+  app.route('/api/projects', projectRoutes(db.app, auth, live));
 
   // In the Docker image the server also delivers the web app (spec 02b); locally Vite does.
   if (env.WEB_DIST_DIR) serveWebApp(app, env.WEB_DIST_DIR);

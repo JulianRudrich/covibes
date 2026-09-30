@@ -7,7 +7,7 @@
 Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog, observer, decisions, variants, debates, custom agents and knowledge. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 13: rule engine and proposals (branch `spec/13-rule-engine-and-proposals`)
+- nothing; spec 14 is next to be worked out
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -104,11 +104,18 @@ Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog
   - a growing frame no longer takes the blocks of other frames and moves away from its neighbors
 
   Lint, type check, format, 593 tests and build pass; verified with `pnpm dev`, including three diagrams drawn by `@Moderator` in one reply.
+- [x] **Spec 13 rule engine and proposals:**
+  - the rule engine decides every canvas change of an agent: an instruction runs directly; a question, the proposals-only mode or a block someone edits make a proposal
+  - the intent of the message comes from a small model with fixed instructions, next to the agent's reply
+  - proposals as dashed cards and arrows on the canvas as in the handoff, and as cards under "Wartet auf dich"; owners and editors apply or reject them, live for everyone
+  - the proposals-only mode in the project menu for owners
+
+  Lint, type check, format, 640 tests and build pass; verified with `pnpm dev` and a second tab.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M3 (AI core):** spec 13 (rule engine and proposals) is worked out and in progress; specs 14 to 20 are worked out one after the other before they are built.
+1. **M3 (AI core):** spec 14 (agent format, catalog and project team) is worked out next, then specs 15 to 20 one after the other.
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -210,3 +217,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-09-30, spec 11 implemented.** Details are in the spec under "Implementation notes". The live channel of a project moved from the chat to the workspace, so chat and boards share one connection. A test found that reloading the project by key prefix also reloaded the chat; reloads now hit only the exact query.
 - **2026-09-30, design at the end:** decided by the owner. Specs no longer wait for drafts from Claude Design; missing looks are derived from the prototype and collected in `ui-context.md` for a design pass at the end (new spec 36, before the acceptance test). Spec 12 was worked out on this basis.
 - **2026-09-30, spec 12 implemented; M2 completed.** Details are in the spec under "Implementation notes". The live test with the moderator found three faults that the unit tests could not see, all fixed: a growing frame took the blocks of other frames, arranged frames covered each other, and a request for three diagrams ran out of the six round trips an agent reply was allowed; the limit is now 16.
+- **2026-09-30, spec 13 implemented.** Details are in the spec under "Implementation notes". Agents now propose instead of drawing when they are only asked a question, in the proposals-only mode or on a block someone edits. The "Waiting for you" cards for proposals came along from spec 22. The live test had to wait a few hours for the subscription's session limit.

@@ -94,11 +94,39 @@ function failsWith(error: Error): Model {
   return () => Promise.reject(error);
 }
 
-function turnDeps(model: Model, boards: BoardAccess) {
+/** The small model that classifies the intent; it answers with one word (spec 13). */
+function classifier(intent: 'instruction' | 'question') {
+  return vi.fn(() =>
+    Promise.resolve({
+      ...result(intent),
+      model: 'claude-haiku-4-5-20251001',
+      usage: { inputTokens: 200, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 },
+      costUsd: 0.0002,
+    }),
+  );
+}
+
+function turnDeps(
+  model: Model,
+  boards: BoardAccess,
+  intent: 'instruction' | 'question' = 'instruction',
+) {
   const reply = vi.fn(model);
+  const complete = classifier(intent);
   const logger = { error: vi.fn() };
-  const deps: AgentTurnDeps = { admin: test.db.admin, boards, reply, logger, flushMs: 5 };
-  return { deps, reply, logger };
+  const deps: AgentTurnDeps = {
+    admin: test.db.admin,
+    boards,
+    reply,
+    complete,
+    logger,
+    flushMs: 5,
+  };
+  return { deps, reply, complete, logger };
+}
+
+function proposalsOf(runId: string) {
+  return test.db.admin.selectFrom('proposals').selectAll().where('run_id', '=', runId).execute();
 }
 
 const FIRST_ATTEMPT = { attempt: 1, maxAttempts: 3 };
@@ -194,9 +222,10 @@ describe('agent turn', () => {
       status: 'done',
       provider: 'anthropic',
       model: 'claude-opus-5-5',
-      input_tokens: 1124,
-      output_tokens: 30,
-      cost_usd: '0.001200',
+      // The reply and the classification of the intent.
+      input_tokens: 1124 + 200,
+      output_tokens: 30 + 1,
+      cost_usd: '0.001400',
       error: null,
       started_at: expect.any(Date) as unknown,
       finished_at: expect.any(Date) as unknown,
@@ -435,6 +464,106 @@ describe('quotaNote', () => {
     );
     expect(quotaNote('en', null, now)).toBe(
       'The AI quota is used up right now. Please mention me again later.',
+    );
+  });
+});
+
+describe('rule engine in the agent turn', () => {
+  it('turns the drawing on a question into one proposal and leaves the board alone', async () => {
+    const { projectId, boardId, request } = await createProject();
+    const { runId } = await request('@Moderator fehlt nicht noch eine API?');
+    const { boards, doc } = memoryBoards();
+    const { deps, complete } = turnDeps(drawsApi, boards, 'question');
+
+    await runAgentTurn(deps, { runId }, FIRST_ATTEMPT);
+
+    expect(complete).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: '@Moderator fehlt nicht noch eine API?' }),
+    );
+    expect(readNodes(doc(boardId))).toEqual([]);
+    const [proposal, ...more] = await proposalsOf(runId);
+    expect(more).toEqual([]);
+    expect(proposal).toMatchObject({
+      project_id: projectId,
+      board_id: boardId,
+      agent_key: 'moderator',
+      status: 'open',
+      reason: 'question',
+      operations: [
+        expect.objectContaining({
+          op: 'add_block',
+          block: expect.objectContaining({ label: 'API', subtitle: 'REST' }) as unknown,
+        }),
+      ],
+    });
+    await until(() => eventsFor(projectId).some((event) => event.type === 'proposals'));
+  });
+
+  it('proposes even instructions in the proposals-only mode', async () => {
+    const { projectId, boardId, request } = await createProject();
+    await test.db.admin
+      .updateTable('projects')
+      .set({ settings: JSON.stringify({ proposalsOnly: true }) })
+      .where('id', '=', projectId)
+      .execute();
+    const { runId } = await request();
+    const { boards, doc } = memoryBoards();
+    const { deps } = turnDeps(drawsApi, boards, 'instruction');
+
+    await runAgentTurn(deps, { runId }, FIRST_ATTEMPT);
+
+    expect(readNodes(doc(boardId))).toEqual([]);
+    expect(await proposalsOf(runId)).toMatchObject([{ reason: 'proposals_only' }]);
+  });
+
+  it('continues the open proposal of a run when it is retried', async () => {
+    const { runId } = await projectWithRequest();
+    const { boards } = memoryBoards();
+    const proposesThenFails: Model = async (request) => {
+      await request.tools.find((tool) => tool.name === 'add_block')?.run({ title: 'Queue' });
+      throw new Error('Claude run failed: overloaded');
+    };
+    const failing = turnDeps(proposesThenFails, boards, 'question');
+    await expect(runAgentTurn(failing.deps, { runId }, FIRST_ATTEMPT)).rejects.toThrow(
+      'overloaded',
+    );
+
+    const retry = turnDeps(drawsApi, boards, 'question');
+    await runAgentTurn(retry.deps, { runId }, { attempt: 2, maxAttempts: 3 });
+
+    const proposals = await proposalsOf(runId);
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0]?.operations).toMatchObject([
+      { op: 'add_block', block: { label: 'Queue' } },
+      { op: 'add_block', block: { label: 'API' } },
+    ]);
+  });
+
+  it('shows the agent the open proposals of the project', async () => {
+    const { projectId, boardId, request } = await createProject();
+    await test.db.admin
+      .insertInto('proposals')
+      .values({
+        project_id: projectId,
+        board_id: boardId,
+        agent_key: 'backend',
+        reason: 'question',
+        operations: JSON.stringify([
+          {
+            op: 'add_block',
+            block: { id: randomUUID(), position: { x: 0, y: 0 }, label: 'Queue' },
+          },
+        ]),
+      })
+      .execute();
+    const { runId } = await request('@Moderator was fehlt noch?');
+    const { boards } = memoryBoards();
+    const { deps, reply: model } = turnDeps(() => Promise.resolve(result('Nichts.')), boards);
+
+    await runAgentTurn(deps, { runId }, FIRST_ATTEMPT);
+
+    expect(model.mock.calls[0]?.[0].prompt).toContain(
+      'Open proposals (not on the canvas until someone applies them):\n- by backend: add the block "Queue"',
     );
   });
 });

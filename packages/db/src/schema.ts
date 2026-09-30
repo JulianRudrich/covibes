@@ -171,6 +171,23 @@ export interface Projects {
   updated_at: Generated<Timestamp>;
 }
 
+export interface Proposals {
+  agent_key: string;
+  board_id: string;
+  created_at: Generated<Timestamp>;
+  decided_at: Timestamp | null;
+  decided_by: string | null;
+  id: Generated<string>;
+  kind: Generated<string>;
+  names: Generated<Json>;
+  operations: Json;
+  project_id: string;
+  reason: string;
+  run_id: string | null;
+  status: Generated<string>;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface Sessions {
   created_at: Generated<Timestamp>;
   expires_at: Timestamp;
@@ -221,6 +238,7 @@ export interface DB {
   messages: Messages;
   project_members: ProjectMembers;
   projects: Projects;
+  proposals: Proposals;
   sessions: Sessions;
   users: Users;
   verifications: Verifications;

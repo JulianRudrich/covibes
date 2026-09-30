@@ -2,6 +2,8 @@ import type { DB } from '@covibes/db';
 import {
   createProjectInputSchema,
   projectIdSchema,
+  projectSettingsSchema,
+  updateProjectInputSchema,
   type ProjectDetails,
   type ProjectSummary,
 } from '@covibes/shared';
@@ -12,6 +14,7 @@ import { apiError } from '@server/api/errors';
 import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
 import { withUser, type AppDb } from '@server/db/database';
+import type { LivePublisher } from '@server/realtime/realtime';
 
 /** The user's projects with their own role. RLS already limits the rows to member projects. */
 function summaries(trx: Transaction<DB>, userId: string) {
@@ -32,7 +35,7 @@ function toSummary(row: {
 }
 
 /** `/api/projects`: every route needs a session and reads through `withUser`. */
-export function projectRoutes(db: AppDb, auth: Auth) {
+export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
   const routes = new Hono<{ Variables: SessionVariables }>();
   routes.use(sessionMiddleware(auth));
 
@@ -74,8 +77,10 @@ export function projectRoutes(db: AppDb, auth: Auth) {
     const details = await withUser(db, user.id, async (trx) => {
       const project = await summaries(trx, user.id)
         .where('projects.id', '=', projectId.data)
+        .select('projects.settings')
         .executeTakeFirst();
       if (!project) return undefined;
+      const settings = projectSettingsSchema.safeParse(project.settings);
       const members = await trx
         .selectFrom('project_members')
         .innerJoin('users', 'users.id', 'project_members.user_id')
@@ -101,10 +106,42 @@ export function projectRoutes(db: AppDb, auth: Auth) {
           title: board.title,
           kind: board.kind === 'main' ? ('main' as const) : ('extra' as const),
         })),
+        proposalsOnly: settings.success && settings.data.proposalsOnly === true,
       };
     });
     if (!details) return apiError(c, 'not_found');
     return c.json<ProjectDetails>(details);
+  });
+
+  // The project's settings (spec 13: the proposals-only mode); only owners change them.
+  routes.patch('/:projectId', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    const projectId = projectIdSchema.safeParse(c.req.param('projectId'));
+    if (!projectId.success) return apiError(c, 'not_found');
+    const body: unknown = await c.req.json().catch(() => undefined);
+    const input = updateProjectInputSchema.safeParse(body);
+    if (!input.success) return apiError(c, 'invalid_input');
+
+    const result = await withUser(db, user.id, async (trx) => {
+      const project = await summaries(trx, user.id)
+        .where('projects.id', '=', projectId.data)
+        .executeTakeFirst();
+      if (!project) return 'not_found' as const;
+      if (project.role !== 'owner') return 'forbidden' as const;
+      // Merged into the stored settings, so settings of later specs stay as they are.
+      await trx
+        .updateTable('projects')
+        .set({
+          settings: sql`settings || ${JSON.stringify({ proposalsOnly: input.data.proposalsOnly })}::jsonb`,
+        })
+        .where('id', '=', projectId.data)
+        .execute();
+      return 'updated' as const;
+    });
+    if (result !== 'updated') return apiError(c, result);
+    live.publish(projectId.data, { type: 'project' });
+    return c.body(null, 204);
   });
 
   return routes;

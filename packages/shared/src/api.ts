@@ -1,5 +1,8 @@
 /** Error body of every API route. `code` is stable and mapped to i18n texts by the web app. */
-export type ApiErrorBody = { error: { code: ApiErrorCode; message: string } };
+export type ApiErrorBody = {
+  /** `detail` adds what the web app needs for its text, e.g. the name of someone editing a block. */
+  error: { code: ApiErrorCode; message: string; detail?: string };
+};
 
 export type ApiErrorCode =
   | 'unauthorized'
@@ -9,6 +12,8 @@ export type ApiErrorCode =
   | 'too_large'
   | 'too_many_requests'
   | 'limit_reached'
+  | 'already_decided'
+  | 'being_edited'
   | 'internal';
 
 /** `GET /api/config`: settings the web app may know before login. */

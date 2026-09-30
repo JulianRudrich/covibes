@@ -14,8 +14,17 @@ function EmptyHint({ children }: { children: string }) {
 
 export type WorkspaceMember = { id: string; name: string; isCurrentUser: boolean };
 
+/** The project menu of the header (spec 13): the proposals-only mode. */
+export type ProjectSettings = {
+  proposalsOnly: boolean;
+  /** Only owners change the settings; everyone else sees them. */
+  canChange: boolean;
+  onProposalsOnlyChange: (proposalsOnly: boolean) => void;
+};
+
 type WorkspaceShellProps = {
   projectName: string;
+  settings: ProjectSettings;
   activePhase: Phase;
   members: WorkspaceMember[];
   user: SessionUser | null;
@@ -23,16 +32,20 @@ type WorkspaceShellProps = {
   chat: ReactNode;
   /** Content of the canvas panel: its header row and the canvas. */
   canvas: ReactNode;
+  /** Sections of the overview; without any, the overview explains what will appear. */
+  overview: ReactNode;
 };
 
 /** Main screen layout: header plus chat, canvas and overview panels (handoff "Main screen"). */
 export function WorkspaceShell({
   projectName,
+  settings,
   activePhase,
   members,
   user,
   chat,
   canvas,
+  overview,
 }: WorkspaceShellProps) {
   const { t } = useTranslation();
 
@@ -40,6 +53,7 @@ export function WorkspaceShell({
     <div className="grid h-dvh min-w-[1100px] grid-rows-[52px_minmax(0,1fr)] bg-bg-app text-text">
       <WorkspaceHeader
         projectName={projectName}
+        settings={settings}
         activePhase={activePhase}
         members={members}
         user={user}
@@ -54,7 +68,9 @@ export function WorkspaceShell({
           <PanelHeader>
             <PanelTitle>{t('panels.overview')}</PanelTitle>
           </PanelHeader>
-          <EmptyHint>{t('empty.overview')}</EmptyHint>
+          <div className="min-h-0 overflow-y-auto">
+            {overview ?? <EmptyHint>{t('empty.overview')}</EmptyHint>}
+          </div>
         </Panel>
       </main>
     </div>

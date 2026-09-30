@@ -54,15 +54,42 @@ export type CanvasEdge = z.infer<typeof canvasEdgeSchema>;
 /** Blocks have a fixed size in the design handoff (180 × 96). */
 export const BLOCK_SIZE: Size = { width: 180, height: 96 };
 
+/**
+ * Kinds of blocks this version offers (spec 08); `null` is the generic block. Stored nodes accept
+ * any type string, so a type added by a later version shows as a generic block instead of breaking.
+ */
+export const BLOCK_TYPES = [
+  'app',
+  'server',
+  'service',
+  'database',
+  'repository',
+  'metric',
+] as const;
+export type BlockType = (typeof BLOCK_TYPES)[number];
+export const blockTypeSchema = z.enum(BLOCK_TYPES);
+
+const blockLabelSchema = z.string().trim().min(1).max(200);
+const blockSubtitleSchema = z.string().trim().max(200);
+
 export const addBlockInputSchema = z.object({
   /** Created by the caller (`crypto.randomUUID()`), so the new block can be selected right away. */
   id: z.uuid(),
   position: positionSchema,
-  label: z.string().trim().min(1).max(200),
-  subtitle: z.string().trim().max(200).default(''),
-  blockType: z.string().min(1).max(40).nullable().default(null),
+  label: blockLabelSchema,
+  subtitle: blockSubtitleSchema.default(''),
+  blockType: blockTypeSchema.nullable().default(null),
 });
 export type AddBlockInput = z.input<typeof addBlockInputSchema>;
+
+export const updateBlockInputSchema = z
+  .object({
+    label: blockLabelSchema,
+    subtitle: blockSubtitleSchema,
+    blockType: blockTypeSchema.nullable(),
+  })
+  .partial();
+export type UpdateBlockInput = z.input<typeof updateBlockInputSchema>;
 
 type NodeFields = Y.Map<unknown>;
 
@@ -122,6 +149,49 @@ export function moveNode(doc: Y.Doc, id: string, position: Position, author: Aut
     fields.set('lastChangedAt', new Date().toISOString());
   }, authorOrigin(changedBy));
   return true;
+}
+
+/**
+ * Changes the texts or the type of a block; returns false if it does not exist (e.g. removed by
+ * someone else meanwhile). Other kinds of nodes are left alone.
+ */
+export function updateBlock(
+  doc: Y.Doc,
+  id: string,
+  changes: UpdateBlockInput,
+  author: Author,
+): boolean {
+  const data = updateBlockInputSchema.parse(changes);
+  const changedBy = authorSchema.parse(author);
+  const fields = getNodesMap(doc).get(id);
+  if (fields?.get('type') !== 'block') return false;
+
+  doc.transact(() => {
+    // A key passed as `undefined` survives parsing; it means "unchanged", not "clear".
+    for (const [key, value] of Object.entries(data) as [string, unknown][]) {
+      if (value !== undefined) fields.set(key, value);
+    }
+    fields.set('lastChangedBy', changedBy);
+    fields.set('lastChangedAt', new Date().toISOString());
+  }, authorOrigin(changedBy));
+  return true;
+}
+
+/** Removes nodes and every edge that touches one of them, as one change of the author. */
+export function removeNodes(doc: Y.Doc, ids: readonly string[], author: Author): void {
+  const removedBy = authorSchema.parse(author);
+  const nodes = getNodesMap(doc);
+  const edges = getEdgesMap(doc);
+  const removed = new Set(ids.filter((id) => nodes.has(id)));
+  if (removed.size === 0) return;
+
+  doc.transact(() => {
+    for (const id of removed) nodes.delete(id);
+    for (const [edgeId, fields] of edges) {
+      const ends = [fields.get('source'), fields.get('target')];
+      if (ends.some((end) => typeof end === 'string' && removed.has(end))) edges.delete(edgeId);
+    }
+  }, authorOrigin(removedBy));
 }
 
 /**

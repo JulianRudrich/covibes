@@ -1,6 +1,5 @@
+import type { RemoteCursor } from '@covibes/shared';
 import { useStore } from '@xyflow/react';
-
-import type { RemoteCursor } from '@web/features/canvas/awareness';
 
 /** The arrow's tip in its own 16 × 18 box; it has to sit exactly on the reported position. */
 const TIP = { x: 2, y: 1.5 };

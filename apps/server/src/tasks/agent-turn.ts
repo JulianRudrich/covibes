@@ -1,5 +1,5 @@
 import type { DB } from '@covibes/db';
-import { readNodes, type CanvasNode, type ChatMessage } from '@covibes/shared';
+import { readNodes, type CanvasNode, type ChatMessage, type NodeLock } from '@covibes/shared';
 import type { Task } from 'graphile-worker';
 import { sql, type Kysely } from 'kysely';
 import { z } from 'zod';
@@ -15,6 +15,7 @@ import { isAgentKey, loadMessage, selectMessages, toMessage } from '@server/chat
 import type { BoardAccess } from '@server/collab/board-client';
 import { MAX_DELTA_LENGTH, notifyLive } from '@server/realtime/notifications';
 import { addBlockTool } from '@server/tools/add-block';
+import { updateBlockTool } from '@server/tools/update-block';
 
 /** Name of the job the database trigger creates for every mention (migration 0005). */
 export const AGENT_TURN_TASK = 'agent_turn';
@@ -205,17 +206,22 @@ async function converse(
       .where('kind', '=', 'main')
       .executeTakeFirst(),
   ]);
-  const nodes = board ? await deps.boards.withBoard(board.id, (doc) => readNodes(doc)) : [];
+  const canvas = board
+    ? await deps.boards.withBoard(board.id, (doc, session) => ({
+        nodes: readNodes(doc),
+        locks: session.locks(),
+      }))
+    : { nodes: [], locks: new Map<string, NodeLock>() };
 
   const tools: AgentTool[] = [];
-  if (board && agent.tools.includes('add_block')) {
-    tools.push(
-      addBlockTool({
-        boards: deps.boards,
-        boardId: board.id,
-        author: { kind: 'agent', agentKey: agent.key },
-      }),
-    );
+  if (board) {
+    const toolOptions = {
+      boards: deps.boards,
+      boardId: board.id,
+      author: { kind: 'agent', agentKey: agent.key } as const,
+    };
+    if (agent.tools.includes('add_block')) tools.push(addBlockTool(toolOptions));
+    if (agent.tools.includes('update_block')) tools.push(updateBlockTool(toolOptions));
   }
 
   const deltas = createDeltaStream(deps.flushMs ?? FLUSH_MS, async (text) => {
@@ -230,7 +236,7 @@ async function converse(
     return await deps.reply({
       model: agent.model,
       system: agent.prompt,
-      prompt: buildPrompt({ projectName: turn.projectName, nodes, ...conversation }),
+      prompt: buildPrompt({ projectName: turn.projectName, ...canvas, ...conversation }),
       tools,
       onText: deltas.push,
       signal: attempt.signal,
@@ -272,10 +278,13 @@ function asData(text: string): string {
   return text.replace(/<(\/?)(canvas|chat|request)>/gi, '‹$1$2›');
 }
 
-function describeNode(node: CanvasNode): string {
+/** One line per node, with the id the tools take and who is editing it right now. */
+function describeNode(node: CanvasNode, lock: NodeLock | undefined): string {
   const subtitle = node.subtitle ? ` (${node.subtitle})` : '';
+  const type = node.type === 'block' && node.blockType ? `, type ${node.blockType}` : '';
   const position = `${String(Math.round(node.position.x))}, ${String(Math.round(node.position.y))}`;
-  return `- ${node.type} "${node.label}"${subtitle} at ${position}`;
+  const editing = lock ? `, ${lock.name} is editing it` : '';
+  return `- ${node.type} "${node.label}"${subtitle}${type} at ${position}, id ${node.id}${editing}`;
 }
 
 /**
@@ -285,13 +294,14 @@ function describeNode(node: CanvasNode): string {
 export function buildPrompt(context: {
   projectName: string;
   nodes: readonly CanvasNode[];
+  locks?: ReadonlyMap<string, NodeLock>;
   messages: readonly ChatMessage[];
   request: ChatMessage | undefined;
 }): string {
   const canvas =
     context.nodes.length === 0
       ? 'The main canvas is empty.'
-      : context.nodes.map(describeNode).join('\n');
+      : context.nodes.map((node) => describeNode(node, context.locks?.get(node.id))).join('\n');
   const chat = context.messages
     .map((message) => `${authorName(message)}: ${message.content}`)
     .join('\n');

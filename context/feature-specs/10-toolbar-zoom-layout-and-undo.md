@@ -47,6 +47,6 @@ The canvas gets the floating toolbar of the handoff: tools for block, note, fram
 - [ ] Zoom works with the buttons in steps of 10 from 30 to 200 %, the display follows the mouse wheel.
 - [ ] Auto-layout arranges the whole board or a selected frame without overlaps, and one undo reverts it.
 - [ ] Ctrl+Z and Ctrl+Shift+Z undo and redo one's own changes, never those of others or of agents; two browsers stay in sync.
-- [ ] The owner accepted the derived tool behavior from screenshots.
+- [ ] The derived tool behavior was checked from screenshots.
 - [ ] Tests for the auto-layout conversion, the undo scope and the toolbar pass.
 - [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.

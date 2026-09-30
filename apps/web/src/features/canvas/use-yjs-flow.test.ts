@@ -1,13 +1,35 @@
-import { addBlock, moveNode, readNodes, type Author } from '@covibes/shared';
+import { addBlock, moveNode, readNodes, type Author, type NodeLock } from '@covibes/shared';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
 
+import type { FlowLocks } from '@web/features/canvas/flow-mapping';
 import { useYjsFlow } from '@web/features/canvas/use-yjs-flow';
 
 const ME: Author = { kind: 'human', userId: '00000000-0000-4000-8000-000000000001' };
-const SAM: Author = { kind: 'human', userId: '00000000-0000-4000-8000-000000000002' };
+const SAM_ID = '00000000-0000-4000-8000-000000000002';
+const SAM: Author = { kind: 'human', userId: SAM_ID };
 const BLOCK_ID = '00000000-0000-4000-8000-0000000000aa';
+const OTHER_ID = '00000000-0000-4000-8000-0000000000bb';
+const OWN_CLIENT = 1;
+
+// Created once per test, like the memoized locks of the board.
+const NO_LOCKS: FlowLocks = { locks: new Map(), ownClientId: OWN_CLIENT };
+const SAM_EDITS_BLOCK: FlowLocks = {
+  locks: new Map<string, NodeLock>([
+    [BLOCK_ID, { clientId: 2, userId: SAM_ID, name: 'Sam', since: 1 }],
+  ]),
+  ownClientId: OWN_CLIENT,
+};
+
+function options(
+  author: Author,
+  readOnly: boolean,
+  locks: FlowLocks = NO_LOCKS,
+  editingId: string | null = null,
+) {
+  return { author, readOnly, locks, editingId };
+}
 
 function docWithBlock() {
   const doc = new Y.Doc();
@@ -29,7 +51,8 @@ describe('useYjsFlow', () => {
 
   it('shows blocks that someone else adds to the Y.Doc', () => {
     const doc = new Y.Doc();
-    const { result } = renderHook(() => useYjsFlow(doc, ME, false));
+    const settings = options(ME, false);
+    const { result } = renderHook(() => useYjsFlow(doc, settings));
     expect(result.current.nodes).toEqual([]);
 
     act(() => {
@@ -43,7 +66,8 @@ describe('useYjsFlow', () => {
 
   it('writes drag positions at most once per frame and the final one right away', () => {
     const doc = docWithBlock();
-    const { result } = renderHook(() => useYjsFlow(doc, SAM, false));
+    const settings = options(SAM, false);
+    const { result } = renderHook(() => useYjsFlow(doc, settings));
 
     act(() => {
       result.current.onNodesChange([
@@ -72,7 +96,8 @@ describe('useYjsFlow', () => {
 
   it('does not let a remote move interrupt a drag in progress', () => {
     const doc = docWithBlock();
-    const { result } = renderHook(() => useYjsFlow(doc, ME, false));
+    const settings = options(ME, false);
+    const { result } = renderHook(() => useYjsFlow(doc, settings));
 
     act(() => {
       result.current.onNodesChange([
@@ -84,9 +109,65 @@ describe('useYjsFlow', () => {
     expect(result.current.nodes[0]?.position).toEqual({ x: 40, y: 40 });
   });
 
+  it('deletes blocks in the Y.Doc', () => {
+    const doc = docWithBlock();
+    addBlock(doc, { id: OTHER_ID, position: { x: 0, y: 200 }, label: 'DB' }, SAM);
+    const settings = options(ME, false);
+    const { result } = renderHook(() => useYjsFlow(doc, settings));
+
+    act(() => {
+      result.current.onNodesChange([{ type: 'remove', id: OTHER_ID }]);
+    });
+
+    expect(readNodes(doc).map((node) => node.id)).toEqual([BLOCK_ID]);
+    expect(result.current.nodes.map((node) => node.id)).toEqual([BLOCK_ID]);
+  });
+
+  it('never deletes a block that someone else edits', () => {
+    const doc = docWithBlock();
+    const settings = options(ME, false, SAM_EDITS_BLOCK);
+    const { result } = renderHook(() => useYjsFlow(doc, settings));
+
+    expect(result.current.nodes[0]).toMatchObject({
+      draggable: false,
+      deletable: false,
+      data: { lockedBy: { name: 'Sam' } },
+    });
+
+    act(() => {
+      result.current.onNodesChange([{ type: 'remove', id: BLOCK_ID }]);
+    });
+
+    expect(readNodes(doc)).toHaveLength(1);
+  });
+
+  it('shows a lock that starts or ends while the board is open', () => {
+    const doc = docWithBlock();
+    let settings = options(ME, false);
+    const { result, rerender } = renderHook(() => useYjsFlow(doc, settings));
+    expect(result.current.nodes[0]?.data.lockedBy).toBeNull();
+
+    settings = options(ME, false, SAM_EDITS_BLOCK);
+    rerender();
+    expect(result.current.nodes[0]?.data.lockedBy).toEqual({ name: 'Sam' });
+
+    settings = options(ME, false);
+    rerender();
+    expect(result.current.nodes[0]?.data.lockedBy).toBeNull();
+  });
+
+  it('keeps the block that is being edited here from being dragged', () => {
+    const doc = docWithBlock();
+    const settings = options(ME, false, NO_LOCKS, BLOCK_ID);
+    const { result } = renderHook(() => useYjsFlow(doc, settings));
+
+    expect(result.current.nodes[0]?.draggable).toBe(false);
+  });
+
   it('lets viewers neither move nor delete blocks', () => {
     const doc = docWithBlock();
-    const { result } = renderHook(() => useYjsFlow(doc, ME, true));
+    const settings = options(ME, true);
+    const { result } = renderHook(() => useYjsFlow(doc, settings));
 
     act(() => {
       result.current.onNodesChange([
@@ -99,11 +180,13 @@ describe('useYjsFlow', () => {
     expect(result.current.nodes).toHaveLength(1);
     expect(result.current.nodes[0]?.position).toEqual({ x: 0, y: 0 });
     expect(storedPosition(doc)).toEqual({ x: 0, y: 0 });
+    expect(readNodes(doc)).toHaveLength(1);
   });
 
   it('keeps the selection when the Y.Doc changes', () => {
     const doc = docWithBlock();
-    const { result } = renderHook(() => useYjsFlow(doc, ME, true));
+    const settings = options(ME, true);
+    const { result } = renderHook(() => useYjsFlow(doc, settings));
 
     act(() => {
       result.current.onNodesChange([{ type: 'select', id: BLOCK_ID, selected: true }]);

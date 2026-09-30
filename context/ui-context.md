@@ -65,6 +65,7 @@ In `apps/web` the tokens are a Tailwind v4 theme in `apps/web/src/styles/theme.c
   --color-ink-hover: #2A3340;
   --color-on-ink: #FFFFFF;   /* text on graphite and agent colors */
   --color-human: #1E2733;    /* lock, live cursor */
+  --color-bg-locked: #FAFBFC; /* block that a human is editing */
   --color-human-avatar-bg: #E6EAF0;
   --color-human-avatar-bg-strong: #DFE4EA; /* human avatars on bg-app (header) */
   --color-human-avatar-fg: #253041;
@@ -213,7 +214,7 @@ Every block is 180 × 96, has radius 12, a 30 px icon tile, title and subtitle a
 - **Locks and live cursors** run through the **Yjs awareness** of Hocuspocus. The look stays the same.
 - **The variant comparison A/B** is already part of V1 according to `project-overview.md`; the handoff says "V2". It still needs to be designed, see below.
 - The contents of the prototype (chat, blocks, decisions) become seed data and test fixtures.
-- **Interactions the handoff does not show** (selection, editing in place, the block type menu, connection points, tool modes, board tabs) are derived from these tokens and building blocks in the canvas specs and accepted by the owner from screenshots (owner decision, 2026-09-29).
+- **Interactions the handoff does not show** (selection, editing in place, the block type menu, connection points, tool modes, board tabs) are derived from these tokens and building blocks in the canvas specs (owner decision, 2026-09-29); the coding agent decides them and checks them from screenshots (owner decision, 2026-09-30).
 - **Toolbar:** the prototype shows "Block" as the active tool; the app starts without an active tool, so a click on the canvas never creates something by accident (spec 10).
 - **The proposal state** of blocks and dashed proposal edges are built with spec 13, together with the proposals themselves.
 

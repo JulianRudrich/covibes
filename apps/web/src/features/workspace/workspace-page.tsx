@@ -76,6 +76,7 @@ export function WorkspacePage() {
             key={mainBoard.id}
             boardId={mainBoard.id}
             user={{ id: user.id, name: user.name }}
+            members={project.data.members}
             readOnly={readOnly}
           />
         ) : null

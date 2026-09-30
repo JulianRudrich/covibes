@@ -10,7 +10,7 @@ Blocks can be connected with labeled arrows, grouped in frames and supplemented 
 - **Anchoring as in the handoff:** an arrow leaves the bottom edge of the source and enters the top edge of the target as a cubic Bézier. Blocks side by side are connected straight from the right edge to the left edge (like "REST" in the handoff). Several arrows on the same edge of a block are spread evenly along it. The anchors are computed from the positions; `sourceHandle` and `targetHandle` stay empty.
 - **Frames** are labeled areas that contain a diagram (glossary). A node belongs to the frame in which its center lies when it is dropped. Moving a frame moves its content along. Frames are not nested in V1.
 - **Sticky notes** hold one text and show their creator in the footer ("Notiz · Alex").
-- **Interactions the handoff does not show** are derived from the existing building blocks (owner decision, 2026-09-29) and accepted by the owner from screenshots:
+- **Interactions the handoff does not show** are derived from the existing building blocks (owner decision, 2026-09-29); the coding agent decides them and checks them from screenshots (owner decision, 2026-09-30):
   - Connection points appear on hover and on the selected block as small dots at the edge centers; dragging from one to another block creates the arrow.
   - Double-click on an arrow edits its label in the pill; double-click on a note or on a frame title edits the text in place.
   - Frames get resize handles at the corners when selected.
@@ -70,6 +70,6 @@ Blocks can be connected with labeled arrows, grouped in frames and supplemented 
 - [ ] A block dropped into a frame belongs to it; moving the frame moves it along; the count "{{count}} Blöcke" is right.
 - [ ] Deleting a block removes its arrows; deleting a frame keeps its content.
 - [ ] `@Moderator` connects two blocks with a label, adds a note and puts blocks into a new frame on request.
-- [ ] The owner accepted the derived interactions from screenshots.
+- [ ] The derived interactions were checked from screenshots.
 - [ ] Tests for the shared model, the arrow anchoring and the three tools pass.
 - [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.

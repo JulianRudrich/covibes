@@ -5,6 +5,7 @@ import type { AddressInfo } from 'node:net';
 import {
   addBlock,
   boardDocumentName,
+  nodeLocks,
   readNodes,
   type Author,
   type ProjectDetails,
@@ -258,6 +259,28 @@ describe('the worker', () => {
 
     await until(() => readNodes(member.doc).some((node) => node.label === 'API'));
     expect(readNodes(member.doc)[0]?.createdBy).toEqual(moderator);
+  });
+
+  it('knows who edits which block, from the awareness of the people on the board', async () => {
+    const owner = await test.signIn();
+    const { boardId } = await projectWithBoard(owner);
+    const member = connect(boardId, owner);
+    expect(await member.result).toBe('ok');
+    const blockId = randomUUID();
+    member.provider.awareness?.setLocalState({
+      user: { id: 'olga', name: 'Olga' },
+      editing: { nodeId: blockId, since: 1 },
+    });
+    // Once another client sees the lock, the server has it too.
+    const observer = connect(boardId, owner);
+    expect(await observer.result).toBe('ok');
+    await until(() =>
+      nodeLocks(observer.provider.awareness?.getStates() ?? new Map()).has(blockId),
+    );
+
+    const locks = await boards().withBoard(boardId, (_, session) => session.locks());
+
+    expect(locks.get(blockId)).toMatchObject({ name: 'Olga', userId: 'olga' });
   });
 
   it('is refused with a wrong token', async () => {

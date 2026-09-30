@@ -8,7 +8,6 @@ import {
   type ProjectSummary,
 } from '@covibes/shared';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import * as Y from 'yjs';
 
 import {
   GatewayConfigError,
@@ -25,6 +24,7 @@ import {
   splitText,
   type AgentTurnDeps,
 } from '@server/tasks/agent-turn';
+import { memoryBoards } from '@server/test-boards';
 import { createTestServer } from '@server/testing';
 
 const test = createTestServer();
@@ -58,21 +58,6 @@ async function until(check: () => boolean, timeoutMs = 3_000) {
 
 function eventsFor(projectId: string) {
   return published.filter((entry) => entry.projectId === projectId).map((entry) => entry.event);
-}
-
-/** Boards as plain Y.Docs, the way the collaboration server holds them. */
-function memoryBoards() {
-  const docs = new Map<string, Y.Doc>();
-  function doc(boardId: string) {
-    let existing = docs.get(boardId);
-    if (!existing) {
-      existing = new Y.Doc();
-      docs.set(boardId, existing);
-    }
-    return existing;
-  }
-  const boards: BoardAccess = { withBoard: async (boardId, fn) => fn(doc(boardId)) };
-  return { boards, doc };
 }
 
 type Model = (request: AgentReplyRequest) => Promise<AgentReplyResult>;
@@ -239,12 +224,20 @@ describe('agent turn', () => {
 
   it('gives the model its instructions, the conversation, the canvas and the request', async () => {
     const { boardId, send, request } = await createProject();
-    const { boards, doc } = memoryBoards();
+    const { boards, doc, lock } = memoryBoards();
+    const blockId = randomUUID();
     addBlock(
       doc(boardId),
-      { id: randomUUID(), position: { x: 100, y: 200 }, label: 'Web-App', subtitle: 'React' },
+      {
+        id: blockId,
+        position: { x: 100, y: 200 },
+        label: 'Web-App',
+        subtitle: 'React',
+        blockType: 'app',
+      },
       { kind: 'agent', agentKey: 'moderator' },
     );
+    lock(blockId, 'Sam');
     await send('Wir brauchen eine API.');
     const { runId } = await request('@Moderator, was fehlt noch?');
     const { deps, reply: model } = turnDeps(() => Promise.resolve(result('Eine API.')), boards);
@@ -254,8 +247,10 @@ describe('agent turn', () => {
     const call = model.mock.calls[0]?.[0];
     expect(call).toMatchObject({ model: 'claude-opus-5-5' });
     expect(call?.system).toContain('You are the moderator in Covibes');
-    expect(call?.tools.map((tool) => tool.name)).toEqual(['add_block']);
-    expect(call?.prompt).toContain('<canvas>\n- block "Web-App" (React) at 100, 200\n</canvas>');
+    expect(call?.tools.map((tool) => tool.name)).toEqual(['add_block', 'update_block']);
+    expect(call?.prompt).toContain(
+      `<canvas>\n- block "Web-App" (React), type app at 100, 200, id ${blockId}, Sam is editing it\n</canvas>`,
+    );
     expect(call?.prompt).toMatch(/<chat>\n.+: Wir brauchen eine API\.\n.+: @Moderator, was fehlt/);
     expect(call?.prompt).toMatch(/<request>\n@Moderator, was fehlt noch\?\n<\/request>$/);
   });

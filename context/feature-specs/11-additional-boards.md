@@ -6,7 +6,7 @@ Next to the main canvas, a project can have further boards as tabs. Editors crea
 ## Design decisions
 - **Look:** handoff README, section "Canvas", header: tab "Haupt-Canvas" and the ghost button "+ Board". Further boards are tabs of the same kind; the active one has the background `bg-subtle`.
 - **The main canvas** always comes first. It cannot be renamed or deleted.
-- **Interactions the handoff does not show** are derived from the existing building blocks (owner decision, 2026-09-29) and accepted by the owner from screenshots:
+- **Interactions the handoff does not show** are derived from the existing building blocks (owner decision, 2026-09-29); the coding agent decides them and checks them from screenshots (owner decision, 2026-09-30):
   - "+ Board" creates "Board 2" (the next free number) at the end and opens it.
   - Double-click on a tab renames it in place; Enter saves, Escape cancels.
   - A tab menu (dropdown menu from spec 04, opened by right-click or the chevron on the active tab) offers "Umbenennen" and "Löschen".
@@ -42,7 +42,7 @@ Next to the main canvas, a project can have further boards as tabs. Editors crea
 - Packages: none new
 
 ## Checklist
-- [ ] Tabs and "+ Board" match the handoff; the derived interactions were accepted by the owner from screenshots.
+- [ ] Tabs and "+ Board" match the handoff; the derived interactions were checked from screenshots.
 - [ ] An editor creates, renames and deletes a board; a second browser sees it live. A viewer can only switch.
 - [ ] The main canvas cannot be renamed or deleted, also not through the API.
 - [ ] A deleted board's canvas is gone for good; whoever had it open lands on the main canvas with a note.

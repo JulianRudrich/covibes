@@ -111,7 +111,21 @@
     "loading": "Canvas wird geladen …",
     "reconnecting": "Verbindung wird wiederhergestellt …",
     "denied": "Du hast keinen Zugriff mehr auf dieses Canvas.",
-    "justDrawn": "Gerade gezeichnet"
+    "justDrawn": "Gerade gezeichnet",
+    "isEditing": "{{name}} bearbeitet",
+    "formerMember": "Ehemaliges Mitglied",
+    "changeType": "Art des Blocks ändern",
+    "blockTitle": "Titel",
+    "blockSubtitle": "Untertitel",
+    "blockTypes": {
+      "generic": "Block",
+      "app": "App",
+      "server": "Server",
+      "service": "Dienst",
+      "database": "Datenbank",
+      "repository": "Repository",
+      "metric": "Kennzahl"
+    }
   },
   "chat": {
     "messages": "Nachrichten",

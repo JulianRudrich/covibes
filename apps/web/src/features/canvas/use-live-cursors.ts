@@ -1,12 +1,8 @@
+import { remoteCursors, type AwarenessUser, type RemoteCursor } from '@covibes/shared';
 import type { HocuspocusProvider } from '@hocuspocus/provider';
 import { useReactFlow } from '@xyflow/react';
 import { useCallback, useEffect, useMemo, useState, type PointerEvent } from 'react';
 
-import {
-  remoteCursors,
-  type AwarenessUser,
-  type RemoteCursor,
-} from '@web/features/canvas/awareness';
 import { throttle } from '@web/lib/throttle';
 
 /** About 30 updates per second, as agreed for live cursors. */

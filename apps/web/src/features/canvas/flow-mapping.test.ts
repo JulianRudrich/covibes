@@ -1,4 +1,4 @@
-import { BLOCK_SIZE, type Author, type CanvasNode } from '@covibes/shared';
+import { BLOCK_SIZE, type Author, type CanvasNode, type NodeLock } from '@covibes/shared';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -6,15 +6,21 @@ import {
   toFlowNodes,
   type BlockFlowNode,
   type BlockNodeData,
+  type FlowLocks,
 } from '@web/features/canvas/flow-mapping';
 
 const AUTHOR: Author = { kind: 'human', userId: '00000000-0000-4000-8000-000000000001' };
 const CHANGED_AT = '2026-09-29T10:00:00.000Z';
+const OWN_CLIENT = 1;
+const NO_LOCKS: FlowLocks = { locks: new Map(), ownClientId: OWN_CLIENT };
 const LOCAL_DATA: BlockNodeData = {
   label: '',
   subtitle: '',
+  blockType: null,
+  createdBy: AUTHOR,
   changedByAgent: null,
   lastChangedAt: CHANGED_AT,
+  lockedBy: null,
 };
 
 function canvasNode(
@@ -23,6 +29,7 @@ function canvasNode(
   y: number,
   type: CanvasNode['type'] = 'block',
   lastChangedBy: Author = AUTHOR,
+  lastChangedAt = CHANGED_AT,
 ) {
   const node: CanvasNode = {
     id,
@@ -35,20 +42,36 @@ function canvasNode(
     frameId: null,
     createdBy: AUTHOR,
     lastChangedBy,
-    lastChangedAt: CHANGED_AT,
+    lastChangedAt,
   };
   return node;
 }
 
+function lockOf(clientId: number, name: string): NodeLock {
+  return { clientId, userId: name.toLowerCase(), name, since: 1 };
+}
+
 describe('toFlowNodes', () => {
-  it('maps blocks with their position and texts', () => {
-    const [node] = toFlowNodes([canvasNode('a', 40, 60)], []);
+  it('maps blocks with their position, texts, type and author', () => {
+    const [node] = toFlowNodes(
+      [{ ...canvasNode('a', 40, 60), blockType: 'database' }],
+      [],
+      NO_LOCKS,
+    );
 
     expect(node).toEqual({
       id: 'a',
       type: 'block',
       position: { x: 40, y: 60 },
-      data: { label: 'Block a', subtitle: '', changedByAgent: null, lastChangedAt: CHANGED_AT },
+      data: {
+        label: 'Block a',
+        subtitle: '',
+        blockType: 'database',
+        createdBy: AUTHOR,
+        changedByAgent: null,
+        lastChangedAt: CHANGED_AT,
+        lockedBy: null,
+      },
     });
   });
 
@@ -56,15 +79,52 @@ describe('toFlowNodes', () => {
     const [node] = toFlowNodes(
       [canvasNode('a', 0, 0, 'block', { kind: 'agent', agentKey: 'moderator' })],
       [],
+      NO_LOCKS,
     );
 
     expect(node?.data).toMatchObject({ changedByAgent: 'moderator', lastChangedAt: CHANGED_AT });
   });
 
+  it('shows who else edits a block and keeps it from being dragged or deleted here', () => {
+    const locks: FlowLocks = {
+      locks: new Map([
+        ['a', lockOf(2, 'Sam')],
+        ['b', lockOf(OWN_CLIENT, 'Olga')],
+      ]),
+      ownClientId: OWN_CLIENT,
+    };
+
+    const [a, b] = toFlowNodes([canvasNode('a', 0, 0), canvasNode('b', 0, 200)], [], locks);
+
+    expect(a).toMatchObject({
+      draggable: false,
+      deletable: false,
+      data: { lockedBy: { name: 'Sam' } },
+    });
+    // The own lock is the own edit, not a lock against oneself.
+    expect(b?.data.lockedBy).toBeNull();
+    expect(b?.draggable).toBeUndefined();
+  });
+
+  it('stacks the last changed block on top, the same way in every browser', () => {
+    const nodes = [
+      canvasNode('c', 0, 0, 'block', AUTHOR, '2026-09-29T10:00:02.000Z'),
+      canvasNode('b', 0, 0, 'block', AUTHOR, '2026-09-29T10:00:01.000Z'),
+      canvasNode('a', 0, 0, 'block', AUTHOR, '2026-09-29T10:00:01.000Z'),
+    ];
+
+    expect(toFlowNodes(nodes, [], NO_LOCKS).map((node) => node.id)).toEqual(['a', 'b', 'c']);
+    expect(toFlowNodes([...nodes].reverse(), [], NO_LOCKS).map((node) => node.id)).toEqual([
+      'a',
+      'b',
+      'c',
+    ]);
+  });
+
   it('leaves out node types that are not rendered yet', () => {
-    expect(toFlowNodes([canvasNode('a', 0, 0), canvasNode('f', 0, 0, 'frame')], [])).toHaveLength(
-      1,
-    );
+    expect(
+      toFlowNodes([canvasNode('a', 0, 0), canvasNode('f', 0, 0, 'frame')], [], NO_LOCKS),
+    ).toHaveLength(1);
   });
 
   it('keeps selection and measured size from the previous render', () => {
@@ -78,7 +138,7 @@ describe('toFlowNodes', () => {
         measured: { width: 180, height: 96 },
       },
     ];
-    const [node] = toFlowNodes([canvasNode('a', 100, 100)], previous);
+    const [node] = toFlowNodes([canvasNode('a', 100, 100)], previous, NO_LOCKS);
 
     expect(node?.position).toEqual({ x: 100, y: 100 });
     expect(node?.selected).toBe(true);
@@ -95,7 +155,7 @@ describe('toFlowNodes', () => {
         dragging: true,
       },
     ];
-    const [node] = toFlowNodes([canvasNode('a', 100, 100)], previous);
+    const [node] = toFlowNodes([canvasNode('a', 100, 100)], previous, NO_LOCKS);
 
     expect(node?.position).toEqual({ x: 300, y: 200 });
   });

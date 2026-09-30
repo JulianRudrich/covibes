@@ -7,11 +7,21 @@ export {
 } from './agents/mentions';
 export type { ApiErrorBody, ApiErrorCode, DevMail, PublicConfig } from './api';
 export {
+  awarenessStateSchema,
+  nodeLocks,
+  remoteCursors,
+  type AwarenessUser,
+  type NodeLock,
+  type RemoteCursor,
+} from './canvas/awareness';
+export {
   addBlock,
   addBlockInputSchema,
   authorOrigin,
   authorSchema,
   BLOCK_SIZE,
+  BLOCK_TYPES,
+  blockTypeSchema,
   boardDocumentName,
   boardIdFromDocumentName,
   CANVAS_NODE_TYPES,
@@ -23,13 +33,18 @@ export {
   positionSchema,
   readEdges,
   readNodes,
+  removeNodes,
   sizeSchema,
+  updateBlock,
+  updateBlockInputSchema,
   type AddBlockInput,
   type Author,
+  type BlockType,
   type CanvasEdge,
   type CanvasNode,
   type Position,
   type Size,
+  type UpdateBlockInput,
 } from './canvas/model';
 export { findFreeSpot, GRID_SIZE } from './canvas/layout';
 export { APP_NAME, COLLAB_PATH, LIVE_PATH } from './constants';

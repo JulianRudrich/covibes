@@ -1,7 +1,12 @@
-import { boardDocumentName } from '@covibes/shared';
+import { boardDocumentName, nodeLocks, type NodeLock } from '@covibes/shared';
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
+
+export type BoardSession = {
+  /** Who edits which node right now (spec 08), read from the board's awareness at each call. */
+  locks: () => ReadonlyMap<string, NodeLock>;
+};
 
 /** How the worker reaches a board; tests use an in-memory Y.Doc instead. */
 export type BoardAccess = {
@@ -9,7 +14,10 @@ export type BoardAccess = {
    * Runs `fn` on the live Y.Doc of a board. It resolves once every change `fn` made has reached
    * the collaboration server, so everyone with the board open already sees it.
    */
-  withBoard<T>(boardId: string, fn: (doc: Y.Doc) => T | Promise<T>): Promise<T>;
+  withBoard<T>(
+    boardId: string,
+    fn: (doc: Y.Doc, session: BoardSession) => T | Promise<T>,
+  ): Promise<T>;
 };
 
 type BoardClientOptions = {
@@ -80,7 +88,11 @@ export function createBoardClient(options: BoardClientOptions): BoardAccess {
           'connecting',
         );
 
-        const result = await fn(doc);
+        // The server sends the awareness of everyone else before the document, so the locks are
+        // known once the board is synced.
+        const result = await fn(doc, {
+          locks: () => (provider.awareness ? nodeLocks(provider.awareness.getStates()) : new Map()),
+        });
 
         // Only close once the server has everything; otherwise a change could get lost.
         await withTimeout(

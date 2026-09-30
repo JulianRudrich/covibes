@@ -7,7 +7,7 @@
 Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 08: blocks and their states (branch `spec/08-blocks-and-states`)
+- Fix for spec 07: an exhausted Claude quota gets a clear note instead of quick retries
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -70,13 +70,19 @@ Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is d
   - limits: 20 messages per minute and 20 live connections per user
 
   Lint, type check, format, 410 tests and build pass; verified with `pnpm dev` and a second member: the block after 3.6 s, the second request waited, a run costs about $0.02 at list price.
+- [x] **Spec 08 blocks and their states:**
+  - blocks as in the handoff: icon tile, title, subtitle, author line; six block types plus the generic block
+  - states normal, just changed by AI and locked while someone edits (Yjs awareness); selection outline
+  - editing in place, type menu, deleting; the same stacking order in every browser
+  - the moderator changes blocks with `update_block` and leaves blocks alone that someone edits
+
+  Lint, type check, format, 445 tests and build pass; verified with `pnpm dev` and a second member.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **Spec 08:** blocks and their states, then specs 09 to 11.
+1. **Spec 09:** edges, frames and sticky notes, then specs 10 and 11.
 2. What the owner contributes while building:
-   - accept the derived canvas interactions from screenshots (specs 08 to 11)
    - **by spec 12:** designs in Claude Design for the blocks of mind map, data model and flow
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
 3. **At the very end (public launch):** spec 35 (launch preparation): hosting location, OAuth application on GitLab.com, domain, legal texts, monitoring.
@@ -96,7 +102,7 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **Custom agents:** V1 includes custom agents that are created in Covibes and shared personally or in a project. External agents (A2A/webhook) and company agents come right after V1, together with team workspaces.
 - **Canvas in M2** (2026-09-29):
   - The proposal state and dashed proposal edges come with spec 13, together with the proposals.
-  - Interactions the handoff does not show are derived from the existing building blocks; the owner accepts them from screenshots.
+  - Interactions the handoff does not show are derived from the existing building blocks. Since 2026-09-30 the coding agent decides such details itself and checks them from screenshots; fundamental decisions stay with the owner.
   - Every canvas spec gives the agents the tools for its elements.
   - Undo covers one's own changes; undoing agent changes follows with a history view.
   - Auto-layout uses ELK (`elkjs`, EPL-2.0 approved for unmodified use).
@@ -169,3 +175,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   - Four coding agents started in parallel ran into the session rate limit, so the lead finished the work alone and in order.
   - Not verified yet: the worker in the Docker image (Docker Desktop was not running; it needs an API key there).
 - **2026-09-29, M2 specs worked out:** specs 08 to 11 are ready. The owner decided four points on the coding agent's recommendation: the proposal state moves to spec 13, interactions missing in the handoff are derived and accepted from screenshots, agents get the tools for every new canvas element, and undo covers one's own changes first. The owner also approved EPL-2.0 for ELK. Spec 12 waits for designs of the mind map, data model and flow blocks.
+- **2026-09-30, spec 08 implemented.** Details are in the spec under "Implementation notes". The owner left the details of derived interactions to the coding agent; fundamental decisions stay with the owner. During the live test the Claude subscription's session limit ran out, which showed that a used-up quota leads to pointless quick retries and an unclear note; the fix comes next.

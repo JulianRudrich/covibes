@@ -111,7 +111,21 @@
     "loading": "Loading canvas …",
     "reconnecting": "Reconnecting …",
     "denied": "You no longer have access to this canvas.",
-    "justDrawn": "Just drawn"
+    "justDrawn": "Just drawn",
+    "isEditing": "{{name}} is editing",
+    "formerMember": "Former member",
+    "changeType": "Change the kind of block",
+    "blockTitle": "Title",
+    "blockSubtitle": "Subtitle",
+    "blockTypes": {
+      "generic": "Block",
+      "app": "App",
+      "server": "Server",
+      "service": "Service",
+      "database": "Database",
+      "repository": "Repository",
+      "metric": "Metric"
+    }
   },
   "chat": {
     "messages": "Messages",

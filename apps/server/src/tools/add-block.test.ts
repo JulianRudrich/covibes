@@ -2,23 +2,19 @@ import { randomUUID } from 'node:crypto';
 
 import { addBlock, readNodes, type CanvasNode } from '@covibes/shared';
 import { describe, expect, it } from 'vitest';
-import * as Y from 'yjs';
 
-import type { BoardAccess } from '@server/collab/board-client';
+import { memoryBoards } from '@server/test-boards';
 import { addBlockTool } from '@server/tools/add-block';
 
 const BOARD_ID = randomUUID();
 const MODERATOR = { kind: 'agent', agentKey: 'moderator' } as const;
 
 function setup() {
-  const doc = new Y.Doc();
-  const boards: BoardAccess = {
-    withBoard: async (boardId, fn) => {
-      expect(boardId).toBe(BOARD_ID);
-      return fn(doc);
-    },
+  const { boards, doc } = memoryBoards();
+  return {
+    doc: doc(BOARD_ID),
+    tool: addBlockTool({ boards, boardId: BOARD_ID, author: MODERATOR }),
   };
-  return { doc, tool: addBlockTool({ boards, boardId: BOARD_ID, author: MODERATOR }) };
 }
 
 function overlap(a: CanvasNode, b: CanvasNode) {
@@ -34,13 +30,21 @@ describe('add_block', () => {
   it('adds a block with the agent as author where the model asked', async () => {
     const { doc, tool } = setup();
 
-    const answer = await tool.run({ title: ' API ', subtitle: 'REST', x: 40, y: 60 });
+    const answer = await tool.run({
+      title: ' API ',
+      subtitle: 'REST',
+      type: 'service',
+      x: 40,
+      y: 60,
+    });
 
-    expect(answer).toBe('Added the block "API" at 40, 60.');
+    const [block] = readNodes(doc);
+    expect(answer).toBe(`Added the block "API" (id ${block?.id ?? ''}) at 40, 60.`);
     expect(readNodes(doc)).toEqual([
       expect.objectContaining({
         label: 'API',
         subtitle: 'REST',
+        blockType: 'service',
         position: { x: 40, y: 60 },
         createdBy: MODERATOR,
         lastChangedBy: MODERATOR,
@@ -76,6 +80,7 @@ describe('add_block', () => {
 
     await expect(tool.run({ title: '' })).rejects.toThrow();
     await expect(tool.run({ title: 'x'.repeat(81) })).rejects.toThrow();
+    await expect(tool.run({ title: 'Queue', type: 'queue' })).rejects.toThrow();
     expect(readNodes(doc)).toEqual([]);
   });
 });

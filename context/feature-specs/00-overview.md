@@ -173,7 +173,7 @@ The prompt to the coding agent is always the same: "Read the spec, mark it as in
 - **Design:** **required:** share dialog and read-only view
 
 ### 22 "Waiting for you" and notifications
-- **Goal:** the "Waiting for you" section with a live counter, plus notifications in the app and by email for mentions and open approvals.
+- **Goal:** the "Waiting for you" section with a live counter, plus notifications in the app and by email for mentions and open approvals. The section with its cards for proposals came with spec 13; this spec adds approvals, raised hands and the notifications.
 - **Needs:** 13, 21
 - **Design:** partly available. **Required:** the notification list
 

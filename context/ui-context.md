@@ -222,13 +222,14 @@ Every block is 180 × 96, has radius 12, a 30 px icon tile, title and subtitle a
 - The contents of the prototype (chat, blocks, decisions) become seed data and test fixtures.
 - **Interactions and looks the handoff does not show** are derived from these tokens and building blocks (owner decisions, 2026-09-29 and 2026-09-30); the coding agent decides them, checks them from screenshots and lists them under "Derived looks" for the design pass (spec 36).
 - **Toolbar:** the prototype shows "Block" as the active tool; the app starts without an active tool, so a click on the canvas never creates something by accident (spec 10).
-- **The proposal state** of blocks and dashed proposal edges are built with spec 13, together with the proposals themselves.
+- **The proposal state** of blocks and dashed proposal edges are built with spec 13, together with the proposals themselves and the proposal cards of "Waiting for you".
 
 ## Derived looks
 Since 2026-09-30 the app is built with the prototype design; design changes, improvements and new designs come together in the design pass at the end (spec 36, owner decision). Until then, looks the handoff does not show are derived from these tokens and building blocks and listed here, so the design pass knows what to confirm or replace:
 - selection, editing in place, the block type menu and connection points (spec 08, 09)
 - the tool modes of the toolbar, the placement cursor and the connect mode (spec 10)
 - inactive board tabs, the tab menu, renaming in place, the delete dialog with the `danger` button and the note pill over the canvas (spec 11)
+- proposals (spec 13): proposed notes and frames with the dashed agent border and tint, the dashed outline and the pill "Vorschlag" on blocks that a proposal changes or moves, the completed lines under "Wartet auf dich" for rejected proposals, and the project menu with "Nur Vorschläge"
 - diagram types (spec 12): the type icon and name in the frame header and its menu, the block types of mind map, data model, flow and sitemap as block cards with their own icons, entity cards with fields in Geist Mono, arrows from the right to the left edge in mind maps and data models
 
 ## Still to be designed

@@ -7,7 +7,7 @@
 Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- nothing yet; spec 12 is next
+- Spec 12: diagram types (branch `spec/12-diagram-types`)
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

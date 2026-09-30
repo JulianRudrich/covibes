@@ -12,6 +12,12 @@ const DOT_COLOR: Record<AgentKey, string> = {
   backend: 'bg-agent-backend',
   critic: 'bg-agent-critic',
   data: 'bg-agent-data',
+  product: 'bg-agent-product',
+  frontend: 'bg-agent-frontend',
+  devops: 'bg-agent-devops',
+  security: 'bg-agent-security',
+  ml: 'bg-agent-ml',
+  content: 'bg-agent-content',
 };
 
 const DOT_DELAYS = ['[animation-delay:0s]', '[animation-delay:0.16s]', '[animation-delay:0.32s]'];

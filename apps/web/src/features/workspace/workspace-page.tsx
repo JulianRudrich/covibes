@@ -1,7 +1,7 @@
 import type { ProjectDetails, Proposal } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageMessage } from '@web/components/page-message';
@@ -17,6 +17,8 @@ import {
   type DecidedProposal,
 } from '@web/features/proposals/queries';
 import { WaitingForYou } from '@web/features/proposals/waiting-for-you';
+import { useTeamMutations } from '@web/features/team/queries';
+import { TeamMenu } from '@web/features/team/team-menu';
 import { DEMO_ACTIVE_PHASE } from '@web/features/workspace/demo-workspace';
 import { useProjectLive } from '@web/features/workspace/use-project-live';
 import { WorkspaceShell, type WorkspaceMember } from '@web/features/workspace/workspace-shell';
@@ -140,6 +142,10 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
     );
   });
   const updateProject = useUpdateProject(project.id);
+  const team = useTeamMutations(project.id, () => {
+    showNotice(t('team.failed'));
+  });
+  const teamKeys = useMemo(() => project.agents.map((agent) => agent.key), [project.agents]);
 
   return (
     <WorkspaceShell
@@ -154,6 +160,22 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
       activePhase={DEMO_ACTIVE_PHASE}
       members={members}
       user={user}
+      team={
+        <TeamMenu
+          agents={project.agents}
+          canEdit={!readOnly}
+          canChooseModel={project.role === 'owner'}
+          onAdd={(agentKey) => {
+            team.add.mutate(agentKey);
+          }}
+          onRemove={(agentKey) => {
+            team.remove.mutate(agentKey);
+          }}
+          onModelChange={(agentKey, model) => {
+            team.setModel.mutate({ agentKey, model });
+          }}
+        />
+      }
       chat={
         user ? (
           <ChatPanel
@@ -161,6 +183,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
             projectId={project.id}
             user={{ id: user.id, name: user.name }}
             readOnly={readOnly}
+            team={teamKeys}
           />
         ) : null
       }

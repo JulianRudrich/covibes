@@ -7,6 +7,12 @@ export const AGENT_BORDER: Readonly<Record<AgentKey, string>> = {
   backend: 'border-agent-backend',
   critic: 'border-agent-critic',
   data: 'border-agent-data',
+  product: 'border-agent-product',
+  frontend: 'border-agent-frontend',
+  devops: 'border-agent-devops',
+  security: 'border-agent-security',
+  ml: 'border-agent-ml',
+  content: 'border-agent-content',
 };
 
 export const AGENT_BACKGROUND: Readonly<Record<AgentKey, string>> = {
@@ -14,6 +20,12 @@ export const AGENT_BACKGROUND: Readonly<Record<AgentKey, string>> = {
   backend: 'bg-agent-backend',
   critic: 'bg-agent-critic',
   data: 'bg-agent-data',
+  product: 'bg-agent-product',
+  frontend: 'bg-agent-frontend',
+  devops: 'bg-agent-devops',
+  security: 'bg-agent-security',
+  ml: 'bg-agent-ml',
+  content: 'bg-agent-content',
 };
 
 /** Icon tile of a block an agent just changed: agent tint, agent border, icon in the dark color. */
@@ -22,6 +34,12 @@ export const AGENT_TILE: Readonly<Record<AgentKey, string>> = {
   backend: 'border-agent-backend-border bg-agent-backend-tint text-agent-backend-dark',
   critic: 'border-agent-critic-border bg-agent-critic-tint text-agent-critic-dark',
   data: 'border-agent-data-border bg-agent-data-tint text-agent-data-dark',
+  product: 'border-agent-product-border bg-agent-product-tint text-agent-product-dark',
+  frontend: 'border-agent-frontend-border bg-agent-frontend-tint text-agent-frontend-dark',
+  devops: 'border-agent-devops-border bg-agent-devops-tint text-agent-devops-dark',
+  security: 'border-agent-security-border bg-agent-security-tint text-agent-security-dark',
+  ml: 'border-agent-ml-border bg-agent-ml-tint text-agent-ml-dark',
+  content: 'border-agent-content-border bg-agent-content-tint text-agent-content-dark',
 };
 
 export const AGENT_DARK_TEXT: Readonly<Record<AgentKey, string>> = {
@@ -29,6 +47,12 @@ export const AGENT_DARK_TEXT: Readonly<Record<AgentKey, string>> = {
   backend: 'text-agent-backend-dark',
   critic: 'text-agent-critic-dark',
   data: 'text-agent-data-dark',
+  product: 'text-agent-product-dark',
+  frontend: 'text-agent-frontend-dark',
+  devops: 'text-agent-devops-dark',
+  security: 'text-agent-security-dark',
+  ml: 'text-agent-ml-dark',
+  content: 'text-agent-content-dark',
 };
 
 export const AGENT_TINT_BORDER: Readonly<Record<AgentKey, string>> = {
@@ -36,6 +60,12 @@ export const AGENT_TINT_BORDER: Readonly<Record<AgentKey, string>> = {
   backend: 'border-agent-backend-tint',
   critic: 'border-agent-critic-tint',
   data: 'border-agent-data-tint',
+  product: 'border-agent-product-tint',
+  frontend: 'border-agent-frontend-tint',
+  devops: 'border-agent-devops-tint',
+  security: 'border-agent-security-tint',
+  ml: 'border-agent-ml-tint',
+  content: 'border-agent-content-tint',
 };
 
 /**
@@ -47,6 +77,12 @@ export const AGENT_LABEL: Readonly<Record<AgentKey, string>> = {
   backend: 'border-agent-backend-border bg-agent-backend-tint text-agent-backend-dark',
   critic: 'border-agent-critic-border-2 bg-agent-critic-tint-2 text-agent-critic-dark',
   data: 'border-agent-data-border bg-agent-data-tint text-agent-data-dark',
+  product: 'border-agent-product-border bg-agent-product-tint text-agent-product-dark',
+  frontend: 'border-agent-frontend-border bg-agent-frontend-tint text-agent-frontend-dark',
+  devops: 'border-agent-devops-border bg-agent-devops-tint text-agent-devops-dark',
+  security: 'border-agent-security-border bg-agent-security-tint text-agent-security-dark',
+  ml: 'border-agent-ml-border bg-agent-ml-tint text-agent-ml-dark',
+  content: 'border-agent-content-border bg-agent-content-tint text-agent-content-dark',
 };
 
 /**
@@ -58,6 +94,12 @@ export const AGENT_PROPOSAL: Readonly<Record<AgentKey, string>> = {
   backend: 'border-agent-backend bg-agent-backend-tint/95',
   critic: 'border-agent-critic bg-agent-critic-tint/95',
   data: 'border-agent-data bg-agent-data-tint/95',
+  product: 'border-agent-product bg-agent-product-tint/95',
+  frontend: 'border-agent-frontend bg-agent-frontend-tint/95',
+  devops: 'border-agent-devops bg-agent-devops-tint/95',
+  security: 'border-agent-security bg-agent-security-tint/95',
+  ml: 'border-agent-ml bg-agent-ml-tint/95',
+  content: 'border-agent-content bg-agent-content-tint/95',
 };
 
 /** The agent's base color as a CSS value, for SVG strokes and arrowheads. */

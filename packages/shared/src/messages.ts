@@ -71,7 +71,7 @@ export type AiRun = z.infer<typeof aiRunSchema>;
  * - `run`: an agent run changed its status (waiting, working, done, failed)
  * - `boards`: a board was created, renamed or deleted; the project's boards are loaded again
  * - `proposals`: an agent proposed something, or a proposal was applied or rejected (spec 13)
- * - `project`: the project's settings changed, e.g. the proposals-only mode
+ * - `project`: the project's settings or team changed, e.g. the proposals-only mode
  */
 export const liveEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('message'), message: chatMessageSchema }),

@@ -254,7 +254,7 @@ async function isolatedOptions(
   return {
     model: model.id,
     systemPrompt: request.system,
-    ...(model.effort ? { effort: 'medium' as const } : {}),
+    ...(model.effort ? { effort: request.effort ?? 'medium' } : {}),
     maxTurns: MAX_TURNS,
     includePartialMessages: true,
     abortController,

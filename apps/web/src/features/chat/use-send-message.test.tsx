@@ -82,6 +82,8 @@ function stored(id: string, content: string): ChatMessage {
 }
 
 /** The chat as the panel uses it: the message list and the sending hook. */
+const TEAM = ['moderator', 'backend'] as const;
+
 function renderChat() {
   const requests = stubFetch();
   const queryClient = createQueryClient();
@@ -93,7 +95,7 @@ function renderChat() {
     () => {
       const list = useQuery(messagesQuery(PROJECT_ID));
       renders.push(list.data ?? []);
-      return { list, chat: useSendMessage(PROJECT_ID, OLGA) };
+      return { list, chat: useSendMessage(PROJECT_ID, OLGA, TEAM) };
     },
     { wrapper },
   );

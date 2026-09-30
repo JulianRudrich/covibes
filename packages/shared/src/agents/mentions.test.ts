@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { AGENT_MENTION_NAMES } from './keys';
 import { parseMentions, splitMentions } from './mentions';
 
 describe('parseMentions', () => {
@@ -88,9 +89,17 @@ describe('parseMentions', () => {
     expect(parseMentions('Just a normal message.')).toEqual([]);
   });
 
-  it('accepts own names, e.g. from the agent catalog later', () => {
-    const names = { moderator: ['mod'], backend: [], critic: [], data: [] };
+  it('accepts own names instead of the catalog names', () => {
+    const names = { ...AGENT_MENTION_NAMES, moderator: ['mod'] };
     expect(parseMentions('@Mod and @Moderator', names)).toEqual(['moderator']);
+  });
+
+  it('knows every agent of the catalog by its German and English names (spec 14)', () => {
+    expect(
+      parseMentions(
+        '@Produkt @UX @Datenbank @DevOps @Infra @Sicherheit @Datenschutz @ML @SEO @Content',
+      ),
+    ).toEqual(['product', 'frontend', 'data', 'devops', 'security', 'ml', 'content']);
   });
 });
 

@@ -93,9 +93,58 @@
   },
   "agents": {
     "moderator": "Moderator",
-    "backend": "Backend",
     "critic": "Kritiker",
-    "data": "Daten"
+    "product": "Produkt",
+    "frontend": "Frontend",
+    "backend": "Backend",
+    "data": "Daten",
+    "devops": "DevOps",
+    "security": "Sicherheit",
+    "ml": "ML",
+    "content": "Content"
+  },
+  "agentRoles": {
+    "moderator": "Neutrale Moderation",
+    "critic": "Schwachstellen und Risiken",
+    "product": "Nutzer, Umfang, Prioritäten",
+    "frontend": "Frontend und UX",
+    "backend": "Backend und APIs",
+    "data": "Daten und Datenbanken",
+    "devops": "Infrastruktur und Betrieb",
+    "security": "Sicherheit und Datenschutz",
+    "ml": "Machine Learning und Modelle",
+    "content": "Content und SEO"
+  },
+  "agentInitials": {
+    "moderator": "M",
+    "critic": "K",
+    "product": "P",
+    "frontend": "F",
+    "backend": "B",
+    "data": "D",
+    "devops": "O",
+    "security": "S",
+    "ml": "ML",
+    "content": "C"
+  },
+  "team": {
+    "open": "Team: {{names}}",
+    "title": "Team",
+    "hint": "Nur Agents im Team antworten auf @.",
+    "remove": "Entfernen",
+    "removeAgent": "{{name}} aus dem Team entfernen",
+    "add": "Agent hinzufügen",
+    "addAgent": "{{name}} hinzufügen",
+    "allAdded": "Alle Agents des Katalogs sind im Team.",
+    "model": "Modell",
+    "modelOf": "Modell von {{name}}: {{model}}",
+    "defaultModel": "{{model}} (Standard)",
+    "models": {
+      "claude-opus-5-5": "Opus 5.5",
+      "claude-sonnet-5-5": "Sonnet 5.5",
+      "claude-haiku-4-5-20251001": "Haiku 4.5"
+    },
+    "failed": "Das Team konnte nicht geändert werden. Bitte versuche es noch einmal."
   },
   "panels": {
     "chat": "Chat",
@@ -214,7 +263,8 @@
       "addEdge": "Pfeil <b>{{from}}</b> → <b>{{to}}</b>",
       "updateNode": "<b>{{name}}</b> ändern",
       "arrangeFrame": "<b>{{name}}</b> anordnen",
-      "move": "Elemente verschieben"
+      "move": "Elemente verschieben",
+      "team": "Ins Team holen"
     },
     "more_one": "+ 1 weitere Änderung",
     "more_other": "+ {{count}} weitere Änderungen",

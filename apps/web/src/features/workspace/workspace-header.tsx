@@ -1,6 +1,7 @@
 import type { Phase } from '@covibes/shared';
 import { useNavigate } from '@tanstack/react-router';
 import { Check, ChevronDown } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@web/components/logo';
@@ -15,7 +16,6 @@ import {
 import { Tooltip } from '@web/components/ui/tooltip';
 import { AccountMenu } from '@web/features/account/account-menu';
 import type { SessionUser } from '@web/features/auth/session';
-import { DEMO_AGENTS } from '@web/features/workspace/demo-workspace';
 import { PhaseIndicator } from '@web/features/workspace/phase-indicator';
 import type { ProjectSettings, WorkspaceMember } from '@web/features/workspace/workspace-shell';
 import { initialsOf } from '@web/lib/format';
@@ -26,6 +26,8 @@ type WorkspaceHeaderProps = {
   activePhase: Phase;
   members: WorkspaceMember[];
   user: SessionUser | null;
+  /** The agents of the project (spec 14): their avatars and the team popover. */
+  team: ReactNode;
 };
 
 export function WorkspaceHeader({
@@ -34,6 +36,7 @@ export function WorkspaceHeader({
   activePhase,
   members,
   user,
+  team,
 }: WorkspaceHeaderProps) {
   const { t } = useTranslation();
 
@@ -82,24 +85,8 @@ export function WorkspaceHeader({
           })}
         </div>
         <span aria-hidden="true" className="h-5 w-px bg-divider-strong" />
-        <div
-          role="group"
-          aria-label={t('workspace.agentsLabel')}
-          className="flex items-center gap-[3px]"
-        >
-          {DEMO_AGENTS.map((agent) => (
-            <Tooltip key={agent.key} content={t(`agents.${agent.key}`)}>
-              <span>
-                <Avatar
-                  kind="agent"
-                  agent={agent.key}
-                  size={24}
-                  label={t(`agents.${agent.key}`)}
-                  initials={agent.initials}
-                />
-              </span>
-            </Tooltip>
-          ))}
+        <div role="group" aria-label={t('workspace.agentsLabel')} className="flex items-center">
+          {team}
         </div>
         <Button variant="primary" className="px-3.5">
           {t('common.share')}

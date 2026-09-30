@@ -13,18 +13,48 @@ export type ProposalReason = (typeof PROPOSAL_REASONS)[number];
 export const PROPOSAL_STATUSES = ['open', 'applied', 'rejected'] as const;
 export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
 
-/** A proposal of an agent: canvas changes that wait until someone applies or rejects them. */
-export const proposalSchema = z.object({
+export const PROPOSAL_KINDS = ['canvas', 'team'] as const;
+export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
+
+/** A change of the project's team (spec 14): the moderator proposes a specialist. */
+export const teamOperationSchema = z.object({
+  op: z.literal('add_agent'),
+  agentKey: z.enum(AGENT_KEYS),
+  /** Why the agent fits the project, in one line. */
+  reason: z.string().max(200).default(''),
+});
+export type TeamOperation = z.output<typeof teamOperationSchema>;
+
+const proposalFields = {
   id: z.uuid(),
   projectId: z.uuid(),
-  boardId: z.uuid(),
   agentKey: z.enum(AGENT_KEYS),
   status: z.enum(PROPOSAL_STATUSES),
   reason: z.enum(PROPOSAL_REASONS),
-  operations: z.array(canvasOperationSchema),
   /** Titles of the existing elements the operations refer to, as they were when proposed. */
   names: z.record(z.string(), z.string()),
   createdAt: z.string(),
   updatedAt: z.string(),
-});
+};
+
+/**
+ * A proposal of an agent that waits until someone applies or rejects it: canvas changes on a board
+ * (spec 13) or additions to the team (spec 14).
+ */
+export const proposalSchema = z.discriminatedUnion('kind', [
+  z.object({
+    ...proposalFields,
+    kind: z.literal('canvas'),
+    boardId: z.uuid(),
+    operations: z.array(canvasOperationSchema),
+  }),
+  z.object({
+    ...proposalFields,
+    kind: z.literal('team'),
+    boardId: z.null(),
+    operations: z.array(teamOperationSchema),
+  }),
+]);
 export type Proposal = z.output<typeof proposalSchema>;
+export type CanvasProposal = Extract<Proposal, { kind: 'canvas' }>;
+export type TeamProposal = Extract<Proposal, { kind: 'team' }>;

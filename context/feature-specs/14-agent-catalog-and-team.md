@@ -74,10 +74,33 @@ Besides the moderator, a catalog of nine specialists answers in the chat. Every 
 - Packages: none new
 
 ## Checklist
-- [ ] A new project has the moderator only; the moderator proposes fitting specialists, and applying the proposal adds them to the team.
-- [ ] Owners and editors add and remove specialists in the team popover; the moderator stays; viewers only see the team; changes appear live.
-- [ ] Only team agents appear in the `@` menu and answer; each answers in its role and color.
-- [ ] Owners change an agent's model, and the next answer uses it.
-- [ ] The derived looks were checked from screenshots and are listed in `ui-context.md`.
-- [ ] Tests for catalog, team API, mentions, trigger and team proposals pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] A new project has the moderator only; the moderator proposes fitting specialists, and applying the proposal adds them to the team.
+- [x] Owners and editors add and remove specialists in the team popover; the moderator stays; viewers only see the team; changes appear live.
+- [x] Only team agents appear in the `@` menu and answer; each answers in its role and color.
+- [x] Owners change an agent's model, and the next answer uses it.
+- [x] The derived looks were checked from screenshots and are listed in `ui-context.md`.
+- [x] Tests for catalog, team API, mentions, trigger and team proposals pass.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-09-30)
+- **Database:** `project_agents` as planned. A trigger on `projects` adds the moderator to every new project, instead of a change in `create_project`, so every way of creating a project gets it. Rows added by an agent (the moderator's `add_agents`) have no `added_by`; rows added by a person, directly or by applying a team proposal, carry that person.
+- **Catalog** (`apps/server/src/agents/catalog.ts`): the ten definitions are built from one table of names, roles and tools; every prompt is the role file followed by `prompts/common.md`. The moderator's former prompt was split: its role stays in `moderator.md`, the rules for canvas, proposals, language and safety moved to `common.md`. A test checks that every agent's prompt ends with the shared rules.
+- **Agent turn:**
+  - The model comes from the team row, else the catalog default; the effort level (`medium`) now comes from the definition instead of being fixed in the gateway.
+  - The prompt gets a `<team>` section with every team agent's name in both languages and role; the moderator also sees the catalog agents outside the team and whether they are proposed or were rejected before, so it does not propose them again unasked.
+  - A run of an agent that was removed from the team after the mention ends without an answer.
+- **`add_agents`:** runs through the same rule engine as the canvas tools. On an instruction the agents join at once; otherwise all agents of one reply go into one team proposal. Agents that are in the team or in an open proposal already are left out, and the tool result says so.
+- **Intent:** the classifier now also counts a request to put the team together or to add an agent as an instruction. Before, "Bitte hol DevOps ins Team" became a proposal.
+- **Mentions:** the server keeps only mentions of team agents, and the browser does the same for a message that is still on its way. A person's message shows chips for the mentions the server kept; an agent's answer shows chips for the agents of the team it names.
+- **Web:**
+  - The header shows the real team; a click opens the team popover (derived look, listed in `ui-context.md`) with avatar, name, role and model of every agent, removing specialists, and the catalog agents to add. Owners choose the model in a menu; everyone else sees it as text. Changes show at once and are undone with a note if the server refuses.
+  - Avatar letters come from `agentInitials` in the UI language instead of the first letter of the name.
+  - A team proposal under "Wartet auf dich" lists the agents to add, each with the moderator's reason; the line after the decision names the agents and may wrap to a second line.
+  - The roles are short enough for one line in the popover ("Schwachstellen und Risiken" instead of the longer text of the spec's table).
+- **Verified** with `pnpm dev` on a new project:
+  - Told what the project is about, the moderator answered and proposed Product, Security, Backend and Frontend with a reason each; "Übernehmen" put them into the header.
+  - In the popover Backend got Sonnet 5.5 and the critic joined. "@Kritiker @Backend @DevOps" started two runs: the critic answered on Opus 5.5 and Backend on Sonnet 5.5, each in its role; DevOps (not in the team) stayed plain text and did not answer.
+  - "Füge bitte Daten zum Team hinzu" added the agent at once. Removing Frontend and applying a DevOps proposal reached a second tab live.
+  - The first answers named agents in English within German text; the shared rules now ask for the names of the conversation's language, and the next answers used them.
+  - Viewers were covered by the tests of the API and the popover; they were not tried live.
+- **Known limits:** the moderator only proposes a team when it is mentioned; raising a hand on its own comes with the observer (spec 15). Other providers than Anthropic come when the gateway supports them.

@@ -85,9 +85,20 @@ describe('mentions create runs and jobs', () => {
     ]);
   });
 
-  it('other agents do not answer until the agent catalog exists', async () => {
-    const messageId = await postMessage('@Critic, thoughts?', ['critic']);
-    expect(await runsFor(messageId)).toEqual([]);
+  it('only agents of the team answer (spec 14)', async () => {
+    const before = await postMessage('@Critic, thoughts?', ['critic']);
+    expect(await runsFor(before)).toEqual([]);
+
+    await admin.query(`insert into project_agents (project_id, agent_key) values ($1, 'critic')`, [
+      PROJECT,
+    ]);
+    const after = await postMessage('@Critic and @Moderator, thoughts?', ['critic', 'moderator']);
+    const runs = await runsFor(after);
+    expect(runs.map((run) => run.agent_key).sort()).toEqual(['critic', 'moderator']);
+    const critic = runs.find((run) => run.agent_key === 'critic');
+    expect(await jobsFor(critic?.id ?? '')).toEqual([
+      { task_identifier: 'agent_turn', queue_name: `agent:${PROJECT}:critic`, max_attempts: 3 },
+    ]);
   });
 
   it('messages without mentions and agent messages create nothing', async () => {

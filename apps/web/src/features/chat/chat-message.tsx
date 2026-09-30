@@ -16,6 +16,12 @@ const AGENT_NAME_COLOR: Record<AgentKey, string> = {
   backend: 'text-agent-backend-dark',
   critic: 'text-agent-critic-dark',
   data: 'text-agent-data-dark',
+  product: 'text-agent-product-dark',
+  frontend: 'text-agent-frontend-dark',
+  devops: 'text-agent-devops-dark',
+  security: 'text-agent-security-dark',
+  ml: 'text-agent-ml-dark',
+  content: 'text-agent-content-dark',
 };
 
 const AGENT_CARET: Record<AgentKey, string> = {
@@ -23,7 +29,15 @@ const AGENT_CARET: Record<AgentKey, string> = {
   backend: 'bg-agent-backend',
   critic: 'bg-agent-critic',
   data: 'bg-agent-data',
+  product: 'bg-agent-product',
+  frontend: 'bg-agent-frontend',
+  devops: 'bg-agent-devops',
+  security: 'bg-agent-security',
+  ml: 'bg-agent-ml',
+  content: 'bg-agent-content',
 };
+
+const NO_AGENTS: readonly AgentKey[] = [];
 
 type ChatMessageViewProps = {
   item: ChatItem;
@@ -33,6 +47,11 @@ type ChatMessageViewProps = {
   replyToName?: string;
   /** Sends a failed message again. Without it a failed message offers no retry. */
   onRetry?: (id: string) => void;
+  /**
+   * The agents of the team (spec 14). A person's message shows chips for the mentions the server
+   * kept; an agent's answer for the agents of the team it names.
+   */
+  team?: readonly AgentKey[];
 };
 
 /**
@@ -41,7 +60,13 @@ type ChatMessageViewProps = {
  * card. While an agent's answer streams in, the header says it is typing and a caret follows the
  * text. Messages sent from this browser show when they are still on their way or could not be sent.
  */
-export function ChatMessageView({ item, isOwn, replyToName, onRetry }: ChatMessageViewProps) {
+export function ChatMessageView({
+  item,
+  isOwn,
+  replyToName,
+  onRetry,
+  team = NO_AGENTS,
+}: ChatMessageViewProps) {
   const { t, i18n } = useTranslation();
   const id = useId();
   const { author, delivery } = item;
@@ -70,7 +95,7 @@ export function ChatMessageView({ item, isOwn, replyToName, onRetry }: ChatMessa
         kind="agent"
         agent={author.agentKey}
         label={name}
-        initials={name.charAt(0).toUpperCase()}
+        initials={t(`agentInitials.${author.agentKey}`)}
         size={isModerator ? 24 : 28}
         className={isModerator ? undefined : 'text-status'}
       />
@@ -148,7 +173,7 @@ export function ChatMessageView({ item, isOwn, replyToName, onRetry }: ChatMessa
       )}
 
       <p className="text-body leading-[1.55] wrap-break-word text-text-body">
-        <MentionText text={item.content} />
+        <MentionText text={item.content} agents={agent === null ? item.mentions : team} />
         {streamingAgent ? (
           <span
             aria-hidden="true"

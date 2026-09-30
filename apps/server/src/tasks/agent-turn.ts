@@ -7,13 +7,14 @@ import {
   type CanvasNode,
   type CanvasOperation,
   type ChatMessage,
+  type AgentKey,
   type NodeLock,
 } from '@covibes/shared';
 import type { Task } from 'graphile-worker';
 import { sql, type Kysely } from 'kysely';
 import { z } from 'zod';
 
-import { agentDefinition, type AgentDefinition } from '@server/agents/definitions/moderator';
+import { CATALOG, describeName, findAgent, type AgentDefinition } from '@server/agents/catalog';
 import {
   GatewayConfigError,
   GatewayLimitError,
@@ -21,11 +22,13 @@ import {
   type AgentReplyResult,
   type AgentTool,
 } from '@server/ai-gateway';
-import { isAgentKey, loadMessage, selectMessages, toMessage } from '@server/chat/rows';
+import { loadMessage, selectMessages, toMessage } from '@server/chat/rows';
 import type { BoardAccess } from '@server/collab/board-client';
 import { MAX_DELTA_LENGTH, notifyLive } from '@server/realtime/notifications';
 import { classifyIntent } from '@server/rules/intent';
 import { describeOperations, loadOpenProposals, openRunProposal } from '@server/tasks/run-proposal';
+import { loadTeam, teamWriter, type TeamContext } from '@server/tasks/run-team';
+import { addAgentsTool } from '@server/tools/add-agents';
 import { addBlockTool } from '@server/tools/add-block';
 import { addFrameTool } from '@server/tools/add-frame';
 import { addNoteTool } from '@server/tools/add-note';
@@ -162,10 +165,20 @@ export async function runAgentTurn(
     triggerMessageId: row.trigger_message_id,
     replyMessageId: row.reply_message_id,
   };
-  const agent = isAgentKey(row.agent_key) ? agentDefinition(row.agent_key) : undefined;
+  const agent = findAgent(row.agent_key);
   if (!agent) {
     // The trigger only creates runs for agents that can answer; this is a leftover of an old one.
     await settleRun(deps.admin, run, { status: 'error', error: `No agent "${row.agent_key}"` });
+    return;
+  }
+  const team = await loadTeam(deps.admin, run.projectId);
+  const member = team.members.find((entry) => entry.key === agent.key);
+  if (!member) {
+    // Removed from the team after the mention (spec 14): only team agents answer.
+    await settleRun(deps.admin, run, {
+      status: 'error',
+      error: `"${agent.key}" is no longer in the team`,
+    });
     return;
   }
 
@@ -182,7 +195,16 @@ export async function runAgentTurn(
   try {
     const result = await converse(
       deps,
-      { run, agent, projectName: project.name, messageId, proposalsOnly },
+      {
+        run,
+        agent,
+        // The owner's choice for this project, or the catalog default.
+        model: member.model ?? agent.model,
+        team,
+        projectName: project.name,
+        messageId,
+        proposalsOnly,
+      },
       attempt,
     );
     await finishRun(deps.admin, run, messageId, result, NOTES[language].done);
@@ -263,6 +285,8 @@ async function converse(
   turn: {
     run: Run;
     agent: AgentDefinition;
+    model: string;
+    team: TeamContext;
     projectName: string;
     messageId: string;
     proposalsOnly: boolean;
@@ -294,6 +318,10 @@ async function converse(
     ? classifyIntent(deps.complete, conversation.request.content, attempt.signal)
     : Promise.resolve({ intent: 'question' as const, costUsd: 0, inputTokens: 0, outputTokens: 0 });
 
+  const rules = {
+    intent: intent.then((result) => result.intent),
+    proposalsOnly: turn.proposalsOnly,
+  };
   const tools: AgentTool[] = [];
   if (board) {
     const toolOptions: CanvasToolOptions = {
@@ -301,8 +329,7 @@ async function converse(
       boardId: board.id,
       author: { kind: 'agent', agentKey: agent.key },
       rules: {
-        intent: intent.then((result) => result.intent),
-        proposalsOnly: turn.proposalsOnly,
+        ...rules,
         proposal: await openRunProposal(deps.admin, {
           id: run.id,
           projectId: run.projectId,
@@ -316,6 +343,14 @@ async function converse(
       if (create) tools.push(create(toolOptions));
     }
   }
+  if (agent.tools.includes('add_agents')) {
+    const team = teamWriter(deps.admin, {
+      id: run.id,
+      projectId: run.projectId,
+      agentKey: agent.key,
+    });
+    tools.push(addAgentsTool({ team, rules }));
+  }
 
   const deltas = createDeltaStream(deps.flushMs ?? FLUSH_MS, async (text) => {
     try {
@@ -327,10 +362,17 @@ async function converse(
   });
   try {
     const result = await deps.reply({
-      model: agent.model,
+      model: turn.model,
+      effort: agent.effort,
       system: agent.prompt,
       prompt: buildPrompt({
         projectName: turn.projectName,
+        team: {
+          self: agent.key,
+          members: turn.team.members.map((entry) => entry.key),
+          proposed: turn.team.proposed,
+          rejected: turn.team.rejected,
+        },
         ...canvas,
         proposals,
         ...conversation,
@@ -379,12 +421,50 @@ async function loadConversation(admin: Kysely<DB>, run: Run) {
 function authorName(message: ChatMessage): string {
   if (message.author.kind === 'human') return message.author.name || 'Someone';
   const { agentKey } = message.author;
-  return agentDefinition(agentKey)?.name ?? agentKey.charAt(0).toUpperCase() + agentKey.slice(1);
+  return findAgent(agentKey)?.names.en ?? agentKey.charAt(0).toUpperCase() + agentKey.slice(1);
 }
 
 /** Chat text is data: it must not close the sections the prompt is built from. */
 function asData(text: string): string {
-  return text.replace(/<(\/?)(canvas|chat|request)>/gi, '‹$1$2›');
+  return text.replace(/<(\/?)(team|canvas|chat|request)>/gi, '‹$1$2›');
+}
+
+/**
+ * The team of the project (spec 14). An agent that can add agents also sees the catalog agents
+ * outside the team, and what became of earlier proposals.
+ */
+function describeTeam(team: {
+  self: AgentKey;
+  members: readonly AgentKey[];
+  proposed?: readonly AgentKey[];
+  rejected?: readonly AgentKey[];
+}): string {
+  const line = (agent: AgentDefinition, note = '') =>
+    `- ${describeName(agent)}, key ${agent.key}: ${agent.role}${note}`;
+  const lines = [
+    "The agents of this project's team; only they answer when someone mentions them:",
+    ...CATALOG.filter((agent) => team.members.includes(agent.key)).map((agent) =>
+      line(agent, agent.key === team.self ? ' (you)' : ''),
+    ),
+  ];
+  const self = findAgent(team.self);
+  const others = CATALOG.filter((agent) => !team.members.includes(agent.key));
+  if (self?.tools.includes('add_agents') && others.length > 0) {
+    lines.push(
+      'Catalog agents not in the team yet:',
+      ...others.map((agent) =>
+        line(
+          agent,
+          team.proposed?.includes(agent.key)
+            ? ' (proposed, waiting for the team)'
+            : team.rejected?.includes(agent.key)
+              ? ' (the team rejected it before)'
+              : '',
+        ),
+      ),
+    );
+  }
+  return lines.join('\n');
 }
 
 const NODE_NAMES: Record<CanvasNode['type'], string> = {
@@ -458,6 +538,8 @@ function describeCanvas(
  */
 export function buildPrompt(context: {
   projectName: string;
+  /** The team (spec 14); `self` is the agent that answers. */
+  team?: Parameters<typeof describeTeam>[0];
   nodes: readonly CanvasNode[];
   edges?: readonly CanvasEdge[];
   locks?: ReadonlyMap<string, NodeLock>;
@@ -487,6 +569,7 @@ export function buildPrompt(context: {
     : 'The message addressed to you was removed. Answer the latest message in the chat.';
   return [
     `Project: ${asData(context.projectName)}`,
+    ...(context.team ? [`<team>\n${describeTeam(context.team)}\n</team>`] : []),
     `<canvas>\n${asData(canvas)}\n</canvas>`,
     `<chat>\n${asData(chat)}\n</chat>`,
     request,

@@ -20,6 +20,7 @@ import { isAgentKey } from '@server/chat/rows';
 import type { BoardDocuments } from '@server/collab/collab';
 import { withUser, type AppDb } from '@server/db/database';
 import type { LivePublisher } from '@server/realtime/realtime';
+import { readTeamOperations } from '@server/tasks/run-team';
 
 function membership(trx: Transaction<DB>, projectId: string, userId: string) {
   return trx
@@ -33,7 +34,8 @@ function membership(trx: Transaction<DB>, projectId: string, userId: string) {
 type ProposalRow = {
   id: string;
   project_id: string;
-  board_id: string;
+  board_id: string | null;
+  kind: string;
   agent_key: string;
   status: string;
   reason: string;
@@ -48,6 +50,7 @@ function toProposal(row: ProposalRow): Proposal | undefined {
   const parsed = proposalSchema.safeParse({
     id: row.id,
     projectId: row.project_id,
+    kind: row.kind,
     boardId: row.board_id,
     agentKey: row.agent_key,
     status: row.status,
@@ -64,6 +67,7 @@ const PROPOSAL_COLUMNS = [
   'id',
   'project_id',
   'board_id',
+  'kind',
   'agent_key',
   'status',
   'reason',
@@ -73,7 +77,9 @@ const PROPOSAL_COLUMNS = [
   'updated_at',
 ] as const;
 
-type Decision<T> = { ok: true; value: T } | { ok: false; code: ApiErrorCode; detail?: string };
+type Decision<T> =
+  | { ok: true; value: T; projectId: string; team: boolean }
+  | { ok: false; code: ApiErrorCode; detail?: string };
 
 /** Someone edits a node the proposal changes; the decision is rolled back. */
 class BeingEdited extends Error {
@@ -130,7 +136,7 @@ export function proposalRoutes(
   async function decide<T>(
     c: Context<{ Variables: SessionVariables }>,
     status: 'applied' | 'rejected',
-    then: (row: ProposalRow) => Promise<T>,
+    then: (row: ProposalRow, trx: Transaction<DB>) => Promise<T>,
   ): Promise<Decision<T>> {
     const user = c.get('user');
     if (!user) return { ok: false, code: 'unauthorized' };
@@ -158,7 +164,12 @@ export function proposalRoutes(
           .where('status', '=', 'open')
           .executeTakeFirst();
         if (claimed.numUpdatedRows === 0n) return { ok: false, code: 'already_decided' };
-        return { ok: true, value: await then(row) };
+        return {
+          ok: true,
+          value: await then(row, trx),
+          projectId: row.project_id,
+          team: row.kind === 'team',
+        };
       });
       if (outcome.ok) live.publish(ids.projectId, { type: 'proposals' });
       return outcome;
@@ -171,9 +182,27 @@ export function proposalRoutes(
   }
 
   routes.post('/:proposalId/apply', async (c) => {
-    const outcome = await decide(c, 'applied', async (row) => {
+    const user = c.get('user');
+    const outcome = await decide(c, 'applied', async (row, trx) => {
+      // A team proposal (spec 14) adds its agents in the name of the person who applies it.
+      if (row.kind === 'team') {
+        const keys = readTeamOperations(row.operations)
+          .map((operation) => operation.agentKey)
+          .filter((key) => key !== 'moderator');
+        if (keys.length === 0 || !user) return { applied: 0, skipped: 0 };
+        const added = await trx
+          .insertInto('project_agents')
+          .values(
+            keys.map((key) => ({ project_id: row.project_id, agent_key: key, added_by: user.id })),
+          )
+          .onConflict((conflict) => conflict.columns(['project_id', 'agent_key']).doNothing())
+          .returning('agent_key')
+          .execute();
+        return { applied: added.length, skipped: keys.length - added.length };
+      }
       const operations = z.array(canvasOperationSchema).parse(row.operations);
       if (!isAgentKey(row.agent_key)) throw new Error(`Unknown agent ${row.agent_key}`);
+      if (!row.board_id) throw new Error(`Canvas proposal ${row.id} has no board`);
       const author = { kind: 'agent' as const, agentKey: row.agent_key };
       const board = { boardId: row.board_id, projectId: row.project_id };
       return await documents.changeBoard(board, (doc, locks) => {
@@ -186,6 +215,7 @@ export function proposalRoutes(
       });
     });
     if (!outcome.ok) return apiError(c, outcome.code, outcome.detail);
+    if (outcome.team) live.publish(outcome.projectId, { type: 'project' });
     return c.json<ApplyResult>(outcome.value);
   });
 

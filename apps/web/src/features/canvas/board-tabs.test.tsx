@@ -27,7 +27,15 @@ const DATA: ProjectBoard = {
 const BOARDS_URL = `/api/projects/${PROJECT_ID}/boards`;
 
 function details(boards: ProjectBoard[], role: ProjectDetails['role'] = 'owner'): ProjectDetails {
-  return { id: PROJECT_ID, name: 'Covibes', role, members: [], boards, proposalsOnly: false };
+  return {
+    id: PROJECT_ID,
+    name: 'Covibes',
+    role,
+    members: [],
+    boards,
+    proposalsOnly: false,
+    agents: [{ key: 'moderator', model: null }],
+  };
 }
 
 /** The tabs as the workspace shows them: from the cached project, the open board in state. */

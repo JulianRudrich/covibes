@@ -1,4 +1,13 @@
-export { AGENT_KEYS, AGENT_MENTION_NAMES, type AgentKey } from './agents/keys';
+export {
+  AGENT_KEYS,
+  AGENT_MENTION_NAMES,
+  AGENT_MODELS,
+  DEFAULT_AGENT_MODEL,
+  isAgentKey,
+  isAgentModel,
+  type AgentKey,
+  type AgentModel,
+} from './agents/keys';
 export {
   parseMentions,
   splitMentions,
@@ -104,12 +113,18 @@ export {
   type CanvasOperationInput,
 } from './canvas/operations';
 export {
+  PROPOSAL_KINDS,
   PROPOSAL_REASONS,
   PROPOSAL_STATUSES,
   proposalSchema,
+  teamOperationSchema,
+  type CanvasProposal,
   type Proposal,
+  type ProposalKind,
   type ProposalReason,
   type ProposalStatus,
+  type TeamOperation,
+  type TeamProposal,
 } from './proposals';
 export { APP_NAME, COLLAB_PATH, LIVE_PATH } from './constants';
 export { defineEnv, EnvValidationError } from './env';
@@ -133,6 +148,7 @@ export {
 } from './messages';
 export { PHASES, phaseStatuses, type Phase, type PhaseStatus } from './phases';
 export {
+  addProjectAgentInputSchema,
   BOARD_TITLE_MAX_LENGTH,
   boardIdSchema,
   boardTitleSchema,
@@ -146,14 +162,18 @@ export {
   projectNameSchema,
   projectSettingsSchema,
   renameBoardInputSchema,
+  updateProjectAgentInputSchema,
   updateProjectInputSchema,
+  type AddProjectAgentInput,
   type CreateBoardInput,
   type CreateProjectInput,
+  type ProjectAgent,
   type ProjectBoard,
   type ProjectDetails,
   type ProjectMember,
   type ProjectRole,
   type ProjectSummary,
   type RenameBoardInput,
+  type UpdateProjectAgentInput,
   type UpdateProjectInput,
 } from './projects';

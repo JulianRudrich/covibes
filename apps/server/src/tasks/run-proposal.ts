@@ -39,6 +39,7 @@ export async function openRunProposal(
     .selectFrom('proposals')
     .select(['id', 'operations', 'names'])
     .where('run_id', '=', run.id)
+    .where('kind', '=', 'canvas')
     .where('status', '=', 'open')
     .executeTakeFirst();
   const operations: CanvasOperationInput[] = existing ? readOperations(existing.operations) : [];
@@ -75,6 +76,7 @@ export async function openRunProposal(
           project_id: run.projectId,
           board_id: run.boardId,
           run_id: run.id,
+          kind: 'canvas',
           agent_key: run.agentKey,
           reason,
           operations: JSON.stringify(added),
@@ -100,12 +102,13 @@ export async function openRunProposal(
   };
 }
 
-/** The open proposals of a project, for the agents' context. */
+/** The open canvas proposals of a project, for the agents' context. */
 export async function loadOpenProposals(admin: Kysely<DB>, projectId: string) {
   const rows = await admin
     .selectFrom('proposals')
     .select(['id', 'agent_key', 'operations'])
     .where('project_id', '=', projectId)
+    .where('kind', '=', 'canvas')
     .where('status', '=', 'open')
     .orderBy('created_at')
     .execute();

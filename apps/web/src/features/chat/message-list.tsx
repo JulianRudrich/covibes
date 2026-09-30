@@ -1,3 +1,4 @@
+import type { AgentKey } from '@covibes/shared';
 import { Fragment, useLayoutEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -11,6 +12,8 @@ const STICK_THRESHOLD_PX = 48;
 type MessageListProps = {
   items: readonly ChatItem[];
   currentUserId: string;
+  /** The agents of the team, whose mentions in agent answers are shown as chips. */
+  team: readonly AgentKey[];
   onRetry: (id: string) => void;
 };
 
@@ -28,7 +31,7 @@ function DayDivider({ label }: { label: string }) {
  * The chat history with a divider per day ("Today" or the date). It follows new messages as long
  * as the reader is at the bottom; after scrolling up it stays put, except for own new messages.
  */
-export function MessageList({ items, currentUserId, onRetry }: MessageListProps) {
+export function MessageList({ items, currentUserId, team, onRetry }: MessageListProps) {
   const { t, i18n } = useTranslation();
   const scroller = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
@@ -92,6 +95,7 @@ export function MessageList({ items, currentUserId, onRetry }: MessageListProps)
                   item={item}
                   isOwn={isOwn}
                   replyToName={replyToName}
+                  team={team}
                   onRetry={onRetry}
                 />
               </li>

@@ -6,6 +6,12 @@ export const AGENT_TONE: Readonly<Record<AgentKey, string>> = {
   backend: 'bg-agent-backend-tint text-agent-backend-dark',
   critic: 'bg-agent-critic-tint text-agent-critic-dark',
   data: 'bg-agent-data-tint text-agent-data-dark',
+  product: 'bg-agent-product-tint text-agent-product-dark',
+  frontend: 'bg-agent-frontend-tint text-agent-frontend-dark',
+  devops: 'bg-agent-devops-tint text-agent-devops-dark',
+  security: 'bg-agent-security-tint text-agent-security-dark',
+  ml: 'bg-agent-ml-tint text-agent-ml-dark',
+  content: 'bg-agent-content-tint text-agent-content-dark',
 };
 
 /**

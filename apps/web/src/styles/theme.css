@@ -80,6 +80,31 @@
   --color-agent-data-dark: #6532a8;
   --color-agent-data-tint: #f3ecfc;
   --color-agent-data-border: #dccaf5;
+  /* Derived for the catalog of spec 14 in the same system; spec 36 revisits them. */
+  --color-agent-product: #c2185b;
+  --color-agent-product-dark: #8e1244;
+  --color-agent-product-tint: #fce4ee;
+  --color-agent-product-border: #f5c6d9;
+  --color-agent-frontend: #a02d95;
+  --color-agent-frontend-dark: #7a2072;
+  --color-agent-frontend-tint: #f7e6f5;
+  --color-agent-frontend-border: #e9c6e4;
+  --color-agent-devops: #9a5a00;
+  --color-agent-devops-dark: #6f4100;
+  --color-agent-devops-tint: #fbefdc;
+  --color-agent-devops-border: #efd3a6;
+  --color-agent-security: #4a5b7c;
+  --color-agent-security-dark: #34415a;
+  --color-agent-security-tint: #e9edf4;
+  --color-agent-security-border: #cbd3e2;
+  --color-agent-ml: #5046c8;
+  --color-agent-ml-dark: #3a3196;
+  --color-agent-ml-tint: #ecebfb;
+  --color-agent-ml-border: #cfcbf3;
+  --color-agent-content: #5d7a0f;
+  --color-agent-content-dark: #43590a;
+  --color-agent-content-tint: #eef4dc;
+  --color-agent-content-border: #d3e2a8;
 
   /* Aliases for components added later via the shadcn CLI. */
   --color-background: var(--color-bg-panel);

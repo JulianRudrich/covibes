@@ -1,4 +1,4 @@
-import type { Proposal } from '@covibes/shared';
+import type { AgentKey, Proposal } from '@covibes/shared';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { proposalSummary } from '@web/features/proposals/summary';
@@ -13,7 +13,13 @@ export function decidedQueryKey(projectId: string) {
   return ['projects', projectId, 'proposals', 'decided'] as const;
 }
 
-export type DecidedProposal = { id: string; name: string; status: 'applied' | 'rejected' };
+/** `name` is what a canvas proposal is about; a team proposal (spec 14) names its agents. */
+export type DecidedProposal = {
+  id: string;
+  name: string;
+  agents?: AgentKey[];
+  status: 'applied' | 'rejected';
+};
 
 /**
  * The open proposals of a project (spec 13). The live channel reloads them when an agent proposes
@@ -73,7 +79,9 @@ export function useProposalDecisions(
         ...decided,
         {
           id: proposal.id,
-          name: proposalSummary(proposal).name,
+          ...(proposal.kind === 'team'
+            ? { name: '', agents: proposal.operations.map((operation) => operation.agentKey) }
+            : { name: proposalSummary(proposal).name }),
           status: decision === 'apply' ? 'applied' : 'rejected',
         },
       ]);

@@ -1,3 +1,4 @@
+import { AGENT_MODELS } from '@covibes/shared';
 import { describe, expect, it } from 'vitest';
 
 import { estimateCostUsd, resolveModel } from '@server/ai-gateway/registry';
@@ -20,6 +21,14 @@ describe('resolveModel', () => {
       prices: { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 },
       effort: false,
     });
+  });
+
+  it('knows Claude Sonnet 5.5 and every model an owner can choose (spec 14)', () => {
+    expect(resolveModel('claude-sonnet-5-5')).toMatchObject({
+      prices: { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
+      effort: true,
+    });
+    for (const model of AGENT_MODELS) expect(resolveModel(model).id).toBe(model);
   });
 
   it('rejects an unknown model as a configuration error', () => {

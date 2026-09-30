@@ -1,4 +1,4 @@
-import type { CanvasOperation, Proposal } from '@covibes/shared';
+import type { CanvasOperation, CanvasProposal } from '@covibes/shared';
 
 /** One change of a proposal in words: an i18n key under `proposals.summary` and its values. */
 export type OperationSummary = {
@@ -7,7 +7,7 @@ export type OperationSummary = {
 };
 
 /** Names of elements: the ones a proposal adds, and the existing ones it stored. */
-function namesOf(proposal: Proposal): Map<string, string> {
+function namesOf(proposal: CanvasProposal): Map<string, string> {
   const names = new Map(Object.entries(proposal.names));
   for (const operation of proposal.operations) {
     if (operation.op === 'add_block') names.set(operation.block.id, operation.block.label);
@@ -48,7 +48,7 @@ export function summarizeOperation(
  * (the first new block, else the first change), how many more there are, and the name of what it
  * is about, for "… übernommen".
  */
-export function proposalSummary(proposal: Proposal): {
+export function proposalSummary(proposal: CanvasProposal): {
   main: OperationSummary;
   more: number;
   name: string;

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { AGENT_KEYS, AGENT_MODELS, type AgentKey, type AgentModel } from './agents/keys';
+
 /** Same limits as the check constraint on `projects.name` (packages/db/migrations). */
 export const PROJECT_NAME_MAX_LENGTH = 120;
 
@@ -60,6 +62,17 @@ export function nextBoardTitle(titles: readonly string[]): string {
   return `Board ${String(number)}`;
 }
 
+/** An agent of the project's team (spec 14); `model` null is the catalog default. */
+export type ProjectAgent = { key: AgentKey; model: AgentModel | null };
+
+/** `POST /api/projects/:projectId/agents`: owners and editors add a catalog agent. */
+export const addProjectAgentInputSchema = z.object({ agentKey: z.enum(AGENT_KEYS) });
+export type AddProjectAgentInput = z.infer<typeof addProjectAgentInputSchema>;
+
+/** `PATCH /api/projects/:projectId/agents/:agentKey`: owners choose the model; null resets it. */
+export const updateProjectAgentInputSchema = z.object({ model: z.enum(AGENT_MODELS).nullable() });
+export type UpdateProjectAgentInput = z.infer<typeof updateProjectAgentInputSchema>;
+
 /** `GET /api/projects/:projectId`. */
 export type ProjectDetails = {
   id: string;
@@ -70,4 +83,6 @@ export type ProjectDetails = {
   boards: ProjectBoard[];
   /** Even instructions to agents arrive as proposals first (spec 13). */
   proposalsOnly: boolean;
+  /** The project's team in catalog order, the moderator first (spec 14). */
+  agents: ProjectAgent[];
 };

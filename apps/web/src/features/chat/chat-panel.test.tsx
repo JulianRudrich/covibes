@@ -1,4 +1,4 @@
-import type { AiRun, ChatMessage, LiveEvent } from '@covibes/shared';
+import { parseMentions, type AiRun, type ChatMessage, type LiveEvent } from '@covibes/shared';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -18,7 +18,8 @@ function message(overrides: Partial<ChatMessage> & Pick<ChatMessage, 'id' | 'con
   return {
     projectId: PROJECT_ID,
     author: { kind: 'human', userId: '22222222-2222-4222-8222-222222222222', name: 'Alex Berg' },
-    mentions: [],
+    // All agents of these tests are in the team, so the server keeps every mention.
+    mentions: parseMentions(overrides.content),
     replyTo: null,
     status: 'complete',
     createdAt: now,
@@ -75,7 +76,12 @@ function renderPanel(readOnly = false) {
   render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <ChatPanel projectId={PROJECT_ID} user={OLGA} readOnly={readOnly} />
+        <ChatPanel
+          projectId={PROJECT_ID}
+          user={OLGA}
+          readOnly={readOnly}
+          team={['moderator', 'backend', 'critic', 'data']}
+        />
       </TooltipProvider>
     </QueryClientProvider>,
   );

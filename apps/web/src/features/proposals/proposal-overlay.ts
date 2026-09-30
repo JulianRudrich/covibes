@@ -55,7 +55,8 @@ export function proposalOverlay(
 ): ProposalOverlay {
   const overlay: ProposalOverlay = { elements: [], arrows: [], changed: new Map() };
   for (const proposal of proposals) {
-    if (proposal.boardId !== boardId) continue;
+    // Team proposals (spec 14) change no board.
+    if (proposal.kind !== 'canvas' || proposal.boardId !== boardId) continue;
     const own = new Map<string, GhostElement>();
     const base = { proposalId: proposal.id, agentKey: proposal.agentKey, anchor: false };
 

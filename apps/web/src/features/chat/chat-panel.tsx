@@ -1,3 +1,4 @@
+import type { AgentKey } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
@@ -14,6 +15,8 @@ type ChatPanelProps = {
   user: { id: string; name: string };
   /** Viewers read along but cannot write. */
   readOnly: boolean;
+  /** The agents of the team (spec 14): only they can be mentioned. */
+  team: readonly AgentKey[];
 };
 
 /**
@@ -21,11 +24,11 @@ type ChatPanelProps = {
  * streaming agent answers, the status pill of the agent runs and the composer. The live updates
  * arrive through the project's live channel (`useProjectLive`), which writes them into the cache.
  */
-export function ChatPanel({ projectId, user, readOnly }: ChatPanelProps) {
+export function ChatPanel({ projectId, user, readOnly, team }: ChatPanelProps) {
   const { t } = useTranslation();
   const messages = useQuery(messagesQuery(projectId));
   const runs = useQuery(runsQuery(projectId));
-  const { send, retry } = useSendMessage(projectId, { userId: user.id, name: user.name });
+  const { send, retry } = useSendMessage(projectId, { userId: user.id, name: user.name }, team);
 
   return (
     <>
@@ -44,7 +47,7 @@ export function ChatPanel({ projectId, user, readOnly }: ChatPanelProps) {
             {t('chat.loadError')}
           </p>
         ) : (
-          <MessageList items={messages.data} currentUserId={user.id} onRetry={retry} />
+          <MessageList items={messages.data} currentUserId={user.id} team={team} onRetry={retry} />
         )}
 
         <div className="px-4 pt-3 pb-4">
@@ -54,6 +57,7 @@ export function ChatPanel({ projectId, user, readOnly }: ChatPanelProps) {
             </p>
           ) : (
             <Composer
+              agents={team}
               onSend={(content) => {
                 send(content);
               }}

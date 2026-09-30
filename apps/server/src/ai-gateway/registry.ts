@@ -18,13 +18,20 @@ export type ModelInfo = {
   effort: boolean;
 };
 
-// Prices from https://platform.claude.com/docs/en/about-claude/pricing, checked on 2026-09-29.
+// Prices from https://platform.claude.com/docs/en/about-claude/pricing, checked on 2026-09-30.
 // They only price a run when the provider reports no cost of its own.
 const MODELS: readonly ModelInfo[] = [
   {
     id: 'claude-opus-5-5',
     provider: 'anthropic',
     prices: { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
+    effort: true,
+  },
+  // An owner's choice for agents (spec 14).
+  {
+    id: 'claude-sonnet-5-5',
+    provider: 'anthropic',
+    prices: { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
     effort: true,
   },
   // Small and fast, for short classifications such as the intent of a message (spec 13).

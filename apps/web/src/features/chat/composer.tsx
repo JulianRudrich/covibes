@@ -1,4 +1,4 @@
-import { AGENT_KEYS, MESSAGE_MAX_LENGTH } from '@covibes/shared';
+import { MESSAGE_MAX_LENGTH, type AgentKey } from '@covibes/shared';
 import { ArrowUp, AtSign, Paperclip } from 'lucide-react';
 import {
   useId,
@@ -22,6 +22,8 @@ import { IconButton } from '@web/components/ui/icon-button';
 import { Tooltip } from '@web/components/ui/tooltip';
 
 type ComposerProps = {
+  /** The agents the `@` menu offers: the project's team (spec 14). */
+  agents: readonly AgentKey[];
   /** Receives the trimmed text; empty and whitespace-only messages never arrive here. */
   onSend: (content: string) => void;
   disabled?: boolean;
@@ -36,9 +38,9 @@ function isComposing(event: KeyboardEvent<HTMLTextAreaElement>) {
 
 /**
  * Message input of the chat. Enter sends, Shift+Enter breaks the line, the field grows up to about
- * six lines. "@" offers the known agents until the agent menu of spec 14 exists.
+ * six lines. "@" offers the agents of the team.
  */
-export function Composer({ onSend, disabled = false }: ComposerProps) {
+export function Composer({ agents, onSend, disabled = false }: ComposerProps) {
   const { t } = useTranslation();
   const hintId = useId();
   const [draft, setDraft] = useState('');
@@ -125,7 +127,7 @@ export function Composer({ onSend, disabled = false }: ComposerProps) {
             </IconButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            {AGENT_KEYS.map((agent) => {
+            {agents.map((agent) => {
               const name = t(`agents.${agent}`);
               return (
                 <DropdownMenuItem
@@ -141,7 +143,7 @@ export function Composer({ onSend, disabled = false }: ComposerProps) {
                       agent={agent}
                       size={24}
                       label={name}
-                      initials={name.charAt(0).toUpperCase()}
+                      initials={t(`agentInitials.${agent}`)}
                     />
                   </span>
                   {name}

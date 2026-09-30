@@ -170,7 +170,12 @@ describe('ChatMessageView', () => {
   it('renders chips only for mentions of known agents, in the agent colors', () => {
     const content =
       '@Backend, passt das? @Kritiker und @moderator, @Sam schaut auch. Mail: sam@data.dev';
-    render(<ChatMessageView item={human({ content })} isOwn={false} />);
+    render(
+      <ChatMessageView
+        item={human({ content, mentions: ['backend', 'critic', 'moderator'] })}
+        isOwn={false}
+      />,
+    );
     const text = messageText(screen.getByRole('article'));
 
     const chips = Array.from(text.querySelectorAll('span.rounded-xs'));
@@ -194,9 +199,40 @@ describe('ChatMessageView', () => {
     expect(text).toHaveTextContent(content);
   });
 
+  it('shows no chip for an agent that the server did not keep, e.g. one outside the team', () => {
+    const content = '@Sicherheit und @Moderator, was meint ihr?';
+    render(<ChatMessageView item={human({ content, mentions: ['moderator'] })} isOwn={false} />);
+    const text = messageText(screen.getByRole('article'));
+
+    const chips = Array.from(text.querySelectorAll('span.rounded-xs'));
+    expect(chips.map((chip) => chip.textContent)).toEqual(['@Moderator']);
+    expect(text).toHaveTextContent(content);
+  });
+
+  it('shows chips in agent answers for the agents of the team', () => {
+    render(
+      <ChatMessageView
+        item={{ ...agentMessage('moderator'), content: 'Fragt @Backend oder @Sicherheit.' }}
+        isOwn={false}
+        team={['moderator', 'backend']}
+      />,
+    );
+    const text = messageText(screen.getByRole('article'));
+
+    const chips = Array.from(text.querySelectorAll('span.rounded-xs'));
+    expect(chips.map((chip) => chip.textContent)).toEqual(['@Backend']);
+  });
+
+  it('shows the avatar letters of the catalog agents', () => {
+    render(<ChatMessageView item={agentMessage('ml')} isOwn={false} />);
+    // The name is right next to it, so the avatar itself is hidden from screen readers.
+    const avatar = screen.getByRole('article').querySelector('.bg-agent-ml');
+    expect(avatar).toHaveTextContent('ML');
+  });
+
   it('keeps line breaks and lets long words wrap', () => {
     const content = 'Erste Zeile\nZweite Zeile\n\n@Daten, dritte Zeile';
-    render(<ChatMessageView item={human({ content })} isOwn={false} />);
+    render(<ChatMessageView item={human({ content, mentions: ['data'] })} isOwn={false} />);
     const text = messageText(screen.getByRole('article'));
 
     expect(text).toHaveTextContent(content, { normalizeWhitespace: false });
@@ -268,7 +304,9 @@ describe('ChatMessageView', () => {
 
 describe('MentionText', () => {
   it('keeps the text unchanged when nothing is mentioned', () => {
-    const { container } = render(<MentionText text={'Zeile eins\n  eingerückt'} />);
+    const { container } = render(
+      <MentionText text={'Zeile eins\n  eingerückt'} agents={['moderator']} />,
+    );
     const wrapper = container.firstElementChild;
 
     expect(wrapper).toHaveClass('whitespace-pre-wrap');

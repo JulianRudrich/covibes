@@ -142,7 +142,9 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - knowledge and tools: `knowledge` (file and link references), `tools` (allowed tools)
   - model: `provider`, `model`, `effort`
   - visibility: `scope` (catalog, personal or project)
-- **Moderator:** a catalog agent with additional rights. It asks for criteria, records decisions, brings in specialists and leads debates.
+- **Catalog (spec 14):** the moderator and nine specialists, defined in `apps/server/src/agents/catalog.ts`. Every agent's instructions are its role file followed by `prompts/common.md` with the rules all agents share (canvas, proposals, language, safety), so no role can drop them.
+- **Team per project** (`project_agents`): a new project starts with the moderator, which cannot be removed. Owners and editors add and remove specialists, owners choose each agent's model (Opus 5.5 by default). Only agents of the team answer a mention.
+- **Moderator:** a catalog agent with additional rights. It asks for criteria, records decisions, brings in specialists (`add_agents`, through the rule engine) and leads debates.
 - **Intent:** at the start of every run the agent runner determines the intent of the triggering message: instruction or question. A small model with fixed instructions classifies it next to the agent's reply; if it fails, the message counts as a question. It passes the intent to the rule engine. Observer runs always count as own initiative.
 - **Observer job:** it reads the new messages since its last run and decides to:
   - offer help, on consensus or when the team is stuck
@@ -241,7 +243,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | Models | Route | When |
 |---|---|---|
 | Claude (default for agents: Claude Opus 5.5) | Claude Agent SDK: during local development with the owner's Claude subscription, with an API key as soon as other people use Covibes | spec 07 |
-| Gemini, GPT, Mistral | their own APIs through the same registry | with the agent catalog (spec 14) or later |
+| Gemini, GPT, Mistral | their own APIs through the same registry | once a second provider is needed; the catalog of spec 14 uses Claude only |
 
 The owner decided on 2026-09-29: **no EU-only rule.** Covibes aims at international users, so providers are chosen by quality, features and reach. What stays:
 - a data processing agreement with every provider and no training on customer data
@@ -312,5 +314,5 @@ Claude brings web search and web fetch as tools. Providers added later get equiv
 - hosting for the public launch (spec 35)
 - library for the PDF export
 - the route for GPT, Gemini and Mistral once a second provider is needed
-- default models per catalog agent, after the evals
+- default models per catalog agent after the evals; until then Claude Opus 5.5 for all (owner decision, 2026-09-30)
 - provider for web search (spec 20) and for sending email in production

@@ -372,8 +372,10 @@ function Board({
       },
       authorOf: (elementAuthor) => {
         if (elementAuthor.kind === 'agent') {
-          const name = t(`agents.${elementAuthor.agentKey}`);
-          return { name, initials: name.charAt(0).toUpperCase() };
+          return {
+            name: t(`agents.${elementAuthor.agentKey}`),
+            initials: t(`agentInitials.${elementAuthor.agentKey}`),
+          };
         }
         if (elementAuthor.userId === user.id) {
           return { name: t('common.you'), initials: t('common.you') };

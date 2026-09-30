@@ -43,6 +43,8 @@ export type AgentReplyRequest = {
   model: string;
   /** Stable instructions (agent prompt); kept first so prompt caching applies. */
   system: string;
+  /** How much the model thinks, for models that take an effort level; medium by default. */
+  effort?: 'low' | 'medium' | 'high';
   /** The conversation and context for this turn, as one text. */
   prompt: string;
   tools: readonly AgentTool[];

@@ -10,6 +10,7 @@ import {
 import { Hono } from 'hono';
 import { sql, type Transaction } from 'kysely';
 
+import { loadProjectAgents } from '@server/api/agents';
 import { apiError } from '@server/api/errors';
 import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
@@ -96,6 +97,7 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
         .orderBy('position')
         .orderBy('created_at')
         .execute();
+      const agents = await loadProjectAgents(trx, projectId.data);
       return {
         id: project.id,
         name: project.name,
@@ -107,6 +109,7 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
           kind: board.kind === 'main' ? ('main' as const) : ('extra' as const),
         })),
         proposalsOnly: settings.success && settings.data.proposalsOnly === true,
+        agents,
       };
     });
     if (!details) return apiError(c, 'not_found');

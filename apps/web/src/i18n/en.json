@@ -93,9 +93,58 @@
   },
   "agents": {
     "moderator": "Moderator",
-    "backend": "Backend",
     "critic": "Critic",
-    "data": "Data"
+    "product": "Product",
+    "frontend": "Frontend",
+    "backend": "Backend",
+    "data": "Data",
+    "devops": "DevOps",
+    "security": "Security",
+    "ml": "ML",
+    "content": "Content"
+  },
+  "agentRoles": {
+    "moderator": "Neutral moderation",
+    "critic": "Weak points and risks",
+    "product": "Users, scope, priorities",
+    "frontend": "Frontend and UX",
+    "backend": "Backend and APIs",
+    "data": "Data and databases",
+    "devops": "Infrastructure and operations",
+    "security": "Security and privacy",
+    "ml": "Machine learning and models",
+    "content": "Content and SEO"
+  },
+  "agentInitials": {
+    "moderator": "M",
+    "critic": "C",
+    "product": "P",
+    "frontend": "F",
+    "backend": "B",
+    "data": "D",
+    "devops": "O",
+    "security": "S",
+    "ml": "ML",
+    "content": "CS"
+  },
+  "team": {
+    "open": "Team: {{names}}",
+    "title": "Team",
+    "hint": "Only agents in the team answer to @.",
+    "remove": "Remove",
+    "removeAgent": "Remove {{name}} from the team",
+    "add": "Add agent",
+    "addAgent": "Add {{name}}",
+    "allAdded": "All agents of the catalog are in the team.",
+    "model": "Model",
+    "modelOf": "Model of {{name}}: {{model}}",
+    "defaultModel": "{{model}} (default)",
+    "models": {
+      "claude-opus-5-5": "Opus 5.5",
+      "claude-sonnet-5-5": "Sonnet 5.5",
+      "claude-haiku-4-5-20251001": "Haiku 4.5"
+    },
+    "failed": "The team could not be changed. Please try again."
   },
   "panels": {
     "chat": "Chat",
@@ -214,7 +263,8 @@
       "addEdge": "Arrow <b>{{from}}</b> → <b>{{to}}</b>",
       "updateNode": "Change <b>{{name}}</b>",
       "arrangeFrame": "Arrange <b>{{name}}</b>",
-      "move": "Move elements"
+      "move": "Move elements",
+      "team": "Add to the team"
     },
     "more_one": "+ 1 more change",
     "more_other": "+ {{count}} more changes",

@@ -153,6 +153,14 @@ export interface Messages {
   updated_at: Generated<Timestamp>;
 }
 
+export interface ProjectAgents {
+  added_by: string | null;
+  agent_key: string;
+  created_at: Generated<Timestamp>;
+  model: string | null;
+  project_id: string;
+}
+
 export interface ProjectMembers {
   can_approve_git: Generated<boolean>;
   created_at: Generated<Timestamp>;
@@ -173,7 +181,7 @@ export interface Projects {
 
 export interface Proposals {
   agent_key: string;
-  board_id: string;
+  board_id: string | null;
   created_at: Generated<Timestamp>;
   decided_at: Timestamp | null;
   decided_by: string | null;
@@ -236,6 +244,7 @@ export interface DB {
   'graphile_worker.jobs': GraphileWorkerJobs;
   'graphile_worker.migrations': GraphileWorkerMigrations;
   messages: Messages;
+  project_agents: ProjectAgents;
   project_members: ProjectMembers;
   projects: Projects;
   proposals: Proposals;

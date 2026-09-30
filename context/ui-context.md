@@ -106,6 +106,31 @@ In `apps/web` the tokens are a Tailwind v4 theme in `apps/web/src/styles/theme.c
   --color-agent-data-dark: #6532A8;
   --color-agent-data-tint: #F3ECFC;
   --color-agent-data-border: #DCCAF5;
+  /* Derived in spec 14 for the remaining catalog agents, same system; spec 36 revisits them. */
+  --color-agent-product: #C2185B;
+  --color-agent-product-dark: #8E1244;
+  --color-agent-product-tint: #FCE4EE;
+  --color-agent-product-border: #F5C6D9;
+  --color-agent-frontend: #A02D95;
+  --color-agent-frontend-dark: #7A2072;
+  --color-agent-frontend-tint: #F7E6F5;
+  --color-agent-frontend-border: #E9C6E4;
+  --color-agent-devops: #9A5A00;
+  --color-agent-devops-dark: #6F4100;
+  --color-agent-devops-tint: #FBEFDC;
+  --color-agent-devops-border: #EFD3A6;
+  --color-agent-security: #4A5B7C;
+  --color-agent-security-dark: #34415A;
+  --color-agent-security-tint: #E9EDF4;
+  --color-agent-security-border: #CBD3E2;
+  --color-agent-ml: #5046C8;
+  --color-agent-ml-dark: #3A3196;
+  --color-agent-ml-tint: #ECEBFB;
+  --color-agent-ml-border: #CFCBF3;
+  --color-agent-content: #5D7A0F;
+  --color-agent-content-dark: #43590A;
+  --color-agent-content-tint: #EEF4DC;
+  --color-agent-content-border: #D3E2A8;
 
   /* Fonts (served locally via @fontsource-variable, never from Google Fonts) */
   --font-sans: "Geist Variable", "Geist", system-ui, sans-serif;

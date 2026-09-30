@@ -1,6 +1,7 @@
 import {
   parseMentions,
   sendMessageInputSchema,
+  type AgentKey,
   type ChatMessage,
   type SendMessageInput,
 } from '@covibes/shared';
@@ -40,7 +41,12 @@ async function post(queryClient: QueryClient, projectId: string, input: SendMess
  * several messages can be on their way at once. The id is created here, so sending again after an
  * error cannot store the message twice.
  */
-export function useSendMessage(projectId: string, author: { userId: string; name: string }) {
+export function useSendMessage(
+  projectId: string,
+  author: { userId: string; name: string },
+  /** The agents of the team; like the server, only their mentions count (spec 14). */
+  team: readonly AgentKey[],
+) {
   const queryClient = useQueryClient();
   const { userId, name } = author;
 
@@ -64,7 +70,7 @@ export function useSendMessage(projectId: string, author: { userId: string; name
         projectId,
         author: { kind: 'human', userId, name },
         content,
-        mentions: parseMentions(content),
+        mentions: parseMentions(content).filter((key) => team.includes(key)),
         replyTo: null,
         status: 'complete',
         createdAt: now,
@@ -75,7 +81,7 @@ export function useSendMessage(projectId: string, author: { userId: string; name
       void post(queryClient, projectId, { id, content });
       return true;
     },
-    [queryClient, projectId, userId, name],
+    [queryClient, projectId, userId, name, team],
   );
 
   /** Sends a failed message again with the same id; does nothing for any other message. */

@@ -4,7 +4,7 @@ import { run } from 'graphile-worker';
 import { Kysely, PostgresDialect } from 'kysely';
 import pg from 'pg';
 
-import { MODERATOR } from '@server/agents/definitions/moderator';
+import { MODERATOR } from '@server/agents/catalog';
 import {
   checkClaudeAccess,
   completeText,

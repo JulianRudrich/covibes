@@ -259,6 +259,89 @@ describe('proposals', () => {
   });
 });
 
+describe('team proposals', () => {
+  async function proposeTeam(projectId: string, agentKeys: string[]) {
+    const row = await test.db.admin
+      .insertInto('proposals')
+      .values({
+        project_id: projectId,
+        board_id: null,
+        kind: 'team',
+        agent_key: 'moderator',
+        reason: 'initiative',
+        operations: JSON.stringify(
+          agentKeys.map((agentKey) => ({ op: 'add_agent', agentKey, reason: 'Passt.' })),
+        ),
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    return row.id;
+  }
+
+  it('are listed with their kind and without a board', async () => {
+    const owner = await test.signIn();
+    const { projectId } = await createProject(owner);
+    const id = await proposeTeam(projectId, ['critic']);
+
+    const listed = (await (
+      await request(`/api/projects/${projectId}/proposals`, owner)
+    ).json()) as Proposal[];
+    expect(listed).toEqual([
+      expect.objectContaining({
+        id,
+        kind: 'team',
+        boardId: null,
+        agentKey: 'moderator',
+        operations: [{ op: 'add_agent', agentKey: 'critic', reason: 'Passt.' }],
+      }),
+    ]);
+  });
+
+  it('add their agents to the team when applied, and everyone hears of it', async () => {
+    const owner = await test.signIn();
+    const editor = await test.signIn();
+    const { projectId } = await createProject(owner);
+    await addMember(projectId, editor, 'editor');
+    await test.db.admin
+      .insertInto('project_agents')
+      .values({ project_id: projectId, agent_key: 'security' })
+      .execute();
+    const id = await proposeTeam(projectId, ['critic', 'security']);
+    const publish = vi.spyOn(test.realtime, 'publish');
+
+    const applied = await request(`/api/projects/${projectId}/proposals/${id}/apply`, editor, {
+      method: 'POST',
+    });
+
+    expect(applied.status).toBe(200);
+    expect((await applied.json()) as ApplyResult).toEqual({ applied: 1, skipped: 1 });
+    const details = (await (
+      await request(`/api/projects/${projectId}`, owner)
+    ).json()) as ProjectDetails;
+    expect(details.agents.map((agent) => agent.key)).toEqual(['moderator', 'critic', 'security']);
+    expect(await proposalRow(id)).toMatchObject({ status: 'applied' });
+    expect(publish).toHaveBeenCalledWith(projectId, { type: 'proposals' });
+    expect(publish).toHaveBeenCalledWith(projectId, { type: 'project' });
+    publish.mockRestore();
+  });
+
+  it('change nothing when rejected', async () => {
+    const owner = await test.signIn();
+    const { projectId } = await createProject(owner);
+    const id = await proposeTeam(projectId, ['critic']);
+
+    const rejected = await request(`/api/projects/${projectId}/proposals/${id}/reject`, owner, {
+      method: 'POST',
+    });
+
+    expect(rejected.status).toBe(204);
+    const details = (await (
+      await request(`/api/projects/${projectId}`, owner)
+    ).json()) as ProjectDetails;
+    expect(details.agents.map((agent) => agent.key)).toEqual(['moderator']);
+  });
+});
+
 describe('the proposals-only mode', () => {
   it('is switched by owners only and announced live', async () => {
     const owner = await test.signIn();

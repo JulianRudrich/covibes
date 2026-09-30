@@ -1,14 +1,18 @@
+import type { AgentKey } from '@covibes/shared';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@web/components/ui/tooltip';
 import { Composer } from '@web/features/chat/composer';
 
-function renderComposer({ disabled }: { disabled?: boolean } = {}) {
+function renderComposer({
+  disabled,
+  agents = ['moderator', 'backend', 'critic', 'data'],
+}: { disabled?: boolean; agents?: AgentKey[] } = {}) {
   const onSend = vi.fn<(content: string) => void>();
   render(
     <TooltipProvider>
-      <Composer onSend={onSend} disabled={disabled} />
+      <Composer agents={agents} onSend={onSend} disabled={disabled} />
     </TooltipProvider>,
   );
   const textbox = screen.getByRole<HTMLTextAreaElement>('textbox', {
@@ -89,6 +93,15 @@ describe('Composer', () => {
     expect(textbox).toHaveValue('');
     expect(textbox).toHaveFocus();
     expect(sendButton()).toBeDisabled();
+  });
+
+  it('offers only the agents of the team under "@" (spec 14)', async () => {
+    renderComposer({ agents: ['moderator', 'ml'] });
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Agent erwähnen' }), { key: 'Enter' });
+
+    const items = await screen.findAllByRole('menuitem');
+    expect(items.map((item) => item.textContent)).toEqual(['MModerator', 'MLML']);
   });
 
   it('offers the four agents under "@"', async () => {

@@ -1,9 +1,8 @@
 import type { DB } from '@covibes/db';
 import {
-  AGENT_KEYS,
   AI_RUN_STATUSES,
+  isAgentKey,
   MESSAGE_STATUSES,
-  type AgentKey,
   type AiRun,
   type AiRunStatus,
   type ChatMessage,
@@ -14,9 +13,7 @@ import type { Kysely } from 'kysely';
 // Database rows of the chat in their API form, shared by the API, the live bridge and the worker.
 // `db` is a transaction on behalf of a user (RLS) or the admin connection.
 
-export function isAgentKey(value: string | null): value is AgentKey {
-  return (AGENT_KEYS as readonly (string | null)[]).includes(value);
-}
+export { isAgentKey };
 
 function isStatus(value: string): value is MessageStatus {
   return (MESSAGE_STATUSES as readonly string[]).includes(value);

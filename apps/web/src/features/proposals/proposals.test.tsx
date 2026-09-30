@@ -1,4 +1,4 @@
-import type { Proposal } from '@covibes/shared';
+import type { CanvasProposal, Proposal, TeamProposal } from '@covibes/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -14,10 +14,11 @@ const API = '22222222-2222-4222-8222-222222222222';
 const QUEUE = '33333333-3333-4333-8333-333333333333';
 const WORKER = '44444444-4444-4444-8444-444444444444';
 
-function proposal(overrides: Partial<Proposal> = {}): Proposal {
+function proposal(overrides: Partial<CanvasProposal> = {}): CanvasProposal {
   return {
     id: '55555555-5555-4555-8555-555555555555',
     projectId: PROJECT,
+    kind: 'canvas',
     boardId: BOARD,
     agentKey: 'backend',
     status: 'open',
@@ -153,6 +154,59 @@ describe('ProposalLayer', () => {
     renderLayer(false);
     expect(screen.getAllByTestId('proposal-element')).toHaveLength(2);
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+});
+
+function teamProposal(): TeamProposal {
+  return {
+    id: '77777777-7777-4777-8777-777777777777',
+    projectId: PROJECT,
+    kind: 'team',
+    boardId: null,
+    agentKey: 'moderator',
+    status: 'open',
+    reason: 'initiative',
+    names: {},
+    operations: [
+      { op: 'add_agent', agentKey: 'critic', reason: 'Findet Risiken früh.' },
+      { op: 'add_agent', agentKey: 'security', reason: '' },
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+describe('team proposals (spec 14)', () => {
+  it('leave the canvas alone', () => {
+    const proposals: Proposal[] = [teamProposal(), proposal()];
+    const overlay = proposalOverlay(proposals, BOARD, new Set([API]));
+    expect(overlay.elements.every((element) => element.proposalId === proposal().id)).toBe(true);
+  });
+
+  it('show the agents to add with their reasons under "Wartet auf dich"', () => {
+    const onDecide = vi.fn();
+    const team = teamProposal();
+    render(
+      <WaitingForYou
+        proposals={[team]}
+        decided={[{ id: 'y', name: '', agents: ['data', 'ml'], status: 'applied' }]}
+        canDecide
+        onDecide={onDecide}
+        activeBoardId={BOARD}
+        onOpenBoard={vi.fn()}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Wartet auf dich' });
+    const [card] = within(section).getAllByRole('listitem');
+    if (!card) throw new Error('The card is missing');
+    expect(card).toHaveTextContent('Moderator· Vorschlag');
+    expect(card).toHaveTextContent('Ins Team holen');
+    expect(card).toHaveTextContent('Kritiker · Findet Risiken früh.');
+    expect(within(card).getByText('Sicherheit').tagName).toBe('STRONG');
+    fireEvent.click(within(card).getByRole('button', { name: 'Übernehmen' }));
+    expect(onDecide).toHaveBeenCalledWith(team, 'apply');
+    expect(section).toHaveTextContent('Daten und ML übernommen');
   });
 });
 

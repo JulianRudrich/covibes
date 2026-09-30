@@ -42,6 +42,12 @@ const AGENT_BACKGROUND: Record<AgentKey, string> = {
   backend: 'bg-agent-backend',
   critic: 'bg-agent-critic',
   data: 'bg-agent-data',
+  product: 'bg-agent-product',
+  frontend: 'bg-agent-frontend',
+  devops: 'bg-agent-devops',
+  security: 'bg-agent-security',
+  ml: 'bg-agent-ml',
+  content: 'bg-agent-content',
 };
 
 export function Avatar(props: AvatarProps) {

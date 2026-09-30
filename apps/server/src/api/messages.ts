@@ -74,6 +74,16 @@ export function messageRoutes(db: AppDb, auth: Auth, live: LivePublisher, limite
       if (!member) return 'not_found' as const;
       if (member.role === 'viewer') return 'forbidden' as const;
 
+      // Only agents of the team answer (spec 14); other mentions stay plain text.
+      const team = new Set(
+        (
+          await trx
+            .selectFrom('project_agents')
+            .where('project_id', '=', projectId.data)
+            .select('agent_key')
+            .execute()
+        ).map((row) => row.agent_key),
+      );
       // Sending the same id again (e.g. after a lost answer) returns the stored message.
       const inserted = await trx
         .insertInto('messages')
@@ -83,7 +93,7 @@ export function messageRoutes(db: AppDb, auth: Auth, live: LivePublisher, limite
           author_kind: 'human',
           author_user_id: user.id,
           content,
-          mentions: parseMentions(content),
+          mentions: parseMentions(content).filter((key) => team.has(key)),
         })
         .onConflict((conflict) => conflict.column('id').doNothing())
         .returning('id')

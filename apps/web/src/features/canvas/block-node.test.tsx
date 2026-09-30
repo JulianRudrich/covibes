@@ -53,6 +53,8 @@ function nodeProps(
 function blockActions(overrides: Partial<CanvasActions> = {}): CanvasActions {
   return {
     readOnly: false,
+    tool: null,
+    beginChange: vi.fn(),
     editingId: null,
     startEditing: vi.fn(),
     finishEditing: vi.fn(),

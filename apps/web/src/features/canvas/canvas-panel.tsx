@@ -5,12 +5,16 @@ import {
   addEdge,
   addFrame,
   addNote,
+  authorOrigin,
+  BLOCK_SIZE,
   edgeProblem,
-  findFreeSpot,
+  FRAME_MIN_SIZE,
   FRAME_SIZE,
   getNodesMap,
   GRID_SIZE,
+  moveNodes,
   NOTE_SIZE,
+  placeNodes,
   readEdges,
   readNodes,
   resizeFrame,
@@ -19,6 +23,7 @@ import {
   type Author,
   type AwarenessUser,
   type BlockType,
+  type Position,
   type ProjectMember,
   type Size,
 } from '@covibes/shared';
@@ -27,38 +32,37 @@ import {
   BackgroundVariant,
   ReactFlow,
   ReactFlowProvider,
-  useReactFlow,
   ViewportPortal,
   type Connection,
   type EdgeTypes,
   type NodeTypes,
 } from '@xyflow/react';
-import { Frame, Plus, Square, StickyNote } from 'lucide-react';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from 'react';
+import { Plus } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Button } from '@web/components/ui/button';
 import { PanelHeader } from '@web/components/ui/panel';
 import { arrowGeometries, type Rect } from '@web/features/canvas/arrow-geometry';
+import { computeLayout, loadElk } from '@web/features/canvas/auto-layout';
 import { BlockNode } from '@web/features/canvas/block-node';
 import type { BoardConnection } from '@web/features/canvas/board-connection';
+import {
+  CanvasActionsProvider,
+  type CanvasActions,
+  type CanvasTool,
+} from '@web/features/canvas/canvas-actions';
 import { ArrowMarkers, CanvasArrow } from '@web/features/canvas/canvas-arrow';
-import { CanvasActionsProvider, type CanvasActions } from '@web/features/canvas/canvas-actions';
+import { CanvasToolbar } from '@web/features/canvas/canvas-toolbar';
 import { FrameNode } from '@web/features/canvas/frame-node';
 import { LiveCursor } from '@web/features/canvas/live-cursor';
 import { NoteNode } from '@web/features/canvas/note-node';
+import { PlacementLayer, type Placement } from '@web/features/canvas/placement-layer';
 import { useBoardDoc } from '@web/features/canvas/use-board-doc';
 import { useLiveCursors } from '@web/features/canvas/use-live-cursors';
 import { useNodeLocks } from '@web/features/canvas/use-node-locks';
+import { useUndo } from '@web/features/canvas/use-undo';
 import { useYjsFlow } from '@web/features/canvas/use-yjs-flow';
+import { ZOOM_MAX, ZOOM_MIN } from '@web/features/canvas/zoom';
 import { initialsOf } from '@web/lib/format';
 
 const nodeTypes: NodeTypes = { block: BlockNode, sticky: NoteNode, frame: FrameNode };
@@ -85,35 +89,10 @@ export function CanvasPanel(props: CanvasPanelProps) {
   );
 }
 
-type NewElement = 'block' | 'note' | 'frame';
-
 function CanvasPanelContent({ boardId, user, members, readOnly }: CanvasPanelProps) {
   const { t } = useTranslation();
-  const { screenToFlowPosition } = useReactFlow();
   const { connection, status, loaded, denied } = useBoardDoc(boardId);
-  const surface = useRef<HTMLDivElement>(null);
   const author = useMemo<Author>(() => ({ kind: 'human', userId: user.id }), [user.id]);
-  const ready = connection !== null && loaded && !denied;
-
-  // Until the toolbar arrives (spec 10): a new element in the middle of the visible area.
-  function addInView(kind: NewElement) {
-    const rect = surface.current?.getBoundingClientRect();
-    if (!connection || !rect) return;
-    const { doc } = connection;
-    const center = screenToFlowPosition({
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    });
-    const spot = (size?: Size) => findFreeSpot(readNodes(doc), center, size);
-    const id = crypto.randomUUID();
-    if (kind === 'block') {
-      addBlock(doc, { id, position: spot(), label: t('canvas.newBlock') }, author);
-    } else if (kind === 'note') {
-      addNote(doc, { id, position: spot(NOTE_SIZE), text: t('canvas.newNote') }, author);
-    } else {
-      addFrame(doc, { id, position: spot(FRAME_SIZE), title: t('canvas.newFrame') }, author);
-    }
-  }
 
   return (
     <>
@@ -128,37 +107,9 @@ function CanvasPanelContent({ boardId, user, members, readOnly }: CanvasPanelPro
           <Plus size={13} strokeWidth={2.2} aria-hidden="true" />
           {t('workspace.addBoard')}
         </button>
-        {ready && !readOnly ? (
-          <div className="ml-auto flex gap-1.5">
-            <AddButton
-              icon={<Square size={13} strokeWidth={2} aria-hidden="true" />}
-              onClick={() => {
-                addInView('block');
-              }}
-            >
-              {t('canvas.addBlock')}
-            </AddButton>
-            <AddButton
-              icon={<StickyNote size={13} strokeWidth={2} aria-hidden="true" />}
-              onClick={() => {
-                addInView('note');
-              }}
-            >
-              {t('canvas.addNote')}
-            </AddButton>
-            <AddButton
-              icon={<Frame size={13} strokeWidth={2} aria-hidden="true" />}
-              onClick={() => {
-                addInView('frame');
-              }}
-            >
-              {t('canvas.addFrame')}
-            </AddButton>
-          </div>
-        ) : null}
       </PanelHeader>
 
-      <div ref={surface} className="relative min-h-0 bg-bg-canvas">
+      <div className="relative min-h-0 bg-bg-canvas">
         {denied ? (
           <CanvasMessage>{t('canvas.denied')}</CanvasMessage>
         ) : connection && loaded ? (
@@ -178,23 +129,6 @@ function CanvasPanelContent({ boardId, user, members, readOnly }: CanvasPanelPro
   );
 }
 
-function AddButton({
-  icon,
-  onClick,
-  children,
-}: {
-  icon: ReactNode;
-  onClick: () => void;
-  children: string;
-}) {
-  return (
-    <Button size="s" onClick={onClick}>
-      {icon}
-      {children}
-    </Button>
-  );
-}
-
 type BoardProps = {
   connection: BoardConnection;
   user: AwarenessUser;
@@ -203,11 +137,22 @@ type BoardProps = {
   readOnly: boolean;
 };
 
+function snap(value: number) {
+  return Math.round(value / GRID_SIZE) * GRID_SIZE;
+}
+
+/** The top-left corner that centers an element of `size` on `point`, on the grid. */
+function centeredOn(point: Position, size: Size): Position {
+  return { x: snap(point.x - size.width / 2), y: snap(point.y - size.height / 2) };
+}
+
 function Board({ connection, user, members, author, readOnly }: BoardProps) {
   const { t } = useTranslation();
   const { doc } = connection;
   const { locks, ownClientId, setEditing } = useNodeLocks(connection.provider);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [tool, setTool] = useState<CanvasTool | null>(null);
+  const [layoutBusy, setLayoutBusy] = useState(false);
   const flowLocks = useMemo(() => ({ locks, ownClientId }), [locks, ownClientId]);
   const { nodes, edges, onNodesChange, onEdgesChange } = useYjsFlow(doc, {
     author,
@@ -216,6 +161,7 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
     editingId,
   });
   const { cursors, onPointerMove, onPointerLeave } = useLiveCursors(connection.provider, user);
+  const undo = useUndo(doc, author, !readOnly);
 
   // Arrows are anchored from where the blocks are right now, also while one is dragged here.
   const shownEdges = useMemo(() => {
@@ -240,6 +186,10 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
     [locks, ownClientId],
   );
 
+  const beginChange = useCallback(() => {
+    undo?.stopCapturing();
+  }, [undo]);
+
   const stopEditing = useCallback(() => {
     setEditingId(null);
     setEditing(null);
@@ -263,6 +213,18 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
     if (lockedByOthers(editingId) || !exists) stopEditing();
   }, [editingId, lockedByOthers, doc, nodes, edges, stopEditing]);
 
+  // Escape ends every mode of the toolbar.
+  useEffect(() => {
+    if (tool === null) return;
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') setTool(null);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [tool]);
+
   const memberNames = useMemo(
     () => new Map(members.map((member) => [member.userId, member.name])),
     [members],
@@ -271,6 +233,8 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
   const actions = useMemo<CanvasActions>(
     () => ({
       readOnly,
+      tool,
+      beginChange,
       editingId,
       startEditing,
       finishEditing: (id, changes) => {
@@ -282,16 +246,24 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
             node.type === 'block' ? { label, subtitle: subtitle ?? node.subtitle } : { label };
           const changed =
             label !== node.label || (node.type === 'block' && update.subtitle !== node.subtitle);
-          if (changed) updateNode(doc, id, update, author);
+          if (changed) {
+            beginChange();
+            updateNode(doc, id, update, author);
+          }
         }
         stopEditing();
       },
       finishEdgeEditing: (id, label) => {
-        if (label !== null) updateEdgeLabel(doc, id, label, author);
+        if (label !== null) {
+          beginChange();
+          updateEdgeLabel(doc, id, label, author);
+        }
         stopEditing();
       },
       setType: (id: string, blockType: BlockType | null) => {
-        if (!readOnly && !lockedByOthers(id)) updateNode(doc, id, { blockType }, author);
+        if (readOnly || lockedByOthers(id)) return;
+        beginChange();
+        updateNode(doc, id, { blockType }, author);
       },
       resizeFrame: (id, bounds) => {
         if (readOnly || lockedByOthers(id)) return;
@@ -321,6 +293,8 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
     }),
     [
       readOnly,
+      tool,
+      beginChange,
       editingId,
       startEditing,
       stopEditing,
@@ -333,6 +307,82 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
     ],
   );
 
+  /** Places the element of the active tool, ends the mode and starts editing its text. */
+  function place(placement: Placement) {
+    if (readOnly || !tool || tool === 'connect') return;
+    const id = crypto.randomUUID();
+    beginChange();
+    doc.transact(() => {
+      if (tool === 'frame') {
+        const bounds =
+          placement.kind === 'area'
+            ? {
+                position: { x: snap(placement.from.x), y: snap(placement.from.y) },
+                size: {
+                  width: Math.max(FRAME_MIN_SIZE.width, snap(placement.to.x - placement.from.x)),
+                  height: Math.max(FRAME_MIN_SIZE.height, snap(placement.to.y - placement.from.y)),
+                },
+              }
+            : { position: centeredOn(placement.at, FRAME_SIZE), size: FRAME_SIZE };
+        addFrame(doc, { id, title: t('canvas.newFrame'), ...bounds }, author);
+        // A frame drawn around free elements takes them in; members of other frames stay there.
+        const free = readNodes(doc).filter((node) => node.type !== 'frame' && !node.frameId);
+        placeNodes(
+          doc,
+          free.map((node) => node.id),
+          author,
+        );
+        return;
+      }
+      const at = placement.kind === 'point' ? placement.at : placement.from;
+      if (tool === 'block') {
+        addBlock(
+          doc,
+          { id, position: centeredOn(at, BLOCK_SIZE), label: t('canvas.newBlock') },
+          author,
+        );
+      } else {
+        addNote(
+          doc,
+          { id, position: centeredOn(at, NOTE_SIZE), text: t('canvas.newNote') },
+          author,
+        );
+      }
+      // Placed inside a frame, it belongs to it, like a block dropped there.
+      placeNodes(doc, [id], author);
+    }, authorOrigin(author));
+    setTool(null);
+    startEditing(id);
+  }
+
+  async function autoLayout() {
+    if (readOnly || layoutBusy) return;
+    setLayoutBusy(true);
+    try {
+      const elk = await loadElk();
+      const selectedFrames = nodes.filter((node) => node.selected && node.type === 'frame');
+      const frameId = selectedFrames.length === 1 ? (selectedFrames[0]?.id ?? null) : null;
+      const layout = await computeLayout(elk, readNodes(doc), readEdges(doc), frameId);
+      beginChange();
+      doc.transact(() => {
+        // Elements that someone else edits keep their place.
+        moveNodes(
+          doc,
+          [...layout.positions].filter(([id]) => !lockedByOthers(id)),
+          author,
+        );
+        for (const [id, size] of layout.frameSizes) {
+          if (lockedByOthers(id)) continue;
+          const position = layout.positions.get(id);
+          resizeFrame(doc, id, position ? { size, position } : { size }, author);
+        }
+      }, authorOrigin(author));
+      beginChange();
+    } finally {
+      setLayoutBusy(false);
+    }
+  }
+
   const isValidConnection = useCallback(
     (candidate: Connection | { source: string; target: string }) =>
       edgeProblem(doc, candidate.source, candidate.target) === null,
@@ -342,13 +392,14 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
   const onConnect = useCallback(
     (created: Connection) => {
       if (readOnly || edgeProblem(doc, created.source, created.target) !== null) return;
+      beginChange();
       addEdge(
         doc,
         { id: crypto.randomUUID(), source: created.source, target: created.target },
         author,
       );
     },
-    [doc, author, readOnly],
+    [doc, author, readOnly, beginChange],
   );
 
   // Enter on the one selected element starts editing its text, unless the key belongs to a control.
@@ -368,6 +419,8 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
     startEditing(only.id);
   }
 
+  const placing = tool === 'block' || tool === 'note' || tool === 'frame';
+
   return (
     <CanvasActionsProvider value={actions}>
       <ArrowMarkers />
@@ -380,6 +433,7 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         isValidConnection={isValidConnection}
+        onNodeDragStart={beginChange}
         onNodeDoubleClick={(_, node) => {
           startEditing(node.id);
         }}
@@ -389,14 +443,14 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
         onKeyDown={onKeyDown}
         onPointerMove={onPointerMove}
         onPointerLeave={onPointerLeave}
-        nodesDraggable={!readOnly}
+        nodesDraggable={!readOnly && tool !== 'connect'}
         nodesConnectable={!readOnly}
         edgesFocusable={!readOnly}
         elevateNodesOnSelect={false}
         connectionLineStyle={CONNECTION_LINE_STYLE}
         deleteKeyCode={readOnly ? null : DELETE_KEYS}
-        minZoom={0.3}
-        maxZoom={2}
+        minZoom={ZOOM_MIN}
+        maxZoom={ZOOM_MAX}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
       >
         <Background
@@ -411,6 +465,14 @@ function Board({ connection, user, members, author, readOnly }: BoardProps) {
             <LiveCursor key={cursor.clientId} cursor={cursor} />
           ))}
         </ViewportPortal>
+        {placing ? <PlacementLayer drawsArea={tool === 'frame'} onPlace={place} /> : null}
+        <CanvasToolbar
+          tool={tool}
+          onToolChange={setTool}
+          onAutoLayout={() => void autoLayout()}
+          layoutBusy={layoutBusy}
+          readOnly={readOnly}
+        />
       </ReactFlow>
     </CanvasActionsProvider>
   );

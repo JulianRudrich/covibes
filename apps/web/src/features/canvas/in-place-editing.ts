@@ -36,8 +36,25 @@ export function useInPlaceEditing(done: (save: boolean) => void) {
 export function useFocusOnMount<T extends HTMLInputElement | HTMLTextAreaElement>() {
   const ref = useRef<T>(null);
   useLayoutEffect(() => {
-    ref.current?.focus();
-    ref.current?.select();
+    let frame = 0;
+    let tries = 0;
+    const focus = () => {
+      const element = ref.current;
+      if (!element) return;
+      element.focus();
+      if (document.activeElement === element) {
+        element.select();
+        return;
+      }
+      // A node that was just added stays hidden until React Flow has measured it, and a hidden
+      // element cannot take the focus; so try again on the next frames.
+      tries += 1;
+      if (tries < 30) frame = requestAnimationFrame(focus);
+    };
+    focus();
+    return () => {
+      cancelAnimationFrame(frame);
+    };
   }, []);
   return ref;
 }

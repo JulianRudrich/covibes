@@ -97,7 +97,9 @@ export function BlockNode({ id, data, selected }: NodeProps<BlockFlowNode>) {
 
       <AuthorLine data={data} agent={agent} />
       <ArrowAnchors />
-      {canChange && !editing ? <ConnectionHandles nodeId={id} selected={selected} /> : null}
+      {canChange && !editing ? (
+        <ConnectionHandles nodeId={id} selected={selected} anywhere={actions.tool === 'connect'} />
+      ) : null}
     </div>
   );
 }

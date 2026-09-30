@@ -43,6 +43,9 @@ export function FrameNode({ id, data, selected }: NodeProps<FrameFlowNode>) {
         isVisible={selected && canChange && !editing}
         minWidth={FRAME_MIN_SIZE.width}
         minHeight={FRAME_MIN_SIZE.height}
+        onResizeStart={() => {
+          actions.beginChange();
+        }}
         onResize={(_, bounds) => {
           actions.resizeFrame(id, bounds);
         }}

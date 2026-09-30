@@ -106,9 +106,6 @@
     "overview": "Open items, decisions and criteria will appear here."
   },
   "canvas": {
-    "addBlock": "Block",
-    "addNote": "Note",
-    "addFrame": "Frame",
     "newBlock": "New block",
     "newNote": "New note",
     "newFrame": "New frame",
@@ -135,7 +132,17 @@
       "database": "Database",
       "repository": "Repository",
       "metric": "Metric"
-    }
+    },
+    "toolbar": "Tools",
+    "tools": {
+      "block": "Block",
+      "note": "Note",
+      "frame": "Frame",
+      "connect": "Connect",
+      "autoLayout": "Auto-layout"
+    },
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out"
   },
   "chat": {
     "messages": "Messages",

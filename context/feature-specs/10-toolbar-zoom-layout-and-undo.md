@@ -42,11 +42,34 @@ The canvas gets the floating toolbar of the handoff: tools for block, note, fram
 - Packages: `elkjs` (current version, respecting pnpm's minimum release age)
 
 ## Checklist
-- [ ] The toolbar matches the handoff at 100 %, compared with the prototype; the active tool is highlighted.
-- [ ] Block, note, frame and arrow can be created with the tools; Escape ends a mode.
-- [ ] Zoom works with the buttons in steps of 10 from 30 to 200 %, the display follows the mouse wheel.
-- [ ] Auto-layout arranges the whole board or a selected frame without overlaps, and one undo reverts it.
-- [ ] Ctrl+Z and Ctrl+Shift+Z undo and redo one's own changes, never those of others or of agents; two browsers stay in sync.
-- [ ] The derived tool behavior was checked from screenshots.
-- [ ] Tests for the auto-layout conversion, the undo scope and the toolbar pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] The toolbar matches the handoff at 100 %, compared with the prototype; the active tool is highlighted.
+- [x] Block, note, frame and arrow can be created with the tools; Escape ends a mode.
+- [x] Zoom works with the buttons in steps of 10 from 30 to 200 %, the display follows the mouse wheel.
+- [x] Auto-layout arranges the whole board or a selected frame without overlaps, and one undo reverts it.
+- [x] Ctrl+Z and Ctrl+Shift+Z undo and redo one's own changes, never those of others or of agents; two browsers stay in sync.
+- [x] The derived tool behavior was checked from screenshots.
+- [x] Tests for the auto-layout conversion, the undo scope and the toolbar pass.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-09-30)
+- **Toolbar:** built from the handoff. The handoff has one divider, between auto-layout and the zoom; the divider before auto-layout that this spec named was left out. Auto-layout is a plain button, not a toggle, and is disabled with a waiting cursor while ELK runs.
+- **Placing:** in the modes Block, Notiz and Rahmen a transparent layer over the canvas takes the pointer (crosshair). A click places the element centered on the pointer and snapped to the grid, then the mode ends.
+  - A placed block or note joins the frame it lands in, like a dropped one, and opens for editing at once, so it can be named right away.
+  - A drawn frame takes in the free elements under it; members of other frames stay where they are. The first live test showed a new frame taking blocks away from "Architektur".
+  - Creating an element and joining the frame are one undo step.
+- **Verbinden:** the whole block starts the arrow, and blocks do not move in this mode. The mode stays for further arrows until Escape or a click on the tool. React Flow only starts a connection from handles it has measured, and it measures a node again only when its size changes, so the block is measured again whenever its handles change (`useUpdateNodeInternals`). Without that, the mode did nothing in the first live test.
+- **Auto-layout** (`auto-layout.ts`):
+  - ELK graph with `layered`, top down, and frames as nested graphs (`INCLUDE_CHILDREN`), so a frame is arranged together with its content. The distances are those of spec 09: 40 px side by side, 100 px between layers.
+  - The result is snapped to the 20 px grid, and frame sizes are rounded up, so the padding never shrinks. The arrangement starts at the previous top left corner, so the board does not jump. Empty frames are placed like blocks.
+  - With one frame selected, only its content is arranged below the title, and the frame takes the size of its content.
+  - Nodes that someone else is editing keep their position and size.
+  - ELK is its own chunk of 1.4 MB (442 kB compressed), loaded on the first auto-layout.
+- **Undo** (`use-undo.ts`): `Y.UndoManager` over nodes and edges, tracking only the own origin; changes of others and of agents arrive with another origin and stay untouched. Changes within 500 ms merge; a drag, a resize, a placement and an auto-layout each start a new step.
+- **Focus:** a new node stays hidden until React Flow has measured it, and a hidden input cannot take the focus. The editor therefore tries again on the following frames, for at most 30.
+- **Verified** with `pnpm dev`, the browser at 1440 × 900 and a second tab:
+  - Block and note placed by click, both opened for editing; a frame drawn around two free blocks took only those two, "Architektur" kept its four.
+  - Verbinden: dragging from one block onto another created an arrow; the same direction a second time was refused; Escape ended the mode.
+  - Auto-layout of the whole board without overlaps. With "Architektur" selected, only its four blocks moved and the frame grew from 460 × 440 to 480 × 600. One Ctrl+Z restored every position each time, Ctrl+Shift+Z redid it.
+  - Zoom with "−" and "+" in steps of 10 around the middle of the view; the display followed the mouse wheel (116 %).
+  - Two tabs: a block placed in one appeared in the other. Ctrl+Z in the other tab left it alone; Ctrl+Z in the first removed it in both.
+- **Known limits:** undo covers only one's own changes (agents follow with the history view). The main bundle is larger than the 500 kB Vite warns about; splitting it is left for later.

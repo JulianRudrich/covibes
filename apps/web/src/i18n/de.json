@@ -106,9 +106,6 @@
     "overview": "Hier erscheinen offene Punkte, Entscheidungen und Kriterien."
   },
   "canvas": {
-    "addBlock": "Block",
-    "addNote": "Notiz",
-    "addFrame": "Rahmen",
     "newBlock": "Neuer Block",
     "newNote": "Neue Notiz",
     "newFrame": "Neuer Rahmen",
@@ -135,7 +132,17 @@
       "database": "Datenbank",
       "repository": "Repository",
       "metric": "Kennzahl"
-    }
+    },
+    "toolbar": "Werkzeuge",
+    "tools": {
+      "block": "Block",
+      "note": "Notiz",
+      "frame": "Rahmen",
+      "connect": "Verbinden",
+      "autoLayout": "Auto-Layout"
+    },
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern"
   },
   "chat": {
     "messages": "Nachrichten",

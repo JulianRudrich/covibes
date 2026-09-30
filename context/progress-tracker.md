@@ -7,7 +7,7 @@
 Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 10: toolbar, zoom, auto-layout and undo (branch `spec/10-toolbar-layout-undo`)
+- nothing; spec 11 is next
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -84,11 +84,18 @@ Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is d
   - the moderator draws arrows, notes and frames; new elements keep room for arrows between them
 
   Lint, type check, format, 508 tests and build pass; verified with `pnpm dev`.
+- [x] **Spec 10 toolbar, zoom, auto-layout and undo:**
+  - floating toolbar as in the handoff with the modes Block, Notiz, Rahmen and Verbinden, auto-layout and zoom from 30 to 200 %
+  - placed elements join the frame they land in and open for editing; a drawn frame takes in the free elements under it
+  - auto-layout with ELK for the whole board or the selected frame, as one undo step; ELK loads on first use
+  - undo and redo of one's own changes with Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y
+
+  Lint, type check, format, 527 tests and build pass; verified with `pnpm dev` and a second tab.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **Spec 10:** toolbar, zoom, auto-layout and undo, then spec 11.
+1. **Spec 11:** additional boards.
 2. What the owner contributes while building:
    - **by spec 12:** designs in Claude Design for the blocks of mind map, data model and flow
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -185,3 +192,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-09-30, spec 08 implemented.** Details are in the spec under "Implementation notes". The owner left the details of derived interactions to the coding agent; fundamental decisions stay with the owner. During the live test the Claude subscription's session limit ran out, which showed that a used-up quota leads to pointless quick retries and an unclear note; the fix comes next.
 - **2026-09-30, fix for spec 07:** a used-up Claude quota ends a run at once with a note on how long it takes until the quota is free again, instead of three pointless retries. A test of the live stream that failed now and then under load waits for the final events now. Details are in spec 07 under "Implementation notes".
 - **2026-09-30, spec 09 implemented.** Details are in the spec under "Implementation notes". The live test found two faults that the unit tests could not see, both fixed: arrows were not drawn (React Flow needs handles on both ends) and the drop area for new arrows was shifted. New elements now keep the distances of the handoff, so arrows fit between them.
+- **2026-09-30, spec 10 implemented.** Details are in the spec under "Implementation notes". The live test found three faults the unit tests could not see, all fixed: the mode Verbinden did not start arrows (React Flow had not measured the new handles), a drawn frame took blocks away from another frame, and a newly placed element did not get the focus while it was still hidden.

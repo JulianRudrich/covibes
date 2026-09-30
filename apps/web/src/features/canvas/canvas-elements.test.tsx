@@ -28,6 +28,8 @@ const ALEX: Author = { kind: 'human', userId: '00000000-0000-4000-8000-000000000
 function canvasActions(overrides: Partial<CanvasActions> = {}): CanvasActions {
   return {
     readOnly: false,
+    tool: null,
+    beginChange: vi.fn(),
     editingId: null,
     startEditing: vi.fn(),
     finishEditing: vi.fn(),

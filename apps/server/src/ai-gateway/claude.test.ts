@@ -15,6 +15,7 @@ import { checkClaudeAccess, streamAgentReply } from '@server/ai-gateway/claude';
 import {
   defineTool,
   GatewayConfigError,
+  GatewayLimitError,
   type AgentReplyRequest,
   type AgentTool,
 } from '@server/ai-gateway/types';
@@ -320,6 +321,63 @@ describe('streamAgentReply', () => {
 
     await expect(failed).rejects.toBeInstanceOf(GatewayConfigError);
     await expect(failed).rejects.toThrow(/authentication_failed.*Invalid API key/);
+  });
+
+  describe('a used-up quota', () => {
+    const SESSION_LIMIT = "You've hit your session limit · resets 10:30pm (Europe/Berlin)";
+
+    function limitEvent(status: 'allowed' | 'allowed_warning' | 'rejected', resetsAt?: number) {
+      return {
+        type: 'rate_limit_event',
+        rate_limit_info: { status, rateLimitType: 'five_hour', ...(resetsAt && { resetsAt }) },
+        ...IDS,
+      } as SDKMessage;
+    }
+
+    it('becomes a limit error with the time the subscription is free again', async () => {
+      replyWith(
+        limitEvent('rejected', 1_790_800_000),
+        result({ is_error: true, result: SESSION_LIMIT }),
+      );
+
+      const failed = streamAgentReply(request());
+
+      await expect(failed).rejects.toBeInstanceOf(GatewayLimitError);
+      await expect(failed).rejects.toThrow(`Claude quota used up: success: ${SESSION_LIMIT}`);
+      await expect(failed).rejects.toMatchObject({ resetsAt: new Date(1_790_800_000_000) });
+    });
+
+    it('is recognized when the SDK ends the run with a thrown error', async () => {
+      sdk.query.mockImplementation(async function* () {
+        await Promise.resolve();
+        yield limitEvent('rejected', 1_790_800_000);
+        yield result({ is_error: true, result: SESSION_LIMIT });
+        throw new Error(`Claude Code returned an error result: ${SESSION_LIMIT}`);
+      });
+
+      await expect(streamAgentReply(request())).rejects.toMatchObject({
+        name: 'GatewayLimitError',
+        resetsAt: new Date(1_790_800_000_000),
+      });
+    });
+
+    it('comes from a rate limit error of the model too, without a known reset', async () => {
+      replyWith(
+        { type: 'assistant', error: 'rate_limit', parent_tool_use_id: null } as SDKMessage,
+        result({ is_error: true, result: 'API Error: 429 rate limited' }),
+      );
+
+      await expect(streamAgentReply(request())).rejects.toMatchObject({
+        name: 'GatewayLimitError',
+        resetsAt: null,
+      });
+    });
+
+    it('does not matter while the run succeeds', async () => {
+      replyWith(limitEvent('allowed_warning', 1_790_800_000), textDelta('Hallo'), result());
+
+      await expect(streamAgentReply(request())).resolves.toMatchObject({ text: 'Hallo' });
+    });
   });
 
   it('throws when the run ends without a result', async () => {

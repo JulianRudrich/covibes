@@ -11,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   GatewayConfigError,
+  GatewayLimitError,
   type AgentReplyRequest,
   type AgentReplyResult,
 } from '@server/ai-gateway';
@@ -20,6 +21,7 @@ import { startLiveBridge } from '@server/realtime/notifications';
 import {
   buildPrompt,
   createDeltaStream,
+  quotaNote,
   runAgentTurn,
   splitText,
   type AgentTurnDeps,
@@ -196,19 +198,23 @@ describe('agent turn', () => {
     });
 
     // Everyone sees the run start, the text arrive in batches and the stored answer at the end.
-    await until(() =>
-      eventsFor(projectId).some((event) => event.type === 'run' && event.run.status === 'done'),
-    );
+    // The bridge loads rows when it forwards them, so an early event may already show a later
+    // state (even "done"); the stored answer and the finished run always come last.
+    const summarize = () =>
+      eventsFor(projectId).map((event) =>
+        event.type === 'message_delta'
+          ? 'delta'
+          : event.type === 'message'
+            ? `message:${event.message.status}`
+            : `run:${event.run.status}`,
+      );
+    await until(() => {
+      const latest = summarize().slice(-2);
+      return latest[0] === 'message:complete' && latest[1] === 'run:done';
+    });
     const events = eventsFor(projectId);
-    const summary = events.map((event) =>
-      event.type === 'message_delta'
-        ? 'delta'
-        : event.type === 'message'
-          ? `message:${event.message.status}`
-          : `run:${event.run.status}`,
-    );
-    // The bridge loads rows when it forwards them, so early events may already show a later state;
-    // the order holds: the message is known before its first delta, the final state comes last.
+    const summary = summarize();
+    // The message is known before its first delta.
     expect(summary.indexOf('delta')).toBeGreaterThan(
       summary.findIndex((entry) => entry.startsWith('message:')),
     );
@@ -364,6 +370,58 @@ describe('agent turn', () => {
       status: 'error',
       error: 'Claude is not usable (authentication_failed)',
     });
+  });
+});
+
+describe('a used-up quota', () => {
+  it('ends the run at once with a note on when to ask again', async () => {
+    const { runId } = await projectWithRequest();
+    const { boards } = memoryBoards();
+    const resetsAt = new Date(Date.now() + 3 * 60 * 60_000);
+    const { deps, reply: model } = turnDeps(
+      failsWith(new GatewayLimitError('Claude quota used up: session limit', resetsAt)),
+      boards,
+    );
+
+    // The first attempt already gives up: retrying within seconds cannot help.
+    await runAgentTurn(deps, { runId }, FIRST_ATTEMPT);
+
+    expect(model).toHaveBeenCalledOnce();
+    expect(await reply(runId)).toMatchObject({
+      status: 'error',
+      content:
+        'Das KI-Kontingent ist gerade aufgebraucht und in etwa 3 Stunden wieder frei. Erwähne mich dann bitte noch einmal.',
+    });
+    expect(await loadRun(runId)).toMatchObject({
+      status: 'error',
+      error: 'Claude quota used up: session limit',
+    });
+  });
+});
+
+describe('quotaNote', () => {
+  const now = new Date('2026-09-30T10:00:00.000Z');
+  const later = (minutes: number) => new Date(now.getTime() + minutes * 60_000);
+
+  it('names minutes below one and a half hours, then hours', () => {
+    expect(quotaNote('de', later(1), now)).toContain('in etwa 1 Minute wieder frei');
+    expect(quotaNote('de', later(45), now)).toContain('in etwa 45 Minuten wieder frei');
+    expect(quotaNote('de', later(150), now)).toContain('in etwa 3 Stunden wieder frei');
+    expect(quotaNote('en', later(20), now)).toContain('free again in about 20 minutes');
+    expect(quotaNote('en', later(5 * 60), now)).toContain('free again in about 5 hours');
+  });
+
+  it('never names a wait of zero, even when the reset has passed', () => {
+    expect(quotaNote('de', later(-5), now)).toContain('in etwa 1 Minute');
+  });
+
+  it('asks to try later when the reset is unknown', () => {
+    expect(quotaNote('de', null, now)).toBe(
+      'Das KI-Kontingent ist gerade aufgebraucht. Erwähne mich bitte später noch einmal.',
+    );
+    expect(quotaNote('en', null, now)).toBe(
+      'The AI quota is used up right now. Please mention me again later.',
+    );
   });
 });
 

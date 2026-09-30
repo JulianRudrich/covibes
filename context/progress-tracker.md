@@ -7,7 +7,7 @@
 Build the canvas (M2, specs 08 to 12) on top of the vertical slice. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Fix for spec 07: an exhausted Claude quota gets a clear note instead of quick retries
+- nothing
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -176,3 +176,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   - Not verified yet: the worker in the Docker image (Docker Desktop was not running; it needs an API key there).
 - **2026-09-29, M2 specs worked out:** specs 08 to 11 are ready. The owner decided four points on the coding agent's recommendation: the proposal state moves to spec 13, interactions missing in the handoff are derived and accepted from screenshots, agents get the tools for every new canvas element, and undo covers one's own changes first. The owner also approved EPL-2.0 for ELK. Spec 12 waits for designs of the mind map, data model and flow blocks.
 - **2026-09-30, spec 08 implemented.** Details are in the spec under "Implementation notes". The owner left the details of derived interactions to the coding agent; fundamental decisions stay with the owner. During the live test the Claude subscription's session limit ran out, which showed that a used-up quota leads to pointless quick retries and an unclear note; the fix comes next.
+- **2026-09-30, fix for spec 07:** a used-up Claude quota ends a run at once with a note on how long it takes until the quota is free again, instead of three pointless retries. A test of the live stream that failed now and then under load waits for the final events now. Details are in spec 07 under "Implementation notes".

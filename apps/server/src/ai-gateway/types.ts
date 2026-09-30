@@ -72,3 +72,17 @@ export type AgentReplyResult = {
 export class GatewayConfigError extends Error {
   override name = 'GatewayConfigError';
 }
+
+/**
+ * The provider's quota is used up, e.g. the session limit of the Claude subscription. Retrying
+ * within seconds does not help; `resetsAt` says when it is free again, if the provider tells.
+ */
+export class GatewayLimitError extends Error {
+  override name = 'GatewayLimitError';
+  readonly resetsAt: Date | null;
+
+  constructor(message: string, resetsAt: Date | null) {
+    super(message);
+    this.resetsAt = resetsAt;
+  }
+}

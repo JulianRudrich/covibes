@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { agentDefinition, type AgentDefinition } from '@server/agents/definitions/moderator';
 import {
   GatewayConfigError,
+  GatewayLimitError,
   type AgentReplyRequest,
   type AgentReplyResult,
   type AgentTool,
@@ -30,7 +31,7 @@ const MAX_ERROR_LENGTH = 1000;
 
 const payloadSchema = z.object({ runId: z.uuid() });
 
-type Language = 'de' | 'en';
+export type Language = 'de' | 'en';
 
 /** What the agent says itself when it wrote no text or could not answer. */
 const NOTES: Record<Language, Record<'done' | 'retry' | 'failed' | 'unavailable', string>> = {
@@ -49,6 +50,31 @@ const NOTES: Record<Language, Record<'done' | 'retry' | 'failed' | 'unavailable'
       "I can't answer right now because the access to the AI is not set up. Please tell the person who runs Covibes.",
   },
 };
+
+/**
+ * The note for a used-up quota. It names a duration instead of a time of day, because the text
+ * is stored once and read in any time zone.
+ */
+export function quotaNote(language: Language, resetsAt: Date | null, now: Date): string {
+  const minutes = resetsAt
+    ? Math.max(1, Math.ceil((resetsAt.getTime() - now.getTime()) / 60_000))
+    : 0;
+  if (language === 'en') {
+    if (!resetsAt) return 'The AI quota is used up right now. Please mention me again later.';
+    const wait =
+      minutes < 90
+        ? `${String(minutes)} ${minutes === 1 ? 'minute' : 'minutes'}`
+        : `${String(Math.round(minutes / 60))} hours`;
+    return `The AI quota is used up right now and will be free again in about ${wait}. Please mention me again then.`;
+  }
+  if (!resetsAt)
+    return 'Das KI-Kontingent ist gerade aufgebraucht. Erwähne mich bitte später noch einmal.';
+  const wait =
+    minutes < 90
+      ? `${String(minutes)} ${minutes === 1 ? 'Minute' : 'Minuten'}`
+      : `${String(Math.round(minutes / 60))} Stunden`;
+  return `Das KI-Kontingent ist gerade aufgebraucht und in etwa ${wait} wieder frei. Erwähne mich dann bitte noch einmal.`;
+}
 
 export type AgentTurnDeps = {
   /** Role covibes_admin: agent messages and runs are written by the worker only. */
@@ -126,11 +152,17 @@ export async function runAgentTurn(
     );
     await finishRun(deps.admin, run, messageId, result, NOTES[language].done);
   } catch (error) {
-    const final = error instanceof GatewayConfigError || attempt.attempt >= attempt.maxAttempts;
+    // Neither a missing setup nor a used-up quota gets better by retrying in a few seconds.
+    const final =
+      error instanceof GatewayConfigError ||
+      error instanceof GatewayLimitError ||
+      attempt.attempt >= attempt.maxAttempts;
     const note =
-      error instanceof GatewayConfigError
-        ? NOTES[language].unavailable
-        : NOTES[language][final ? 'failed' : 'retry'];
+      error instanceof GatewayLimitError
+        ? quotaNote(language, error.resetsAt, new Date())
+        : error instanceof GatewayConfigError
+          ? NOTES[language].unavailable
+          : NOTES[language][final ? 'failed' : 'retry'];
     await failRun(deps.admin, run, messageId, { final, note, reason: describe(error) });
     if (!final) throw error;
     deps.logger.error(`Run ${run.id} failed for good: ${describe(error)}`);

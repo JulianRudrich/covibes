@@ -18,6 +18,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { estimateCostUsd, resolveModel, type ModelInfo } from '@server/ai-gateway/registry';
 import {
   GatewayConfigError,
+  GatewayLimitError,
   type AgentReplyRequest,
   type AgentReplyResult,
   type AgentReplyUsage,
@@ -79,6 +80,7 @@ export async function streamAgentReply(request: AgentReplyRequest): Promise<Agen
   let startsNewBlock = false;
   let result: SDKResultMessage | undefined;
   let configError: SDKAssistantMessageError | undefined;
+  let limit: QuotaLimit | undefined;
   try {
     const options = await isolatedOptions(request, model, abortController);
     for await (const message of query({ prompt: request.prompt, options })) {
@@ -86,6 +88,12 @@ export async function streamAgentReply(request: AgentReplyRequest): Promise<Agen
         result = message;
       } else if (message.type === 'assistant') {
         if (message.error && CONFIG_ERRORS.has(message.error)) configError = message.error;
+        // A rate limit that Claude Code could not wait out itself ends the run.
+        if (message.error === 'rate_limit') limit ??= { resetsAt: null };
+      } else if (message.type === 'rate_limit_event') {
+        // The subscription's session or weekly limit: nothing runs until it resets.
+        const info = message.rate_limit_info;
+        if (info.status === 'rejected') limit = { resetsAt: resetDate(info.resetsAt) };
       } else if (message.type === 'stream_event' && message.parent_tool_use_id === null) {
         const { event } = message;
         // Text before and after a tool call arrives in separate blocks; keep them apart.
@@ -105,6 +113,7 @@ export async function streamAgentReply(request: AgentReplyRequest): Promise<Agen
     }
   } catch (error) {
     signal?.throwIfAborted();
+    if (limit) throw failure(error instanceof Error ? error.message : String(error), { limit });
     throw error;
   } finally {
     signal?.removeEventListener('abort', abort);
@@ -112,11 +121,11 @@ export async function streamAgentReply(request: AgentReplyRequest): Promise<Agen
   // An abort can also end the run with an error result instead of a thrown error.
   signal?.throwIfAborted();
 
-  if (!result) throw failure('the run ended without a result', configError);
+  if (!result) throw failure('the run ended without a result', { configError, limit });
   if (result.subtype !== 'success' || result.is_error) {
     const details = result.subtype === 'success' ? [result.result] : result.errors;
     const detail = details.filter(Boolean).join('; ') || 'no details';
-    throw failure(`${result.subtype}: ${detail}`, configError);
+    throw failure(`${result.subtype}: ${detail}`, { configError, limit });
   }
 
   const usage = usageOf(result);
@@ -269,9 +278,23 @@ async function emptyWorkingDirectory(): Promise<string> {
   return directory;
 }
 
-function failure(detail: string, configError: SDKAssistantMessageError | undefined): Error {
-  return configError
-    ? new GatewayConfigError(`Claude is not usable (${configError}): ${detail}`)
+type QuotaLimit = { resetsAt: Date | null };
+
+/** `resetsAt` of a rate limit event, in seconds or milliseconds since 1970. */
+function resetDate(resetsAt: number | undefined): Date | null {
+  if (resetsAt === undefined || !Number.isFinite(resetsAt) || resetsAt <= 0) return null;
+  return new Date(resetsAt < 1e12 ? resetsAt * 1000 : resetsAt);
+}
+
+function failure(
+  detail: string,
+  signals: { configError?: SDKAssistantMessageError | undefined; limit?: QuotaLimit | undefined },
+): Error {
+  if (signals.limit) {
+    return new GatewayLimitError(`Claude quota used up: ${detail}`, signals.limit.resetsAt);
+  }
+  return signals.configError
+    ? new GatewayConfigError(`Claude is not usable (${signals.configError}): ${detail}`)
     : new Error(`Claude run failed: ${detail}`);
 }
 

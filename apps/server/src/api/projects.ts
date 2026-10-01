@@ -110,6 +110,9 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
         })),
         proposalsOnly: settings.success && settings.data.proposalsOnly === true,
         observer: !settings.success || settings.data.observer !== false,
+        stance: (settings.success ? settings.data.stance : undefined) ?? ('criteria' as const),
+        decisionProcess:
+          (settings.success ? settings.data.decisionProcess : undefined) ?? ('consensus' as const),
         agents,
       };
     });
@@ -117,8 +120,8 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
     return c.json<ProjectDetails>(details);
   });
 
-  // The project's settings (spec 13: the proposals-only mode, spec 15: the observer); only owners
-  // change them.
+  // The project's settings (spec 13: the proposals-only mode, spec 15: the observer, spec 16b: the
+  // moderator's stance and the decision process); only owners change them.
   routes.patch('/:projectId', async (c) => {
     const user = c.get('user');
     if (!user) return apiError(c, 'unauthorized');

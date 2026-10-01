@@ -1,10 +1,13 @@
 import type {
   ApiErrorBody,
   ApplyResult,
+  ChatMessage,
+  Comparison,
   Criterion,
   Decision,
   DecisionLogEntry,
   Proposal,
+  ProjectDetails,
   ProjectSummary,
 } from '@covibes/shared';
 import { describe, expect, it } from 'vitest';
@@ -212,6 +215,8 @@ describe('decisions', () => {
         decidedBy: confirmer,
         decidedAt: expect.any(String) as unknown,
         reopenReason: null,
+        comparison: null,
+        tally: null,
       },
     ]);
     expect(await logOf(projectId, owner)).toMatchObject([
@@ -304,5 +309,204 @@ describe('decisions', () => {
     const projectId = await createProject(owner);
     expect((await request(`/api/projects/${projectId}/decisions`, stranger)).status).toBe(404);
     expect((await request(`/api/projects/${projectId}/decisions/log`, stranger)).status).toBe(404);
+  });
+});
+
+async function moderatorMessage(projectId: string) {
+  const row = await test.db.admin
+    .insertInto('messages')
+    .values({
+      project_id: projectId,
+      author_kind: 'agent',
+      author_agent_key: 'moderator',
+      content: 'Bitte stimmt ab.',
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  return row.id;
+}
+
+/** An open vote with its moderator message, as the worker stores it. */
+async function startVote(projectId: string, topic = 'Canvas') {
+  const messageId = await moderatorMessage(projectId);
+  const row = await test.db.admin
+    .insertInto('votes')
+    .values({
+      project_id: projectId,
+      message_id: messageId,
+      topic,
+      options: JSON.stringify(['React Flow', 'tldraw']),
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  return { voteId: row.id, messageId };
+}
+
+async function voteOf(projectId: string, messageId: string, cookie: string) {
+  const messages = await json<ChatMessage[]>(
+    await request(`/api/projects/${projectId}/messages`, cookie),
+  );
+  return messages.find((message) => message.id === messageId)?.vote;
+}
+
+const castVote = (projectId: string, voteId: string, cookie: string, option: unknown) =>
+  request(`/api/projects/${projectId}/votes/${voteId}/cast`, cookie, {
+    method: 'POST',
+    body: JSON.stringify({ option }),
+  });
+
+const patchProject = (projectId: string, cookie: string, body: unknown) =>
+  request(`/api/projects/${projectId}`, cookie, { method: 'PATCH', body: JSON.stringify(body) });
+
+describe('votes (spec 16b)', () => {
+  it('collect the votes of owners and editors and record the winner once all voted', async () => {
+    const owner = await test.signIn();
+    const editor = await test.signIn();
+    const viewer = await test.signIn();
+    const projectId = await createProject(owner);
+    await addMember(projectId, editor, 'editor');
+    await addMember(projectId, viewer, 'viewer');
+    const { voteId, messageId } = await startVote(projectId);
+
+    expect((await castVote(projectId, voteId, viewer, 0)).status).toBe(403);
+    expect(await errorOf(await castVote(projectId, voteId, editor, 7))).toBe('invalid_input');
+    expect((await castVote(projectId, voteId, editor, 1)).status).toBe(204);
+    expect(await voteOf(projectId, messageId, viewer)).toEqual({
+      id: voteId,
+      topic: 'Canvas',
+      options: ['React Flow', 'tldraw'],
+      status: 'open',
+      winner: null,
+      ballots: [{ userId: (await userOf(editor)).id, option: 1 }],
+    });
+
+    // The editor changes the vote, then the owner's vote completes it.
+    expect((await castVote(projectId, voteId, editor, 0)).status).toBe(204);
+    expect((await castVote(projectId, voteId, owner, 0)).status).toBe(204);
+    expect(await voteOf(projectId, messageId, owner)).toMatchObject({
+      status: 'closed',
+      winner: 'React Flow',
+    });
+    expect(await decisionsOf(projectId, viewer)).toMatchObject([
+      {
+        topic: 'Canvas',
+        status: 'decided',
+        value: 'React Flow',
+        decidedBy: null,
+        tally: [
+          { name: 'React Flow', votes: 2 },
+          { name: 'tldraw', votes: 0 },
+        ],
+      },
+    ]);
+    expect((await logOf(projectId, owner))[0]).toMatchObject({
+      kind: 'decided',
+      votes: [
+        { name: 'React Flow', votes: 2 },
+        { name: 'tldraw', votes: 0 },
+      ],
+      agentKey: 'moderator',
+    });
+    expect(await errorOf(await castVote(projectId, voteId, owner, 1))).toBe('already_decided');
+  });
+
+  it('are ended early by owners only', async () => {
+    const owner = await test.signIn();
+    const editor = await test.signIn();
+    const projectId = await createProject(owner);
+    await addMember(projectId, editor, 'editor');
+    const { voteId, messageId } = await startVote(projectId);
+    await castVote(projectId, voteId, editor, 1);
+    const close = (cookie: string) =>
+      request(`/api/projects/${projectId}/votes/${voteId}/close`, cookie, { method: 'POST' });
+
+    expect((await close(editor)).status).toBe(403);
+    expect((await close(owner)).status).toBe(204);
+    expect(await voteOf(projectId, messageId, editor)).toMatchObject({
+      status: 'closed',
+      winner: 'tldraw',
+    });
+  });
+});
+
+describe('comparisons (spec 16b)', () => {
+  it('show in their message and go along with the decision on their topic', async () => {
+    const owner = await test.signIn();
+    const projectId = await createProject(owner);
+    const comparison: Comparison = {
+      topic: 'Canvas',
+      options: ['React Flow', 'tldraw'],
+      rows: [
+        {
+          criterion: 'Kleines Budget',
+          cells: [
+            { rating: 'good', note: 'MIT' },
+            { rating: 'bad', note: 'Lizenz kostet' },
+          ],
+        },
+      ],
+      recommendation: { option: 'React Flow', reason: 'Passt zum Budget.' },
+    };
+    const messageId = await moderatorMessage(projectId);
+    await test.db.admin
+      .insertInto('comparisons')
+      .values({
+        project_id: projectId,
+        message_id: messageId,
+        topic: 'Canvas',
+        data: JSON.stringify(comparison),
+      })
+      .execute();
+
+    const messages = await json<ChatMessage[]>(
+      await request(`/api/projects/${projectId}/messages`, owner),
+    );
+    expect(messages.find((message) => message.id === messageId)?.comparison).toEqual(comparison);
+
+    await apply(projectId, await proposeDecision(projectId), owner);
+    expect(await decisionsOf(projectId, owner)).toMatchObject([
+      { topic: 'Canvas', comparison, tally: null },
+    ]);
+    expect((await logOf(projectId, owner))[0]).toMatchObject({ kind: 'decided', compared: true });
+  });
+});
+
+describe('project settings (spec 16b)', () => {
+  it('have defaults, and owners change the stance and the decision process', async () => {
+    const owner = await test.signIn();
+    const editor = await test.signIn();
+    const projectId = await createProject(owner);
+    await addMember(projectId, editor, 'editor');
+    const details = async () =>
+      json<ProjectDetails>(await request(`/api/projects/${projectId}`, editor));
+
+    expect(await details()).toMatchObject({ stance: 'criteria', decisionProcess: 'consensus' });
+    expect((await patchProject(projectId, editor, { stance: 'opinion' })).status).toBe(403);
+    expect((await patchProject(projectId, owner, { stance: 'loud' })).status).toBe(400);
+    expect((await patchProject(projectId, owner, { stance: 'strict' })).status).toBe(204);
+    expect((await patchProject(projectId, owner, { decisionProcess: 'vote' })).status).toBe(204);
+    expect(await details()).toMatchObject({
+      stance: 'strict',
+      decisionProcess: 'vote',
+      observer: true,
+      proposalsOnly: false,
+    });
+  });
+
+  it('let only owners confirm a decision while the owner decides', async () => {
+    const owner = await test.signIn();
+    const editor = await test.signIn();
+    const projectId = await createProject(owner);
+    await addMember(projectId, editor, 'editor');
+    await patchProject(projectId, owner, { decisionProcess: 'owner' });
+    const proposalId = await proposeDecision(projectId);
+
+    const byEditor = await apply(projectId, proposalId, editor);
+    expect(byEditor.status).toBe(403);
+    expect(await decisionsOf(projectId, owner)).toEqual([]);
+    expect((await apply(projectId, proposalId, owner)).status).toBe(200);
+    expect(await decisionsOf(projectId, owner)).toMatchObject([
+      { topic: 'Canvas', decidedBy: (await userOf(owner)).name },
+    ]);
   });
 });

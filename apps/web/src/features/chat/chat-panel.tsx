@@ -1,5 +1,6 @@
-import type { AgentKey, HandRaise } from '@covibes/shared';
+import type { AgentKey, HandRaise, ProjectMember, ProjectRole } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PanelHeader, PanelTitle } from '@web/components/ui/panel';
@@ -9,6 +10,8 @@ import { messagesQuery } from '@web/features/chat/queries';
 import { chatStatus, runsQuery } from '@web/features/chat/runs';
 import { ChatStatusPill } from '@web/features/chat/status-pill';
 import { useSendMessage } from '@web/features/chat/use-send-message';
+import { useVoteActions } from '@web/features/decisions/queries';
+import type { Voting } from '@web/features/decisions/vote-card';
 import { handsQuery, useHandDecisions, useOfferDecisions } from '@web/features/hands/queries';
 import { RaisedHands } from '@web/features/hands/raised-hands';
 
@@ -19,6 +22,11 @@ type ChatPanelProps = {
   readOnly: boolean;
   /** The agents of the team (spec 14): only they can be mentioned. */
   team: readonly AgentKey[];
+  /** The members of the project and the user's role, for the vote cards (spec 16b). */
+  members: readonly ProjectMember[];
+  role: ProjectRole;
+  /** Whether the moderator's badge says "neutral" (spec 16b). */
+  moderatorNeutral: boolean;
   /** Shows a short note, e.g. when deciding a raised hand or an offer failed. */
   onNotice: (text: string) => void;
 };
@@ -28,7 +36,16 @@ type ChatPanelProps = {
  * streaming agent answers, the status pill of the agent runs and the composer. The live updates
  * arrive through the project's live channel (`useProjectLive`), which writes them into the cache.
  */
-export function ChatPanel({ projectId, user, readOnly, team, onNotice }: ChatPanelProps) {
+export function ChatPanel({
+  projectId,
+  user,
+  readOnly,
+  team,
+  members,
+  role,
+  moderatorNeutral,
+  onNotice,
+}: ChatPanelProps) {
   const { t } = useTranslation();
   const messages = useQuery(messagesQuery(projectId));
   const runs = useQuery(runsQuery(projectId));
@@ -40,6 +57,20 @@ export function ChatPanel({ projectId, user, readOnly, team, onNotice }: ChatPan
   const decideOffer = useOfferDecisions(projectId, user.name, (reason) => {
     onNotice(t(reason === 'already_decided' ? 'offers.alreadyDecided' : 'offers.failed'));
   });
+  const votes = useVoteActions(projectId, user.id, (reason) => {
+    onNotice(t(reason === 'already_decided' ? 'votes.alreadyClosed' : 'votes.failed'));
+  });
+  const voting = useMemo<Voting>(
+    () => ({
+      voters: members.filter((member) => member.role !== 'viewer'),
+      userId: user.id,
+      canVote: role !== 'viewer',
+      canClose: role === 'owner',
+      onVote: votes.cast,
+      onClose: votes.close,
+    }),
+    [members, user.id, role, votes.cast, votes.close],
+  );
 
   return (
     <>
@@ -64,6 +95,8 @@ export function ChatPanel({ projectId, user, readOnly, team, onNotice }: ChatPan
             team={team}
             onRetry={retry}
             onOffer={readOnly ? undefined : decideOffer}
+            voting={voting}
+            moderatorNeutral={moderatorNeutral}
           />
         )}
 

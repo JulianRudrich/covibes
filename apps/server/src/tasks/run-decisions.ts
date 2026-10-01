@@ -4,6 +4,7 @@ import {
   decisionAlternativeSchema,
   decisionOperationSchema,
   type AgentKey,
+  type Comparison,
   type DecisionAlternative,
   type DecisionOperation,
   type DecisionStatus,
@@ -44,13 +45,15 @@ export type DecisionContext = {
   }[];
   /** Decisions that wait for someone to confirm them. */
   pending: DecisionOperation[];
+  /** Votes that are open (spec 16b). */
+  votes: { topic: string; options: string[] }[];
 };
 
 export async function loadDecisionContext(
   admin: Kysely<DB>,
   projectId: string,
 ): Promise<DecisionContext> {
-  const [criteria, decisions, proposals] = await Promise.all([
+  const [criteria, decisions, proposals, votes] = await Promise.all([
     admin
       .selectFrom('criteria')
       .select(['id', 'text'])
@@ -73,6 +76,13 @@ export async function loadDecisionContext(
       .where('status', '=', 'open')
       .orderBy('created_at')
       .execute(),
+    admin
+      .selectFrom('votes')
+      .select(['topic', 'options'])
+      .where('project_id', '=', projectId)
+      .where('status', '=', 'open')
+      .orderBy('created_at')
+      .execute(),
   ]);
   return {
     criteria,
@@ -80,6 +90,10 @@ export async function loadDecisionContext(
       isStatus(decision.status) ? [{ ...decision, status: decision.status }] : [],
     ),
     pending: proposals.flatMap((proposal) => readDecisionOperations(proposal.operations)),
+    votes: votes.map((vote) => ({
+      topic: vote.topic,
+      options: z.array(z.string()).catch([]).parse(vote.options),
+    })),
   };
 }
 
@@ -101,11 +115,16 @@ export type DecisionWriter = {
   decide: (operation: DecisionOperation, userId: string | null) => Promise<boolean>;
   /** Proposes a decision, to be confirmed by someone in the team. */
   propose: (operation: DecisionOperation, reason: ProposalReason) => Promise<void>;
+  /** Shows a comparison as a card in the run's answer; a second one replaces the first. */
+  compare: (comparison: Comparison) => Promise<void>;
+  /** Starts a vote as a card in the run's answer; false if the answer has a vote already. */
+  startVote: (topic: string, options: readonly string[]) => Promise<boolean>;
 };
 
 export function decisionWriter(
   admin: Kysely<DB>,
-  run: { id: string; projectId: string; agentKey: AgentKey },
+  /** `messageId` is the run's answer, which carries its comparison and its vote. */
+  run: { id: string; projectId: string; agentKey: AgentKey; messageId: string },
 ): DecisionWriter {
   let queue = Promise.resolve();
   function serialized<T>(write: () => Promise<T>): Promise<T> {
@@ -186,6 +205,53 @@ export function decisionWriter(
           })
           .execute();
         await notifyLive(admin, { kind: 'proposals', projectId: run.projectId });
+      }),
+    compare: (comparison) =>
+      serialized(async () => {
+        await admin
+          .insertInto('comparisons')
+          .values({
+            project_id: run.projectId,
+            message_id: run.messageId,
+            topic: comparison.topic,
+            data: JSON.stringify(comparison),
+          })
+          .onConflict((conflict) =>
+            conflict.column('message_id').doUpdateSet({
+              topic: comparison.topic,
+              data: JSON.stringify(comparison),
+            }),
+          )
+          .execute();
+        await notifyLive(admin, {
+          kind: 'message',
+          projectId: run.projectId,
+          messageId: run.messageId,
+        });
+      }),
+    startVote: (topic, options) =>
+      serialized(async () => {
+        try {
+          await admin
+            .insertInto('votes')
+            .values({
+              project_id: run.projectId,
+              message_id: run.messageId,
+              topic,
+              options: JSON.stringify(options),
+            })
+            .execute();
+        } catch (error) {
+          // One vote per answer, and one open vote per topic.
+          if (hasCode(error, '23505')) return false;
+          throw error;
+        }
+        await notifyLive(admin, {
+          kind: 'message',
+          projectId: run.projectId,
+          messageId: run.messageId,
+        });
+        return true;
       }),
   };
 }

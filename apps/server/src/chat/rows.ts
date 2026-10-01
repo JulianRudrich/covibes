@@ -1,15 +1,17 @@
 import type { DB } from '@covibes/db';
 import {
   AI_RUN_STATUSES,
+  comparisonSchema,
   isAgentKey,
   MESSAGE_STATUSES,
   messageOfferSchema,
+  messageVoteSchema,
   type AiRun,
   type AiRunStatus,
   type ChatMessage,
   type MessageStatus,
 } from '@covibes/shared';
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 
 // Database rows of the chat in their API form, shared by the API, the live bridge and the worker.
 // `db` is a transaction on behalf of a user (RLS) or the admin connection.
@@ -28,6 +30,27 @@ export function selectMessages(db: Kysely<DB>) {
       // The moderator's offer of help that the message makes (spec 15), and who decided it.
       .leftJoin('offers', 'offers.message_id', 'messages.id')
       .leftJoin('users as deciders', 'deciders.id', 'offers.decided_by')
+      // The comparison and the vote the message shows as cards (spec 16b).
+      .leftJoin('comparisons', 'comparisons.message_id', 'messages.id')
+      .leftJoin('votes', 'votes.message_id', 'messages.id')
+      .select((eb) => [
+        'comparisons.data as comparison_data',
+        'votes.id as vote_id',
+        'votes.topic as vote_topic',
+        'votes.options as vote_options',
+        'votes.status as vote_status',
+        'votes.winner as vote_winner',
+        eb
+          .selectFrom('vote_ballots')
+          .whereRef('vote_ballots.vote_id', '=', 'votes.id')
+          .select(
+            sql`coalesce(
+              json_agg(json_build_object('userId', user_id, 'option', option) order by created_at),
+              '[]'::json
+            )`.as('ballots'),
+          )
+          .as('vote_ballots'),
+      ])
       .select([
         'offers.id as offer_id',
         'offers.kind as offer_kind',
@@ -69,6 +92,15 @@ export function toMessage(row: MessageRow): ChatMessage | undefined {
     status: row.offer_status,
     decidedBy: row.offer_decided_by,
   });
+  const comparison = comparisonSchema.safeParse(row.comparison_data);
+  const vote = messageVoteSchema.safeParse({
+    id: row.vote_id,
+    topic: row.vote_topic,
+    options: row.vote_options,
+    status: row.vote_status,
+    winner: row.vote_winner,
+    ballots: row.vote_ballots,
+  });
   return {
     id: row.id,
     projectId: row.project_id,
@@ -78,6 +110,8 @@ export function toMessage(row: MessageRow): ChatMessage | undefined {
     replyTo: row.reply_to,
     status: isStatus(row.status) ? row.status : 'complete',
     ...(offer.success ? { offer: offer.data } : {}),
+    ...(comparison.success ? { comparison: comparison.data } : {}),
+    ...(vote.success ? { vote: vote.data } : {}),
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };

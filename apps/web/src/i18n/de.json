@@ -69,8 +69,7 @@
       "back": "Zur Projektliste"
     },
     "toProjects": "Zur Projektliste",
-    "proposalsOnly": "Nur Vorschläge",
-    "observer": "Agents melden sich"
+    "settings": "Einstellungen"
   },
   "devMails": {
     "title": "Entwicklungs-Postfach",
@@ -280,7 +279,8 @@
     },
     "confirm": "Bestätigen",
     "confirmed": "<b>{{name}}</b> bestätigt",
-    "kindDecision": "Entscheidung"
+    "kindDecision": "Entscheidung",
+    "waitsForOwner": "Der Owner entscheidet."
   },
   "hands": {
     "label": "Handzeichen",
@@ -324,7 +324,10 @@
       "criterion_added": "Kriterium <b>{{value}}</b> hinzugefügt",
       "criterion_changed": "Kriterium <b>{{previous}}</b> geändert zu <b>{{value}}</b>",
       "criterion_removed": "Kriterium <b>{{value}}</b> entfernt"
-    }
+    },
+    "byVote": "Per Abstimmung entschieden ({{result}}) · {{date}}",
+    "votes": "Abstimmung: {{result}}",
+    "compared": "Mit Vergleich"
   },
   "criteria": {
     "title": "Kriterien",
@@ -335,6 +338,77 @@
     "remove": "Kriterium „{{text}}“ entfernen",
     "limitReached": "Ein Projekt hat höchstens 20 Kriterien.",
     "failed": "Die Kriterien konnten nicht geändert werden. Bitte versuche es noch einmal."
+  },
+  "comparison": {
+    "title": "Vergleich · {{topic}}",
+    "recommendation": "Empfehlung: <b>{{option}}</b>",
+    "rating": {
+      "good": "passt",
+      "ok": "teilweise",
+      "bad": "passt nicht"
+    }
+  },
+  "votes": {
+    "title": "Abstimmung · {{topic}}",
+    "voteFor_one": "Für {{option}} stimmen, {{count}} Stimme",
+    "voteFor_other": "Für {{option}} stimmen, {{count}} Stimmen",
+    "result_one": "{{option}}: {{count}} Stimme",
+    "result_other": "{{option}}: {{count}} Stimmen",
+    "progress": "{{voted}} von {{total}} haben abgestimmt",
+    "close": "Abstimmung beenden",
+    "decided": "Entschieden: <b>{{winner}}</b>",
+    "tie": "Gleichstand – keine Entscheidung",
+    "alreadyClosed": "Die Abstimmung ist schon beendet.",
+    "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+  },
+  "settings": {
+    "title": "Projekteinstellungen",
+    "ownerOnly": "Nur Owner ändern die Einstellungen.",
+    "stance": {
+      "title": "Haltung des Moderators",
+      "criteria": {
+        "label": "Neutral nach euren Kriterien",
+        "text": "Bewertet nach den Kriterien und sagt, was sie nahelegen."
+      },
+      "opinion": {
+        "label": "Mit eigener Meinung",
+        "text": "Sagt zusätzlich, was er selbst wählen würde und warum."
+      },
+      "strict": {
+        "label": "Strikt neutral",
+        "text": "Legt Optionen und Argumente dar und empfiehlt nie."
+      }
+    },
+    "process": {
+      "title": "Entscheidungsweg",
+      "consensus": {
+        "label": "Konsens mit Bestätigung",
+        "text": "Der Moderator erkennt Einigkeit, jemand aus dem Team bestätigt."
+      },
+      "vote": {
+        "label": "Abstimmung",
+        "text": "Entscheidungen fallen per Abstimmungskarte im Chat."
+      },
+      "owner": {
+        "label": "Owner entscheidet",
+        "text": "Nur Owner bestätigen Entscheidungen."
+      },
+      "informal": {
+        "label": "Formlos im Chat",
+        "text": "Der Moderator hält fest, was ihr im Chat entscheidet, ohne Bestätigung."
+      }
+    },
+    "agents": {
+      "title": "Agents",
+      "proposalsOnly": {
+        "label": "Nur Vorschläge",
+        "text": "Auch Aufträge an Agents kommen zuerst als Vorschlag."
+      },
+      "observer": {
+        "label": "Agents melden sich",
+        "text": "Der Moderator bietet Hilfe an, Spezialisten heben die Hand."
+      }
+    }
   },
   "overview": {
     "waiting": "Wartet auf dich",

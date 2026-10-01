@@ -1,6 +1,8 @@
-import type { Criterion, Decision, DecisionLogEntry } from '@covibes/shared';
+import type { Criterion, Decision, DecisionLogEntry, MessageVote } from '@covibes/shared';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 
+import { messagesQueryKey, type ChatItem } from '@web/features/chat/types';
 import { api, ApiError } from '@web/lib/api';
 
 export function criteriaQueryKey(projectId: string) {
@@ -127,4 +129,68 @@ export function useReopenDecision(projectId: string) {
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: decisionsQueryKey(projectId), exact: true }),
   });
+}
+
+/**
+ * Voting on the card of a moderator message and ending a vote (spec 16b). The own vote shows at
+ * once and is taken back with a note if the server refuses; the vote as the server knows it
+ * arrives live with the changed message.
+ */
+export function useVoteActions(
+  projectId: string,
+  userId: string,
+  onFailure: (reason: 'already_decided' | 'failed') => void,
+) {
+  const queryClient = useQueryClient();
+  const queryKey = messagesQueryKey(projectId);
+  const path = (vote: MessageVote, action: 'cast' | 'close') =>
+    `${base(projectId)}/votes/${encodeURIComponent(vote.id)}/${action}`;
+  const failed = (error: unknown) => {
+    onFailure(
+      error instanceof ApiError && error.code === 'already_decided' ? 'already_decided' : 'failed',
+    );
+  };
+
+  const setBallots = (voteId: string, ballots: MessageVote['ballots']) => {
+    queryClient.setQueryData<ChatItem[]>(queryKey, (items) =>
+      items?.map((item) =>
+        item.vote?.id === voteId ? { ...item, vote: { ...item.vote, ballots } } : item,
+      ),
+    );
+  };
+
+  const { mutate: castVote } = useMutation({
+    mutationFn: ({ vote, option }: { vote: MessageVote; option: number }) =>
+      api<undefined>(path(vote, 'cast'), { method: 'POST', body: JSON.stringify({ option }) }),
+    onMutate: ({ vote, option }) => {
+      setBallots(vote.id, [
+        ...vote.ballots.filter((ballot) => ballot.userId !== userId),
+        { userId, option },
+      ]);
+    },
+    onError: (error, { vote }) => {
+      setBallots(vote.id, vote.ballots);
+      failed(error);
+    },
+  });
+
+  const { mutate: closeVote } = useMutation({
+    mutationFn: (vote: MessageVote) => api<undefined>(path(vote, 'close'), { method: 'POST' }),
+    onError: failed,
+  });
+
+  return {
+    cast: useCallback(
+      (vote: MessageVote, option: number) => {
+        castVote({ vote, option });
+      },
+      [castVote],
+    ),
+    close: useCallback(
+      (vote: MessageVote) => {
+        closeVote(vote);
+      },
+      [closeVote],
+    ),
+  };
 }

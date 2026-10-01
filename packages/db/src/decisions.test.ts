@@ -328,8 +328,12 @@ describe('decisions', () => {
       await listener.query('listen covibes_live');
       const notified = new Promise<unknown>((resolve) => {
         listener.on('notification', (message: pg.Notification) => {
-          const payload = JSON.parse(message.payload ?? 'null') as { kind?: string } | null;
-          if (payload?.kind === 'decisions') resolve(payload);
+          // Other test files write to the same database at the same time; only this project counts.
+          const payload = JSON.parse(message.payload ?? 'null') as {
+            kind?: string;
+            projectId?: string;
+          } | null;
+          if (payload?.kind === 'decisions' && payload.projectId === PROJECT) resolve(payload);
         });
       });
       await decided('Sprache', 'TypeScript');

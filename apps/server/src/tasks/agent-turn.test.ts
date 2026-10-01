@@ -299,7 +299,11 @@ describe('agent turn', () => {
       'add_agents',
       'update_criteria',
       'record_decision',
+      'compare_options',
+      'start_vote',
     ]);
+    expect(call?.prompt).toContain("<moderation>\nYour stance: neutral by the team's criteria.");
+    expect(call?.prompt).toContain('How this project decides: consensus with confirmation.');
     expect(call?.prompt).toContain(
       "<team>\nThe agents of this project's team; only they answer when someone mentions them:\n- Moderator, key moderator: neutral moderation",
     );
@@ -1041,6 +1045,89 @@ describe('criteria and decisions (spec 16a)', () => {
     expect(readNodes(doc(boardId))).toEqual([]);
     expect(await proposalsOf(run.id)).toMatchObject([{ kind: 'canvas', reason: 'question' }]);
     expect(await reply(run.id)).toMatchObject({ replyTo: null });
+  });
+});
+
+describe('comparison, voting and the stance (spec 16b)', () => {
+  it('tells the moderator its stance and the decision process, and specialists neither', async () => {
+    const { projectId, request } = await createProject();
+    await test.db.admin
+      .updateTable('projects')
+      .set({ settings: JSON.stringify({ stance: 'strict', decisionProcess: 'vote' }) })
+      .where('id', '=', projectId)
+      .execute();
+    await test.db.admin
+      .insertInto('project_agents')
+      .values({ project_id: projectId, agent_key: 'critic' })
+      .execute();
+    const { boards } = memoryBoards();
+    const { deps, reply: model } = turnDeps(() => Promise.resolve(result('Gut.')), boards);
+
+    const moderator = await request('@Moderator was meinst du?');
+    await runAgentTurn(deps, { runId: moderator.runId }, FIRST_ATTEMPT);
+    const critic = await request('@Kritiker und du?');
+    await runAgentTurn(deps, { runId: critic.runId }, FIRST_ATTEMPT);
+
+    const [first, second] = model.mock.calls.map((call) => call[0].prompt);
+    expect(first).toContain('Your stance: strictly neutral.');
+    expect(first).toContain('How this project decides: by vote.');
+    expect(second).not.toContain('<moderation>');
+  });
+
+  it('shows a comparison and a vote as cards of the answer', async () => {
+    const { projectId, request } = await createProject();
+    const { runId } = await request(
+      '@Moderator vergleiche React Flow und tldraw und lass abstimmen',
+    );
+    const { boards } = memoryBoards();
+    const comparesAndAsks: Model = async (call) => {
+      const tool = (name: string) => {
+        const found = call.tools.find((entry) => entry.name === name);
+        if (!found) throw new Error(`${name} is missing`);
+        return found;
+      };
+      await tool('compare_options').run({
+        topic: 'Canvas',
+        options: ['React Flow', 'tldraw'],
+        rows: [
+          {
+            criterion: 'Lizenz',
+            ratings: [
+              { option: 'React Flow', rating: 'good', note: 'MIT' },
+              { option: 'tldraw', rating: 'bad', note: 'kostet' },
+            ],
+          },
+        ],
+      });
+      await tool('start_vote').run({ topic: 'Canvas', options: ['React Flow', 'tldraw'] });
+      return result('Hier ist der Vergleich. Bitte stimmt ab.');
+    };
+    const { deps } = turnDeps(comparesAndAsks, boards, 'instruction');
+
+    await runAgentTurn(deps, { runId }, FIRST_ATTEMPT);
+
+    const message = await reply(runId);
+    expect(message.comparison).toMatchObject({
+      topic: 'Canvas',
+      options: ['React Flow', 'tldraw'],
+      rows: [{ criterion: 'Lizenz', cells: [{ rating: 'good' }, { rating: 'bad' }] }],
+      recommendation: null,
+    });
+    expect(message.vote).toMatchObject({
+      topic: 'Canvas',
+      options: ['React Flow', 'tldraw'],
+      status: 'open',
+      ballots: [],
+    });
+
+    // The next turn sees the open vote.
+    const next = await request('@Moderator und jetzt?');
+    const again = turnDeps(() => Promise.resolve(result('Wartet.')), boards);
+    await runAgentTurn(again.deps, { runId: next.runId }, FIRST_ATTEMPT);
+    expect(again.reply.mock.calls[0]?.[0].prompt).toContain(
+      '- Canvas: a vote is open (React Flow, tldraw)',
+    );
+    expect(projectId).toBeTruthy();
   });
 });
 

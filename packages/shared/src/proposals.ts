@@ -6,9 +6,16 @@ import { decisionOperationSchema } from './decisions';
 
 /**
  * Why an agent's change became a proposal (spec 13): the triggering message was a question, the
- * agent acted on its own, the project only takes proposals, or a human was editing the block.
+ * agent acted on its own, the project only takes proposals, a human was editing the block, or the
+ * project's owner decides (spec 16b).
  */
-export const PROPOSAL_REASONS = ['question', 'initiative', 'proposals_only', 'locked'] as const;
+export const PROPOSAL_REASONS = [
+  'question',
+  'initiative',
+  'proposals_only',
+  'locked',
+  'owner_decides',
+] as const;
 export type ProposalReason = (typeof PROPOSAL_REASONS)[number];
 
 export const PROPOSAL_STATUSES = ['open', 'applied', 'rejected'] as const;

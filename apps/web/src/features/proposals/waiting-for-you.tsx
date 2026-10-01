@@ -21,6 +21,8 @@ type WaitingForYouProps = {
   /** Proposals decided in this session, shown as lines with a check. */
   decided: readonly DecidedProposal[];
   canDecide: boolean;
+  /** Whether the user confirms decisions; false for editors while the owner decides (spec 16b). */
+  canConfirmDecisions?: boolean;
   onDecide: (proposal: Proposal, decision: Decision) => void;
   activeBoardId: string | null;
   /** Opens the board of a proposal that lies on another one. */
@@ -47,6 +49,7 @@ export function WaitingForYou({
   proposals,
   decided,
   canDecide,
+  canConfirmDecisions = canDecide,
   onDecide,
   activeBoardId,
   onOpenBoard,
@@ -110,7 +113,9 @@ export function WaitingForYou({
                     onOpenBoard={onOpenBoard}
                   />
                 )}
-                {canDecide ? (
+                {proposal.kind === 'decision' && canDecide && !canConfirmDecisions ? (
+                  <p className="m-0 text-meta text-text-3">{t('proposals.waitsForOwner')}</p>
+                ) : canDecide ? (
                   <div className="flex gap-2">
                     <Button
                       variant="primary"

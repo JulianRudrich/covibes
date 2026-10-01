@@ -359,6 +359,129 @@ describe('offers of help (spec 15)', () => {
   });
 });
 
+describe('comparison and vote (spec 16b)', () => {
+  const comparison: NonNullable<ChatItem['comparison']> = {
+    topic: 'Canvas',
+    options: ['React Flow', 'tldraw'],
+    rows: [
+      {
+        criterion: 'Kleines Budget',
+        cells: [
+          { rating: 'good', note: 'MIT-Lizenz' },
+          { rating: 'bad', note: '' },
+        ],
+      },
+    ],
+    recommendation: { option: 'React Flow', reason: 'Passt zum Budget.' },
+  };
+
+  it('shows the comparison as a card in the moderator message', () => {
+    render(<ChatMessageView item={{ ...agentMessage('moderator'), comparison }} isOwn={false} />);
+
+    const card = screen.getByRole('group', { name: 'Vergleich · Canvas' });
+    expect(card).toHaveTextContent('React Flowtldraw');
+    expect(card).toHaveTextContent('Kleines Budget');
+    expect(card).toHaveTextContent('React Flow: passt. MIT-Lizenz');
+    // Without a note the rating itself is the text.
+    expect(card).toHaveTextContent('tldraw: passt nicht. passt nicht');
+    expect(card).toHaveTextContent('Empfehlung: React Flow – Passt zum Budget.');
+    expect(card.querySelector('.text-success')).toBeInTheDocument();
+    expect(card.querySelector('.text-danger')).toBeInTheDocument();
+  });
+
+  const vote: NonNullable<ChatItem['vote']> = {
+    id: '44444444-4444-4444-8444-444444444444',
+    topic: 'Canvas',
+    options: ['React Flow', 'tldraw'],
+    status: 'open',
+    winner: null,
+    ballots: [{ userId: 'user-alex', option: 0 }],
+  };
+  const voters = [
+    { userId: 'user-alex', name: 'Alex Adams' },
+    { userId: 'user-olga', name: 'Olga Owner' },
+  ];
+
+  function renderVote(
+    item: NonNullable<ChatItem['vote']>,
+    options: { owner?: boolean; viewer?: boolean } = {},
+  ) {
+    const onVote = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <ChatMessageView
+        item={{ ...agentMessage('moderator'), vote: item }}
+        isOwn={false}
+        voting={{
+          voters,
+          userId: 'user-olga',
+          canVote: !options.viewer,
+          canClose: options.owner === true,
+          onVote,
+          onClose,
+        }}
+      />,
+    );
+    return { onVote, onClose, card: screen.getByRole('group', { name: 'Abstimmung · Canvas' }) };
+  }
+
+  it('lets owners and editors vote on the card, and owners end the vote', () => {
+    const { onVote, onClose, card } = renderVote(vote, { owner: true });
+
+    expect(card).toHaveTextContent('1 von 2 haben abgestimmt');
+    const first = within(card).getByRole('button', { name: 'Für React Flow stimmen, 1 Stimme' });
+    expect(within(first).getByRole('img', { name: 'Alex Adams' })).toHaveTextContent('AA');
+    fireEvent.click(within(card).getByRole('button', { name: 'Für tldraw stimmen, 0 Stimmen' }));
+    expect(onVote).toHaveBeenCalledWith(vote, 1);
+    fireEvent.click(within(card).getByRole('button', { name: 'Abstimmung beenden' }));
+    expect(onClose).toHaveBeenCalledWith(vote);
+  });
+
+  it('marks the own vote and offers editors no ending', () => {
+    const mine = { ...vote, ballots: [...vote.ballots, { userId: 'user-olga', option: 1 }] };
+    const { card } = renderVote(mine);
+
+    expect(within(card).getByRole('button', { name: /tldraw/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(within(card).getByRole('button', { name: /React Flow/ })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(within(card).queryByRole('button', { name: 'Abstimmung beenden' })).toBeNull();
+  });
+
+  it('shows viewers the vote without buttons', () => {
+    const { card } = renderVote(vote, { viewer: true });
+    expect(within(card).queryByRole('button')).toBeNull();
+    expect(card).toHaveTextContent('React Flow');
+  });
+
+  it('shows the result once the vote is closed: the winner or a tie', () => {
+    const closed = { ...vote, status: 'closed' as const, winner: 'React Flow' };
+    const { card } = renderVote(closed, { owner: true });
+    expect(within(card).queryByRole('button')).toBeNull();
+    expect(card).toHaveTextContent('Entschieden: React Flow');
+    expect(within(card).getByLabelText('React Flow: 1 Stimme')).toHaveClass('border-success');
+  });
+
+  it('says so when a vote ended in a tie', () => {
+    const { card } = renderVote({ ...vote, status: 'closed', winner: null });
+    expect(card).toHaveTextContent('Gleichstand – keine Entscheidung');
+  });
+
+  it('drops "neutral" from the moderator badge when it has its own opinion', () => {
+    const { rerender } = render(<ChatMessageView item={agentMessage('moderator')} isOwn={false} />);
+    expect(screen.getByText('Agent · neutral')).toBeInTheDocument();
+    rerender(
+      <ChatMessageView item={agentMessage('moderator')} isOwn={false} moderatorNeutral={false} />,
+    );
+    expect(screen.queryByText('Agent · neutral')).not.toBeInTheDocument();
+    expect(screen.getByText('Agent')).toBeInTheDocument();
+  });
+});
+
 describe('MentionText', () => {
   it('keeps the text unchanged when nothing is mentioned', () => {
     const { container } = render(

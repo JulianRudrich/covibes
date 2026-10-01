@@ -81,6 +81,8 @@ const DETAILS: ProjectDetails = {
   boards: [{ id: '33333333-3333-4333-8333-333333333333', title: 'Haupt-Canvas', kind: 'main' }],
   proposalsOnly: false,
   observer: true,
+  stance: 'criteria',
+  decisionProcess: 'consensus',
   agents: [{ key: 'moderator', model: null }],
 };
 const EXTRA_BOARD: ProjectBoard = {
@@ -270,25 +272,44 @@ describe('with a session', () => {
     expect(chat).toHaveAttribute('data-readonly', 'false');
   });
 
-  it('lets the owner switch the proposals-only mode in the project menu', async () => {
+  it('opens the project settings from the project menu, where owners change them', async () => {
     const api = stubApi({
       [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
       [`PATCH /api/projects/${PROJECT.id}`]: () => ({ status: 204, body: null }),
     });
     const router = renderApp(`/p/${PROJECT.id}`);
+    const patched = (body: unknown) =>
+      waitFor(() => {
+        expect(api).toHaveBeenCalledWith(
+          `/api/projects/${PROJECT.id}`,
+          expect.objectContaining({ method: 'PATCH', body: JSON.stringify(body) }),
+        );
+      });
 
     const menu = await screen.findByRole('button', { name: /Covibes V1/ });
     fireEvent.keyDown(menu, { key: 'Enter' });
-    const mode = await screen.findByRole('menuitemcheckbox', { name: 'Nur Vorschläge' });
-    expect(mode).toHaveAttribute('aria-checked', 'false');
-    fireEvent.click(mode);
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Einstellungen' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Projekteinstellungen' });
 
-    await waitFor(() => {
-      expect(api).toHaveBeenCalledWith(
-        `/api/projects/${PROJECT.id}`,
-        expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ proposalsOnly: true }) }),
-      );
-    });
+    expect(
+      within(dialog).getByRole('radio', { name: /Neutral nach euren Kriterien/ }),
+    ).toBeChecked();
+    expect(within(dialog).getByRole('radio', { name: /Konsens mit Bestätigung/ })).toBeChecked();
+    fireEvent.click(within(dialog).getByRole('radio', { name: /Strikt neutral/ }));
+    await patched({ stance: 'strict' });
+    fireEvent.click(within(dialog).getByRole('radio', { name: /Abstimmung/ }));
+    await patched({ decisionProcess: 'vote' });
+
+    const proposalsOnly = within(dialog).getByRole('checkbox', { name: /Nur Vorschläge/ });
+    expect(proposalsOnly).not.toBeChecked();
+    fireEvent.click(proposalsOnly);
+    await patched({ proposalsOnly: true });
+    const observer = within(dialog).getByRole('checkbox', { name: /Agents melden sich/ });
+    expect(observer).toBeChecked();
+    fireEvent.click(observer);
+    await patched({ observer: false });
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Schließen' }));
     fireEvent.keyDown(menu, { key: 'Enter' });
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Zur Projektliste' }));
     await waitFor(() => {
@@ -296,38 +317,27 @@ describe('with a session', () => {
     });
   });
 
-  it('lets owners switch off that agents speak up on their own (spec 15)', async () => {
-    const api = stubApi({
-      [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
-      [`PATCH /api/projects/${PROJECT.id}`]: () => ({ status: 204, body: null }),
-    });
-    renderApp(`/p/${PROJECT.id}`);
-
-    fireEvent.keyDown(await screen.findByRole('button', { name: /Covibes V1/ }), { key: 'Enter' });
-    const observer = await screen.findByRole('menuitemcheckbox', { name: 'Agents melden sich' });
-    expect(observer).toHaveAttribute('aria-checked', 'true');
-    fireEvent.click(observer);
-
-    await waitFor(() => {
-      expect(api).toHaveBeenCalledWith(
-        `/api/projects/${PROJECT.id}`,
-        expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ observer: false }) }),
-      );
-    });
-  });
-
-  it('shows editors the proposals-only mode without letting them switch it', async () => {
+  it('shows editors the project settings without letting them change anything', async () => {
     stubApi({
       [`GET /api/projects/${PROJECT.id}`]: () => ({
-        body: { ...DETAILS, role: 'editor', proposalsOnly: true },
+        body: { ...DETAILS, role: 'editor', proposalsOnly: true, decisionProcess: 'owner' },
       }),
     });
     renderApp(`/p/${PROJECT.id}`);
 
     fireEvent.keyDown(await screen.findByRole('button', { name: /Covibes V1/ }), { key: 'Enter' });
-    const mode = await screen.findByRole('menuitemcheckbox', { name: 'Nur Vorschläge' });
-    expect(mode).toHaveAttribute('aria-checked', 'true');
-    expect(mode).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Einstellungen' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Projekteinstellungen' });
+
+    expect(dialog).toHaveTextContent('Nur Owner ändern die Einstellungen.');
+    expect(within(dialog).getByRole('radio', { name: /Owner entscheidet/ })).toBeChecked();
+    expect(within(dialog).getByRole('checkbox', { name: /Nur Vorschläge/ })).toBeChecked();
+    for (const control of [
+      ...within(dialog).getAllByRole('radio'),
+      ...within(dialog).getAllByRole('checkbox'),
+    ]) {
+      expect(control).toBeDisabled();
+    }
   });
 
   it('opens canvas and chat read-only for viewers', async () => {

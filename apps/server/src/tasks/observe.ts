@@ -6,6 +6,7 @@ import {
   OFFER_KINDS,
   projectSettingsSchema,
   type AgentKey,
+  type DecisionProcess,
   type ChatMessage,
 } from '@covibes/shared';
 import type { Task } from 'graphile-worker';
@@ -130,6 +131,8 @@ export function buildObserverPrompt(context: {
   history: History;
   /** What is decided, open or waiting for confirmation (spec 16a), so it is not offered again. */
   decisions?: DecisionContext;
+  /** How the project decides (spec 16b): where it votes, a consensus is offered a vote. */
+  process?: DecisionProcess;
   /** Why no offer is possible now, or null when it is. */
   offerBlocked: string | null;
   /** Specialists that may raise a hand now, and how many hands are allowed. */
@@ -172,6 +175,7 @@ export function buildObserverPrompt(context: {
         ...context.decisions.pending.map(
           (operation) => `- ${operation.topic}: ${operation.value} (waits for confirmation)`,
         ),
+        ...context.decisions.votes.map((vote) => `- ${vote.topic}: a vote is open`),
       ]
     : [];
   return [
@@ -180,7 +184,11 @@ export function buildObserverPrompt(context: {
     `<decisions>\n${decisions.length > 0 ? asData(decisions.join('\n')) : '- none'}\n</decisions>`,
     `<earlier>\nOffers of the moderator, newest first:\n${asData(offers)}\nRaised hands, newest first:\n${asData(hands)}\n</earlier>`,
     `<chat>\n${asData(chat)}\n</chat>`,
-    `Messages marked (new) came after your last look.\nWhat you may start now:\n${allowed}`,
+    `Messages marked (new) came after your last look.\nWhat you may start now:\n${allowed}${
+      context.process === 'vote'
+        ? '\nThis project decides by vote: on consensus, offer to start a vote instead of recording.'
+        : ''
+    }`,
   ].join('\n\n');
 }
 
@@ -317,6 +325,7 @@ export async function runObserver(deps: ObserverDeps, payload: unknown): Promise
           })),
         },
         decisions,
+        process: settings.success ? settings.data.decisionProcess : undefined,
         offerBlocked,
         canRaise,
       }),

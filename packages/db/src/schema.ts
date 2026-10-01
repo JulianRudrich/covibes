@@ -79,6 +79,15 @@ export interface Boards {
   title: string;
 }
 
+export interface Comparisons {
+  created_at: Generated<Timestamp>;
+  data: Json;
+  id: Generated<string>;
+  message_id: string;
+  project_id: string;
+  topic: string;
+}
+
 export interface Criteria {
   created_at: Generated<Timestamp>;
   created_by: string | null;
@@ -104,6 +113,7 @@ export interface DecisionLog {
 
 export interface Decisions {
   alternatives: Generated<Json>;
+  comparison_id: string | null;
   created_at: Generated<Timestamp>;
   decided_at: Timestamp | null;
   decided_by: string | null;
@@ -117,6 +127,7 @@ export interface Decisions {
   topic: string;
   updated_at: Generated<Timestamp>;
   value: string | null;
+  vote_id: string | null;
 }
 
 export interface GraphileWorkerJobs {
@@ -297,6 +308,27 @@ export interface Verifications {
   value: string;
 }
 
+export interface VoteBallots {
+  created_at: Generated<Timestamp>;
+  option: number;
+  user_id: string;
+  vote_id: string;
+}
+
+export interface Votes {
+  closed_at: Timestamp | null;
+  closed_by: string | null;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  message_id: string;
+  options: Json;
+  project_id: string;
+  status: Generated<string>;
+  tally: Json | null;
+  topic: string;
+  winner: string | null;
+}
+
 export interface YjsDocuments {
   name: string;
   state: Buffer;
@@ -307,6 +339,7 @@ export interface DB {
   accounts: Accounts;
   ai_runs: AiRuns;
   boards: Boards;
+  comparisons: Comparisons;
   criteria: Criteria;
   decision_log: DecisionLog;
   decisions: Decisions;
@@ -326,5 +359,7 @@ export interface DB {
   sessions: Sessions;
   users: Users;
   verifications: Verifications;
+  vote_ballots: VoteBallots;
+  votes: Votes;
   yjs_documents: YjsDocuments;
 }

@@ -8,6 +8,8 @@ import { Badge } from '@web/components/ui/badge';
 import { Button } from '@web/components/ui/button';
 import { MentionText } from '@web/features/chat/mention-text';
 import { TypingDots } from '@web/features/chat/status-pill';
+import { ComparisonCard } from '@web/features/decisions/comparison-card';
+import { VoteCard, type Voting } from '@web/features/decisions/vote-card';
 import type { ChatItem } from '@web/features/chat/types';
 import { cn } from '@web/lib/cn';
 import { formatClockTime, initialsOf } from '@web/lib/format';
@@ -55,6 +57,10 @@ type ChatMessageViewProps = {
   team?: readonly AgentKey[];
   /** Accepts or declines the moderator's offer of help (spec 15); viewers get no buttons. */
   onOffer?: (message: ChatItem, accept: boolean) => void;
+  /** Who votes and how, for the vote card of a message (spec 16b). */
+  voting?: Voting;
+  /** The moderator's badge says "neutral" unless its stance is its own opinion (spec 16b). */
+  moderatorNeutral?: boolean;
 };
 
 /**
@@ -70,6 +76,8 @@ export function ChatMessageView({
   onRetry,
   team = NO_AGENTS,
   onOffer,
+  voting,
+  moderatorNeutral = true,
 }: ChatMessageViewProps) {
   const { t, i18n } = useTranslation();
   const id = useId();
@@ -132,7 +140,9 @@ export function ChatMessageView({
       </span>
       {agent !== null && (
         <span id={`${id}-badge`} className="flex shrink-0">
-          <Badge agent={agent}>{t(isModerator ? 'chat.agentNeutral' : 'chat.agentBadge')}</Badge>
+          <Badge agent={agent}>
+            {t(isModerator && moderatorNeutral ? 'chat.agentNeutral' : 'chat.agentBadge')}
+          </Badge>
         </span>
       )}
       {streamingAgent ? (
@@ -219,6 +229,8 @@ export function ChatMessageView({
       <Card labelledBy={labelIds.join(' ')}>
         {header}
         {body}
+        {item.comparison ? <ComparisonCard comparison={item.comparison} /> : null}
+        {item.vote && voting ? <VoteCard vote={item.vote} voting={voting} /> : null}
         {item.offer ? <OfferActions item={item} onOffer={onOffer} /> : null}
       </Card>
     );

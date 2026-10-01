@@ -81,6 +81,9 @@ function renderPanel(readOnly = false) {
           user={OLGA}
           readOnly={readOnly}
           team={['moderator', 'backend', 'critic', 'data']}
+          members={[{ userId: OLGA.id, name: OLGA.name, role: 'owner' }]}
+          role={readOnly ? 'viewer' : 'owner'}
+          moderatorNeutral
           onNotice={vi.fn()}
         />
       </TooltipProvider>

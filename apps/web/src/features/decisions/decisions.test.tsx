@@ -15,6 +15,8 @@ const CANVAS: Decision = {
   decidedBy: 'Sam',
   decidedAt: '2026-09-30T18:00:00.000Z',
   reopenReason: null,
+  comparison: null,
+  tally: null,
 };
 
 const HOSTING: Decision = {
@@ -27,6 +29,8 @@ const HOSTING: Decision = {
   decidedBy: null,
   decidedAt: null,
   reopenReason: 'Zu teuer im Betrieb',
+  comparison: null,
+  tally: null,
 };
 
 function renderDecisions(
@@ -94,6 +98,39 @@ describe('DecisionsSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Canvas/ }));
     expect(screen.queryByRole('button', { name: 'Wieder öffnen' })).not.toBeInTheDocument();
+  });
+
+  it('shows the comparison a decision followed and the result of its vote', () => {
+    const voted: Decision = {
+      ...CANVAS,
+      decidedBy: null,
+      tally: [
+        { name: 'React Flow', votes: 2 },
+        { name: 'tldraw', votes: 1 },
+      ],
+      comparison: {
+        topic: 'Canvas',
+        options: ['React Flow', 'tldraw'],
+        rows: [
+          {
+            criterion: 'Budget',
+            cells: [
+              { rating: 'good', note: 'MIT' },
+              { rating: 'bad', note: 'kostet' },
+            ],
+          },
+        ],
+        recommendation: null,
+      },
+    };
+    renderDecisions({}, [voted]);
+
+    fireEvent.click(screen.getByRole('button', { name: /Canvas/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Canvas' });
+    expect(dialog).toHaveTextContent('Per Abstimmung entschieden (React Flow 2 · tldraw 1)');
+    expect(within(dialog).getByRole('group', { name: 'Vergleich · Canvas' })).toHaveTextContent(
+      'Budget',
+    );
   });
 
   it('opens the decision log, newest first', () => {

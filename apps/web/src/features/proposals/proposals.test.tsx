@@ -237,6 +237,23 @@ describe('decision proposals (spec 16a)', () => {
     expect(proposalOverlay([decision], BOARD, new Set()).elements).toEqual([]);
   });
 
+  it('wait for the owner while the owner decides (spec 16b)', () => {
+    render(
+      <WaitingForYou
+        proposals={[decision]}
+        decided={[]}
+        canDecide
+        canConfirmDecisions={false}
+        onDecide={vi.fn()}
+        activeBoardId={BOARD}
+        onOpenBoard={vi.fn()}
+      />,
+    );
+    const section = screen.getByRole('region', { name: 'Wartet auf dich' });
+    expect(section).toHaveTextContent('Der Owner entscheidet.');
+    expect(within(section).queryByRole('button')).toBeNull();
+  });
+
   it('wait under "Wartet auf dich" until someone confirms them', () => {
     const onDecide = vi.fn();
     render(

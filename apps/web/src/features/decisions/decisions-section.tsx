@@ -1,4 +1,9 @@
-import { REOPEN_REASON_MAX_LENGTH, type Decision, type DecisionLogEntry } from '@covibes/shared';
+import {
+  REOPEN_REASON_MAX_LENGTH,
+  type Decision,
+  type DecisionLogEntry,
+  type VoteTally,
+} from '@covibes/shared';
 import { Check } from 'lucide-react';
 import { useId, useState, type SubmitEvent } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -6,6 +11,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { Button } from '@web/components/ui/button';
 import { Dialog, DialogClose, DialogContent } from '@web/components/ui/dialog';
 import { Label } from '@web/components/ui/input';
+import { ComparisonCard } from '@web/features/decisions/comparison-card';
 import { formatLongDate, formatRelativeTime } from '@web/lib/format';
 
 type DecisionsSectionProps = {
@@ -18,6 +24,11 @@ type DecisionsSectionProps = {
 };
 
 const BOLD = { b: <strong className="font-semibold text-text" /> };
+
+/** The result of a vote in one line, e.g. "React Flow 2 · tldraw 1". */
+function tallyText(tally: VoteTally): string {
+  return tally.map((entry) => `${entry.name} ${String(entry.votes)}`).join(' · ');
+}
 
 /** Handoff "Decisions": a green check circle when decided, a dashed ring while open. */
 function StatusSymbol({ decided }: { decided: boolean }) {
@@ -159,7 +170,8 @@ function DecisionDialog({
 
   return (
     <DialogContent title={decision.topic}>
-      <div className="flex flex-col gap-3 text-ui text-text-body">
+      {/* A decision with a comparison is long; it scrolls inside the dialog. */}
+      <div className="flex max-h-[min(75vh,680px)] flex-col gap-3 overflow-y-auto pr-1 text-ui text-text-body">
         <div className="flex items-center gap-2.5">
           <StatusSymbol decided={decided} />
           <span className="text-title font-semibold text-text">
@@ -168,12 +180,17 @@ function DecisionDialog({
         </div>
         {decided && decision.decidedAt ? (
           <p className="m-0 text-small text-text-3">
-            {decision.decidedBy
-              ? t('decisions.confirmedBy', {
-                  name: decision.decidedBy,
+            {decision.tally
+              ? t('decisions.byVote', {
+                  result: tallyText(decision.tally),
                   date: formatLongDate(decision.decidedAt, i18n.language),
                 })
-              : formatLongDate(decision.decidedAt, i18n.language)}
+              : decision.decidedBy
+                ? t('decisions.confirmedBy', {
+                    name: decision.decidedBy,
+                    date: formatLongDate(decision.decidedAt, i18n.language),
+                  })
+                : formatLongDate(decision.decidedAt, i18n.language)}
           </p>
         ) : null}
         {decision.reopenReason ? (
@@ -186,6 +203,7 @@ function DecisionDialog({
           </p>
         ) : null}
         {decision.reasoning ? <p className="m-0 leading-normal">{decision.reasoning}</p> : null}
+        {decision.comparison ? <ComparisonCard comparison={decision.comparison} /> : null}
         {decision.alternatives.length > 0 ? (
           <div>
             <h4 className="m-0 mb-1 text-small font-medium text-text-2">
@@ -290,6 +308,14 @@ function DecisionLogDialog({ log }: { log: readonly DecisionLogEntry[] | undefin
                 ) : null}
                 {entry.kind === 'decided' && entry.reasoning ? (
                   <span className="text-small text-text-2">{entry.reasoning}</span>
+                ) : null}
+                {entry.votes ? (
+                  <span className="text-small text-text-2">
+                    {t('decisions.votes', { result: tallyText(entry.votes) })}
+                  </span>
+                ) : null}
+                {entry.compared ? (
+                  <span className="text-small text-text-2">{t('decisions.compared')}</span>
                 ) : null}
                 {entry.kind === 'decided' && entry.alternatives && entry.alternatives.length > 0 ? (
                   <span className="text-small text-text-2">

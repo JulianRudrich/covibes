@@ -7,7 +7,7 @@
 Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog, observer, decisions, variants, debates, custom agents and knowledge. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 16b: comparison, voting and project settings (branch `spec/16b-comparison-voting-settings`)
+- nothing; spec 17 is next to be worked out
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -131,11 +131,18 @@ Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog
   - the overview sections "Entscheidungen" and "Kriterien" as in the handoff, the decision log, and reopening with a reason, after which the moderator starts a new round
 
   Lint, type check, format, 771 tests and build pass; verified with `pnpm dev`.
+- [x] **Spec 16b comparison, voting and project settings:**
+  - the moderator compares options by the criteria in a card of its answer; a decision takes its comparison along
+  - decision processes per project: consensus with confirmation, vote by card, the owner decides, informally in the chat
+  - the moderator's stance per project: neutral by the criteria, with its own opinion, strictly neutral
+  - the project settings dialog for stance, decision process and the two agent switches
+
+  Lint, type check, format, 804 tests and build pass; verified with `pnpm dev`.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M3 (AI core):** spec 16b (comparison, voting and project settings) is worked out and in progress; specs 17 to 20 follow one after the other.
+1. **M3 (AI core):** spec 17 (variants A/B) is worked out next, then specs 18 to 20 one after the other.
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -243,3 +250,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-09-30, spec 14 implemented.** Details are in the spec under "Implementation notes". The owner chose the catalog as planned, a start with the moderator only and Claude Opus 5.5 for all agents. The live test found two things the unit tests could not see, both fixed: a request to add an agent counted as a question, and agents named each other in English within German answers.
 - **2026-10-01, spec 15 implemented.** Details are in the spec under "Implementation notes". The owner chose Claude Sonnet 5.5 for the observer. The live test found one fault the unit tests could not see: the message list did not follow when a raised hand appeared below it.
 - **2026-10-01, spec 16a implemented.** Details are in the spec under "Implementation notes". Spec 16 was split into two parts because of its size: 16a brings criteria, decisions and the log with the default process; 16b follows with comparison, voting, the other processes and the project settings.
+- **2026-10-01, spec 16b implemented.** Details are in the spec under "Implementation notes". The coding agent decided the rules of a vote (one visible vote per owner and editor, it ends when all voted or an owner ends it, a tie decides nothing) and how the processes change recording a decision; spec 16 is complete with it.

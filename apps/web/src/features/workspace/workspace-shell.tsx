@@ -4,20 +4,10 @@ import { useTranslation } from 'react-i18next';
 
 import { Panel, PanelHeader, PanelTitle } from '@web/components/ui/panel';
 import type { SessionUser } from '@web/features/auth/session';
+import type { ProjectSettings } from '@web/features/workspace/project-settings-dialog';
 import { WorkspaceHeader } from '@web/features/workspace/workspace-header';
 
 export type WorkspaceMember = { id: string; name: string; isCurrentUser: boolean };
-
-/** The project menu of the header (spec 13): the proposals-only mode. */
-export type ProjectSettings = {
-  proposalsOnly: boolean;
-  /** Only owners change the settings; everyone else sees them. */
-  canChange: boolean;
-  onProposalsOnlyChange: (proposalsOnly: boolean) => void;
-  /** Agents offer help and raise hands on their own (spec 15). */
-  observer: boolean;
-  onObserverChange: (observer: boolean) => void;
-};
 
 type WorkspaceShellProps = {
   projectName: string;

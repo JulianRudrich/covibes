@@ -69,8 +69,7 @@
       "back": "To the project list"
     },
     "toProjects": "To the project list",
-    "proposalsOnly": "Proposals only",
-    "observer": "Agents speak up"
+    "settings": "Settings"
   },
   "devMails": {
     "title": "Development mailbox",
@@ -280,7 +279,8 @@
     },
     "confirm": "Confirm",
     "confirmed": "<b>{{name}}</b> confirmed",
-    "kindDecision": "Decision"
+    "kindDecision": "Decision",
+    "waitsForOwner": "The owner decides."
   },
   "hands": {
     "label": "Raised hands",
@@ -324,7 +324,10 @@
       "criterion_added": "Criterion <b>{{value}}</b> added",
       "criterion_changed": "Criterion <b>{{previous}}</b> changed to <b>{{value}}</b>",
       "criterion_removed": "Criterion <b>{{value}}</b> removed"
-    }
+    },
+    "byVote": "Decided by vote ({{result}}) · {{date}}",
+    "votes": "Vote: {{result}}",
+    "compared": "With a comparison"
   },
   "criteria": {
     "title": "Criteria",
@@ -335,6 +338,77 @@
     "remove": "Remove criterion \"{{text}}\"",
     "limitReached": "A project has at most 20 criteria.",
     "failed": "The criteria could not be changed. Please try again."
+  },
+  "comparison": {
+    "title": "Comparison · {{topic}}",
+    "recommendation": "Recommendation: <b>{{option}}</b>",
+    "rating": {
+      "good": "fits",
+      "ok": "partly",
+      "bad": "does not fit"
+    }
+  },
+  "votes": {
+    "title": "Vote · {{topic}}",
+    "voteFor_one": "Vote for {{option}}, {{count}} vote",
+    "voteFor_other": "Vote for {{option}}, {{count}} votes",
+    "result_one": "{{option}}: {{count}} vote",
+    "result_other": "{{option}}: {{count}} votes",
+    "progress": "{{voted}} of {{total}} have voted",
+    "close": "End the vote",
+    "decided": "Decided: <b>{{winner}}</b>",
+    "tie": "A tie – no decision",
+    "alreadyClosed": "The vote has ended already.",
+    "failed": "That did not work. Please try again."
+  },
+  "settings": {
+    "title": "Project settings",
+    "ownerOnly": "Only owners change the settings.",
+    "stance": {
+      "title": "The moderator's stance",
+      "criteria": {
+        "label": "Neutral by your criteria",
+        "text": "Assesses by the criteria and says what they favor."
+      },
+      "opinion": {
+        "label": "With its own opinion",
+        "text": "Also says what it would choose and why."
+      },
+      "strict": {
+        "label": "Strictly neutral",
+        "text": "Lays out options and arguments and never recommends."
+      }
+    },
+    "process": {
+      "title": "Decision process",
+      "consensus": {
+        "label": "Consensus with confirmation",
+        "text": "The moderator recognizes agreement, someone in the team confirms."
+      },
+      "vote": {
+        "label": "Vote",
+        "text": "Decisions are made with a vote card in the chat."
+      },
+      "owner": {
+        "label": "The owner decides",
+        "text": "Only owners confirm decisions."
+      },
+      "informal": {
+        "label": "Informally in the chat",
+        "text": "The moderator records what you decide in the chat, without confirmation."
+      }
+    },
+    "agents": {
+      "title": "Agents",
+      "proposalsOnly": {
+        "label": "Proposals only",
+        "text": "Even instructions to agents arrive as proposals first."
+      },
+      "observer": {
+        "label": "Agents speak up",
+        "text": "The moderator offers help, specialists raise a hand."
+      }
+    }
   },
   "overview": {
     "waiting": "Waiting for you",

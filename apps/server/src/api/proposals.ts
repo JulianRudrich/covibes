@@ -179,9 +179,11 @@ export function proposalRoutes(
       if (error instanceof BeingEdited) {
         return { ok: false, code: 'being_edited', detail: error.editor };
       }
-      // A decision whose topic was decided in the meantime (spec 16a); the proposal stays open.
-      if (functionError(error) === 'already_decided') {
-        return { ok: false, code: 'already_decided' };
+      // A decision whose topic was decided in the meantime (spec 16a), or that only the owner
+      // confirms (spec 16b); the proposal stays open.
+      const refused = functionError(error);
+      if (refused === 'already_decided' || refused === 'forbidden') {
+        return { ok: false, code: refused };
       }
       throw error;
     }

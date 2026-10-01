@@ -1,5 +1,6 @@
 import type { DB } from '@covibes/db';
 import {
+  castVoteInputSchema,
   handRaiseSchema,
   isAgentKey,
   projectIdSchema,
@@ -24,11 +25,12 @@ function membership(trx: Transaction<DB>, projectId: string, userId: string) {
     .executeTakeFirst();
 }
 
-/** SQLSTATEs of the deciding functions (migrations 0008 and 0009) and what they mean for the API. */
+/** SQLSTATEs of the deciding functions (migrations 0008 to 0010) and what they mean for the API. */
 const FUNCTION_ERRORS: Readonly<Record<string, ApiErrorCode>> = {
   P0002: 'not_found',
   '42501': 'forbidden',
   '55000': 'already_decided',
+  '22023': 'invalid_input',
 };
 
 export function functionError(error: unknown): ApiErrorCode | undefined {
@@ -36,7 +38,7 @@ export function functionError(error: unknown): ApiErrorCode | undefined {
   return typeof code === 'string' ? FUNCTION_ERRORS[code] : undefined;
 }
 
-type Target = 'hand_raises' | 'offers';
+type Target = 'hand_raises' | 'offers' | 'votes';
 
 /**
  * Runs a deciding function (migration 0008) for an owner or editor. The row must belong to the
@@ -130,6 +132,34 @@ export function handRoutes(db: AppDb, auth: Auth) {
   routes.post('/:handId/dismiss', (c) =>
     decideByFunction(db, c, { table: 'hand_raises', idParam: 'handId' }, (trx, id) =>
       sql`select public.dismiss_hand(${id})`.execute(trx),
+    ),
+  );
+
+  return routes;
+}
+
+/**
+ * `/api/projects/:projectId/votes` (spec 16b): owners and editors vote on the card of a moderator
+ * message, and owners end a vote early. The database function ends the vote once everyone voted,
+ * records the winner as the decision and announces the changed message.
+ */
+export function voteRoutes(db: AppDb, auth: Auth) {
+  const routes = new Hono<{ Variables: SessionVariables }>();
+  routes.use(sessionMiddleware(auth));
+
+  routes.post('/:voteId/cast', async (c) => {
+    const body: unknown = await c.req.json().catch(() => undefined);
+    const input = castVoteInputSchema.safeParse(body);
+    return decideByFunction(db, c, { table: 'votes', idParam: 'voteId' }, (trx, id) => {
+      // An option that does not exist is refused by the function ('22023').
+      const option = input.success ? input.data.option : -1;
+      return sql`select public.cast_vote(${id}, ${option})`.execute(trx);
+    });
+  });
+
+  routes.post('/:voteId/close', (c) =>
+    decideByFunction(db, c, { table: 'votes', idParam: 'voteId' }, (trx, id) =>
+      sql`select public.close_vote(${id})`.execute(trx),
     ),
   );
 

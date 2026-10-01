@@ -8,6 +8,8 @@ import {
   type CanvasOperation,
   type ChatMessage,
   type AgentKey,
+  type DecisionProcess,
+  type ModeratorStance,
   type NodeLock,
 } from '@covibes/shared';
 import type { Task } from 'graphile-worker';
@@ -40,7 +42,12 @@ import { addFrameTool } from '@server/tools/add-frame';
 import { addNoteTool } from '@server/tools/add-note';
 import { arrangeFrameTool } from '@server/tools/arrange-frame';
 import { connectBlocksTool } from '@server/tools/connect-blocks';
-import { recordDecisionTool, updateCriteriaTool } from '@server/tools/decision-tools';
+import {
+  compareOptionsTool,
+  recordDecisionTool,
+  startVoteTool,
+  updateCriteriaTool,
+} from '@server/tools/decision-tools';
 import { describePosition, type CanvasToolOptions } from '@server/tools/placement';
 import { updateBlockTool } from '@server/tools/update-block';
 
@@ -53,6 +60,9 @@ const CANVAS_TOOLS: Readonly<Record<string, (options: CanvasToolOptions) => Agen
   add_frame: addFrameTool,
   arrange_frame: arrangeFrameTool,
 };
+
+/** The tools that write criteria, decisions, comparisons and votes (specs 16a and 16b). */
+const DECISION_TOOLS = ['update_criteria', 'record_decision', 'compare_options', 'start_vote'];
 
 /** Name of the job the database trigger creates for every mention (migration 0005). */
 export const AGENT_TURN_TASK = 'agent_turn';
@@ -307,6 +317,12 @@ export async function runAgentTurn(
   const language: Language = project.language === 'en' ? 'en' : 'de';
   const settings = projectSettingsSchema.safeParse(project.settings);
   const proposalsOnly = settings.success && settings.data.proposalsOnly === true;
+  // The moderator's stance and how the project decides (spec 16b).
+  const moderation = {
+    stance: (settings.success ? settings.data.stance : undefined) ?? ('criteria' as const),
+    process:
+      (settings.success ? settings.data.decisionProcess : undefined) ?? ('consensus' as const),
+  };
   const decisions = await loadDecisionContext(deps.admin, run.projectId);
   // On its first use the moderator asks for the project criteria, once (spec 16a).
   const askForCriteria =
@@ -327,6 +343,7 @@ export async function runAgentTurn(
         occasion,
         actorUserId: actorUserId ?? null,
         decisions,
+        moderation,
         askForCriteria,
         projectName: project.name,
         messageId,
@@ -425,6 +442,7 @@ async function converse(
     /** The person who accepted the offer the run does, if it does one. */
     actorUserId: string | null;
     decisions: DecisionContext;
+    moderation: Moderation;
     askForCriteria: boolean;
     projectName: string;
     messageId: string;
@@ -502,22 +520,44 @@ async function converse(
     });
     tools.push(addAgentsTool({ team, rules }));
   }
-  if (agent.tools.includes('update_criteria') || agent.tools.includes('record_decision')) {
+  const moderates = agent.tools.includes('record_decision');
+  if (DECISION_TOOLS.some((name) => agent.tools.includes(name))) {
     const writer = decisionWriter(deps.admin, {
       id: run.id,
       projectId: run.projectId,
       agentKey: agent.key,
+      messageId,
     });
     if (agent.tools.includes('update_criteria')) {
       tools.push(updateCriteriaTool({ decisions: writer }));
     }
-    if (agent.tools.includes('record_decision')) {
+    if (moderates) {
       // A decision recorded directly is confirmed by whoever asked for it: the person who
       // accepted the offer, or the author of the message.
       const author = conversation.request?.author;
       const actorUserId = turn.actorUserId ?? (author?.kind === 'human' ? author.userId : null);
-      tools.push(recordDecisionTool({ decisions: writer, rules, actorUserId }));
+      const actor = actorUserId
+        ? await deps.admin
+            .selectFrom('project_members')
+            .select('role')
+            .where('project_id', '=', run.projectId)
+            .where('user_id', '=', actorUserId)
+            .executeTakeFirst()
+        : undefined;
+      tools.push(
+        recordDecisionTool({
+          decisions: writer,
+          rules,
+          actorUserId,
+          process: turn.moderation.process,
+          actorIsOwner: actor?.role === 'owner',
+        }),
+      );
     }
+    if (agent.tools.includes('compare_options')) {
+      tools.push(compareOptionsTool({ decisions: writer, stance: turn.moderation.stance }));
+    }
+    if (agent.tools.includes('start_vote')) tools.push(startVoteTool({ decisions: writer }));
   }
 
   const deltas = createDeltaStream(deps.flushMs ?? FLUSH_MS, async (text) => {
@@ -550,6 +590,7 @@ async function converse(
           withIds: agent.tools.includes('update_criteria'),
           askForCriteria: turn.askForCriteria,
         },
+        moderation: moderates ? turn.moderation : undefined,
       }),
       tools,
       onText: deltas.push,
@@ -600,7 +641,10 @@ function authorName(message: ChatMessage): string {
 
 /** Chat text is data: it must not close the sections the prompt is built from. */
 function asData(text: string): string {
-  return text.replace(/<(\/?)(team|criteria|decisions|canvas|chat|request)>/gi, '‹$1$2›');
+  return text.replace(
+    /<(\/?)(team|moderation|criteria|decisions|canvas|chat|request)>/gi,
+    '‹$1$2›',
+  );
 }
 
 /**
@@ -706,6 +750,32 @@ function describeCanvas(
   return lines.join('\n');
 }
 
+/** The moderator's stance and how the project decides (spec 16b). */
+export type Moderation = { stance: ModeratorStance; process: DecisionProcess };
+
+const STANCES: Readonly<Record<ModeratorStance, string>> = {
+  criteria:
+    "neutral by the team's criteria. Assess options by the criteria and say which option they favor; add no preferences of your own.",
+  opinion:
+    'with your own opinion. Assess options by the criteria, and also say clearly what you would choose and why.',
+  strict:
+    'strictly neutral. Lay out options and arguments, but never recommend or favor one, not even when asked.',
+};
+
+const PROCESSES: Readonly<Record<DecisionProcess, string>> = {
+  consensus:
+    'consensus with confirmation. Record a decision when the team agrees; unless someone told you to record it, it waits until someone confirms it.',
+  vote: 'by vote. Decisions are made with start_vote: start a vote when the team has its options or asks for one. Do not record decisions with record_decision.',
+  owner:
+    'the owner decides. A decision you record waits until an owner confirms it, unless an owner told you to record it.',
+  informal:
+    'informally in the chat. When the team has decided something and calls you, record it right away with record_decision; nobody has to confirm it.',
+};
+
+function describeModeration(moderation: Moderation): string {
+  return `<moderation>\nYour stance: ${STANCES[moderation.stance]}\nHow this project decides: ${PROCESSES[moderation.process]}\n</moderation>`;
+}
+
 /** The project's criteria and decisions (spec 16a), which every agent assesses by. */
 function describeDecisions(
   context: DecisionContext & { withIds?: boolean },
@@ -725,6 +795,7 @@ function describeDecisions(
     ...context.pending.map(
       (operation) => `- ${operation.topic}: ${operation.value} (waits for confirmation)`,
     ),
+    ...context.votes.map((vote) => `- ${vote.topic}: a vote is open (${vote.options.join(', ')})`),
   ];
   const decisions = lines.length > 0 ? lines.join('\n') : 'Nothing is decided yet.';
   return [
@@ -752,6 +823,8 @@ export function buildPrompt(context: {
   occasion?: Occasion | null;
   /** Criteria and decisions (spec 16a); `withIds` for the agent that maintains the criteria. */
   decisions?: DecisionContext & { withIds?: boolean; askForCriteria?: boolean };
+  /** For the moderator: its stance and the decision process of the project (spec 16b). */
+  moderation?: Moderation;
 }): string {
   const proposals = context.proposals ?? [];
   const canvas = [
@@ -783,6 +856,7 @@ export function buildPrompt(context: {
   return [
     `Project: ${asData(context.projectName)}`,
     ...(context.team ? [`<team>\n${describeTeam(context.team)}\n</team>`] : []),
+    ...(context.moderation ? [describeModeration(context.moderation)] : []),
     ...(context.decisions ? describeDecisions(context.decisions) : []),
     `<canvas>\n${asData(canvas)}\n</canvas>`,
     `<chat>\n${asData(chat)}\n</chat>`,

@@ -152,14 +152,13 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
     <WorkspaceShell
       projectName={project.name}
       settings={{
+        stance: project.stance,
+        decisionProcess: project.decisionProcess,
         proposalsOnly: project.proposalsOnly,
-        canChange: project.role === 'owner',
-        onProposalsOnlyChange: (proposalsOnly) => {
-          updateProject.mutate({ proposalsOnly });
-        },
         observer: project.observer,
-        onObserverChange: (observer) => {
-          updateProject.mutate({ observer });
+        canChange: project.role === 'owner',
+        onChange: (change) => {
+          updateProject.mutate(change);
         },
       }}
       activePhase={DEMO_ACTIVE_PHASE}
@@ -189,6 +188,9 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
             user={{ id: user.id, name: user.name }}
             readOnly={readOnly}
             team={teamKeys}
+            members={project.members}
+            role={project.role}
+            moderatorNeutral={project.stance !== 'opinion'}
             onNotice={showNotice}
           />
         ) : null
@@ -223,6 +225,10 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
               proposals={proposals}
               decided={decided}
               canDecide={!readOnly}
+              // While the owner decides (spec 16b), only owners confirm decisions.
+              canConfirmDecisions={
+                !readOnly && (project.decisionProcess !== 'owner' || project.role === 'owner')
+              }
               onDecide={decide}
               activeBoardId={activeBoard?.id ?? null}
               onOpenBoard={(boardId) => void selectBoard(boardId)}

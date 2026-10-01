@@ -16,10 +16,30 @@ export type ProjectRole = (typeof PROJECT_ROLES)[number];
 export const createProjectInputSchema = z.object({ name: projectNameSchema });
 
 /** `PATCH /api/projects/:projectId` (owners): the settings that exist so far. */
+/**
+ * The moderator's stance (spec 16b): neutral by the team's criteria (default), with its own
+ * opinion, or strictly neutral without any recommendation.
+ */
+export const MODERATOR_STANCES = ['criteria', 'opinion', 'strict'] as const;
+export type ModeratorStance = (typeof MODERATOR_STANCES)[number];
+
+/**
+ * How a project decides (spec 16b): by consensus that someone confirms (default), by vote, by its
+ * owner, or informally in the chat.
+ */
+export const DECISION_PROCESSES = ['consensus', 'vote', 'owner', 'informal'] as const;
+export type DecisionProcess = (typeof DECISION_PROCESSES)[number];
+
 /** `PATCH /api/projects/:projectId`: owners change the settings that are given. */
 export const updateProjectInputSchema = z
-  .object({ proposalsOnly: z.boolean().optional(), observer: z.boolean().optional() })
-  .refine((input) => input.proposalsOnly !== undefined || input.observer !== undefined);
+  .object({
+    proposalsOnly: z.boolean().optional(),
+    observer: z.boolean().optional(),
+    stance: z.enum(MODERATOR_STANCES).optional(),
+    decisionProcess: z.enum(DECISION_PROCESSES).optional(),
+  })
+  // At least one setting: keys that are not given are not part of the parsed input.
+  .refine((input) => Object.keys(input).length > 0);
 export type UpdateProjectInput = z.infer<typeof updateProjectInputSchema>;
 
 /** `projects.settings` as stored; unknown keys from later versions are kept. */
@@ -27,6 +47,8 @@ export const projectSettingsSchema = z.looseObject({
   proposalsOnly: z.boolean().optional().catch(undefined),
   /** Agents speak up on their own (spec 15); on unless switched off. */
   observer: z.boolean().optional().catch(undefined),
+  stance: z.enum(MODERATOR_STANCES).optional().catch(undefined),
+  decisionProcess: z.enum(DECISION_PROCESSES).optional().catch(undefined),
   /** The moderator asked for the project criteria (spec 16a) and does not ask again. */
   criteriaAsked: z.boolean().optional().catch(undefined),
 });
@@ -92,6 +114,9 @@ export type ProjectDetails = {
   proposalsOnly: boolean;
   /** The observer lets agents offer help and raise hands (spec 15). */
   observer: boolean;
+  /** The moderator's stance and how the project decides (spec 16b). */
+  stance: ModeratorStance;
+  decisionProcess: DecisionProcess;
   /** The project's team in catalog order, the moderator first (spec 14). */
   agents: ProjectAgent[];
 };

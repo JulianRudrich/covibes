@@ -149,6 +149,12 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - Every agent's context lists the criteria and the decisions. The moderator records criteria the team states (`update_criteria`, directly) and decisions (`record_decision`, through the rule engine): directly on an instruction or an accepted consensus offer, confirmed by the person who asked; otherwise as a proposal of the kind `decision` that an owner or editor confirms.
   - Triggers on `criteria` and `decisions` write every change to `decision_log` and announce it on the live channel, so no path can skip the log.
   - Reopening a decision keeps the old one in the log and queues a moderator run that starts a new round.
+- **Comparison, voting and decision processes (spec 16b):**
+  - A comparison (`compare_options`) and a vote (`start_vote`) each belong to the moderator's answer and show as a card in it; both run directly, since they change nothing by themselves.
+  - Owners and editors vote through the database function `cast_vote`; the vote ends when all of them have voted or an owner ends it, and the function records the winner as the decision. A tie records nothing.
+  - The decision process is a project setting: consensus with confirmation (default), vote, the owner decides, or informally in the chat. `record_decision` follows it, and the database lets only owners confirm while the owner decides.
+  - The moderator's stance is a project setting too and reaches the moderator in its context; strictly neutral, a comparison carries no recommendation.
+  - A decision takes the latest comparison of its topic and the vote that decided along; the log entry refers to both.
 - **Intent:** at the start of every run the agent runner determines the intent of the triggering message: instruction or question. A small model with fixed instructions classifies it next to the agent's reply; if it fails, the message counts as a question. It passes the intent to the rule engine. Observer runs always count as own initiative.
 - **Observer job:** it reads the new messages since its last run and decides to:
   - offer help, on consensus or when the team is stuck
@@ -223,6 +229,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `hand_raises`, `offers` | raised hands (open, heard, dismissed); the moderator's offers of help (open, accepted, declined) |
 | `proposals` | proposals: canvas change, variant, plan update, Git action |
 | `decisions`, `criteria`, `decision_log` | decisions per topic with reasoning, alternatives and who confirmed; project criteria; the log of every decision, reopening and change of the criteria |
+| `comparisons`, `votes`, `vote_ballots` | the moderator's comparisons of options; votes with their options, result and who voted for what |
 | `tasks` | tasks with milestone, assignee, spec reference and GitLab issue |
 | `git_connections`, `oauth_tokens`, `git_actions` | GitLab connection, tokens (encrypted), audit log |
 | `notifications` | in-app notifications and "Waiting for you" |

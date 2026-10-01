@@ -1,5 +1,6 @@
 import type { DB } from '@covibes/db';
 import {
+  comparisonSchema,
   criterionInputSchema,
   DECISION_LOG_KINDS,
   DECISION_STATUSES,
@@ -7,6 +8,7 @@ import {
   MAX_CRITERIA_PER_PROJECT,
   projectIdSchema,
   reopenDecisionInputSchema,
+  voteTallySchema,
   type ApiErrorCode,
   type Criterion,
   type Decision,
@@ -175,6 +177,8 @@ const logDetailsSchema = z.object({
   reason: z.string().optional().catch(undefined),
   previous: z.string().optional().catch(undefined),
   alternatives: z.unknown().optional(),
+  comparisonId: z.string().optional().catch(undefined),
+  votes: voteTallySchema.optional().catch(undefined),
 });
 
 /**
@@ -192,7 +196,11 @@ export function decisionRoutes(db: AppDb, auth: Auth) {
       value: await trx
         .selectFrom('decisions')
         .leftJoin('users', 'users.id', 'decisions.decided_by')
+        .leftJoin('comparisons', 'comparisons.id', 'decisions.comparison_id')
+        .leftJoin('votes', 'votes.id', 'decisions.vote_id')
         .select([
+          'comparisons.data as comparison_data',
+          'votes.tally as vote_tally',
           'decisions.id',
           'decisions.topic',
           'decisions.status',
@@ -210,8 +218,10 @@ export function decisionRoutes(db: AppDb, auth: Auth) {
     }));
     if (!outcome.ok) return apiError(c, outcome.code);
     return c.json<Decision[]>(
-      outcome.value.flatMap((row) =>
-        isStatus(row.status)
+      outcome.value.flatMap((row) => {
+        const comparison = comparisonSchema.safeParse(row.comparison_data);
+        const tally = voteTallySchema.safeParse(row.vote_tally);
+        return isStatus(row.status)
           ? [
               {
                 id: row.id,
@@ -223,10 +233,12 @@ export function decisionRoutes(db: AppDb, auth: Auth) {
                 decidedBy: row.decided_by,
                 decidedAt: row.decided_at?.toISOString() ?? null,
                 reopenReason: row.reopen_reason,
+                comparison: comparison.success ? comparison.data : null,
+                tally: tally.success ? tally.data : null,
               },
             ]
-          : [],
-      ),
+          : [];
+      }),
     );
   });
 
@@ -258,7 +270,9 @@ export function decisionRoutes(db: AppDb, auth: Auth) {
       outcome.value.flatMap((row) => {
         if (!isLogKind(row.kind)) return [];
         const details = logDetailsSchema.safeParse(row.details);
-        const { reasoning, reason, previous, alternatives } = details.success ? details.data : {};
+        const { reasoning, reason, previous, alternatives, comparisonId, votes } = details.success
+          ? details.data
+          : {};
         return [
           {
             id: row.id,
@@ -269,6 +283,8 @@ export function decisionRoutes(db: AppDb, auth: Auth) {
             ...(reasoning ? { reasoning } : {}),
             ...(reason ? { reason } : {}),
             ...(previous ? { previous } : {}),
+            ...(votes ? { votes } : {}),
+            ...(comparisonId ? { compared: true } : {}),
             ...(alternatives === undefined ? {} : { alternatives: readAlternatives(alternatives) }),
             user: row.actor_name,
             agentKey: isAgentKey(row.actor_agent) ? row.actor_agent : null,

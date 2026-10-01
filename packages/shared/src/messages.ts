@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { AGENT_KEYS } from './agents/keys';
+import { comparisonSchema, messageVoteSchema } from './decisions';
 import { messageOfferSchema } from './hands';
 
 /** Same limit as the check constraint on `messages.content` (packages/db/migrations). */
@@ -30,6 +31,10 @@ export const chatMessageSchema = z.object({
   status: z.enum(MESSAGE_STATUSES),
   /** The moderator's offer of help that this message makes, if any (spec 15). */
   offer: messageOfferSchema.optional(),
+  /** The moderator's comparison of options that this message shows (spec 16b). */
+  comparison: comparisonSchema.optional(),
+  /** The vote that this message carries (spec 16b). */
+  vote: messageVoteSchema.optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

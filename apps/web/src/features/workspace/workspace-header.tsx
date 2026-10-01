@@ -1,12 +1,13 @@
 import type { Phase } from '@covibes/shared';
 import { useNavigate } from '@tanstack/react-router';
-import { Check, ChevronDown } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@web/components/logo';
 import { Avatar } from '@web/components/ui/avatar';
 import { Button } from '@web/components/ui/button';
+import { Dialog } from '@web/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +18,11 @@ import { Tooltip } from '@web/components/ui/tooltip';
 import { AccountMenu } from '@web/features/account/account-menu';
 import type { SessionUser } from '@web/features/auth/session';
 import { PhaseIndicator } from '@web/features/workspace/phase-indicator';
-import type { ProjectSettings, WorkspaceMember } from '@web/features/workspace/workspace-shell';
+import {
+  ProjectSettingsDialog,
+  type ProjectSettings,
+} from '@web/features/workspace/project-settings-dialog';
+import type { WorkspaceMember } from '@web/features/workspace/workspace-shell';
 import { initialsOf } from '@web/lib/format';
 
 type WorkspaceHeaderProps = {
@@ -97,9 +102,8 @@ export function WorkspaceHeader({
 }
 
 /**
- * The project name opens the project menu: back to the project list, the proposals-only mode
- * (spec 13) and whether agents speak up on their own (spec 15), which only owners switch until the
- * project settings exist (spec 16).
+ * The project name opens the project menu: back to the project list, and the project settings
+ * (spec 16b), which everyone sees and owners change.
  */
 function ProjectMenu({
   projectName,
@@ -110,52 +114,37 @@ function ProjectMenu({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={`${projectName}, ${t('workspace.projectMenu')}`}
-        className="flex h-[30px] min-w-0 cursor-pointer items-center gap-1.5 rounded-btn-s px-2 text-ui font-medium whitespace-nowrap text-text hover:bg-bg-hover-app focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-      >
-        <span className="truncate">{projectName}</span>
-        <ChevronDown size={14} className="shrink-0 text-text-3" aria-hidden="true" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        <DropdownMenuItem
-          onSelect={() => {
-            void navigate({ to: '/' });
-          }}
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label={`${projectName}, ${t('workspace.projectMenu')}`}
+          className="flex h-[30px] min-w-0 cursor-pointer items-center gap-1.5 rounded-btn-s px-2 text-ui font-medium whitespace-nowrap text-text hover:bg-bg-hover-app focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
         >
-          {t('workspace.toProjects')}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          role="menuitemcheckbox"
-          aria-checked={settings.proposalsOnly}
-          disabled={!settings.canChange}
-          className="data-disabled:cursor-default data-disabled:opacity-60"
-          onSelect={() => {
-            settings.onProposalsOnlyChange(!settings.proposalsOnly);
-          }}
-        >
-          {t('workspace.proposalsOnly')}
-          {settings.proposalsOnly ? (
-            <Check size={14} strokeWidth={2} className="ml-auto text-text-2" aria-hidden="true" />
-          ) : null}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          role="menuitemcheckbox"
-          aria-checked={settings.observer}
-          disabled={!settings.canChange}
-          className="data-disabled:cursor-default data-disabled:opacity-60"
-          onSelect={() => {
-            settings.onObserverChange(!settings.observer);
-          }}
-        >
-          {t('workspace.observer')}
-          {settings.observer ? (
-            <Check size={14} strokeWidth={2} className="ml-auto text-text-2" aria-hidden="true" />
-          ) : null}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <span className="truncate">{projectName}</span>
+          <ChevronDown size={14} className="shrink-0 text-text-3" aria-hidden="true" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem
+            onSelect={() => {
+              void navigate({ to: '/' });
+            }}
+          >
+            {t('workspace.toProjects')}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
+              setSettingsOpen(true);
+            }}
+          >
+            {t('workspace.settings')}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        {settingsOpen ? <ProjectSettingsDialog settings={settings} /> : null}
+      </Dialog>
+    </>
   );
 }

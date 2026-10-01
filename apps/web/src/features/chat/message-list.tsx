@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ChatMessageView } from '@web/features/chat/chat-message';
 import type { ChatItem } from '@web/features/chat/types';
+import type { Voting } from '@web/features/decisions/vote-card';
 import { formatLongDate, isSameLocalDay } from '@web/lib/format';
 
 /** Closer than this to the bottom counts as "at the bottom", so new messages scroll into view. */
@@ -17,6 +18,9 @@ type MessageListProps = {
   onRetry: (id: string) => void;
   /** Accepts or declines the moderator's offer of help; without it the buttons are left out. */
   onOffer?: (message: ChatItem, accept: boolean) => void;
+  /** Who votes and how, for the vote cards (spec 16b). */
+  voting?: Voting;
+  moderatorNeutral?: boolean;
 };
 
 function DayDivider({ label }: { label: string }) {
@@ -33,7 +37,15 @@ function DayDivider({ label }: { label: string }) {
  * The chat history with a divider per day ("Today" or the date). It follows new messages as long
  * as the reader is at the bottom; after scrolling up it stays put, except for own new messages.
  */
-export function MessageList({ items, currentUserId, team, onRetry, onOffer }: MessageListProps) {
+export function MessageList({
+  items,
+  currentUserId,
+  team,
+  onRetry,
+  onOffer,
+  voting,
+  moderatorNeutral,
+}: MessageListProps) {
   const { t, i18n } = useTranslation();
   const scroller = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
@@ -115,6 +127,8 @@ export function MessageList({ items, currentUserId, team, onRetry, onOffer }: Me
                   team={team}
                   onRetry={onRetry}
                   onOffer={onOffer}
+                  voting={voting}
+                  moderatorNeutral={moderatorNeutral}
                 />
               </li>
             </Fragment>

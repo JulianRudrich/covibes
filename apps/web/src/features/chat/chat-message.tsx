@@ -1,5 +1,5 @@
-import type { AgentKey } from '@covibes/shared';
-import { Check, CornerDownRight } from 'lucide-react';
+import type { AgentKey, MessageDebate } from '@covibes/shared';
+import { Check, CornerDownRight, MessagesSquare } from 'lucide-react';
 import { useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -8,6 +8,7 @@ import { Badge } from '@web/components/ui/badge';
 import { Button } from '@web/components/ui/button';
 import { MentionText } from '@web/features/chat/mention-text';
 import { TypingDots } from '@web/features/chat/status-pill';
+import { DebateCard } from '@web/features/debates/debate-card';
 import { ComparisonCard } from '@web/features/decisions/comparison-card';
 import { VoteCard, type Voting } from '@web/features/decisions/vote-card';
 import type { ChatItem } from '@web/features/chat/types';
@@ -61,6 +62,8 @@ type ChatMessageViewProps = {
   voting?: Voting;
   /** The moderator's badge says "neutral" unless its stance is its own opinion (spec 16b). */
   moderatorNeutral?: boolean;
+  /** Ends a running debate early (spec 18); viewers get no button. */
+  onStopDebate?: (debate: MessageDebate) => void;
 };
 
 /**
@@ -68,6 +71,7 @@ type ChatMessageViewProps = {
  * color, the name in the dark agent color and the badge "Agent"; the moderator writes in its own
  * card. While an agent's answer streams in, the header says it is typing and a caret follows the
  * text. Messages sent from this browser show when they are still on their way or could not be sent.
+ * A turn of a debate and its summary are marked above their text (spec 18).
  */
 export function ChatMessageView({
   item,
@@ -78,6 +82,7 @@ export function ChatMessageView({
   onOffer,
   voting,
   moderatorNeutral = true,
+  onStopDebate,
 }: ChatMessageViewProps) {
   const { t, i18n } = useTranslation();
   const id = useId();
@@ -179,6 +184,17 @@ export function ChatMessageView({
 
   const body = (
     <>
+      {item.debateTurn ? (
+        <div className="flex items-center gap-[5px] text-meta text-text-3">
+          <MessagesSquare size={12} strokeWidth={2} aria-hidden="true" />
+          {item.debateTurn.round === null
+            ? t('debates.markSummary')
+            : t('debates.markRound', {
+                round: item.debateTurn.round,
+                rounds: item.debateTurn.rounds,
+              })}
+        </div>
+      ) : null}
       {replyToName === undefined ? null : (
         <div className="flex items-center gap-[5px] text-meta text-text-3">
           <CornerDownRight size={12} strokeWidth={2} aria-hidden="true" />
@@ -231,6 +247,7 @@ export function ChatMessageView({
         {body}
         {item.comparison ? <ComparisonCard comparison={item.comparison} /> : null}
         {item.vote && voting ? <VoteCard vote={item.vote} voting={voting} /> : null}
+        {item.debate ? <DebateCard debate={item.debate} onStop={onStopDebate} /> : null}
         {item.offer ? <OfferActions item={item} onOffer={onOffer} /> : null}
       </Card>
     );

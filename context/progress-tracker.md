@@ -7,7 +7,7 @@
 Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog, observer, decisions, variants, debates, custom agents and knowledge. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 18: debates (branch `spec/18-debates`)
+- nothing; spec 19 is next
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -144,11 +144,17 @@ Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog
   - adopting one draws it, removes the others and records the decision; the discarded variants stay with the decision and in the log as a snapshot
 
   Lint, type check, format, 831 tests and build pass; verified with `pnpm dev`.
+- [x] **Spec 18 debates:**
+  - on request the moderator opens a debate between two or three specialists of the team (`start_debate`), shown as a card in its answer
+  - the participants take turns for one to three rounds as a chain of agent runs that the database advances; afterwards the moderator sums up
+  - owners and editors end a debate early; a turn that fails for good aborts it
+
+  Lint, type check, format, 872 tests and build pass; verified with `pnpm dev`.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M3 (AI core):** spec 18 (debates) is worked out and in progress; specs 19 and 20 follow one after the other.
+1. **M3 (AI core):** specs 19 (custom agents) and 20 (agent knowledge) follow one after the other; spec 19 is worked out next.
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -258,3 +264,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-10-01, spec 16a implemented.** Details are in the spec under "Implementation notes". Spec 16 was split into two parts because of its size: 16a brings criteria, decisions and the log with the default process; 16b follows with comparison, voting, the other processes and the project settings.
 - **2026-10-01, spec 16b implemented.** Details are in the spec under "Implementation notes". The coding agent decided the rules of a vote (one visible vote per owner and editor, it ends when all voted or an owner ends it, a tie decides nothing) and how the processes change recording a decision; spec 16 is complete with it.
 - **2026-10-01, spec 17 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that variants are one proposal with a diagram per variant, that the server places them in one row with the tops aligned, that the canvas offers only "Übernehmen" per variant while "Verwerfen" for all sits in the overview, and that the canvas does not move to new variants by itself.
+- **2026-10-01, spec 18 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that a debate has two or three specialists and one to three rounds (two by default), that the moderator leads but does not argue, that debate runs have no tools, that the database advances the chain, that owners and editors can end a debate early with a summary of what was said, and that a turn that fails for good aborts the debate.

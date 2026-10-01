@@ -371,6 +371,22 @@
     "discarded": "verworfen",
     "snapshot": "Varianten ansehen"
   },
+  "debates": {
+    "title": "Debatte · {{topic}}",
+    "turn": "Runde {{round}} von {{rounds}} · {{agent}} ist dran",
+    "stopping": "Wird nach diesem Beitrag beendet",
+    "summarizing": "Der Moderator fasst zusammen",
+    "finished_one": "Beendet nach {{count}} Runde",
+    "finished_other": "Beendet nach {{count}} Runden",
+    "stopped": "Vorzeitig beendet",
+    "stoppedBy": "Vorzeitig beendet von {{name}}",
+    "failed": "Abgebrochen: Ein Agent konnte nicht antworten.",
+    "stop": "Debatte beenden",
+    "markRound": "Debatte · Runde {{round}} von {{rounds}}",
+    "markSummary": "Debatte · Zusammenfassung",
+    "alreadyStopped": "Die Debatte läuft nicht mehr.",
+    "stopFailed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+  },
   "settings": {
     "title": "Projekteinstellungen",
     "ownerOnly": "Nur Owner ändern die Einstellungen.",

@@ -1,5 +1,6 @@
 import type { DB } from '@covibes/db';
 import {
+  isAgentKey,
   projectSettingsSchema,
   readEdges,
   readNodes,
@@ -30,6 +31,7 @@ import { MAX_DELTA_LENGTH, notifyLive } from '@server/realtime/notifications';
 import type { Intent } from '@server/rules/decide';
 import { classifyIntent } from '@server/rules/intent';
 import { describeOperations, loadOpenProposals, openRunProposal } from '@server/tasks/run-proposal';
+import { debateWriter } from '@server/tasks/run-debates';
 import {
   decisionWriter,
   loadDecisionContext,
@@ -50,6 +52,7 @@ import {
 } from '@server/tools/decision-tools';
 import { describePosition, type CanvasToolOptions } from '@server/tools/placement';
 import { proposeVariantsTool } from '@server/tools/propose-variants';
+import { startDebateTool } from '@server/tools/start-debate';
 import { updateBlockTool } from '@server/tools/update-block';
 
 /** The canvas tools by the names agent definitions use. */
@@ -165,13 +168,35 @@ type Run = {
 
 /**
  * What a run answers besides a message that mentions the agent: its own raised hand that someone
- * listened to, the moderator's offer of help that someone accepted (spec 15), or a decision that
- * someone reopened (spec 16a).
+ * listened to, the moderator's offer of help that someone accepted (spec 15), a decision that
+ * someone reopened (spec 16a), or a debate (spec 18): a participant's turn or the moderator's
+ * summary.
  */
 export type Occasion =
   | { kind: 'hand'; reason: string; by: string }
   | { kind: 'offer'; offer: string; task: string; by: string }
-  | { kind: 'reopen'; topic: string; previous: string; reason: string; by: string };
+  | { kind: 'reopen'; topic: string; previous: string; reason: string; by: string }
+  | {
+      kind: 'debate';
+      question: string;
+      participants: AgentKey[];
+      round: number;
+      rounds: number;
+      /** Whether this turn opens the debate. */
+      first: boolean;
+    }
+  | {
+      kind: 'debate_summary';
+      question: string;
+      participants: AgentKey[];
+      /** Who ended the debate early, if someone did. */
+      stoppedBy: string | null;
+    };
+
+/** In a debate agents only talk: no tools, no canvas, nothing recorded (spec 18). */
+function isDebate(occasion: Occasion | null): boolean {
+  return occasion?.kind === 'debate' || occasion?.kind === 'debate_summary';
+}
 
 /**
  * What started a run besides a mention, the message its reply answers, and the person on whose
@@ -181,11 +206,57 @@ async function loadOccasion(
   admin: Kysely<DB>,
   row: {
     trigger_message_id: string | null;
+    reply_message_id: string | null;
     hand_raise_id: string | null;
     offer_id: string | null;
     decision_id: string | null;
+    debate_id: string | null;
+    debate_round: number | null;
   },
 ): Promise<{ occasion: Occasion | null; replyTo: string | null; actorUserId?: string | null }> {
+  if (row.debate_id) {
+    const debate = await admin
+      .selectFrom('debates')
+      .leftJoin('users', 'users.id', 'debates.stopped_by')
+      .select([
+        'debates.message_id',
+        'debates.question',
+        'debates.participants',
+        'debates.rounds',
+        'debates.turns',
+        'debates.stopped_at',
+        'users.name',
+      ])
+      .where('debates.id', '=', row.debate_id)
+      .executeTakeFirst();
+    const participants = debate?.participants.filter(isAgentKey) ?? [];
+    if (debate && row.debate_round !== null) {
+      return {
+        occasion: {
+          kind: 'debate',
+          question: debate.question,
+          participants,
+          round: row.debate_round,
+          rounds: debate.rounds,
+          first: debate.turns === 0,
+        },
+        replyTo: debate.message_id,
+      };
+    }
+    // The answer that opened the debate belongs to it too, but still answers its message; the
+    // other run without a round is the summary.
+    if (debate && debate.message_id !== row.reply_message_id) {
+      return {
+        occasion: {
+          kind: 'debate_summary',
+          question: debate.question,
+          participants,
+          stoppedBy: debate.stopped_at ? (debate.name ?? 'Someone') : null,
+        },
+        replyTo: debate.message_id,
+      };
+    }
+  }
   if (row.decision_id) {
     const decision = await admin
       .selectFrom('decisions')
@@ -284,6 +355,8 @@ export async function runAgentTurn(
       'hand_raise_id',
       'offer_id',
       'decision_id',
+      'debate_id',
+      'debate_round',
     ])
     .where('id', '=', runId)
     .where('kind', '=', 'reply')
@@ -333,6 +406,7 @@ export async function runAgentTurn(
   const decisions = await loadDecisionContext(deps.admin, run.projectId);
   // On its first use the moderator asks for the project criteria, once (spec 16a).
   const askForCriteria =
+    !isDebate(occasion) &&
     agent.tools.includes('update_criteria') &&
     decisions.criteria.length === 0 &&
     !(settings.success && settings.data.criteriaAsked === true);
@@ -480,7 +554,8 @@ async function converse(
   // agent's reply, so the reply does not wait; the first canvas tool does.
   // A raised hand is the agent's own initiative; accepting an offer is an instruction of the
   // person who accepted it (spec 15); a reopened decision asks for a new round, not for changes
-  // (spec 16a). None of them needs a classification.
+  // (spec 16a); a debate only talks (spec 18). None of them needs a classification.
+  const debating = isDebate(turn.occasion);
   const given = (intent: Intent) =>
     Promise.resolve({ intent, costUsd: 0, inputTokens: 0, outputTokens: 0 });
   const intent =
@@ -488,7 +563,7 @@ async function converse(
       ? given('initiative')
       : turn.occasion?.kind === 'offer'
         ? given('instruction')
-        : turn.occasion?.kind === 'reopen'
+        : turn.occasion?.kind === 'reopen' || debating
           ? given('question')
           : conversation.request
             ? classifyIntent(deps.complete, conversation.request.content, attempt.signal)
@@ -499,7 +574,7 @@ async function converse(
     proposalsOnly: turn.proposalsOnly,
   };
   const tools: AgentTool[] = [];
-  if (board) {
+  if (board && !debating) {
     const toolOptions: CanvasToolOptions = {
       boards: deps.boards,
       boardId: board.id,
@@ -519,7 +594,7 @@ async function converse(
       if (create) tools.push(create(toolOptions));
     }
   }
-  if (agent.tools.includes('add_agents')) {
+  if (!debating && agent.tools.includes('add_agents')) {
     const team = teamWriter(deps.admin, {
       id: run.id,
       projectId: run.projectId,
@@ -528,7 +603,14 @@ async function converse(
     tools.push(addAgentsTool({ team, rules }));
   }
   const moderates = agent.tools.includes('record_decision');
-  if (DECISION_TOOLS.some((name) => agent.tools.includes(name))) {
+  if (!debating && agent.tools.includes('start_debate')) {
+    tools.push(
+      startDebateTool({
+        debates: debateWriter(deps.admin, { id: run.id, projectId: run.projectId, messageId }),
+      }),
+    );
+  }
+  if (!debating && DECISION_TOOLS.some((name) => agent.tools.includes(name))) {
     const writer = decisionWriter(deps.admin, {
       id: run.id,
       projectId: run.projectId,
@@ -824,6 +906,40 @@ function describeDecisions(
   ];
 }
 
+function agentNames(keys: readonly AgentKey[]): string {
+  return keys.map((key) => findAgent(key)?.names.en ?? key).join(', ');
+}
+
+/** What a participant's turn in a debate is for (spec 18): open, answer, or close. */
+function describeDebateTurn(occasion: Extract<Occasion, { kind: 'debate' }>): string {
+  const closing = occasion.rounds > 1 && occasion.round === occasion.rounds;
+  const task = occasion.first
+    ? 'You open the debate: state your position from the view of your role and give your strongest reasons.'
+    : occasion.round === 1
+      ? 'State your position from the view of your role, and answer what was said before you: where you agree and where you see it differently.'
+      : closing
+        ? 'This is the last round: answer the strongest point against your position, concede what the others got right, and say in one sentence what you would do.'
+        : 'Answer what the others said since your last turn: take up their strongest point, say where you agree and where you still disagree and why.';
+  return [
+    `The moderator opened a debate between ${agentNames(occasion.participants)} on this question:`,
+    `<request>\n${asData(occasion.question)}\n</request>`,
+    `It is your turn in round ${String(occasion.round)} of ${String(occasion.rounds)}; the turns so far are in the chat. ${task}`,
+    'Argue by the criteria of the project and stay with the question. Three or four sentences of about 80 words in all, in the language of the conversation, without a greeting. Address the others by name, without @. You cannot draw or change anything in a debate, and you do not decide: the team does.',
+  ].join('\n');
+}
+
+/** The moderator's summary at the end of a debate (spec 18). */
+function describeDebateSummary(occasion: Extract<Occasion, { kind: 'debate_summary' }>): string {
+  const ended = occasion.stoppedBy
+    ? `${asData(occasion.stoppedBy)} ended the debate early`
+    : 'The debate is over';
+  return [
+    `${ended}. ${agentNames(occasion.participants)} debated this question:`,
+    `<request>\n${asData(occasion.question)}\n</request>`,
+    'Sum the debate up for the team, in the language of the conversation: where the participants agree, where they still differ, and what speaks for each side by the criteria of the project. Follow your stance on whether you recommend something. Then ask the team how it wants to go on. Three to six sentences; add no arguments of your own, and decide and record nothing.',
+  ].join('\n');
+}
+
 /**
  * The turn's context as one text: the canvas, the conversation and the message to answer. The
  * agent's instructions come separately as the system prompt, so prompt caching applies to them.
@@ -839,7 +955,7 @@ export function buildPrompt(context: {
   proposals?: readonly { id: string; agentKey: string; operations: CanvasOperation[] }[];
   messages: readonly ChatMessage[];
   request: ChatMessage | undefined;
-  /** A raised hand or an accepted offer, which the reply answers instead of a message. */
+  /** A raised hand, an accepted offer or a debate, which the reply answers instead of a message. */
   occasion?: Occasion | null;
   /** Criteria and decisions (spec 16a); `withIds` for the agent that maintains the criteria. */
   decisions?: DecisionContext & { withIds?: boolean; askForCriteria?: boolean };
@@ -870,9 +986,13 @@ export function buildPrompt(context: {
         ? `You offered the team your help:\n<request>\n${asData(occasion.offer)}\n</request>\n${asData(occasion.by)} accepted the offer. Do it now: ${asData(occasion.task)}`
         : occasion?.kind === 'reopen'
           ? `${asData(occasion.by)} reopened the decision "${asData(occasion.topic)}" (it was: ${asData(occasion.previous)}) for this reason:\n<request>\n${asData(occasion.reason)}\n</request>\nStart a new round in the language of the conversation: say in one sentence what was decided and why it is open again, then ask the team what speaks for and against now. Do not decide it yourself.`
-          : context.request
-            ? `Answer this message from ${authorName(context.request)}:\n<request>\n${asData(context.request.content)}\n</request>`
-            : 'The message addressed to you was removed. Answer the latest message in the chat.';
+          : occasion?.kind === 'debate'
+            ? describeDebateTurn(occasion)
+            : occasion?.kind === 'debate_summary'
+              ? describeDebateSummary(occasion)
+              : context.request
+                ? `Answer this message from ${authorName(context.request)}:\n<request>\n${asData(context.request.content)}\n</request>`
+                : 'The message addressed to you was removed. Answer the latest message in the chat.';
   return [
     `Project: ${asData(context.projectName)}`,
     ...(context.team ? [`<team>\n${describeTeam(context.team)}\n</team>`] : []),

@@ -162,6 +162,22 @@ export {
   type VoteTally,
 } from './decisions';
 export {
+  DEBATE_DEFAULT_ROUNDS,
+  DEBATE_MAX_PARTICIPANTS,
+  DEBATE_MAX_ROUNDS,
+  DEBATE_MIN_PARTICIPANTS,
+  DEBATE_QUESTION_MAX_LENGTH,
+  DEBATE_STATUSES,
+  DEBATE_TOPIC_MAX_LENGTH,
+  debatedRounds,
+  debateProgress,
+  messageDebateSchema,
+  messageDebateTurnSchema,
+  type DebateStatus,
+  type MessageDebate,
+  type MessageDebateTurn,
+} from './debates';
+export {
   HAND_REASON_MAX_LENGTH,
   handRaiseSchema,
   MAX_OPEN_HANDS,

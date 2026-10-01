@@ -52,6 +52,8 @@ export interface AiRuns {
   agent_key: string;
   cost_usd: Generated<Numeric>;
   created_at: Generated<Timestamp>;
+  debate_id: string | null;
+  debate_round: number | null;
   decision_id: string | null;
   error: string | null;
   finished_at: Timestamp | null;
@@ -96,6 +98,22 @@ export interface Criteria {
   project_id: string;
   text: string;
   updated_at: Generated<Timestamp>;
+}
+
+export interface Debates {
+  created_at: Generated<Timestamp>;
+  finished_at: Timestamp | null;
+  id: Generated<string>;
+  message_id: string;
+  participants: string[];
+  project_id: string;
+  question: string;
+  rounds: number;
+  status: Generated<string>;
+  stopped_at: Timestamp | null;
+  stopped_by: string | null;
+  topic: string;
+  turns: Generated<number>;
 }
 
 export interface DecisionLog {
@@ -343,6 +361,7 @@ export interface DB {
   boards: Boards;
   comparisons: Comparisons;
   criteria: Criteria;
+  debates: Debates;
   decision_log: DecisionLog;
   decisions: Decisions;
   'graphile_worker._private_job_queues': GraphileWorkerPrivateJobQueues;

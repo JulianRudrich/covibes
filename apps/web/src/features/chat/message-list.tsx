@@ -1,4 +1,4 @@
-import type { AgentKey } from '@covibes/shared';
+import type { AgentKey, MessageDebate } from '@covibes/shared';
 import { Fragment, useEffect, useLayoutEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -21,6 +21,8 @@ type MessageListProps = {
   /** Who votes and how, for the vote cards (spec 16b). */
   voting?: Voting;
   moderatorNeutral?: boolean;
+  /** Ends a running debate early (spec 18); without it the button is left out. */
+  onStopDebate?: (debate: MessageDebate) => void;
 };
 
 function DayDivider({ label }: { label: string }) {
@@ -45,6 +47,7 @@ export function MessageList({
   onOffer,
   voting,
   moderatorNeutral,
+  onStopDebate,
 }: MessageListProps) {
   const { t, i18n } = useTranslation();
   const scroller = useRef<HTMLDivElement>(null);
@@ -129,6 +132,7 @@ export function MessageList({
                   onOffer={onOffer}
                   voting={voting}
                   moderatorNeutral={moderatorNeutral}
+                  onStopDebate={onStopDebate}
                 />
               </li>
             </Fragment>

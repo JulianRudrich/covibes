@@ -171,7 +171,11 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - An offer is a moderator message with a row in `offers`; a raised hand is a row in `hand_raises`. Owners and editors decide both through database functions, which queue the agent's run like the mention trigger does.
   - A run of a raised hand counts as own initiative, a run of an accepted offer as an instruction.
   - Every look is metered in `ai_runs` with the kind `observe`.
-- **Debates:** a job chain with a fixed number of rounds. At the end the moderator summarizes.
+- **Debates (spec 18):** a job chain with a fixed number of rounds. At the end the moderator summarizes.
+  - The moderator opens a debate on request with `start_debate`: two or three specialists of the team, one to three rounds, one debate at a time per project. The debate belongs to the moderator's answer and shows as a card in it.
+  - Every turn is an ordinary agent run with its own message. A trigger on `ai_runs` advances the debate when one of its runs ends: the next participant, after the last turn the moderator's summary, and the end. A run that failed for good aborts the debate.
+  - Runs of a debate only talk: they get no tools and record nothing.
+  - Owners and editors end a debate early through the database function `stop_debate`; the turn in progress is finished, then the moderator sums up.
 - **External agents (after V1):** the agent runner gets an adapter interface. Through it, an external endpoint (A2A or webhook) answers instead of a model. Rules and tools stay the same.
 
 ### Rule engine
@@ -235,6 +239,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `proposals` | proposals: canvas change, variants (with the adopted one), team change, decision, plan update, Git action |
 | `decisions`, `criteria`, `decision_log` | decisions per topic with reasoning, alternatives and who confirmed; project criteria; the log of every decision, reopening and change of the criteria |
 | `comparisons`, `votes`, `vote_ballots` | the moderator's comparisons of options; votes with their options, result and who voted for what |
+| `debates` | debates between agents: question, participants, rounds, finished turns and status |
 | `tasks` | tasks with milestone, assignee, spec reference and GitLab issue |
 | `git_connections`, `oauth_tokens`, `git_actions` | GitLab connection, tokens (encrypted), audit log |
 | `notifications` | in-app notifications and "Waiting for you" |

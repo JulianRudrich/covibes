@@ -10,6 +10,7 @@ import { messagesQuery } from '@web/features/chat/queries';
 import { chatStatus, runsQuery } from '@web/features/chat/runs';
 import { ChatStatusPill } from '@web/features/chat/status-pill';
 import { useSendMessage } from '@web/features/chat/use-send-message';
+import { useStopDebate } from '@web/features/debates/queries';
 import { useVoteActions } from '@web/features/decisions/queries';
 import type { Voting } from '@web/features/decisions/vote-card';
 import { handsQuery, useHandDecisions, useOfferDecisions } from '@web/features/hands/queries';
@@ -60,6 +61,9 @@ export function ChatPanel({
   const votes = useVoteActions(projectId, user.id, (reason) => {
     onNotice(t(reason === 'already_decided' ? 'votes.alreadyClosed' : 'votes.failed'));
   });
+  const stopDebate = useStopDebate(projectId, user.name, (reason) => {
+    onNotice(t(reason === 'already_decided' ? 'debates.alreadyStopped' : 'debates.stopFailed'));
+  });
   const voting = useMemo<Voting>(
     () => ({
       voters: members.filter((member) => member.role !== 'viewer'),
@@ -97,6 +101,7 @@ export function ChatPanel({
             onOffer={readOnly ? undefined : decideOffer}
             voting={voting}
             moderatorNeutral={moderatorNeutral}
+            onStopDebate={readOnly ? undefined : stopDebate}
           />
         )}
 

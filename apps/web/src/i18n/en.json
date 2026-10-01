@@ -371,6 +371,22 @@
     "discarded": "discarded",
     "snapshot": "View the variants"
   },
+  "debates": {
+    "title": "Debate · {{topic}}",
+    "turn": "Round {{round}} of {{rounds}} · {{agent}}'s turn",
+    "stopping": "Ends after this turn",
+    "summarizing": "The moderator is summing up",
+    "finished_one": "Finished after {{count}} round",
+    "finished_other": "Finished after {{count}} rounds",
+    "stopped": "Ended early",
+    "stoppedBy": "Ended early by {{name}}",
+    "failed": "Aborted: an agent could not answer.",
+    "stop": "End debate",
+    "markRound": "Debate · round {{round}} of {{rounds}}",
+    "markSummary": "Debate · summary",
+    "alreadyStopped": "The debate is no longer running.",
+    "stopFailed": "That did not work. Please try again."
+  },
   "settings": {
     "title": "Project settings",
     "ownerOnly": "Only owners change the settings.",

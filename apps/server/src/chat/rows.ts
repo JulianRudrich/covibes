@@ -4,6 +4,8 @@ import {
   comparisonSchema,
   isAgentKey,
   MESSAGE_STATUSES,
+  messageDebateSchema,
+  messageDebateTurnSchema,
   messageOfferSchema,
   messageVoteSchema,
   type AiRun,
@@ -33,6 +35,16 @@ export function selectMessages(db: Kysely<DB>) {
       // The comparison and the vote the message shows as cards (spec 16b).
       .leftJoin('comparisons', 'comparisons.message_id', 'messages.id')
       .leftJoin('votes', 'votes.message_id', 'messages.id')
+      // The debate the message opens (spec 18), and who ended it early.
+      .leftJoin('debates', 'debates.message_id', 'messages.id')
+      .leftJoin('users as stoppers', 'stoppers.id', 'debates.stopped_by')
+      // The run of a debate that wrote the message: a turn, or the summary without a round.
+      .leftJoin('ai_runs as debate_runs', (join) =>
+        join
+          .onRef('debate_runs.reply_message_id', '=', 'messages.id')
+          .on('debate_runs.debate_id', 'is not', null),
+      )
+      .leftJoin('debates as turn_debates', 'turn_debates.id', 'debate_runs.debate_id')
       .select((eb) => [
         'comparisons.data as comparison_data',
         'votes.id as vote_id',
@@ -52,6 +64,18 @@ export function selectMessages(db: Kysely<DB>) {
           .as('vote_ballots'),
       ])
       .select([
+        'debates.id as debate_id',
+        'debates.topic as debate_topic',
+        'debates.question as debate_question',
+        'debates.participants as debate_participants',
+        'debates.rounds as debate_rounds',
+        'debates.turns as debate_turns',
+        'debates.status as debate_status',
+        'debates.stopped_at as debate_stopped_at',
+        'stoppers.name as debate_stopped_by',
+        'turn_debates.id as turn_debate_id',
+        'turn_debates.rounds as turn_rounds',
+        'debate_runs.debate_round as turn_round',
         'offers.id as offer_id',
         'offers.kind as offer_kind',
         'offers.action as offer_action',
@@ -101,6 +125,24 @@ export function toMessage(row: MessageRow): ChatMessage | undefined {
     winner: row.vote_winner,
     ballots: row.vote_ballots,
   });
+  const debate = messageDebateSchema.safeParse({
+    id: row.debate_id,
+    topic: row.debate_topic,
+    question: row.debate_question,
+    // Agents that this version does not know cannot be shown.
+    participants: row.debate_participants?.filter(isAgentKey),
+    rounds: row.debate_rounds,
+    turns: row.debate_turns,
+    status: row.debate_status,
+    stopped: row.debate_stopped_at !== null,
+    stoppedBy: row.debate_stopped_by,
+  });
+  // The message that opens a debate shows its card; every other message of the debate its mark.
+  const debateTurn = messageDebateTurnSchema.safeParse(
+    debate.success
+      ? undefined
+      : { debateId: row.turn_debate_id, round: row.turn_round, rounds: row.turn_rounds },
+  );
   return {
     id: row.id,
     projectId: row.project_id,
@@ -112,6 +154,8 @@ export function toMessage(row: MessageRow): ChatMessage | undefined {
     ...(offer.success ? { offer: offer.data } : {}),
     ...(comparison.success ? { comparison: comparison.data } : {}),
     ...(vote.success ? { vote: vote.data } : {}),
+    ...(debate.success ? { debate: debate.data } : {}),
+    ...(debateTurn.success ? { debateTurn: debateTurn.data } : {}),
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };

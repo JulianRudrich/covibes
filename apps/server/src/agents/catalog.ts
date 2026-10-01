@@ -56,6 +56,7 @@ const ROLES: Readonly<
       'compare_options',
       'start_vote',
       'propose_variants',
+      'start_debate',
     ],
   },
   critic: {

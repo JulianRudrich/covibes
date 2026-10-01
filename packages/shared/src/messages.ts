@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { AGENT_KEYS } from './agents/keys';
+import { messageDebateSchema, messageDebateTurnSchema } from './debates';
 import { comparisonSchema, messageVoteSchema } from './decisions';
 import { messageOfferSchema } from './hands';
 
@@ -35,6 +36,10 @@ export const chatMessageSchema = z.object({
   comparison: comparisonSchema.optional(),
   /** The vote that this message carries (spec 16b). */
   vote: messageVoteSchema.optional(),
+  /** The debate that this message opens (spec 18). */
+  debate: messageDebateSchema.optional(),
+  /** Set on a turn of a debate and on its summary (spec 18). */
+  debateTurn: messageDebateTurnSchema.optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

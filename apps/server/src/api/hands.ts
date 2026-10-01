@@ -38,7 +38,7 @@ export function functionError(error: unknown): ApiErrorCode | undefined {
   return typeof code === 'string' ? FUNCTION_ERRORS[code] : undefined;
 }
 
-type Target = 'hand_raises' | 'offers' | 'votes';
+type Target = 'hand_raises' | 'offers' | 'votes' | 'debates';
 
 /**
  * Runs a deciding function (migration 0008) for an owner or editor. The row must belong to the
@@ -48,7 +48,8 @@ type Target = 'hand_raises' | 'offers' | 'votes';
 export async function decideByFunction(
   db: AppDb,
   c: Context<{ Variables: SessionVariables }>,
-  target: { table: Target; idParam: string },
+  /** `open` is the status in which the row can still be decided; "open" unless given. */
+  target: { table: Target; idParam: string; open?: string },
   call: (trx: Transaction<DB>, id: string) => Promise<unknown>,
 ): Promise<Response> {
   const user = c.get('user');
@@ -69,7 +70,7 @@ export async function decideByFunction(
         .executeTakeFirst();
       if (!row) return 'not_found' as const;
       if (member.role === 'viewer') return 'forbidden' as const;
-      if (row.status !== 'open') return 'already_decided' as const;
+      if (row.status !== (target.open ?? 'open')) return 'already_decided' as const;
       await call(trx, id.data);
       return 'done' as const;
     });
@@ -160,6 +161,24 @@ export function voteRoutes(db: AppDb, auth: Auth) {
   routes.post('/:voteId/close', (c) =>
     decideByFunction(db, c, { table: 'votes', idParam: 'voteId' }, (trx, id) =>
       sql`select public.close_vote(${id})`.execute(trx),
+    ),
+  );
+
+  return routes;
+}
+
+/**
+ * `/api/projects/:projectId/debates` (spec 18): owners and editors end a running debate early.
+ * The turn in progress is finished, then the moderator sums up; the database function announces
+ * the changed card.
+ */
+export function debateRoutes(db: AppDb, auth: Auth) {
+  const routes = new Hono<{ Variables: SessionVariables }>();
+  routes.use(sessionMiddleware(auth));
+
+  routes.post('/:debateId/stop', (c) =>
+    decideByFunction(db, c, { table: 'debates', idParam: 'debateId', open: 'running' }, (trx, id) =>
+      sql`select public.stop_debate(${id})`.execute(trx),
     ),
   );
 

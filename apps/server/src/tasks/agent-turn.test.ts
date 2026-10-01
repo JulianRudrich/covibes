@@ -297,6 +297,7 @@ describe('agent turn', () => {
       'add_frame',
       'arrange_frame',
       'add_agents',
+      'start_debate',
       'update_criteria',
       'record_decision',
       'compare_options',
@@ -1193,6 +1194,235 @@ describe('variants (spec 17)', () => {
     expect(again.reply.mock.calls[0]?.[0].prompt).toContain(
       '- Architektur: variants wait for the team (Monolith, Echtzeit-Dienst)',
     );
+  });
+});
+
+describe('debates (spec 18)', () => {
+  async function debateProject() {
+    const project = await createProject();
+    await test.db.admin
+      .insertInto('project_agents')
+      .values([
+        { project_id: project.projectId, agent_key: 'backend' },
+        { project_id: project.projectId, agent_key: 'critic' },
+      ])
+      .execute();
+    return project;
+  }
+
+  /** The moderator opens a debate with start_debate, like Claude would. */
+  function opensDebate(input: Record<string, unknown> = {}): Model {
+    return async (call) => {
+      const tool = call.tools.find((entry) => entry.name === 'start_debate');
+      if (!tool) throw new Error('start_debate is missing');
+      return result(
+        await tool.run({
+          topic: 'Echtzeit-Dienst',
+          question: 'Braucht das MVP einen eigenen Echtzeit-Dienst?',
+          participants: ['backend', 'critic'],
+          rounds: 1,
+          ...input,
+        }),
+      );
+    };
+  }
+
+  /** The run of the debate that waits for the worker. */
+  function waitingRun(projectId: string) {
+    return test.db.admin
+      .selectFrom('ai_runs')
+      .select(['id', 'agent_key', 'debate_round'])
+      .where('project_id', '=', projectId)
+      .where('debate_id', 'is not', null)
+      .where('status', '=', 'queued')
+      .execute();
+  }
+
+  it('runs a debate turn by turn and ends with the summary of the moderator', async () => {
+    const { projectId, request } = await debateProject();
+    const { boards } = memoryBoards();
+    const opening = await request('@Moderator lass Backend und Kritiker das ausdiskutieren');
+    await runAgentTurn(
+      turnDeps(opensDebate(), boards).deps,
+      { runId: opening.runId },
+      FIRST_ATTEMPT,
+    );
+
+    // The card is part of the moderator's answer; the first turn waits.
+    const card = await reply(opening.runId);
+    expect(card.content).toContain('Opened the debate "Echtzeit-Dienst" between Backend, Critic');
+    expect(card.debate).toMatchObject({
+      topic: 'Echtzeit-Dienst',
+      participants: ['backend', 'critic'],
+      rounds: 1,
+      turns: 0,
+      status: 'running',
+    });
+    const [first, ...others] = await waitingRun(projectId);
+    expect(others).toEqual([]);
+    expect(first).toMatchObject({ agent_key: 'backend', debate_round: 1 });
+    if (!first) throw new Error('The first turn is missing');
+
+    // A turn only talks: no tools, no classification, the role's own instructions.
+    const backend = turnDeps(() => Promise.resolve(result('Ein Dienst reicht.')), boards);
+    await runAgentTurn(backend.deps, { runId: first.id }, FIRST_ATTEMPT);
+    const opens = backend.reply.mock.calls[0]?.[0];
+    expect(opens?.tools).toEqual([]);
+    expect(opens?.system).toMatch(/^You are the backend/);
+    expect(opens?.prompt).toContain(
+      'The moderator opened a debate between Backend, Critic on this question:\n<request>\nBraucht das MVP einen eigenen Echtzeit-Dienst?\n</request>',
+    );
+    expect(opens?.prompt).toContain('It is your turn in round 1 of 1');
+    expect(opens?.prompt).toContain('You open the debate');
+    expect(backend.complete).not.toHaveBeenCalled();
+    expect(await reply(first.id)).toMatchObject({
+      author: { kind: 'agent', agentKey: 'backend' },
+      content: 'Ein Dienst reicht.',
+      replyTo: card.id,
+      debateTurn: { debateId: card.debate?.id, round: 1, rounds: 1 },
+    });
+
+    // The second participant answers what was said.
+    const [second] = await waitingRun(projectId);
+    expect(second).toMatchObject({ agent_key: 'critic', debate_round: 1 });
+    if (!second) throw new Error('The second turn is missing');
+    const critic = turnDeps(() => Promise.resolve(result('Das trägt nicht.')), boards);
+    await runAgentTurn(critic.deps, { runId: second.id }, FIRST_ATTEMPT);
+    const answers = critic.reply.mock.calls[0]?.[0].prompt ?? '';
+    expect(answers).toContain('answer what was said before you');
+    expect(answers).not.toContain('You open the debate');
+    expect(answers).toContain('Backend: Ein Dienst reicht.');
+
+    // After the last turn the moderator sums up, again without tools.
+    const [summary] = await waitingRun(projectId);
+    expect(summary).toMatchObject({ agent_key: 'moderator', debate_round: null });
+    if (!summary) throw new Error('The summary is missing');
+    expect((await reply(opening.runId)).debate).toMatchObject({ status: 'summarizing', turns: 2 });
+    const moderator = turnDeps(() => Promise.resolve(result('Beide sehen es so …')), boards);
+    await runAgentTurn(moderator.deps, { runId: summary.id }, FIRST_ATTEMPT);
+    const sums = moderator.reply.mock.calls[0]?.[0];
+    expect(sums?.tools).toEqual([]);
+    expect(sums?.prompt).toContain('The debate is over. Backend, Critic debated this question:');
+    expect(sums?.prompt).toContain('Sum the debate up for the team');
+    expect(sums?.prompt).toContain('<moderation>');
+    expect(sums?.prompt).not.toContain('ask the team once for its goals');
+    expect(await reply(summary.id)).toMatchObject({
+      author: { kind: 'agent', agentKey: 'moderator' },
+      replyTo: card.id,
+      debateTurn: { debateId: card.debate?.id, round: null, rounds: 1 },
+    });
+
+    expect((await reply(opening.runId)).debate).toMatchObject({ status: 'done', turns: 2 });
+    expect(await waitingRun(projectId)).toEqual([]);
+    // The card updated live with every step.
+    await until(
+      () =>
+        eventsFor(projectId).filter(
+          (event) => event.type === 'message' && event.message.debate?.status === 'done',
+        ).length > 0,
+    );
+  });
+
+  it('opens one debate at a time, and only between agents of the team', async () => {
+    const { projectId, request } = await debateProject();
+    const { boards } = memoryBoards();
+    const first = await request('@Moderator lass Backend und Kritiker debattieren');
+    await runAgentTurn(turnDeps(opensDebate(), boards).deps, { runId: first.runId }, FIRST_ATTEMPT);
+
+    const second = await request('@Moderator und noch eine Debatte');
+    await runAgentTurn(
+      turnDeps(opensDebate({ topic: 'Hosting' }), boards).deps,
+      { runId: second.runId },
+      FIRST_ATTEMPT,
+    );
+    expect((await reply(second.runId)).content).toContain('A debate is running already');
+    expect((await reply(second.runId)).debate).toBeUndefined();
+
+    const other = await debateProject();
+    const outside = await other.request('@Moderator lass Backend und Sicherheit debattieren');
+    await runAgentTurn(
+      turnDeps(opensDebate({ participants: ['backend', 'security'] }), boards).deps,
+      { runId: outside.runId },
+      FIRST_ATTEMPT,
+    );
+    expect((await reply(outside.runId)).content).toContain('Not in the team: Security.');
+    const debates = await test.db.admin
+      .selectFrom('debates')
+      .select('project_id')
+      .where('project_id', 'in', [projectId, other.projectId])
+      .execute();
+    expect(debates).toEqual([{ project_id: projectId }]);
+  });
+
+  it('keeps the debate of a retried opening answer and aborts it when a turn fails for good', async () => {
+    const { projectId, request } = await debateProject();
+    const { boards } = memoryBoards();
+    const opening = await request('@Moderator lass Backend und Kritiker debattieren');
+    // The first attempt opens the debate and then fails; the retry opens it "again".
+    const opensAndFails: Model = async (call) => {
+      await opensDebate()(call);
+      throw new Error('Connection lost');
+    };
+    await expect(
+      runAgentTurn(turnDeps(opensAndFails, boards).deps, { runId: opening.runId }, FIRST_ATTEMPT),
+    ).rejects.toThrow('Connection lost');
+    // Only the opening answer waits, for its retry; no turn was queued yet.
+    expect(await waitingRun(projectId)).toMatchObject([{ id: opening.runId }]);
+    await runAgentTurn(
+      turnDeps(opensDebate(), boards).deps,
+      { runId: opening.runId },
+      { attempt: 2, maxAttempts: 3 },
+    );
+    const card = await reply(opening.runId);
+    expect(card.content).toContain('Opened the debate');
+    expect(card.debate).toMatchObject({ status: 'running', turns: 0 });
+
+    // The retried answer still answers its message, not the debate.
+    const [turn] = await waitingRun(projectId);
+    if (!turn) throw new Error('The first turn is missing');
+    const fails = turnDeps(failsWith(new GatewayLimitError('Quota used up', null)), boards);
+    await runAgentTurn(fails.deps, { runId: turn.id }, FIRST_ATTEMPT);
+    expect((await reply(opening.runId)).debate).toMatchObject({ status: 'failed', turns: 0 });
+    expect(await waitingRun(projectId)).toEqual([]);
+  });
+
+  it('tells the moderator who ended a debate early', () => {
+    const prompt = buildPrompt({
+      projectName: 'Demo',
+      nodes: [],
+      messages: [],
+      request: undefined,
+      occasion: {
+        kind: 'debate_summary',
+        question: 'Monolith oder Dienste?',
+        participants: ['backend', 'critic'],
+        stoppedBy: 'Olga',
+      },
+    });
+    expect(prompt).toContain('Olga ended the debate early. Backend, Critic debated this question:');
+  });
+
+  it('asks for a closing statement in the last of several rounds', () => {
+    const turn = (round: number, first = false) =>
+      buildPrompt({
+        projectName: 'Demo',
+        nodes: [],
+        messages: [],
+        request: undefined,
+        occasion: {
+          kind: 'debate',
+          question: 'Monolith oder Dienste?',
+          participants: ['backend', 'critic', 'security'],
+          round,
+          rounds: 3,
+          first,
+        },
+      });
+    expect(turn(1, true)).toContain('You open the debate');
+    expect(turn(1)).toContain('answer what was said before you');
+    expect(turn(2)).toContain('Answer what the others said since your last turn');
+    expect(turn(3)).toContain('This is the last round');
+    expect(turn(3)).toContain('between Backend, Critic, Security');
   });
 });
 

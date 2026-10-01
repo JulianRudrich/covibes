@@ -7,7 +7,7 @@
 Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog, observer, decisions, variants, debates, custom agents and knowledge. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- nothing; spec 19 is next
+- Spec 19: custom agents (branch `spec/19-custom-agents`)
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -154,7 +154,7 @@ Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M3 (AI core):** specs 19 (custom agents) and 20 (agent knowledge) follow one after the other; spec 19 is worked out next.
+1. **M3 (AI core):** spec 19 (custom agents) is worked out and in progress; spec 20 (agent knowledge) follows.
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally

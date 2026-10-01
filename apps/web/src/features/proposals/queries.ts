@@ -40,6 +40,9 @@ export function proposalsQuery(projectId: string) {
 
 export type Decision = 'apply' | 'reject';
 
+/** Applies or rejects a proposal; `variant` names the variant to adopt (spec 17). */
+export type DecideProposal = (proposal: Proposal, decision: Decision, variant?: number) => void;
+
 /** Why a decision failed, for the note over the canvas. */
 export type DecisionFailure =
   { reason: 'being_edited'; name: string } | { reason: 'already_decided' } | { reason: 'failed' };
@@ -66,10 +69,23 @@ export function useProposalDecisions(
   const queryKey = proposalsQueryKey(projectId);
 
   const mutation = useMutation({
-    mutationFn: ({ proposal, decision }: { proposal: Proposal; decision: Decision }) =>
+    mutationFn: ({
+      proposal,
+      decision,
+      variant,
+    }: {
+      proposal: Proposal;
+      decision: Decision;
+      variant?: number;
+    }) =>
       api<unknown>(
         `/projects/${encodeURIComponent(projectId)}/proposals/${encodeURIComponent(proposal.id)}/${decision}`,
-        { method: 'POST' },
+        {
+          method: 'POST',
+          ...(decision === 'apply' && variant !== undefined
+            ? { body: JSON.stringify({ variant }) }
+            : {}),
+        },
       ),
     onMutate: async ({ proposal }) => {
       await queryClient.cancelQueries({ queryKey, exact: true });
@@ -79,7 +95,7 @@ export function useProposalDecisions(
       );
       return { previous };
     },
-    onSuccess: (_result, { proposal, decision }) => {
+    onSuccess: (_result, { proposal, decision, variant }) => {
       queryClient.setQueryData<DecidedProposal[]>(decidedQueryKey(projectId), (decided = []) => [
         ...decided,
         {
@@ -93,7 +109,17 @@ export function useProposalDecisions(
                     .join(', '),
                   decision: true,
                 }
-              : { name: proposalSummary(proposal).name }),
+              : proposal.kind === 'variants'
+                ? {
+                    // The adopted variant, or the topic when all were rejected.
+                    name:
+                      (variant === undefined
+                        ? undefined
+                        : proposal.operations[0]?.variants[variant]?.name) ??
+                      proposal.operations[0]?.topic ??
+                      '',
+                  }
+                : { name: proposalSummary(proposal).name }),
           status: decision === 'apply' ? 'applied' : 'rejected',
         },
       ]);
@@ -106,9 +132,8 @@ export function useProposalDecisions(
     onSettled: () => queryClient.invalidateQueries({ queryKey, exact: true }),
   });
 
-  return {
-    decide: (proposal: Proposal, decision: Decision) => {
-      mutation.mutate({ proposal, decision });
-    },
+  const decide: DecideProposal = (proposal, decision, variant) => {
+    mutation.mutate({ proposal, decision, ...(variant === undefined ? {} : { variant }) });
   };
+  return { decide };
 }

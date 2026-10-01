@@ -127,6 +127,7 @@ export interface Decisions {
   topic: string;
   updated_at: Generated<Timestamp>;
   value: string | null;
+  variants_id: string | null;
   vote_id: string | null;
 }
 
@@ -263,6 +264,7 @@ export interface Projects {
 export interface Proposals {
   agent_key: string;
   board_id: string | null;
+  chosen: number | null;
   created_at: Generated<Timestamp>;
   decided_at: Timestamp | null;
   decided_by: string | null;

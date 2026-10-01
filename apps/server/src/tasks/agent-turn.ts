@@ -49,6 +49,7 @@ import {
   updateCriteriaTool,
 } from '@server/tools/decision-tools';
 import { describePosition, type CanvasToolOptions } from '@server/tools/placement';
+import { proposeVariantsTool } from '@server/tools/propose-variants';
 import { updateBlockTool } from '@server/tools/update-block';
 
 /** The canvas tools by the names agent definitions use. */
@@ -62,7 +63,13 @@ const CANVAS_TOOLS: Readonly<Record<string, (options: CanvasToolOptions) => Agen
 };
 
 /** The tools that write criteria, decisions, comparisons and votes (specs 16a and 16b). */
-const DECISION_TOOLS = ['update_criteria', 'record_decision', 'compare_options', 'start_vote'];
+const DECISION_TOOLS = [
+  'update_criteria',
+  'record_decision',
+  'compare_options',
+  'start_vote',
+  'propose_variants',
+];
 
 /** Name of the job the database trigger creates for every mention (migration 0005). */
 export const AGENT_TURN_TASK = 'agent_turn';
@@ -558,6 +565,16 @@ async function converse(
       tools.push(compareOptionsTool({ decisions: writer, stance: turn.moderation.stance }));
     }
     if (agent.tools.includes('start_vote')) tools.push(startVoteTool({ decisions: writer }));
+    if (board && agent.tools.includes('propose_variants')) {
+      tools.push(
+        proposeVariantsTool({
+          boards: deps.boards,
+          boardId: board.id,
+          author: { kind: 'agent', agentKey: agent.key },
+          decisions: writer,
+        }),
+      );
+    }
   }
 
   const deltas = createDeltaStream(deps.flushMs ?? FLUSH_MS, async (text) => {
@@ -796,6 +813,9 @@ function describeDecisions(
       (operation) => `- ${operation.topic}: ${operation.value} (waits for confirmation)`,
     ),
     ...context.votes.map((vote) => `- ${vote.topic}: a vote is open (${vote.options.join(', ')})`),
+    ...context.openVariants.map(
+      (open) => `- ${open.topic}: variants wait for the team (${open.names.join(', ')})`,
+    ),
   ];
   const decisions = lines.length > 0 ? lines.join('\n') : 'Nothing is decided yet.';
   return [

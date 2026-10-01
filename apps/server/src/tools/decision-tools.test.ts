@@ -21,6 +21,7 @@ function memoryWriter(initial: Partial<DecisionContext> = {}) {
     decisions: [...(initial.decisions ?? [])],
     pending: [...(initial.pending ?? [])],
     votes: [...(initial.votes ?? [])],
+    openVariants: [...(initial.openVariants ?? [])],
   };
   const decided: { operation: DecisionOperation; userId: string | null }[] = [];
   const proposed: { operation: DecisionOperation; reason: ProposalReason }[] = [];
@@ -62,6 +63,13 @@ function memoryWriter(initial: Partial<DecisionContext> = {}) {
     startVote: (topic, options) => {
       context.votes.push({ topic, options: [...options] });
       return Promise.resolve(true);
+    },
+    proposeVariants: (_boardId, operation) => {
+      context.openVariants.push({
+        topic: operation.topic,
+        names: operation.variants.map((variant) => variant.name),
+      });
+      return Promise.resolve();
     },
   };
   return { writer, context, decided, proposed, compared };

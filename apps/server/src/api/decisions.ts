@@ -2,6 +2,7 @@ import type { DB } from '@covibes/db';
 import {
   comparisonSchema,
   criterionInputSchema,
+  decisionVariantsSchema,
   DECISION_LOG_KINDS,
   DECISION_STATUSES,
   isAgentKey,
@@ -15,6 +16,7 @@ import {
   type DecisionLogEntry,
   type DecisionLogKind,
   type DecisionStatus,
+  type DecisionVariants,
 } from '@covibes/shared';
 import { Hono, type Context } from 'hono';
 import { sql, type Transaction } from 'kysely';
@@ -164,6 +166,13 @@ export function criteriaRoutes(db: AppDb, auth: Auth) {
   return routes;
 }
 
+/** The variants of an applied `variants` proposal with the adopted position, or null. */
+function readVariants(operations: unknown, chosen: number | null): DecisionVariants | null {
+  const first = Array.isArray(operations) ? (operations[0] as { variants?: unknown }) : undefined;
+  const parsed = decisionVariantsSchema.safeParse({ chosen, variants: first?.variants });
+  return parsed.success ? parsed.data : null;
+}
+
 function isStatus(value: string): value is DecisionStatus {
   return (DECISION_STATUSES as readonly string[]).includes(value);
 }
@@ -198,9 +207,12 @@ export function decisionRoutes(db: AppDb, auth: Auth) {
         .leftJoin('users', 'users.id', 'decisions.decided_by')
         .leftJoin('comparisons', 'comparisons.id', 'decisions.comparison_id')
         .leftJoin('votes', 'votes.id', 'decisions.vote_id')
+        .leftJoin('proposals as variants', 'variants.id', 'decisions.variants_id')
         .select([
           'comparisons.data as comparison_data',
           'votes.tally as vote_tally',
+          'variants.operations as variants_operations',
+          'variants.chosen as variants_chosen',
           'decisions.id',
           'decisions.topic',
           'decisions.status',
@@ -235,6 +247,7 @@ export function decisionRoutes(db: AppDb, auth: Auth) {
                 reopenReason: row.reopen_reason,
                 comparison: comparison.success ? comparison.data : null,
                 tally: tally.success ? tally.data : null,
+                variants: readVariants(row.variants_operations, row.variants_chosen),
               },
             ]
           : [];
@@ -248,7 +261,13 @@ export function decisionRoutes(db: AppDb, auth: Auth) {
       value: await trx
         .selectFrom('decision_log')
         .leftJoin('users', 'users.id', 'decision_log.actor_user')
+        // The variants a decision chose from stay with its log entry as a snapshot (spec 17).
+        .leftJoin('proposals as variants', (join) =>
+          join.on(sql`variants.id::text`, '=', sql`decision_log.details ->> 'variantsId'`),
+        )
         .select([
+          'variants.operations as variants_operations',
+          'variants.chosen as variants_chosen',
           'decision_log.id',
           'decision_log.kind',
           'decision_log.decision_id',
@@ -273,6 +292,7 @@ export function decisionRoutes(db: AppDb, auth: Auth) {
         const { reasoning, reason, previous, alternatives, comparisonId, votes } = details.success
           ? details.data
           : {};
+        const variants = readVariants(row.variants_operations, row.variants_chosen);
         return [
           {
             id: row.id,
@@ -285,6 +305,7 @@ export function decisionRoutes(db: AppDb, auth: Auth) {
             ...(previous ? { previous } : {}),
             ...(votes ? { votes } : {}),
             ...(comparisonId ? { compared: true } : {}),
+            ...(variants ? { variants } : {}),
             ...(alternatives === undefined ? {} : { alternatives: readAlternatives(alternatives) }),
             user: row.actor_name,
             agentKey: isAgentKey(row.actor_agent) ? row.actor_agent : null,

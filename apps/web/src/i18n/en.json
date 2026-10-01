@@ -327,7 +327,8 @@
     },
     "byVote": "Decided by vote ({{result}}) · {{date}}",
     "votes": "Vote: {{result}}",
-    "compared": "With a comparison"
+    "compared": "With a comparison",
+    "comparing": "Comparison A/B in progress"
   },
   "criteria": {
     "title": "Criteria",
@@ -360,6 +361,15 @@
     "tie": "A tie – no decision",
     "alreadyClosed": "The vote has ended already.",
     "failed": "That did not work. Please try again."
+  },
+  "variants": {
+    "kind": "Variants",
+    "letter": "Variant {{letter}}",
+    "title": "Variant {{letter}} · {{name}}",
+    "adopt": "Adopt {{letter}}",
+    "adopted": "adopted",
+    "discarded": "discarded",
+    "snapshot": "View the variants"
   },
   "settings": {
     "title": "Project settings",

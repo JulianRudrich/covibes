@@ -176,6 +176,9 @@ export function buildObserverPrompt(context: {
           (operation) => `- ${operation.topic}: ${operation.value} (waits for confirmation)`,
         ),
         ...context.decisions.votes.map((vote) => `- ${vote.topic}: a vote is open`),
+        ...context.decisions.openVariants.map(
+          (open) => `- ${open.topic}: variants wait for the team`,
+        ),
       ]
     : [];
   return [

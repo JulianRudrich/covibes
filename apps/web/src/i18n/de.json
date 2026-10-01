@@ -327,7 +327,8 @@
     },
     "byVote": "Per Abstimmung entschieden ({{result}}) · {{date}}",
     "votes": "Abstimmung: {{result}}",
-    "compared": "Mit Vergleich"
+    "compared": "Mit Vergleich",
+    "comparing": "Vergleich A/B läuft"
   },
   "criteria": {
     "title": "Kriterien",
@@ -360,6 +361,15 @@
     "tie": "Gleichstand – keine Entscheidung",
     "alreadyClosed": "Die Abstimmung ist schon beendet.",
     "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+  },
+  "variants": {
+    "kind": "Varianten",
+    "letter": "Variante {{letter}}",
+    "title": "Variante {{letter}} · {{name}}",
+    "adopt": "{{letter}} übernehmen",
+    "adopted": "übernommen",
+    "discarded": "verworfen",
+    "snapshot": "Varianten ansehen"
   },
   "settings": {
     "title": "Projekteinstellungen",

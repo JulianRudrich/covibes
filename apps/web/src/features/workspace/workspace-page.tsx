@@ -142,6 +142,17 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
           : t('proposals.errors.failed'),
     );
   });
+  // While the owner decides (spec 16b), only owners confirm decisions and adopt variants.
+  const canConfirmDecisions =
+    !readOnly && (project.decisionProcess !== 'owner' || project.role === 'owner');
+  // Topics whose variants wait for the team (spec 17): "Vergleich A/B läuft".
+  const comparing = useMemo(
+    () =>
+      proposals.flatMap((proposal) =>
+        proposal.kind === 'variants' ? (proposal.operations[0]?.topic.toLowerCase() ?? []) : [],
+      ),
+    [proposals],
+  );
   const updateProject = useUpdateProject(project.id);
   const team = useTeamMutations(project.id, () => {
     showNotice(t('team.failed'));
@@ -215,6 +226,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
             readOnly={readOnly}
             proposals={proposals}
             onDecide={decide}
+            canAdoptVariants={canConfirmDecisions}
           />
         ) : null
       }
@@ -225,10 +237,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
               proposals={proposals}
               decided={decided}
               canDecide={!readOnly}
-              // While the owner decides (spec 16b), only owners confirm decisions.
-              canConfirmDecisions={
-                !readOnly && (project.decisionProcess !== 'owner' || project.role === 'owner')
-              }
+              canConfirmDecisions={canConfirmDecisions}
               onDecide={decide}
               activeBoardId={activeBoard?.id ?? null}
               onOpenBoard={(boardId) => void selectBoard(boardId)}
@@ -237,6 +246,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
           <DecisionsOverview
             key={project.id}
             projectId={project.id}
+            comparing={comparing}
             readOnly={readOnly}
             onNotice={showNotice}
           />

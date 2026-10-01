@@ -125,6 +125,7 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - A canvas proposal holds operations (add a block, a note, a frame or an arrow; change a node; arrange), the same ones the tools apply directly (`packages/shared`, `canvas/operations.ts`).
   - The client shows them dashed or as a comparison view.
   - Only "Apply" writes them into the Y.Doc: the server applies the operations through a direct connection of the collaboration server, with the agent as author.
+  - Variants (spec 17) are one proposal of the kind `variants` with two or three diagrams, each with its own operations. Adopting one names its position; the server applies only that diagram.
 
 ### Plan
 - The plan is a Y.Doc of its own (`plan:{projectId}`) and is edited with Tiptap.
@@ -155,6 +156,10 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - The decision process is a project setting: consensus with confirmation (default), vote, the owner decides, or informally in the chat. `record_decision` follows it, and the database lets only owners confirm while the owner decides.
   - The moderator's stance is a project setting too and reaches the moderator in its context; strictly neutral, a comparison carries no recommendation.
   - A decision takes the latest comparison of its topic and the vote that decided along; the log entry refers to both.
+- **Variants A/B (spec 17):**
+  - The moderator shows alternatives with `propose_variants`: the server draws one diagram per variant in its own frame, arranges it and places the frames in a row at a free spot. The result is always a proposal; the rule engine is not involved.
+  - Adopting calls the database function `adopt_variant` in the transaction that applies the proposal: it checks who may decide, stores the choice and records the decision with the other variants as discarded alternatives.
+  - The decision and its log entry refer to the proposal, which keeps all variants as the snapshot.
 - **Intent:** at the start of every run the agent runner determines the intent of the triggering message: instruction or question. A small model with fixed instructions classifies it next to the agent's reply; if it fails, the message counts as a question. It passes the intent to the rule engine. Observer runs always count as own initiative.
 - **Observer job:** it reads the new messages since its last run and decides to:
   - offer help, on consensus or when the team is stuck
@@ -227,7 +232,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `messages` | chat: author (human or agent), mentions, block references |
 | `agents`, `project_agents` | agent definitions, team per project |
 | `hand_raises`, `offers` | raised hands (open, heard, dismissed); the moderator's offers of help (open, accepted, declined) |
-| `proposals` | proposals: canvas change, variant, plan update, Git action |
+| `proposals` | proposals: canvas change, variants (with the adopted one), team change, decision, plan update, Git action |
 | `decisions`, `criteria`, `decision_log` | decisions per topic with reasoning, alternatives and who confirmed; project criteria; the log of every decision, reopening and change of the criteria |
 | `comparisons`, `votes`, `vote_ballots` | the moderator's comparisons of options; votes with their options, result and who voted for what |
 | `tasks` | tasks with milestone, assignee, spec reference and GitLab issue |

@@ -2,12 +2,13 @@ import { z } from 'zod';
 
 import { AGENT_KEYS } from './agents/keys';
 import { canvasOperationSchema } from './canvas/operations';
-import { decisionOperationSchema } from './decisions';
+import { decisionOperationSchema, variantsOperationSchema } from './decisions';
 
 /**
  * Why an agent's change became a proposal (spec 13): the triggering message was a question, the
- * agent acted on its own, the project only takes proposals, a human was editing the block, or the
- * project's owner decides (spec 16b).
+ * agent acted on its own, the project only takes proposals, a human was editing the block, the
+ * project's owner decides (spec 16b), or it is a set of variants, which is a proposal by nature
+ * (spec 17).
  */
 export const PROPOSAL_REASONS = [
   'question',
@@ -15,13 +16,14 @@ export const PROPOSAL_REASONS = [
   'proposals_only',
   'locked',
   'owner_decides',
+  'variants',
 ] as const;
 export type ProposalReason = (typeof PROPOSAL_REASONS)[number];
 
 export const PROPOSAL_STATUSES = ['open', 'applied', 'rejected'] as const;
 export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
 
-export const PROPOSAL_KINDS = ['canvas', 'team', 'decision'] as const;
+export const PROPOSAL_KINDS = ['canvas', 'team', 'decision', 'variants'] as const;
 export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
 
 /** A change of the project's team (spec 14): the moderator proposes a specialist. */
@@ -47,7 +49,8 @@ const proposalFields = {
 
 /**
  * A proposal of an agent that waits until someone applies or rejects it: canvas changes on a board
- * (spec 13), additions to the team (spec 14) or a decision to confirm (spec 16a).
+ * (spec 13), additions to the team (spec 14), a decision to confirm (spec 16a) or variants of a
+ * diagram to choose from (spec 17).
  */
 export const proposalSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -68,8 +71,15 @@ export const proposalSchema = z.discriminatedUnion('kind', [
     boardId: z.null(),
     operations: z.array(decisionOperationSchema),
   }),
+  z.object({
+    ...proposalFields,
+    kind: z.literal('variants'),
+    boardId: z.uuid(),
+    operations: z.array(variantsOperationSchema).min(1),
+  }),
 ]);
 export type Proposal = z.output<typeof proposalSchema>;
 export type CanvasProposal = Extract<Proposal, { kind: 'canvas' }>;
 export type TeamProposal = Extract<Proposal, { kind: 'team' }>;
 export type DecisionProposal = Extract<Proposal, { kind: 'decision' }>;
+export type VariantsProposal = Extract<Proposal, { kind: 'variants' }>;

@@ -1,9 +1,11 @@
-import type {
-  AgentKey,
-  CanvasProposal,
-  DecisionProposal,
-  Proposal,
-  TeamProposal,
+import {
+  variantLetter,
+  type AgentKey,
+  type CanvasProposal,
+  type DecisionProposal,
+  type Proposal,
+  type TeamProposal,
+  type VariantsProposal,
 } from '@covibes/shared';
 import { Check } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -11,8 +13,9 @@ import { Trans, useTranslation } from 'react-i18next';
 import { Avatar } from '@web/components/ui/avatar';
 import { Button } from '@web/components/ui/button';
 import { AGENT_DARK_TEXT } from '@web/features/canvas/agent-look';
-import type { Decision, DecidedProposal } from '@web/features/proposals/queries';
+import type { DecideProposal, DecidedProposal } from '@web/features/proposals/queries';
 import { proposalSummary } from '@web/features/proposals/summary';
+import { VariantPreview } from '@web/features/proposals/variant-preview';
 import { formatRelativeTime } from '@web/lib/format';
 import { cn } from '@web/lib/cn';
 
@@ -23,7 +26,7 @@ type WaitingForYouProps = {
   canDecide: boolean;
   /** Whether the user confirms decisions; false for editors while the owner decides (spec 16b). */
   canConfirmDecisions?: boolean;
-  onDecide: (proposal: Proposal, decision: Decision) => void;
+  onDecide: DecideProposal;
   activeBoardId: string | null;
   /** Opens the board of a proposal that lies on another one. */
   onOpenBoard: (boardId: string) => void;
@@ -96,7 +99,13 @@ export function WaitingForYou({
                   </span>
                   <span>
                     ·{' '}
-                    {t(proposal.kind === 'decision' ? 'proposals.kindDecision' : 'proposals.kind')}
+                    {t(
+                      proposal.kind === 'decision'
+                        ? 'proposals.kindDecision'
+                        : proposal.kind === 'variants'
+                          ? 'variants.kind'
+                          : 'proposals.kind',
+                    )}
                   </span>
                   <span className="ml-auto tabular-nums">
                     {formatRelativeTime(proposal.createdAt, i18n.language)}
@@ -106,6 +115,12 @@ export function WaitingForYou({
                   <TeamSummary proposal={proposal} />
                 ) : proposal.kind === 'decision' ? (
                   <DecisionSummary proposal={proposal} />
+                ) : proposal.kind === 'variants' ? (
+                  <VariantsSummary
+                    proposal={proposal}
+                    elsewhere={proposal.boardId !== activeBoardId}
+                    onOpenBoard={onOpenBoard}
+                  />
                 ) : (
                   <CanvasSummary
                     proposal={proposal}
@@ -113,8 +128,34 @@ export function WaitingForYou({
                     onOpenBoard={onOpenBoard}
                   />
                 )}
-                {proposal.kind === 'decision' && canDecide && !canConfirmDecisions ? (
+                {/* Choosing a variant or confirming a decision decides (spec 16b). */}
+                {(proposal.kind === 'decision' || proposal.kind === 'variants') &&
+                canDecide &&
+                !canConfirmDecisions ? (
                   <p className="m-0 text-meta text-text-3">{t('proposals.waitsForOwner')}</p>
+                ) : canDecide && proposal.kind === 'variants' ? (
+                  <div className="flex flex-wrap gap-2">
+                    {(proposal.operations[0]?.variants ?? []).map((variant, position) => (
+                      <Button
+                        key={variant.name}
+                        size="s"
+                        onClick={() => {
+                          onDecide(proposal, 'apply', position);
+                        }}
+                      >
+                        {t('variants.adopt', { letter: variantLetter(position) })}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="ghost"
+                      size="s"
+                      onClick={() => {
+                        onDecide(proposal, 'reject');
+                      }}
+                    >
+                      {t('proposals.reject')}
+                    </Button>
+                  </div>
                 ) : canDecide ? (
                   <div className="flex gap-2">
                     <Button
@@ -169,6 +210,60 @@ export function WaitingForYou({
         </ul>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * Variants A/B (spec 17): the topic, and per variant a preview of its diagram with its name and
+ * summary. On another board the topic opens that board, where the variants lie side by side.
+ */
+function VariantsSummary({
+  proposal,
+  elsewhere,
+  onOpenBoard,
+}: {
+  proposal: VariantsProposal;
+  elsewhere: boolean;
+  onOpenBoard: (boardId: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [operation] = proposal.operations;
+  if (!operation) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="text-body leading-snug font-semibold text-text">
+        {elsewhere ? (
+          <button
+            type="button"
+            className="cursor-pointer p-0 text-left font-semibold underline decoration-border-strong underline-offset-2 hover:decoration-text"
+            onClick={() => {
+              onOpenBoard(proposal.boardId);
+            }}
+          >
+            {operation.topic}
+          </button>
+        ) : (
+          operation.topic
+        )}
+      </div>
+      <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+        {operation.variants.map((variant, position) => {
+          const title = t('variants.title', {
+            letter: variantLetter(position),
+            name: variant.name,
+          });
+          return (
+            <li key={variant.name} className="flex flex-col gap-1">
+              <VariantPreview operations={variant.operations} label={title} />
+              <span className="text-small leading-snug text-text-3">
+                <strong className="font-semibold text-text">{title}</strong>
+                {variant.summary ? ` – ${variant.summary}` : null}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 

@@ -1,7 +1,9 @@
 import {
   REOPEN_REASON_MAX_LENGTH,
+  variantLetter,
   type Decision,
   type DecisionLogEntry,
+  type DecisionVariants,
   type VoteTally,
 } from '@covibes/shared';
 import { Check } from 'lucide-react';
@@ -12,10 +14,13 @@ import { Button } from '@web/components/ui/button';
 import { Dialog, DialogClose, DialogContent } from '@web/components/ui/dialog';
 import { Label } from '@web/components/ui/input';
 import { ComparisonCard } from '@web/features/decisions/comparison-card';
+import { VariantPreview } from '@web/features/proposals/variant-preview';
 import { formatLongDate, formatRelativeTime } from '@web/lib/format';
 
 type DecisionsSectionProps = {
   decisions: readonly Decision[];
+  /** Topics (lowercase) whose variants wait for the team: "Vergleich A/B läuft" (spec 17). */
+  comparing?: readonly string[];
   /** The decision log, loaded once the dialog opens; undefined while it loads. */
   log: readonly DecisionLogEntry[] | undefined;
   onOpenLog: () => void;
@@ -24,6 +29,33 @@ type DecisionsSectionProps = {
 };
 
 const BOLD = { b: <strong className="font-semibold text-text" /> };
+
+const NO_TOPICS: readonly string[] = [];
+
+/**
+ * The variants a decision chose from, as a snapshot (spec 17): every variant with a preview of its
+ * diagram, its summary, and whether it was adopted or discarded.
+ */
+function VariantsSnapshot({ variants }: { variants: DecisionVariants }) {
+  const { t } = useTranslation();
+  return (
+    <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+      {variants.variants.map((variant, position) => {
+        const title = t('variants.title', { letter: variantLetter(position), name: variant.name });
+        return (
+          <li key={variant.name} className="flex flex-col gap-1">
+            <VariantPreview operations={variant.operations} label={title} />
+            <span className="text-small leading-snug text-text-3">
+              <strong className="font-semibold text-text">{title}</strong>
+              {` · ${t(position === variants.chosen ? 'variants.adopted' : 'variants.discarded')}`}
+              {variant.summary ? ` – ${variant.summary}` : null}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 /** The result of a vote in one line, e.g. "React Flow 2 · tldraw 1". */
 function tallyText(tally: VoteTally): string {
@@ -52,7 +84,13 @@ function StatusSymbol({ decided }: { decided: boolean }) {
  * decided or open. A row opens the decision with its reasoning and the discarded alternatives,
  * where owners and editors reopen it; "Protokoll" opens the decision log (derived looks).
  */
-export function DecisionsSection({ decisions, log, onOpenLog, onReopen }: DecisionsSectionProps) {
+export function DecisionsSection({
+  decisions,
+  comparing = NO_TOPICS,
+  log,
+  onOpenLog,
+  onReopen,
+}: DecisionsSectionProps) {
   const { t } = useTranslation();
   const titleId = useId();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -106,7 +144,11 @@ export function DecisionsSection({ decisions, log, onOpenLog, onReopen }: Decisi
                           : 'truncate text-body font-medium text-text-2'
                       }
                     >
-                      {decided ? decision.value : t('decisions.notDecided')}
+                      {decided
+                        ? decision.value
+                        : comparing.includes(decision.topic.toLowerCase())
+                          ? t('decisions.comparing')
+                          : t('decisions.notDecided')}
                     </span>
                   </span>
                   {decided ? null : (
@@ -130,6 +172,7 @@ export function DecisionsSection({ decisions, log, onOpenLog, onReopen }: Decisi
         {open ? (
           <DecisionDialog
             decision={open}
+            comparing={comparing.includes(open.topic.toLowerCase())}
             onReopen={
               onReopen
                 ? (reason) => {
@@ -152,9 +195,12 @@ export function DecisionsSection({ decisions, log, onOpenLog, onReopen }: Decisi
 /** One decision with reasoning and alternatives; owners and editors reopen it with a reason. */
 function DecisionDialog({
   decision,
+  comparing,
   onReopen,
 }: {
   decision: Decision;
+  /** Whether variants for the topic wait for the team (spec 17). */
+  comparing: boolean;
   onReopen?: (reason: string) => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -175,7 +221,9 @@ function DecisionDialog({
         <div className="flex items-center gap-2.5">
           <StatusSymbol decided={decided} />
           <span className="text-title font-semibold text-text">
-            {decided ? decision.value : t('decisions.notDecided')}
+            {decided
+              ? decision.value
+              : t(comparing ? 'decisions.comparing' : 'decisions.notDecided')}
           </span>
         </div>
         {decided && decision.decidedAt ? (
@@ -204,7 +252,9 @@ function DecisionDialog({
         ) : null}
         {decision.reasoning ? <p className="m-0 leading-normal">{decision.reasoning}</p> : null}
         {decision.comparison ? <ComparisonCard comparison={decision.comparison} /> : null}
-        {decision.alternatives.length > 0 ? (
+        {decision.variants ? <VariantsSnapshot variants={decision.variants} /> : null}
+        {/* The snapshot of the variants already names the discarded ones. */}
+        {decision.alternatives.length > 0 && !decision.variants ? (
           <div>
             <h4 className="m-0 mb-1 text-small font-medium text-text-2">
               {t('decisions.alternatives')}
@@ -316,6 +366,14 @@ function DecisionLogDialog({ log }: { log: readonly DecisionLogEntry[] | undefin
                 ) : null}
                 {entry.compared ? (
                   <span className="text-small text-text-2">{t('decisions.compared')}</span>
+                ) : null}
+                {entry.variants ? (
+                  <details className="text-small text-text-2">
+                    <summary className="cursor-pointer">{t('variants.snapshot')}</summary>
+                    <div className="mt-1.5">
+                      <VariantsSnapshot variants={entry.variants} />
+                    </div>
+                  </details>
                 ) : null}
                 {entry.kind === 'decided' && entry.alternatives && entry.alternatives.length > 0 ? (
                   <span className="text-small text-text-2">

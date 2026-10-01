@@ -9,6 +9,7 @@ import {
   type DecisionOperation,
   type DecisionStatus,
   type ProposalReason,
+  type VariantsOperation,
 } from '@covibes/shared';
 import { sql, type Kysely } from 'kysely';
 import { z } from 'zod';
@@ -22,6 +23,16 @@ export function readDecisionOperations(stored: unknown): DecisionOperation[] {
   const parsed = storedOperationsSchema.safeParse(stored);
   return parsed.success ? parsed.data : [];
 }
+
+/** Topic and names of stored variants; their operations are not needed for the agents' context. */
+const variantNamesSchema = z
+  .array(z.object({ topic: z.string(), variants: z.array(z.object({ name: z.string() })) }))
+  .transform((operations) =>
+    operations.map((operation) => ({
+      topic: operation.topic,
+      names: operation.variants.map((variant) => variant.name),
+    })),
+  );
 
 /** Stored alternatives of a decision, or none if they no longer read. */
 export function readAlternatives(stored: unknown): DecisionAlternative[] {
@@ -47,6 +58,8 @@ export type DecisionContext = {
   pending: DecisionOperation[];
   /** Votes that are open (spec 16b). */
   votes: { topic: string; options: string[] }[];
+  /** Variants that wait for the team to adopt one (spec 17). */
+  openVariants: { topic: string; names: string[] }[];
 };
 
 export async function loadDecisionContext(
@@ -70,9 +83,9 @@ export async function loadDecisionContext(
       .execute(),
     admin
       .selectFrom('proposals')
-      .select('operations')
+      .select(['kind', 'operations'])
       .where('project_id', '=', projectId)
-      .where('kind', '=', 'decision')
+      .where('kind', 'in', ['decision', 'variants'])
       .where('status', '=', 'open')
       .orderBy('created_at')
       .execute(),
@@ -89,7 +102,15 @@ export async function loadDecisionContext(
     decisions: decisions.flatMap((decision) =>
       isStatus(decision.status) ? [{ ...decision, status: decision.status }] : [],
     ),
-    pending: proposals.flatMap((proposal) => readDecisionOperations(proposal.operations)),
+    pending: proposals
+      .filter((proposal) => proposal.kind === 'decision')
+      .flatMap((proposal) => readDecisionOperations(proposal.operations)),
+    openVariants: proposals
+      .filter((proposal) => proposal.kind === 'variants')
+      .flatMap((proposal) => {
+        const parsed = variantNamesSchema.safeParse(proposal.operations);
+        return parsed.success ? parsed.data : [];
+      }),
     votes: votes.map((vote) => ({
       topic: vote.topic,
       options: z.array(z.string()).catch([]).parse(vote.options),
@@ -119,6 +140,8 @@ export type DecisionWriter = {
   compare: (comparison: Comparison) => Promise<void>;
   /** Starts a vote as a card in the run's answer; false if the answer has a vote already. */
   startVote: (topic: string, options: readonly string[]) => Promise<boolean>;
+  /** Stores variants as a proposal of the board, for the team to adopt one (spec 17). */
+  proposeVariants: (boardId: string, operation: VariantsOperation) => Promise<void>;
 };
 
 export function decisionWriter(
@@ -252,6 +275,22 @@ export function decisionWriter(
           messageId: run.messageId,
         });
         return true;
+      }),
+    proposeVariants: (boardId, operation) =>
+      serialized(async () => {
+        await admin
+          .insertInto('proposals')
+          .values({
+            project_id: run.projectId,
+            board_id: boardId,
+            run_id: run.id,
+            agent_key: run.agentKey,
+            kind: 'variants',
+            reason: 'variants',
+            operations: JSON.stringify([operation]),
+          })
+          .execute();
+        await notifyLive(admin, { kind: 'proposals', projectId: run.projectId });
       }),
   };
 }

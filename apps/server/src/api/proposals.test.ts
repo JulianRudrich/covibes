@@ -8,6 +8,8 @@ import {
   type ApiErrorBody,
   type ApplyResult,
   type CanvasOperationInput,
+  type Decision,
+  type DecisionLogEntry,
   type Proposal,
   type ProjectDetails,
   type ProjectSummary,
@@ -256,6 +258,158 @@ describe('proposals', () => {
       const response = await request(path, other, { method: 'POST' });
       expect(response.status).toBe(404);
     }
+  });
+});
+
+describe('variants (spec 17)', () => {
+  /** Two variants with one block each, as the worker stores them. */
+  async function proposeVariants(projectId: string, boardId: string) {
+    const [monolith, service] = [randomUUID(), randomUUID()];
+    const row = await test.db.admin
+      .insertInto('proposals')
+      .values({
+        project_id: projectId,
+        board_id: boardId,
+        kind: 'variants',
+        agent_key: 'moderator',
+        reason: 'variants',
+        operations: JSON.stringify([
+          {
+            op: 'variants',
+            topic: 'Architektur',
+            variants: [
+              {
+                name: 'Monolith',
+                summary: 'Ein Dienst für alles.',
+                operations: [
+                  {
+                    op: 'add_block',
+                    block: { id: monolith, position: { x: 0, y: 0 }, label: 'Server' },
+                  },
+                ],
+              },
+              {
+                name: 'Echtzeit-Dienst',
+                summary: 'Eigener Dienst für Live-Daten.',
+                operations: [
+                  {
+                    op: 'add_block',
+                    block: { id: service, position: { x: 400, y: 0 }, label: 'Echtzeit' },
+                  },
+                ],
+              },
+            ],
+          },
+        ]),
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    return { id: row.id, monolith, service };
+  }
+
+  const adopt = (projectId: string, id: string, cookie: string, body?: unknown) =>
+    request(`/api/projects/${projectId}/proposals/${id}/apply`, cookie, {
+      method: 'POST',
+      ...(body === undefined
+        ? {}
+        : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+    });
+
+  it('are listed with their board and all variants', async () => {
+    const owner = await test.signIn();
+    const { projectId, boardId } = await createProject(owner);
+    const { id } = await proposeVariants(projectId, boardId);
+
+    const listed = (await (
+      await request(`/api/projects/${projectId}/proposals`, owner)
+    ).json()) as Proposal[];
+    expect(listed).toMatchObject([
+      {
+        id,
+        kind: 'variants',
+        boardId,
+        reason: 'variants',
+        operations: [
+          {
+            op: 'variants',
+            topic: 'Architektur',
+            variants: [{ name: 'Monolith' }, { name: 'Echtzeit-Dienst' }],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('draw the adopted variant and record it as the decision with its snapshot', async () => {
+    const owner = await test.signIn();
+    const editor = await test.signIn();
+    const viewer = await test.signIn();
+    const { projectId, boardId } = await createProject(owner);
+    await addMember(projectId, editor, 'editor');
+    await addMember(projectId, viewer, 'viewer');
+    const { id, monolith, service } = await proposeVariants(projectId, boardId);
+
+    expect((await adopt(projectId, id, viewer, { variant: 1 })).status).toBe(403);
+    // Which variant has to be said, and it has to exist; the proposal stays open.
+    expect((await adopt(projectId, id, editor)).status).toBe(400);
+    expect((await adopt(projectId, id, editor, { variant: 2 })).status).toBe(400);
+    expect(await proposalRow(id)).toMatchObject({ status: 'open', chosen: null });
+
+    const adopted = await adopt(projectId, id, editor, { variant: 1 });
+    expect(adopted.status).toBe(200);
+    expect((await adopted.json()) as ApplyResult).toEqual({ applied: 1, skipped: 0 });
+    const board = await storedBoard(boardId);
+    expect(readNodes(board)).toMatchObject([
+      { id: service, label: 'Echtzeit', createdBy: { kind: 'agent', agentKey: 'moderator' } },
+    ]);
+    expect(readNodes(board).some((node) => node.id === monolith)).toBe(false);
+    expect(await proposalRow(id)).toMatchObject({ status: 'applied', chosen: 1 });
+
+    const decisions = (await (
+      await request(`/api/projects/${projectId}/decisions`, viewer)
+    ).json()) as Decision[];
+    expect(decisions).toMatchObject([
+      {
+        topic: 'Architektur',
+        status: 'decided',
+        value: 'Echtzeit-Dienst',
+        reasoning: 'Eigener Dienst für Live-Daten.',
+        alternatives: [{ name: 'Monolith', note: 'Ein Dienst für alles.' }],
+        variants: {
+          chosen: 1,
+          variants: [
+            { name: 'Monolith', operations: [{ op: 'add_block' }] },
+            { name: 'Echtzeit-Dienst', operations: [{ op: 'add_block' }] },
+          ],
+        },
+      },
+    ]);
+    const log = (await (
+      await request(`/api/projects/${projectId}/decisions/log`, owner)
+    ).json()) as DecisionLogEntry[];
+    expect(log[0]).toMatchObject({
+      kind: 'decided',
+      topic: 'Architektur',
+      variants: { chosen: 1, variants: [{ name: 'Monolith' }, { name: 'Echtzeit-Dienst' }] },
+    });
+
+    expect((await adopt(projectId, id, owner, { variant: 0 })).status).toBe(409);
+  });
+
+  it('are removed as a whole when rejected', async () => {
+    const owner = await test.signIn();
+    const { projectId, boardId } = await createProject(owner);
+    const { id } = await proposeVariants(projectId, boardId);
+
+    const rejected = await request(`/api/projects/${projectId}/proposals/${id}/reject`, owner, {
+      method: 'POST',
+    });
+    expect(rejected.status).toBe(204);
+    expect(await proposalRow(id)).toMatchObject({ status: 'rejected', chosen: null });
+    const decisions = (await (
+      await request(`/api/projects/${projectId}/decisions`, owner)
+    ).json()) as Decision[];
+    expect(decisions).toEqual([]);
   });
 });
 

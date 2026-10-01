@@ -2,6 +2,7 @@ import {
   changedNodeIds,
   NOTE_SIZE,
   type AgentKey,
+  type CanvasOperation,
   type Position,
   type Proposal,
   type Size,
@@ -26,6 +27,8 @@ export type GhostElement = {
   size: Size;
   /** The first new element of a proposal carries its buttons. */
   anchor: boolean;
+  /** For an element of a variant (spec 17): which one, to label it and to adopt it. */
+  variant: { position: number; name: string } | null;
 };
 
 export type GhostArrow = {
@@ -44,6 +47,13 @@ export type ProposalOverlay = {
   changed: Map<string, AgentKey>;
 };
 
+/** The operations one proposal, or one of its variants, draws on a board. */
+type DrawnSet = {
+  proposal: Proposal;
+  operations: readonly CanvasOperation[];
+  variant: GhostElement['variant'];
+};
+
 /**
  * The overlay of the open proposals of one board. `existing` holds the ids of the elements on the
  * board; arrows whose ends are neither existing nor proposed are left out.
@@ -54,13 +64,26 @@ export function proposalOverlay(
   existing: ReadonlySet<string>,
 ): ProposalOverlay {
   const overlay: ProposalOverlay = { elements: [], arrows: [], changed: new Map() };
-  for (const proposal of proposals) {
-    // Team proposals (spec 14) change no board.
-    if (proposal.kind !== 'canvas' || proposal.boardId !== boardId) continue;
+  // What each proposal draws on this board: its own operations, or one set per variant
+  // (spec 17). Team and decision proposals change no board.
+  const sets = proposals.flatMap((proposal): DrawnSet[] => {
+    if (proposal.kind === 'canvas' && proposal.boardId === boardId) {
+      return [{ proposal, operations: proposal.operations, variant: null }];
+    }
+    if (proposal.kind === 'variants' && proposal.boardId === boardId) {
+      return (proposal.operations[0]?.variants ?? []).map((variant, position) => ({
+        proposal,
+        operations: variant.operations,
+        variant: { position, name: variant.name },
+      }));
+    }
+    return [];
+  });
+  for (const { proposal, operations, variant } of sets) {
     const own = new Map<string, GhostElement>();
-    const base = { proposalId: proposal.id, agentKey: proposal.agentKey, anchor: false };
+    const base = { proposalId: proposal.id, agentKey: proposal.agentKey, anchor: false, variant };
 
-    for (const operation of proposal.operations) {
+    for (const operation of operations) {
       switch (operation.op) {
         case 'add_block':
           own.set(operation.block.id, {

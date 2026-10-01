@@ -1,4 +1,4 @@
-import type { AgentKey, Proposal } from '@covibes/shared';
+import { variantLetter, type AgentKey, type Proposal } from '@covibes/shared';
 import { useTranslation } from 'react-i18next';
 
 import { Avatar } from '@web/components/ui/avatar';
@@ -14,7 +14,7 @@ import {
 import { arrowGeometries, type Rect } from '@web/features/canvas/arrow-geometry';
 import { blockIcon } from '@web/features/canvas/block-types';
 import type { ProposalOverlay, GhostElement } from '@web/features/proposals/proposal-overlay';
-import type { Decision } from '@web/features/proposals/queries';
+import type { DecideProposal } from '@web/features/proposals/queries';
 import { initialsOf } from '@web/lib/format';
 import { cn } from '@web/lib/cn';
 
@@ -25,7 +25,9 @@ type ProposalLayerProps = {
   proposals: ReadonlyMap<string, Proposal>;
   /** Owners and editors decide; viewers only see proposals. */
   canDecide: boolean;
-  onDecide: (proposal: Proposal, decision: Decision) => void;
+  /** Whether the user adopts variants; false for editors while the owner decides (spec 16b). */
+  canAdoptVariants?: boolean;
+  onDecide: DecideProposal;
 };
 
 /** Room between an existing element and the dashed outline of a change proposed for it. */
@@ -42,6 +44,7 @@ export function ProposalLayer({
   rects,
   proposals,
   canDecide,
+  canAdoptVariants = canDecide,
   onDecide,
 }: ProposalLayerProps) {
   const { t } = useTranslation();
@@ -128,7 +131,20 @@ export function ProposalLayer({
             key={element.id}
             element={element}
             actions={
-              element.anchor && canDecide && proposal ? (
+              element.anchor && element.variant && proposal ? (
+                // A variant is adopted as a whole; all of them are rejected in the overview.
+                canAdoptVariants ? (
+                  <Button
+                    variant="primary"
+                    size="s"
+                    onClick={() => {
+                      onDecide(proposal, 'apply', element.variant?.position);
+                    }}
+                  >
+                    {t('proposals.apply')}
+                  </Button>
+                ) : null
+              ) : element.anchor && canDecide && proposal ? (
                 <div className="flex gap-2">
                   <Button
                     variant="primary"
@@ -157,14 +173,49 @@ export function ProposalLayer({
   );
 }
 
-function ProposalHeader({ agentKey }: { agentKey: AgentKey }) {
+function ProposalHeader({
+  agentKey,
+  variant,
+}: {
+  agentKey: AgentKey;
+  variant: GhostElement['variant'];
+}) {
   const { t } = useTranslation();
   const name = t(`agents.${agentKey}`);
   return (
     <div className="flex h-4 shrink-0 items-center gap-1.5 text-meta">
       <Avatar kind="agent" agent={agentKey} size={16} label={name} initials={initialsOf(name)} />
       <span className={cn('truncate font-medium', AGENT_DARK_TEXT[agentKey])}>
-        {t('proposals.header', { agent: name })}
+        {variant
+          ? t('variants.letter', { letter: variantLetter(variant.position) })
+          : t('proposals.header', { agent: name })}
+      </span>
+    </div>
+  );
+}
+
+/** "Variante A · Monolith" above the frame of a variant (spec 17). */
+function VariantHeading({
+  agentKey,
+  variant,
+}: {
+  agentKey: AgentKey;
+  variant: NonNullable<GhostElement['variant']>;
+}) {
+  const { t } = useTranslation();
+  const name = t(`agents.${agentKey}`);
+  return (
+    <div className="absolute bottom-full left-0 flex w-full items-start gap-2 pb-2">
+      <Avatar
+        kind="agent"
+        agent={agentKey}
+        size={16}
+        label={name}
+        initials={initialsOf(name)}
+        className="mt-0.5"
+      />
+      <span className="min-w-0 text-ui leading-snug font-semibold break-words text-text">
+        {t('variants.title', { letter: variantLetter(variant.position), name: variant.name })}
       </span>
     </div>
   );
@@ -190,11 +241,21 @@ function GhostCard({ element, actions }: { element: GhostElement; actions: React
         style={place}
         data-testid="proposal-element"
       >
-        <div className="flex items-center gap-2">
-          <ProposalHeader agentKey={element.agentKey} />
-          <span className="min-w-0 truncate text-ui font-semibold text-text">{element.label}</span>
-          <div className="ml-auto">{actions}</div>
-        </div>
+        {element.variant ? (
+          <>
+            {/* A variant is headed above its frame, where a long name has room to wrap. */}
+            <VariantHeading agentKey={element.agentKey} variant={element.variant} />
+            <div className="flex justify-end">{actions}</div>
+          </>
+        ) : (
+          <div className="flex items-center gap-2">
+            <ProposalHeader agentKey={element.agentKey} variant={null} />
+            <span className="min-w-0 truncate text-ui font-semibold text-text">
+              {element.label}
+            </span>
+            <div className="ml-auto">{actions}</div>
+          </div>
+        )}
       </div>
     );
   }
@@ -206,7 +267,7 @@ function GhostCard({ element, actions }: { element: GhostElement; actions: React
         style={place}
         data-testid="proposal-element"
       >
-        <ProposalHeader agentKey={element.agentKey} />
+        <ProposalHeader agentKey={element.agentKey} variant={element.variant} />
         <div className="line-clamp-3 min-h-0 flex-1 text-body leading-snug font-semibold break-words text-note-text">
           {element.label}
         </div>
@@ -221,7 +282,7 @@ function GhostCard({ element, actions }: { element: GhostElement; actions: React
       style={place}
       data-testid="proposal-element"
     >
-      <ProposalHeader agentKey={element.agentKey} />
+      <ProposalHeader agentKey={element.agentKey} variant={element.variant} />
       <div className="flex min-w-0 items-center gap-2.5">
         <span
           className={cn(

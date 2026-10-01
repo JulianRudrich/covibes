@@ -55,6 +55,7 @@ const ROLES: Readonly<
       'record_decision',
       'compare_options',
       'start_vote',
+      'propose_variants',
     ],
   },
   critic: {

@@ -71,7 +71,7 @@ import { NoteNode } from '@web/features/canvas/note-node';
 import { PlacementLayer, type Placement } from '@web/features/canvas/placement-layer';
 import { ProposalLayer } from '@web/features/proposals/proposal-layer';
 import { proposalOverlay } from '@web/features/proposals/proposal-overlay';
-import type { Decision } from '@web/features/proposals/queries';
+import type { DecideProposal } from '@web/features/proposals/queries';
 import { useBoardDoc } from '@web/features/canvas/use-board-doc';
 import { useLiveCursors } from '@web/features/canvas/use-live-cursors';
 import { useNodeLocks } from '@web/features/canvas/use-node-locks';
@@ -99,7 +99,9 @@ type CanvasPanelProps = {
   readOnly: boolean;
   /** The open proposals of the project; the canvas shows those of its board (spec 13). */
   proposals: readonly Proposal[];
-  onDecide: (proposal: Proposal, decision: Decision) => void;
+  onDecide: DecideProposal;
+  /** Whether the user adopts variants; false for editors while the owner decides. */
+  canAdoptVariants?: boolean;
 };
 
 /**
@@ -134,6 +136,7 @@ function BoardCanvas({
   readOnly,
   proposals,
   onDecide,
+  canAdoptVariants,
 }: Omit<CanvasPanelProps, 'tabs' | 'notice'>) {
   const { t } = useTranslation();
   const { connection, status, loaded, denied } = useBoardDoc(boardId);
@@ -153,6 +156,7 @@ function BoardCanvas({
           readOnly={readOnly}
           proposals={proposals}
           onDecide={onDecide}
+          canAdoptVariants={canAdoptVariants}
         />
       ) : (
         <CanvasMessage>{t('canvas.loading')}</CanvasMessage>
@@ -170,7 +174,9 @@ type BoardProps = {
   author: Author;
   readOnly: boolean;
   proposals: readonly Proposal[];
-  onDecide: (proposal: Proposal, decision: Decision) => void;
+  onDecide: DecideProposal;
+  /** Whether the user adopts variants; false for editors while the owner decides. */
+  canAdoptVariants?: boolean;
 };
 
 function snap(value: number) {
@@ -191,6 +197,7 @@ function Board({
   readOnly,
   proposals,
   onDecide,
+  canAdoptVariants,
 }: BoardProps) {
   const { t } = useTranslation();
   const { doc } = connection;
@@ -570,6 +577,7 @@ function Board({
             rects={rects}
             proposals={proposalsById}
             canDecide={!readOnly}
+            canAdoptVariants={canAdoptVariants}
             onDecide={onDecide}
           />
           {cursors.map((cursor) => (

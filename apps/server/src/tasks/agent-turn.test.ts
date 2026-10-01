@@ -301,6 +301,7 @@ describe('agent turn', () => {
       'record_decision',
       'compare_options',
       'start_vote',
+      'propose_variants',
     ]);
     expect(call?.prompt).toContain("<moderation>\nYour stance: neutral by the team's criteria.");
     expect(call?.prompt).toContain('How this project decides: consensus with confirmation.');
@@ -1128,6 +1129,70 @@ describe('comparison, voting and the stance (spec 16b)', () => {
       '- Canvas: a vote is open (React Flow, tldraw)',
     );
     expect(projectId).toBeTruthy();
+  });
+});
+
+describe('variants (spec 17)', () => {
+  it('stores the variants as a proposal of the board and leaves the board alone', async () => {
+    const { projectId, boardId, request } = await createProject();
+    const { runId } = await request(
+      '@Moderator zeig uns Monolith und Echtzeit-Dienst als Varianten',
+    );
+    const { boards, doc } = memoryBoards();
+    const proposesVariants: Model = async (call) => {
+      const tool = call.tools.find((entry) => entry.name === 'propose_variants');
+      if (!tool) throw new Error('propose_variants is missing');
+      const variant = (name: string) => ({
+        name,
+        summary: `${name} als Variante.`,
+        diagramType: 'architecture',
+        blocks: [
+          { key: 'web', title: 'Web-App' },
+          { key: 'api', title: name },
+        ],
+        connections: [{ from: 'web', to: 'api' }],
+      });
+      return result(
+        await tool.run({
+          topic: 'Architektur',
+          variants: [variant('Monolith'), variant('Echtzeit-Dienst')],
+        }),
+      );
+    };
+    // Variants are a proposal by nature, whatever the intent.
+    const { deps } = turnDeps(proposesVariants, boards, 'instruction');
+
+    await runAgentTurn(deps, { runId }, FIRST_ATTEMPT);
+
+    expect(readNodes(doc(boardId))).toEqual([]);
+    expect(await proposalsOf(runId)).toMatchObject([
+      {
+        kind: 'variants',
+        board_id: boardId,
+        reason: 'variants',
+        status: 'open',
+        operations: [
+          {
+            op: 'variants',
+            topic: 'Architektur',
+            variants: [{ name: 'Monolith' }, { name: 'Echtzeit-Dienst' }],
+          },
+        ],
+      },
+    ]);
+    const topic = await test.db.admin
+      .selectFrom('decisions')
+      .select(['topic', 'status'])
+      .where('project_id', '=', projectId)
+      .execute();
+    expect(topic).toEqual([{ topic: 'Architektur', status: 'open' }]);
+
+    const next = await request('@Moderator und jetzt?');
+    const again = turnDeps(() => Promise.resolve(result('Wählt eine.')), boards);
+    await runAgentTurn(again.deps, { runId: next.runId }, FIRST_ATTEMPT);
+    expect(again.reply.mock.calls[0]?.[0].prompt).toContain(
+      '- Architektur: variants wait for the team (Monolith, Echtzeit-Dienst)',
+    );
   });
 });
 

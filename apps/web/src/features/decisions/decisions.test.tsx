@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { CriteriaSection } from '@web/features/decisions/criteria-section';
 import { DecisionsSection } from '@web/features/decisions/decisions-section';
+import { VARIANTS } from '@web/features/proposals/variants-fixture';
 
 const CANVAS: Decision = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -17,6 +18,7 @@ const CANVAS: Decision = {
   reopenReason: null,
   comparison: null,
   tally: null,
+  variants: null,
 };
 
 const HOSTING: Decision = {
@@ -31,6 +33,7 @@ const HOSTING: Decision = {
   reopenReason: 'Zu teuer im Betrieb',
   comparison: null,
   tally: null,
+  variants: null,
 };
 
 function renderDecisions(
@@ -131,6 +134,70 @@ describe('DecisionsSection', () => {
     expect(within(dialog).getByRole('group', { name: 'Vergleich · Canvas' })).toHaveTextContent(
       'Budget',
     );
+  });
+
+  it('says that variants are being compared for an open topic (spec 17)', () => {
+    const { section } = renderDecisions({ comparing: ['hosting des servers'] });
+
+    const [canvas, hosting] = within(section).getAllByRole('listitem');
+    expect(hosting).toHaveTextContent('Hosting des ServersVergleich A/B läuftoffen');
+    expect(canvas).toHaveTextContent('CanvasReact Flow');
+
+    fireEvent.click(screen.getByRole('button', { name: /Hosting des Servers/ }));
+    expect(screen.getByRole('dialog')).toHaveTextContent('Vergleich A/B läuft');
+  });
+
+  it('keeps the variants a decision chose from as a snapshot (spec 17)', () => {
+    const adopted: Decision = {
+      ...CANVAS,
+      topic: 'Architektur',
+      value: 'Monolith',
+      reasoning: 'Ein Deployment, wenig Betrieb.',
+      alternatives: [{ name: 'Microservices', note: '' }],
+      variants: { chosen: 0, variants: VARIANTS },
+    };
+    renderDecisions({}, [adopted]);
+
+    fireEvent.click(screen.getByRole('button', { name: /Architektur/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Architektur' });
+    expect(
+      within(dialog)
+        .getAllByRole('img')
+        .map((preview) => preview.getAttribute('aria-label')),
+    ).toEqual(['Variante A · Monolith', 'Variante B · Microservices']);
+    expect(dialog).toHaveTextContent(
+      'Variante A · Monolith · übernommen – Ein Deployment, wenig Betrieb.',
+    );
+    expect(dialog).toHaveTextContent('Variante B · Microservices · verworfen');
+    // The snapshot already names the discarded variant.
+    expect(within(dialog).queryByRole('heading', { name: 'Verworfen' })).not.toBeInTheDocument();
+  });
+
+  it('shows the variants of a decision in the log (spec 17)', () => {
+    const log: DecisionLogEntry[] = [
+      {
+        id: 'l1',
+        kind: 'decided',
+        decisionId: CANVAS.id,
+        topic: 'Architektur',
+        value: 'Monolith',
+        alternatives: [{ name: 'Microservices', note: '' }],
+        variants: { chosen: 0, variants: VARIANTS },
+        user: 'Sam',
+        agentKey: 'moderator',
+        createdAt: new Date().toISOString(),
+      },
+    ];
+    renderDecisions({ log });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Protokoll' }));
+    const [entry] = within(
+      screen.getByRole('dialog', { name: 'Entscheidungsprotokoll' }),
+    ).getAllByRole('listitem');
+    if (!entry) throw new Error('The entry is missing');
+    expect(entry).toHaveTextContent('Entschieden: Architektur – Monolith');
+    expect(within(entry).getByText('Varianten ansehen')).toBeInTheDocument();
+    expect(entry).toHaveTextContent('Variante B · Microservices · verworfen');
   });
 
   it('opens the decision log, newest first', () => {

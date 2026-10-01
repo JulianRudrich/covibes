@@ -10,7 +10,7 @@ import type { CanvasToolOptions } from '@server/tools/placement';
 let elk: ELK | null = null;
 
 /** One ELK for the whole process, created on the first layout. */
-function layoutEngine(): ELK {
+export function layoutEngine(): ELK {
   elk ??= new Elk();
   return elk;
 }

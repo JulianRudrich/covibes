@@ -1,4 +1,10 @@
-import type { CanvasProposal, DecisionProposal, Proposal, TeamProposal } from '@covibes/shared';
+import type {
+  CanvasProposal,
+  DecisionProposal,
+  Proposal,
+  TeamProposal,
+  VariantsProposal,
+} from '@covibes/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -6,6 +12,7 @@ import { ProposalLayer } from '@web/features/proposals/proposal-layer';
 import { proposalOverlay } from '@web/features/proposals/proposal-overlay';
 import { proposalSummary } from '@web/features/proposals/summary';
 import { WaitingForYou } from '@web/features/proposals/waiting-for-you';
+import { VARIANTS } from '@web/features/proposals/variants-fixture';
 
 const PROJECT = '0b6a0b52-8f55-4c4e-9f6b-4ad2b3b3c0de';
 const BOARD = '11111111-1111-4111-8111-111111111111';
@@ -320,5 +327,141 @@ describe('WaitingForYou', () => {
     fireEvent.click(within(second).getByRole('button', { name: /Queue/ }));
     expect(onOpenBoard).toHaveBeenCalledWith(OTHER_BOARD);
     expect(section).toHaveTextContent('Cache verworfen');
+  });
+});
+
+describe('variants (spec 17)', () => {
+  const variants: VariantsProposal = {
+    id: '99999999-9999-4999-8999-999999999999',
+    projectId: PROJECT,
+    kind: 'variants',
+    boardId: BOARD,
+    agentKey: 'moderator',
+    status: 'open',
+    reason: 'variants',
+    names: {},
+    operations: [{ op: 'variants', topic: 'Architektur', variants: VARIANTS }],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  function renderLayer(canAdoptVariants: boolean) {
+    const onDecide = vi.fn();
+    render(
+      <ProposalLayer
+        overlay={proposalOverlay([variants], BOARD, new Set())}
+        rects={new Map()}
+        proposals={new Map([[variants.id, variants]])}
+        canDecide
+        canAdoptVariants={canAdoptVariants}
+        onDecide={onDecide}
+      />,
+    );
+    return { onDecide };
+  }
+
+  function renderWaiting(props: Partial<Parameters<typeof WaitingForYou>[0]> = {}) {
+    const onDecide = vi.fn();
+    const onOpenBoard = vi.fn();
+    render(
+      <WaitingForYou
+        proposals={[variants]}
+        decided={[]}
+        canDecide
+        onDecide={onDecide}
+        activeBoardId={BOARD}
+        onOpenBoard={onOpenBoard}
+        {...props}
+      />,
+    );
+    const [card] = within(screen.getByRole('region', { name: 'Wartet auf dich' })).getAllByRole(
+      'listitem',
+    );
+    if (!card) throw new Error('The card is missing');
+    return { onDecide, onOpenBoard, card };
+  }
+
+  it('draw every variant on its own, each with its frame as the anchor', () => {
+    const overlay = proposalOverlay([variants], BOARD, new Set());
+
+    expect(
+      overlay.elements.map((element) => [element.label, element.anchor, element.variant]),
+    ).toEqual([
+      ['Architektur: Monolith', true, { position: 0, name: 'Monolith' }],
+      ['App', false, { position: 0, name: 'Monolith' }],
+      ['Datenbank', false, { position: 0, name: 'Monolith' }],
+      ['Architektur: Microservices', true, { position: 1, name: 'Microservices' }],
+      ['Gateway', false, { position: 1, name: 'Microservices' }],
+    ]);
+    expect(overlay.arrows).toHaveLength(1);
+    // Variants of another board stay there.
+    expect(proposalOverlay([variants], OTHER_BOARD, new Set()).elements).toEqual([]);
+  });
+
+  it('head each variant with its letter and name and adopt it with one button', () => {
+    const { onDecide } = renderLayer(true);
+
+    const elements = screen.getAllByTestId('proposal-element');
+    const [monolith, , , microservices] = elements;
+    if (!monolith || !microservices) throw new Error('The variants are missing');
+    expect(elements).toHaveLength(5);
+    expect(monolith).toHaveClass('border-dashed');
+    expect(monolith).toHaveTextContent('Variante A · Monolith');
+    expect(monolith).not.toHaveTextContent('Architektur');
+    expect(microservices).toHaveTextContent('Variante B · Microservices');
+    // All variants are rejected at once in the overview, not on the canvas.
+    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'Übernehmen',
+      'Übernehmen',
+    ]);
+
+    fireEvent.click(within(microservices).getByRole('button', { name: 'Übernehmen' }));
+    expect(onDecide).toHaveBeenCalledWith(variants, 'apply', 1);
+    fireEvent.click(within(monolith).getByRole('button', { name: 'Übernehmen' }));
+    expect(onDecide).toHaveBeenLastCalledWith(variants, 'apply', 0);
+  });
+
+  it('show the variants without a button to those who do not decide', () => {
+    renderLayer(false);
+    expect(screen.getAllByTestId('proposal-element')).toHaveLength(5);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('wait under "Wartet auf dich" with a preview and a button per variant', () => {
+    const { onDecide, card } = renderWaiting();
+
+    expect(card).toHaveTextContent('Moderator· Varianten');
+    expect(card).toHaveTextContent('Architektur');
+    expect(card).toHaveTextContent('Variante A · Monolith – Ein Deployment, wenig Betrieb.');
+    // The avatar of the agent is an image, too.
+    const previews = within(card)
+      .getAllByRole('img')
+      .filter((image) => image.tagName === 'svg');
+    expect(previews.map((preview) => preview.getAttribute('aria-label'))).toEqual([
+      'Variante A · Monolith',
+      'Variante B · Microservices',
+    ]);
+    // The preview shows the blocks and the arrow of the variant.
+    expect(previews[0]).toHaveTextContent('AppDatenbank');
+    expect(previews[0]?.querySelectorAll('path')).toHaveLength(1);
+
+    fireEvent.click(within(card).getByRole('button', { name: 'B übernehmen' }));
+    expect(onDecide).toHaveBeenCalledWith(variants, 'apply', 1);
+    fireEvent.click(within(card).getByRole('button', { name: 'A übernehmen' }));
+    expect(onDecide).toHaveBeenLastCalledWith(variants, 'apply', 0);
+    fireEvent.click(within(card).getByRole('button', { name: 'Verwerfen' }));
+    expect(onDecide).toHaveBeenLastCalledWith(variants, 'reject');
+  });
+
+  it('wait for the owner while the owner decides, and open their board from elsewhere', () => {
+    const { card, onOpenBoard } = renderWaiting({
+      canConfirmDecisions: false,
+      activeBoardId: OTHER_BOARD,
+    });
+
+    expect(card).toHaveTextContent('Der Owner entscheidet.');
+    expect(within(card).queryByRole('button', { name: /übernehmen/ })).not.toBeInTheDocument();
+    fireEvent.click(within(card).getByRole('button', { name: 'Architektur' }));
+    expect(onOpenBoard).toHaveBeenCalledWith(BOARD);
   });
 });

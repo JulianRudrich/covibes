@@ -1,9 +1,11 @@
 import type { DB } from '@covibes/db';
 import {
   applyOperations,
+  applyProposalInputSchema,
   canvasOperationSchema,
   changedNodeIds,
   decisionOperationSchema,
+  variantsOperationSchema,
   proposalSchema,
   projectIdSchema,
   type ApiErrorCode,
@@ -82,6 +84,20 @@ const PROPOSAL_COLUMNS = [
 type Decision<T> =
   | { ok: true; value: T; projectId: string; team: boolean }
   | { ok: false; code: ApiErrorCode; detail?: string };
+
+/** No variant, or one that does not exist, was named; the decision is rolled back. */
+class InvalidChoice extends Error {}
+
+/** The JSON body; an empty body counts as `{}`, broken JSON as undefined. */
+async function optionalJson(c: Context): Promise<unknown> {
+  const text = await c.req.text();
+  if (text.trim() === '') return {};
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return undefined;
+  }
+}
 
 /** Someone edits a node the proposal changes; the decision is rolled back. */
 class BeingEdited extends Error {
@@ -179,10 +195,11 @@ export function proposalRoutes(
       if (error instanceof BeingEdited) {
         return { ok: false, code: 'being_edited', detail: error.editor };
       }
+      if (error instanceof InvalidChoice) return { ok: false, code: 'invalid_input' };
       // A decision whose topic was decided in the meantime (spec 16a), or that only the owner
       // confirms (spec 16b); the proposal stays open.
       const refused = functionError(error);
-      if (refused === 'already_decided' || refused === 'forbidden') {
+      if (refused === 'already_decided' || refused === 'forbidden' || refused === 'invalid_input') {
         return { ok: false, code: refused };
       }
       throw error;
@@ -191,6 +208,8 @@ export function proposalRoutes(
 
   routes.post('/:proposalId/apply', async (c) => {
     const user = c.get('user');
+    // Only a `variants` proposal takes input: the variant to adopt.
+    const input = applyProposalInputSchema.safeParse(await optionalJson(c));
     const outcome = await decide(c, 'applied', async (row, trx) => {
       // A team proposal (spec 14) adds its agents in the name of the person who applies it.
       if (row.kind === 'team') {
@@ -219,11 +238,22 @@ export function proposalRoutes(
         }
         return { applied: decisions.length, skipped: 0 };
       }
-      const operations = z.array(canvasOperationSchema).parse(row.operations);
       if (!isAgentKey(row.agent_key)) throw new Error(`Unknown agent ${row.agent_key}`);
-      if (!row.board_id) throw new Error(`Canvas proposal ${row.id} has no board`);
+      if (!row.board_id) throw new Error(`Proposal ${row.id} has no board`);
       const author = { kind: 'agent' as const, agentKey: row.agent_key };
       const board = { boardId: row.board_id, projectId: row.project_id };
+      // Variants (spec 17): the chosen one is recorded as the decision and drawn on the board.
+      if (row.kind === 'variants') {
+        const [variants] = z.array(variantsOperationSchema).parse(row.operations);
+        const position = input.success ? input.data.variant : undefined;
+        const variant = position === undefined ? undefined : variants?.variants[position];
+        if (position === undefined || !variant) throw new InvalidChoice();
+        await sql`select public.adopt_variant(${row.id}, ${position})`.execute(trx);
+        return await documents.changeBoard(board, (doc) =>
+          applyOperations(doc, variant.operations, author),
+        );
+      }
+      const operations = z.array(canvasOperationSchema).parse(row.operations);
       return await documents.changeBoard(board, (doc, locks) => {
         // Humans take precedence: nothing changes a node that someone is editing right now.
         for (const id of operations.flatMap(changedNodeIds)) {

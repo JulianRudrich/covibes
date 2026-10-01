@@ -15,6 +15,8 @@ import {
 
 type DecisionsOverviewProps = {
   projectId: string;
+  /** Topics (lowercase) whose variants wait for the team (spec 17). */
+  comparing: readonly string[];
   /** Viewers see decisions and criteria but change nothing. */
   readOnly: boolean;
   /** Shows a short note, e.g. when a change failed. */
@@ -28,7 +30,12 @@ const NO_CRITERIA: Criterion[] = [];
  * The overview sections "Entscheidungen" and "Kriterien" of a project (spec 16a) with their data:
  * both load with the project and follow the live channel; the log loads once its dialog opens.
  */
-export function DecisionsOverview({ projectId, readOnly, onNotice }: DecisionsOverviewProps) {
+export function DecisionsOverview({
+  projectId,
+  comparing,
+  readOnly,
+  onNotice,
+}: DecisionsOverviewProps) {
   const { t } = useTranslation();
   const decisions = useQuery(decisionsQuery(projectId)).data ?? NO_DECISIONS;
   const criteria = useQuery(criteriaQuery(projectId)).data ?? NO_CRITERIA;
@@ -43,6 +50,7 @@ export function DecisionsOverview({ projectId, readOnly, onNotice }: DecisionsOv
     <>
       <DecisionsSection
         decisions={decisions}
+        comparing={comparing}
         log={log}
         onOpenLog={() => {
           setLogWanted(true);

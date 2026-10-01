@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { AGENT_KEYS } from './agents/keys';
+import { canvasOperationSchema } from './canvas/operations';
 
 // Criteria, decisions and the decision log (spec 16a). The limits match the check constraints of
 // migration 0009.
@@ -62,6 +63,8 @@ export type Decision = {
   comparison: Comparison | null;
   /** The result of the vote that decided, if a vote did. */
   tally: VoteTally | null;
+  /** The variants the decision chose from, as a snapshot (spec 17). */
+  variants: DecisionVariants | null;
 };
 
 /** `POST /api/projects/:projectId/decisions/:decisionId/reopen`. */
@@ -101,6 +104,8 @@ export const decisionLogEntrySchema = z.object({
   votes: z.array(z.object({ name: z.string(), votes: z.number().int() })).optional(),
   /** The decision followed a comparison of the moderator. */
   compared: z.boolean().optional(),
+  /** The variants the decision chose from, as a snapshot (spec 17). */
+  variants: z.lazy(() => decisionVariantsSchema).optional(),
   user: z.string().nullable(),
   agentKey: z.enum(AGENT_KEYS).nullable(),
   createdAt: z.string(),
@@ -175,3 +180,46 @@ export type MessageVote = z.infer<typeof messageVoteSchema>;
 /** `POST /api/projects/:projectId/votes/:voteId/cast`: the position of the chosen option. */
 export const castVoteInputSchema = z.object({ option: z.number().int().min(0).max(4) });
 export type CastVoteInput = z.infer<typeof castVoteInputSchema>;
+
+// Variants A/B (spec 17) -------------------------------------------------------------------------
+
+export const VARIANT_NAME_MAX_LENGTH = COMPARISON_OPTION_MAX_LENGTH;
+/** As long as the note of a discarded alternative, which the summary becomes. */
+export const VARIANT_SUMMARY_MAX_LENGTH = DECISION_VALUE_MAX_LENGTH;
+
+/** One alternative diagram: its name, what distinguishes it, and the operations that draw it. */
+export const variantSchema = z.object({
+  name: z.string().trim().min(1).max(VARIANT_NAME_MAX_LENGTH),
+  summary: z.string().trim().max(VARIANT_SUMMARY_MAX_LENGTH).default(''),
+  operations: z.array(canvasOperationSchema),
+});
+export type Variant = z.output<typeof variantSchema>;
+
+/** What a `variants` proposal holds: two or three alternative diagrams for one topic. */
+export const variantsOperationSchema = z.object({
+  op: z.literal('variants'),
+  topic: z.string().trim().min(1).max(DECISION_TOPIC_MAX_LENGTH),
+  variants: z.array(variantSchema).min(2).max(3),
+});
+export type VariantsOperation = z.output<typeof variantsOperationSchema>;
+
+/** The variants a decision chose from, with the position of the adopted one. */
+export const decisionVariantsSchema = z.object({
+  chosen: z.number().int().min(0),
+  variants: z.array(variantSchema),
+});
+export type DecisionVariants = z.output<typeof decisionVariantsSchema>;
+
+/** The letter of a variant by its position: A, B, C. */
+export function variantLetter(position: number): string {
+  return String.fromCharCode(65 + position);
+}
+
+/**
+ * `POST /api/projects/:projectId/proposals/:proposalId/apply`: for a `variants` proposal the
+ * position of the variant to adopt; other proposals take no input.
+ */
+export const applyProposalInputSchema = z.object({
+  variant: z.number().int().min(0).max(2).optional(),
+});
+export type ApplyProposalInput = z.infer<typeof applyProposalInputSchema>;

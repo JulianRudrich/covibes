@@ -217,6 +217,7 @@ describe('decisions', () => {
         reopenReason: null,
         comparison: null,
         tally: null,
+        variants: null,
       },
     ]);
     expect(await logOf(projectId, owner)).toMatchObject([

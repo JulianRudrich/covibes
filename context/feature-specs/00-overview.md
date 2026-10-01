@@ -140,8 +140,16 @@ The prompt to the coding agent is always the same: "Read the spec, mark it as in
 - **Design:** available
 
 ### 16 Decisions, criteria and decision processes
-- **Goal:** ask for and edit criteria. The moderator compares options with a card. Consensus, a vote or the owner decides. Decisions go into the log and can be reopened. Stance and decision process are configurable per project.
+Built in two parts (2026-10-01), because the unit is large:
+
+#### 16a Criteria, decisions and the decision log
+- **Goal:** ask for and edit criteria. The moderator records decisions once someone confirms them (the default process). Decisions go into the log and can be reopened.
 - **Needs:** 15
+- **Design:** the overview sections are available; editing criteria, the log and reopening are derived
+
+#### 16b Comparison, voting and project settings
+- **Goal:** the moderator compares options with a card. A vote or the owner decides, or the team decides informally in the chat. Stance and decision process are configurable per project in the project settings.
+- **Needs:** 16a
 - **Design:** **required:** comparison card, voting card, project settings
 
 ### 17 Variants A/B

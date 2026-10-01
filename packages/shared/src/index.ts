@@ -205,6 +205,23 @@ export {
   type MessageDebateTurn,
 } from './debates';
 export {
+  attachmentIdsSchema,
+  FILE_ACCEPT,
+  FILE_KINDS,
+  FILE_NAME_MAX_LENGTH,
+  fileExtension,
+  formatFileSize,
+  IMAGE_MEDIA_TYPES,
+  MAX_ATTACHMENTS_PER_MESSAGE,
+  MAX_FILE_BYTES,
+  MAX_IMAGE_BYTES,
+  messageAttachmentSchema,
+  TEXT_FILE_TYPES,
+  type FileKind,
+  type ImageMediaType,
+  type MessageAttachment,
+} from './files';
+export {
   HAND_REASON_MAX_LENGTH,
   handRaiseSchema,
   MAX_OPEN_HANDS,

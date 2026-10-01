@@ -34,6 +34,7 @@ import { loadMessage, selectMessages, toMessage } from '@server/chat/rows';
 import type { BoardAccess } from '@server/collab/board-client';
 import { MAX_DELTA_LENGTH, notifyLive } from '@server/realtime/notifications';
 import type { Intent } from '@server/rules/decide';
+import type { FileStorage } from '@server/storage/storage';
 import { classifyIntent } from '@server/rules/intent';
 import { describeOperations, loadOpenProposals, openRunProposal } from '@server/tasks/run-proposal';
 import { debateWriter } from '@server/tasks/run-debates';
@@ -57,6 +58,7 @@ import {
 } from '@server/tools/decision-tools';
 import { describePosition, type CanvasToolOptions } from '@server/tools/placement';
 import { proposeVariantsTool } from '@server/tools/propose-variants';
+import { describeFile, fileReader, readFileTool, type ProjectFile } from '@server/tools/read-file';
 import { startDebateTool } from '@server/tools/start-debate';
 import { updateBlockTool } from '@server/tools/update-block';
 
@@ -81,6 +83,9 @@ const DECISION_TOOLS = [
 
 /** Name of the job the database trigger creates for every mention (migration 0005). */
 export const AGENT_TURN_TASK = 'agent_turn';
+
+/** Files of the project listed in the agent's context (spec 20a). */
+const FILES_IN_CONTEXT = 20;
 
 /** Messages of the conversation the agent sees (spec 07). */
 const CONTEXT_MESSAGES = 30;
@@ -141,6 +146,8 @@ export type AgentTurnDeps = {
   /** Role covibes_admin: agent messages and runs are written by the worker only. */
   admin: Kysely<DB>;
   boards: BoardAccess;
+  /** Where the content of uploaded files lies (spec 20a); without it agents read no files. */
+  files?: FileStorage;
   /** The gateway's `streamAgentReply`; tests pass a scripted model. */
   reply: (request: AgentReplyRequest) => Promise<AgentReplyResult>;
   /** The gateway's `completeText`, for the intent of the triggering message (spec 13). */
@@ -555,6 +562,9 @@ async function converse(
       }))
     : { nodes: [], edges: [], locks: new Map<string, NodeLock>() };
   const proposals = await loadOpenProposals(deps.admin, run.projectId);
+  // The files people attached to the chat (spec 20a); every agent may read them.
+  const reader = deps.files ? fileReader(deps.admin, deps.files, run.projectId) : undefined;
+  const files = reader ? await reader.list(FILES_IN_CONTEXT) : [];
 
   // The rule engine needs the intent of the message (spec 13). It is classified next to the
   // agent's reply, so the reply does not wait; the first canvas tool does.
@@ -580,6 +590,8 @@ async function converse(
     proposalsOnly: turn.proposalsOnly,
   };
   const tools: AgentTool[] = [];
+  // Reading changes nothing, so it needs no rule; a debate only talks.
+  if (reader && !debating) tools.push(readFileTool({ files: reader }));
   if (board && !debating) {
     const toolOptions: CanvasToolOptions = {
       boards: deps.boards,
@@ -699,6 +711,7 @@ async function converse(
         agentNames,
         ...canvas,
         proposals,
+        files,
         ...conversation,
         occasion: turn.occasion,
         decisions: {
@@ -749,6 +762,14 @@ async function loadConversation(admin: Kysely<DB>, run: Run) {
   return { messages, request };
 }
 
+/** What a message has attached, for its line in the chat: ` [attached: "a.png" (id …)]`. */
+function attachedTo(message: ChatMessage): string {
+  const attachments = message.attachments ?? [];
+  if (attachments.length === 0) return '';
+  const list = attachments.map((file) => `"${file.name}" (id ${file.id})`).join(', ');
+  return ` [attached: ${list}]`;
+}
+
 /** The English name of a catalog agent, or the name of a custom agent from `names`. */
 type NameOf = (agentKey: string) => string;
 
@@ -760,7 +781,7 @@ function authorName(message: ChatMessage, nameOf: NameOf): string {
 /** Chat text is data: it must not close the sections the prompt is built from. */
 function asData(text: string): string {
   return text.replace(
-    /<(\/?)(team|moderation|criteria|decisions|canvas|chat|request)>/gi,
+    /<(\/?)(team|moderation|criteria|decisions|canvas|files|chat|request)>/gi,
     '‹$1$2›',
   );
 }
@@ -981,6 +1002,8 @@ export function buildPrompt(context: {
   locks?: ReadonlyMap<string, NodeLock>;
   /** Open proposals of the project (spec 13), so agents do not propose the same again. */
   proposals?: readonly { id: string; agentKey: string; operations: CanvasOperation[] }[];
+  /** The latest files attached to the chat (spec 20a), which `read_file` reads. */
+  files?: readonly ProjectFile[];
   messages: readonly ChatMessage[];
   request: ChatMessage | undefined;
   /** A raised hand, an accepted offer or a debate, which the reply answers instead of a message. */
@@ -1006,8 +1029,9 @@ export function buildPrompt(context: {
       : []),
   ].join('\n');
   const chat = context.messages
-    .map((message) => `${authorName(message, nameOf)}: ${message.content}`)
+    .map((message) => `${authorName(message, nameOf)}: ${message.content}${attachedTo(message)}`)
     .join('\n');
+  const files = context.files ?? [];
   const { occasion } = context;
   const request =
     occasion?.kind === 'hand'
@@ -1021,7 +1045,7 @@ export function buildPrompt(context: {
             : occasion?.kind === 'debate_summary'
               ? describeDebateSummary(occasion, nameOf)
               : context.request
-                ? `Answer this message from ${authorName(context.request, nameOf)}:\n<request>\n${asData(context.request.content)}\n</request>`
+                ? `Answer this message from ${authorName(context.request, nameOf)}:\n<request>\n${asData(context.request.content)}${asData(attachedTo(context.request))}\n</request>`
                 : 'The message addressed to you was removed. Answer the latest message in the chat.';
   return [
     `Project: ${asData(context.projectName)}`,
@@ -1029,6 +1053,11 @@ export function buildPrompt(context: {
     ...(context.moderation ? [describeModeration(context.moderation)] : []),
     ...(context.decisions ? describeDecisions(context.decisions) : []),
     `<canvas>\n${asData(canvas)}\n</canvas>`,
+    ...(files.length > 0
+      ? [
+          `<files>\nFiles people attached to the chat, newest first; read one with read_file and its id:\n${asData(files.map(describeFile).join('\n'))}\n</files>`,
+        ]
+      : []),
     `<chat>\n${asData(chat)}\n</chat>`,
     context.decisions?.askForCriteria
       ? `${request}\n\nThe project has no criteria yet and you have not asked for them. After your answer, ask the team once for its goals, budget, time, know-how and priorities, and to answer with @Moderator.`

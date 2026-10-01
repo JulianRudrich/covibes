@@ -13,6 +13,7 @@ const ERRORS = {
   already_decided: { status: 409, message: 'This was decided already.' },
   being_edited: { status: 409, message: 'Someone is editing this right now.' },
   name_taken: { status: 409, message: 'This name is taken.' },
+  unsupported_file: { status: 415, message: 'This kind of file is not supported.' },
   internal: { status: 500, message: 'Something went wrong.' },
 } as const satisfies Record<ApiErrorCode, { status: number; message: string }>;
 

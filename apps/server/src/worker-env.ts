@@ -18,6 +18,12 @@ export const workerEnvSchema = z
      * instance other people use needs the key (architecture "AI providers").
      */
     ANTHROPIC_API_KEY: z.string().min(1).optional(),
+    /** Folder of the file storage (spec 20a), the same as the server's. */
+    FILES_DIR: z.string().min(1).optional(),
+  })
+  .refine((env) => env.NODE_ENV !== 'production' || Boolean(env.FILES_DIR), {
+    message: 'Production needs FILES_DIR, the folder for uploaded files (shared with the server)',
+    path: ['FILES_DIR'],
   })
   .refine((env) => env.NODE_ENV !== 'production' || Boolean(env.ANTHROPIC_API_KEY), {
     message:

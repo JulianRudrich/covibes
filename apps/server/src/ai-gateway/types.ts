@@ -15,7 +15,15 @@ export type AgentTool = {
   input: z.ZodRawShape;
   /** Runs the tool; the returned text goes back to the model as the tool result. */
   run: (input: Record<string, unknown>) => Promise<string>;
+  /**
+   * For a tool whose result can show the model an image (spec 20a): the gateway calls it instead
+   * of `run`. The input is unchecked model output, so the tool validates it itself.
+   */
+  runWithImage?: (input: Record<string, unknown>) => Promise<ToolResult>;
 };
+
+/** A tool result with an optional image, as base64 with its media type. */
+export type ToolResult = { text: string; image?: { mediaType: string; data: string } };
 
 /**
  * Defines a tool with a typed `run`. The input is validated against the shape again before `run`

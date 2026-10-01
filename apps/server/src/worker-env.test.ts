@@ -35,12 +35,17 @@ describe('loadWorkerEnv', () => {
 
   it('runs locally on the Claude login, but needs an API key in production', () => {
     expect(loadWorkerEnv(required).ANTHROPIC_API_KEY).toBeUndefined();
-    expect(() => loadWorkerEnv({ ...required, NODE_ENV: 'production' })).toThrow(
-      /ANTHROPIC_API_KEY/,
-    );
+    const production = { ...required, NODE_ENV: 'production', FILES_DIR: '/data/files' };
+    expect(() => loadWorkerEnv(production)).toThrow(/ANTHROPIC_API_KEY/);
     expect(
-      loadWorkerEnv({ ...required, NODE_ENV: 'production', ANTHROPIC_API_KEY: 'sk-ant-test' })
-        .ANTHROPIC_API_KEY,
+      loadWorkerEnv({ ...production, ANTHROPIC_API_KEY: 'sk-ant-test' }).ANTHROPIC_API_KEY,
     ).toBe('sk-ant-test');
+  });
+
+  it('needs the folder for uploaded files in production only (spec 20a)', () => {
+    expect(loadWorkerEnv(required).FILES_DIR).toBeUndefined();
+    expect(() =>
+      loadWorkerEnv({ ...required, NODE_ENV: 'production', ANTHROPIC_API_KEY: 'sk-ant-test' }),
+    ).toThrow(/FILES_DIR/);
   });
 });

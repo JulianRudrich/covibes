@@ -54,10 +54,28 @@ Spec 20 is built in two parts. This part brings the uploads and how agents read 
 - Packages: `unpdf` (server)
 
 ## Checklist
-- [ ] Owners and editors attach images, PDFs and text files to a message by picking or pasting; the files show as chips and can be taken off before sending.
-- [ ] The message shows its images as thumbnails and its files as chips for everyone, live; members open and download them, nobody else.
-- [ ] An agent asked about an attached text file, PDF or image reads it with `read_file` and answers from its content.
-- [ ] Files that are too large, of another kind or not what they claim are refused with a clear note; viewers cannot upload.
-- [ ] The derived looks were checked from screenshots and are listed in `ui-context.md`.
-- [ ] Tests for the database, the API, the tool, the agent turn and the components pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] Owners and editors attach images, PDFs and text files to a message by picking or pasting; the files show as chips and can be taken off before sending.
+- [x] The message shows its images as thumbnails and its files as chips for everyone, live; members open and download them, nobody else.
+- [x] An agent asked about an attached text file, PDF or image reads it with `read_file` and answers from its content.
+- [x] Files that are too large, of another kind or not what they claim are refused with a clear note; viewers cannot upload.
+- [x] The derived looks were checked from screenshots and are listed in `ui-context.md`.
+- [x] Tests for the database, the API, the tool, the agent turn and the components pass.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-10-01)
+- **Upload first, attach on sending:** `POST …/files` stores one file and returns its attachment (id, name, kind, media type, size); the row has no message yet. Sending a message with `attachments` checks that every id is the sender's own upload in this project, attached to nothing (or to this very message, so sending again after a lost answer works), and attaches them in the transaction that stores the message. RLS enforces the same: an uploader attaches only to an own message of the same project, and an attached file neither moves nor is deleted by clients.
+- **What a file is, is decided by its content:** PNG, JPEG, GIF, WebP and PDF by their signature, whatever the file is called; text by a known extension plus valid UTF-8 without NUL bytes. SVG, office formats and programs are refused with `unsupported_file` (415). The name is reduced to its last path segment, without control characters, at most 200 characters with the extension kept.
+- **Limits:** the body limit of the API stays 64 kB for everything but the upload route, which takes 10 MB plus the form envelope and is refused while it is read beyond that; images above 5 MB are refused after reading. 30 uploads per minute and person. An upload that was never sent is removed, with its content, the next time its uploader uploads after a day.
+- **Serving:** only members get a file (RLS; a file of another project is 404). Images are served inline, everything else as a download; text always as `text/plain`, and every answer carries `nosniff` and a sandboxing content security policy, so an uploaded HTML page never runs in the app's origin.
+- **Storage:** `FileStorage` (`put`, `get`, `delete`) with a local folder; keys are UUIDs the server makes up, and the storage refuses anything else. Locally the folder is `.data/files` (found from the module, so server and worker agree); the built server needs `FILES_DIR`, which the Docker image sets to `/data/files` on a volume shared by app and worker.
+- **Agents:**
+  - `read_file` is offered to every agent of the team except in a debate. It needs no rule, since it changes nothing.
+  - Text comes in parts of at most 20,000 characters, cut at line ends; a PDF as the text of its pages (`unpdf`), which is then cut the same way; an image as an image in the tool result, which the gateway hands to the model (`runWithImage` next to `run`).
+  - The content is quoted in `<file>` (it cannot close its own section) with the note that it is data. The context lists the latest 20 attached files in `<files>`, and a chat line names what its message has attached.
+- **Web:** `useUploads` keeps the files of the message being written (uploading, done, taken off) and reports why a file was dropped; the composer shows them as chips, waits for running uploads and still needs text. Pasting files from the clipboard attaches them. A message shows images as thumbnails (lazily loaded, opened in a new tab) and other files as download chips.
+- **Verified** with `pnpm dev` in the project "Vereins-App":
+  - A Markdown file and an image were attached and showed as chips; `setup.exe` was refused with the note that only images, PDFs and text files work. A PDF with two pages was added, a fourth file was attached and taken off again.
+  - The message showed the image as a thumbnail and the two files as chips; the image is served inline as `image/png`, the Markdown file as a `text/plain` download with `nosniff`.
+  - "@Moderator Lies bitte die drei angehängten Dateien …" was answered from all three: the number of members from the Markdown file, the two lines of text on the image, and the first milestone from the PDF.
+  - Viewers, other projects, the size limits and sending again are covered by the tests of the database, the API and the components; they were not tried live.
+- **Known limits:** a message still needs text; files cannot be dragged into the chat; scanned PDFs have no text to read; stored content is not removed when its message or project is deleted (only the rows are); there is no list of all files of a project.

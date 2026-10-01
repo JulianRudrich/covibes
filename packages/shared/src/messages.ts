@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { agentKeySchema } from './agents/custom';
 import { messageDebateSchema, messageDebateTurnSchema } from './debates';
 import { comparisonSchema, messageVoteSchema } from './decisions';
+import { attachmentIdsSchema, messageAttachmentSchema } from './files';
 import { messageOfferSchema } from './hands';
 
 /** Same limit as the check constraint on `messages.content` (packages/db/migrations). */
@@ -36,6 +37,8 @@ export const chatMessageSchema = z.object({
   comparison: comparisonSchema.optional(),
   /** The vote that this message carries (spec 16b). */
   vote: messageVoteSchema.optional(),
+  /** The files attached to this message (spec 20a); left out when there are none. */
+  attachments: z.array(messageAttachmentSchema).optional(),
   /** The debate that this message opens (spec 18). */
   debate: messageDebateSchema.optional(),
   /** Set on a turn of a debate and on its summary (spec 18). */
@@ -58,6 +61,8 @@ export const sendMessageInputSchema = z.object({
     .max(MESSAGE_MAX_LENGTH)
     // PostgreSQL cannot store NUL in text; refuse it here instead of failing in the database.
     .refine((text) => !text.includes('\u0000'), 'Messages cannot contain NUL characters'),
+  /** Uploaded files of the sender that the message takes along (spec 20a). */
+  attachments: attachmentIdsSchema.optional(),
 });
 export type SendMessageInput = z.input<typeof sendMessageInputSchema>;
 

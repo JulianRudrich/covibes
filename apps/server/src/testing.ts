@@ -9,6 +9,7 @@ import { createDatabase } from '@server/db/database';
 import { loadServerEnv, type ServerEnv } from '@server/env';
 import { createMailSetup } from '@server/integrations/mail/mailer';
 import { createRealtime } from '@server/realtime/realtime';
+import { memoryStorage } from '@server/storage/storage';
 
 export const APP_URL = 'http://localhost:5173';
 
@@ -28,9 +29,11 @@ export function createTestServer(overrides: Partial<Record<keyof ServerEnv, stri
   const auth = createAuth({ env, adminPool: db.adminPool, mailer: mail.mailer });
   const realtime = createRealtime({ db, auth });
   const collab = createCollab({ db, auth, internalToken: env.INTERNAL_TOKEN });
+  /** Uploaded files stay in memory. */
+  const files = memoryStorage();
   /** The app with another collaboration server, e.g. one a test starts and stops itself. */
   const appWith = (documents: BoardDocuments) =>
-    createApp({ env, db, auth, mail, live: realtime, documents });
+    createApp({ env, db, auth, mail, live: realtime, documents, files });
   const app = appWith(collab);
   const { outbox } = mail;
   afterAll(async () => {
@@ -61,5 +64,5 @@ export function createTestServer(overrides: Partial<Record<keyof ServerEnv, stri
     return cookie;
   }
 
-  return { app, appWith, env, db, auth, realtime, collab, outbox, signIn };
+  return { app, appWith, env, db, auth, realtime, collab, outbox, files, signIn };
 }

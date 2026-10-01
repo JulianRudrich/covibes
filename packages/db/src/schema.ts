@@ -165,6 +165,19 @@ export interface Decisions {
   vote_id: string | null;
 }
 
+export interface Files {
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  kind: string;
+  media_type: string;
+  message_id: string | null;
+  name: string;
+  project_id: string;
+  size_bytes: number;
+  storage_key: string;
+  uploaded_by: string | null;
+}
+
 export interface GraphileWorkerJobs {
   attempts: number | null;
   created_at: Timestamp | null;
@@ -381,6 +394,7 @@ export interface DB {
   debates: Debates;
   decision_log: DecisionLog;
   decisions: Decisions;
+  files: Files;
   'graphile_worker._private_job_queues': GraphileWorkerPrivateJobQueues;
   'graphile_worker._private_jobs': GraphileWorkerPrivateJobs;
   'graphile_worker._private_known_crontabs': GraphileWorkerPrivateKnownCrontabs;

@@ -69,6 +69,7 @@ export function messageRoutes(db: AppDb, auth: Auth, live: LivePublisher, limite
     // Mentions start paid agent runs, so nobody may flood the chat.
     if (!limiter.take(user.id)) return apiError(c, 'too_many_requests');
     const { id, content } = input.data;
+    const attachments = input.data.attachments ?? [];
 
     const result = await withUser(db, user.id, async (trx) => {
       const member = await membership(trx, projectId.data, user.id);
@@ -78,6 +79,19 @@ export function messageRoutes(db: AppDb, auth: Auth, live: LivePublisher, limite
       // Only agents of the team answer (spec 14); other mentions stay plain text. Catalog agents
       // go by their fixed names, custom agents by their handle (spec 19).
       const names = await loadTeamMentionNames(trx, projectId.data);
+      // Files to take along (spec 20a): the sender's own uploads in this project that are attached
+      // to nothing yet, or to this very message when it is sent again.
+      if (attachments.length > 0) {
+        const usable = await trx
+          .selectFrom('files')
+          .select('id')
+          .where('id', 'in', attachments)
+          .where('project_id', '=', projectId.data)
+          .where('uploaded_by', '=', user.id)
+          .where((eb) => eb.or([eb('message_id', 'is', null), eb('message_id', '=', id)]))
+          .execute();
+        if (usable.length !== attachments.length) return 'invalid_input' as const;
+      }
       // Sending the same id again (e.g. after a lost answer) returns the stored message.
       const inserted = await trx
         .insertInto('messages')
@@ -92,6 +106,14 @@ export function messageRoutes(db: AppDb, auth: Auth, live: LivePublisher, limite
         .onConflict((conflict) => conflict.column('id').doNothing())
         .returning('id')
         .executeTakeFirst();
+      if (inserted && attachments.length > 0) {
+        await trx
+          .updateTable('files')
+          .set({ message_id: id })
+          .where('id', 'in', attachments)
+          .where('message_id', 'is', null)
+          .execute();
+      }
       const row = await selectMessages(trx).where('messages.id', '=', id).executeTakeFirst();
       const message = row && toMessage(row);
       const ownMessage =

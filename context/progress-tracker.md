@@ -7,7 +7,7 @@
 Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog, observer, decisions, variants, debates, custom agents and knowledge. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 20a: uploads, files and images in the chat (branch `spec/20a-uploads`)
+- nothing; spec 20b is next
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -156,11 +156,17 @@ Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog
   - an agent key is a catalog key or a custom agent's id everywhere; one directory resolves name, initials and color in the web app
 
   Lint, type check, format, 938 tests and build pass; verified with `pnpm dev`.
+- [x] **Spec 20a uploads:**
+  - owners and editors attach images, PDFs and text files to chat messages by picking or pasting; the server decides what a file is by its content and stores it through the storage interface
+  - messages show images as thumbnails and files as download chips; members open them, served so that the browser runs nothing
+  - every agent reads attached files with `read_file`: text, the text of a PDF, or the image itself
+
+  Lint, type check, format, 996 tests and build pass; verified with `pnpm dev`.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M3 (AI core):** spec 20 (agent knowledge) closes M3 and is built in two parts: 20a (uploads) is worked out and in progress; 20b (links, web search, knowledge of custom agents) follows.
+1. **M3 (AI core):** spec 20 (agent knowledge) closes M3 and is built in two parts: 20a (uploads) is done; 20b (links, web search, knowledge of custom agents) is worked out next.
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -273,3 +279,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-10-01, spec 17 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that variants are one proposal with a diagram per variant, that the server places them in one row with the tops aligned, that the canvas offers only "Übernehmen" per variant while "Verwerfen" for all sits in the overview, and that the canvas does not move to new variants by itself.
 - **2026-10-01, spec 18 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that a debate has two or three specialists and one to three rounds (two by default), that the moderator leads but does not argue, that debate runs have no tools, that the database advances the chain, that owners and editors can end a debate early with a summary of what was said, and that a turn that fails for good aborts the debate.
 - **2026-10-01, spec 19 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that a custom agent's key is its id, that a personal agent's instructions stay with its creator while a shared agent is edited by owners and editors, that custom agents draw or only talk (no choice of single tools), the six custom colors and the two-letter avatars, the limits of 20 agents, and that the templates are texts of the web app.
+- **2026-10-01, spec 20a implemented.** Details are in the spec under "Implementation notes". The owner chose Claude's own web search for spec 20b. The coding agent split spec 20 into two parts and decided the limits (5 files per message, 10 MB per file, 5 MB per image), the allowed kinds (images, PDF, plain text), that a message still needs text, and added the package `unpdf` (MIT) for the text of PDFs.

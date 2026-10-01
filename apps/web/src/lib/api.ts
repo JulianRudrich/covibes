@@ -23,7 +23,10 @@ function isApiErrorBody(value: unknown): value is ApiErrorBody {
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('accept', 'application/json');
-  if (init.body !== undefined) headers.set('content-type', 'application/json');
+  // JSON unless the body is a form (an upload), whose type and boundary the browser sets.
+  if (init.body !== undefined && !(init.body instanceof FormData)) {
+    headers.set('content-type', 'application/json');
+  }
 
   let response: Response;
   try {

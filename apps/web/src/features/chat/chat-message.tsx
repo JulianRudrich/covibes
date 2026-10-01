@@ -11,6 +11,7 @@ import { agentClass, useAgents, type AgentLook } from '@web/features/agents/agen
 import { MentionText } from '@web/features/chat/mention-text';
 import { TypingDots } from '@web/features/chat/status-pill';
 import { DebateCard } from '@web/features/debates/debate-card';
+import { AttachmentList } from '@web/features/files/attachment-list';
 import { ComparisonCard } from '@web/features/decisions/comparison-card';
 import { VoteCard, type Voting } from '@web/features/decisions/vote-card';
 import type { ChatItem } from '@web/features/chat/types';
@@ -212,6 +213,10 @@ export function ChatMessageView({
           />
         ) : null}
       </p>
+
+      {item.attachments ? (
+        <AttachmentList projectId={item.projectId} attachments={item.attachments} />
+      ) : null}
 
       {agent !== null && item.status === 'error' ? (
         <span className="text-meta text-danger">{t('chat.agentError')}</span>

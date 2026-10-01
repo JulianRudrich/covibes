@@ -1,4 +1,4 @@
-import { MESSAGE_MAX_LENGTH, type ChatMessage } from '@covibes/shared';
+import { MESSAGE_MAX_LENGTH, type ChatMessage, type MessageAttachment } from '@covibes/shared';
 import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -107,10 +107,10 @@ function renderChat() {
     if (!request) throw new Error(`No ${method} request #${String(index)}`);
     return request;
   };
-  const send = (text: string): boolean => {
+  const send = (text: string, attachments?: MessageAttachment[]): boolean => {
     let sent = false;
     act(() => {
-      sent = result.current.chat.send(text);
+      sent = result.current.chat.send(text, attachments);
     });
     return sent;
   };
@@ -163,6 +163,44 @@ async function settle() {
 }
 
 describe('useSendMessage', () => {
+  it('takes uploaded files along and sends them again on a retry (spec 20a)', async () => {
+    const chat = await renderLoadedChat();
+    const image: MessageAttachment = {
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'skizze.png',
+      kind: 'image',
+      mediaType: 'image/png',
+      sizeBytes: 1200,
+    };
+
+    expect(chat.send('Schaut mal', [image])).toBe(true);
+    await waitFor(() => {
+      expect(chat.items()).toHaveLength(2);
+    });
+    // The message shows its files at once.
+    expect(chat.items()[1]).toMatchObject({ attachments: [image], delivery: 'sending' });
+    const id = chat.items()[1]?.id ?? '';
+    expect(chat.nth('POST', 0).body).toEqual({
+      id,
+      content: 'Schaut mal',
+      attachments: [image.id],
+    });
+
+    chat.nth('POST', 0).fail();
+    await waitFor(() => {
+      expect(chat.items()[1]?.delivery).toBe('failed');
+    });
+    chat.retry(id);
+    await waitFor(() => {
+      expect(chat.requests.filter((request) => request.method === 'POST')).toHaveLength(2);
+    });
+    expect(chat.nth('POST', 1).body).toEqual({
+      id,
+      content: 'Schaut mal',
+      attachments: [image.id],
+    });
+  });
+
   it('shows a message right away and confirms it with the stored version', async () => {
     const chat = await renderLoadedChat();
 

@@ -11,6 +11,8 @@ This guide covers running a private Covibes instance on your own server (spec 02
 | `app` | Covibes: web app, API and WebSockets on **one** port (default `127.0.0.1:3000`). |
 | `worker` | Agent runs: takes jobs from the queue, calls Claude and streams the answers into the chat. It draws on boards through the app, with the shared `INTERNAL_TOKEN`. |
 
+Uploaded files live in the volume `covibes_files-data`, which `app` and `worker` share (`FILES_DIR=/data/files`).
+
 Put a web server with HTTPS in front of it that forwards everything to `127.0.0.1:3000`, including WebSockets.
 
 ## Requirements
@@ -115,6 +117,12 @@ Back up, ideally daily via cron, and copy the file to another machine afterwards
 
 ```bash
 docker compose exec -T db pg_dump -U postgres -Fc covibes > covibes-$(date +%F).dump
+```
+
+The uploaded files are not in the database dump; back up the volume as well:
+
+```bash
+docker run --rm -v covibes_files-data:/data:ro -v "$PWD":/backup alpine tar czf /backup/covibes-files-$(date +%F).tar.gz -C /data .
 ```
 
 Restore (replaces all data):

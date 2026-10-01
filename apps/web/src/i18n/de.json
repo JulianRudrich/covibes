@@ -303,7 +303,6 @@
     "placeholder": "Nachricht an Team und Agents, @ ruft einen Agent",
     "mentionAgent": "Agent erwähnen",
     "attach": "Datei anhängen",
-    "attachLater": "Anhänge kommen später.",
     "enterToSend": "Enter zum Senden",
     "send": "Senden",
     "agentBadge": "Agent",
@@ -319,6 +318,23 @@
     "replyTo": "Antwort an {{name}}",
     "agentNeutral": "Agent · neutral",
     "agentError": "Die Antwort ist fehlgeschlagen."
+  },
+  "files": {
+    "attachHint": "Bilder, PDFs und Textdateien, je bis 10 MB",
+    "choose": "Dateien auswählen",
+    "attached": "Angehängte Dateien",
+    "uploading": "Wird hochgeladen",
+    "remove": "{{name}} entfernen",
+    "images": "Bilder",
+    "files": "Dateien",
+    "open": "{{name}} öffnen",
+    "download": "{{name}} herunterladen",
+    "problems": {
+      "too_many": "Eine Nachricht nimmt höchstens 5 Dateien mit.",
+      "too_large": "„{{name}}“ ist zu groß: Bilder bis 5 MB, andere Dateien bis 10 MB.",
+      "unsupported": "„{{name}}“ kann nicht angehängt werden: Es gehen Bilder (PNG, JPEG, WebP, GIF), PDFs und Textdateien.",
+      "failed": "„{{name}}“ konnte nicht hochgeladen werden. Bitte versuche es noch einmal."
+    }
   },
   "proposals": {
     "header": "Vorschlag · {{agent}}",

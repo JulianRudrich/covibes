@@ -51,6 +51,9 @@ services:
       GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Set INTERNAL_TOKEN in deploy/.env}
+    volumes:
+      # Uploaded files; the worker reads them from the same volume.
+      - files-data:/data/files
     ports:
       # Only reachable from this server by default: the web server with HTTPS forwards to it.
       - '${COVIBES_BIND:-127.0.0.1}:${COVIBES_PORT:-3000}:3000'
@@ -73,9 +76,12 @@ services:
       APP_URL: ${APP_URL}
       # Other people use this instance, so it needs an API key; a Claude subscription must not be used.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY in deploy/.env}
+    volumes:
+      - files-data:/data/files
     depends_on:
       app:
         condition: service_healthy
 
 volumes:
   db-data:
+  files-data:

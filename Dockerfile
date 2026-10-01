@@ -27,7 +27,8 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000 \
     WEB_DIST_DIR=/app/web \
-    MIGRATIONS_DIR=/app/migrations
+    MIGRATIONS_DIR=/app/migrations \
+    FILES_DIR=/data/files
 WORKDIR /app
 # Owned by root and only readable for the app, which runs as the unprivileged user `node`.
 COPY --from=build /out/package.json ./package.json
@@ -35,6 +36,8 @@ COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/dist ./dist
 COPY --from=build /repo/apps/web/dist ./web
 COPY --from=build /repo/packages/db/migrations ./migrations
+# Uploaded files (spec 20a); mount a volume here that the app and the worker share.
+RUN mkdir -p /data/files && chown node:node /data/files
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \

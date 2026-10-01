@@ -15,6 +15,7 @@ export type ApiErrorCode =
   | 'already_decided'
   | 'being_edited'
   | 'name_taken'
+  | 'unsupported_file'
   | 'internal';
 
 /** `GET /api/config`: settings the web app may know before login. */

@@ -5,6 +5,7 @@ import {
   isAgentKey,
   isCustomAgentKey,
   MESSAGE_STATUSES,
+  messageAttachmentSchema,
   messageDebateSchema,
   messageDebateTurnSchema,
   messageOfferSchema,
@@ -15,6 +16,7 @@ import {
   type MessageStatus,
 } from '@covibes/shared';
 import { sql, type Kysely } from 'kysely';
+import { z } from 'zod';
 
 // Database rows of the chat in their API form, shared by the API, the live bridge and the worker.
 // `db` is a transaction on behalf of a user (RLS) or the admin connection.
@@ -68,6 +70,22 @@ export function selectMessages(db: Kysely<DB>) {
             )`.as('ballots'),
           )
           .as('vote_ballots'),
+        // The files attached to the message (spec 20a), in the order they were uploaded.
+        eb
+          .selectFrom('files')
+          .whereRef('files.message_id', '=', 'messages.id')
+          .select(
+            sql`coalesce(
+              json_agg(
+                json_build_object(
+                  'id', files.id, 'name', files.name, 'kind', files.kind,
+                  'mediaType', files.media_type, 'sizeBytes', files.size_bytes
+                ) order by files.created_at, files.id
+              ),
+              '[]'::json
+            )`.as('attachments'),
+          )
+          .as('attachments'),
       ])
       .select([
         'debates.id as debate_id',
@@ -131,6 +149,7 @@ export function toMessage(row: MessageRow): ChatMessage | undefined {
     winner: row.vote_winner,
     ballots: row.vote_ballots,
   });
+  const attachments = z.array(messageAttachmentSchema).safeParse(row.attachments);
   const debate = messageDebateSchema.safeParse({
     id: row.debate_id,
     topic: row.debate_topic,
@@ -160,6 +179,9 @@ export function toMessage(row: MessageRow): ChatMessage | undefined {
     ...(offer.success ? { offer: offer.data } : {}),
     ...(comparison.success ? { comparison: comparison.data } : {}),
     ...(vote.success ? { vote: vote.data } : {}),
+    ...(attachments.success && attachments.data.length > 0
+      ? { attachments: attachments.data }
+      : {}),
     ...(debate.success ? { debate: debate.data } : {}),
     ...(debateTurn.success ? { debateTurn: debateTurn.data } : {}),
     createdAt: row.created_at.toISOString(),

@@ -3,6 +3,7 @@ import {
   sendMessageInputSchema,
   type ChatMessage,
   type MentionNames,
+  type MessageAttachment,
   type SendMessageInput,
 } from '@covibes/shared';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
@@ -51,11 +52,12 @@ export function useSendMessage(
   const { userId, name } = author;
 
   /**
-   * Shows the message right away and sends it. Returns false, and does nothing, for text that is
-   * empty or too long after trimming, or while the message list is not loaded yet.
+   * Shows the message right away and sends it, with the uploaded files it takes along (spec 20a).
+   * Returns false, and does nothing, for text that is empty or too long after trimming, or while
+   * the message list is not loaded yet.
    */
   const send = useCallback(
-    (text: string): boolean => {
+    (text: string, attachments: readonly MessageAttachment[] = []): boolean => {
       const input = sendMessageInputSchema.safeParse({ id: crypto.randomUUID(), content: text });
       if (!input.success) return false;
       // Without the list there is nowhere to show the message or a failure to send it.
@@ -71,6 +73,7 @@ export function useSendMessage(
         author: { kind: 'human', userId, name },
         content,
         mentions: parseMentions(content, names),
+        ...(attachments.length > 0 ? { attachments: [...attachments] } : {}),
         replyTo: null,
         status: 'complete',
         createdAt: now,
@@ -78,7 +81,11 @@ export function useSendMessage(
         delivery: 'sending',
       };
       updateMessages(queryClient, projectId, (items) => upsertMessage(items, item));
-      void post(queryClient, projectId, { id, content });
+      void post(queryClient, projectId, {
+        id,
+        content,
+        ...(attachments.length > 0 ? { attachments: attachments.map((file) => file.id) } : {}),
+      });
       return true;
     },
     [queryClient, projectId, userId, name, names],
@@ -92,7 +99,12 @@ export function useSendMessage(
         ?.find((candidate) => candidate.id === id);
       if (item?.delivery !== 'failed') return;
       updateMessages(queryClient, projectId, (items) => setDelivery(items, id, 'sending'));
-      void post(queryClient, projectId, { id, content: item.content });
+      const attached = item.attachments ?? [];
+      void post(queryClient, projectId, {
+        id,
+        content: item.content,
+        ...(attached.length > 0 ? { attachments: attached.map((file) => file.id) } : {}),
+      });
     },
     [queryClient, projectId],
   );

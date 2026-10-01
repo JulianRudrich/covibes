@@ -11,6 +11,7 @@ import { loadServerEnv, type ServerEnv } from '@server/env';
 import { createMailSetup } from '@server/integrations/mail/mailer';
 import { startLiveBridge } from '@server/realtime/notifications';
 import { createRealtime } from '@server/realtime/realtime';
+import { defaultFilesDir, localStorage } from '@server/storage/storage';
 import { attachWebSockets } from '@server/websockets';
 
 function readEnvOrExit(): ServerEnv {
@@ -37,7 +38,15 @@ const liveBridge = startLiveBridge({ adminPool: db.adminPool, admin: db.admin, l
 
 const server = serve(
   {
-    fetch: createApp({ env, db, auth, mail, live: realtime, documents: collab }).fetch,
+    fetch: createApp({
+      env,
+      db,
+      auth,
+      mail,
+      live: realtime,
+      documents: collab,
+      files: localStorage(env.FILES_DIR ?? defaultFilesDir()),
+    }).fetch,
     port: env.PORT,
     hostname: env.HOST,
   },

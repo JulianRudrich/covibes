@@ -1,5 +1,5 @@
-import type { DevMail, PublicConfig } from '@covibes/shared';
-import { Hono } from 'hono';
+import { MAX_FILE_BYTES, type DevMail, type PublicConfig } from '@covibes/shared';
+import { Hono, type MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { csrf } from 'hono/csrf';
 import { HTTPException } from 'hono/http-exception';
@@ -9,6 +9,7 @@ import { customAgentRoutes } from '@server/api/custom-agents';
 import { boardRoutes } from '@server/api/boards';
 import { criteriaRoutes, decisionRoutes } from '@server/api/decisions';
 import { apiError } from '@server/api/errors';
+import { fileRoutes, UPLOADS_PER_MINUTE } from '@server/api/files';
 import { debateRoutes, handRoutes, offerRoutes, voteRoutes } from '@server/api/hands';
 import { messageRoutes } from '@server/api/messages';
 import { projectRoutes } from '@server/api/projects';
@@ -21,6 +22,7 @@ import type { ServerEnv } from '@server/env';
 import type { MailSetup } from '@server/integrations/mail/mailer';
 import type { LivePublisher } from '@server/realtime/realtime';
 import { createRateLimiter } from '@server/rate-limit';
+import type { FileStorage } from '@server/storage/storage';
 import { securityHeaders, serveWebApp } from '@server/web-app';
 
 /** Messages one person may send per minute across all projects. */
@@ -28,6 +30,12 @@ export const MESSAGES_PER_MINUTE = 20;
 
 /** Largest request body the API accepts. */
 export const API_BODY_LIMIT = 64 * 1024;
+
+/** An upload (spec 20a): the largest file plus the envelope of the form around it. */
+export const UPLOAD_BODY_LIMIT = MAX_FILE_BYTES + 64 * 1024;
+
+/** `POST /api/projects/:projectId/files`, the only route that takes a file. */
+const UPLOAD_PATH = /^\/api\/projects\/[^/]+\/files\/?$/;
 
 export type AppDeps = {
   env: ServerEnv;
@@ -37,21 +45,32 @@ export type AppDeps = {
   live: LivePublisher;
   /** The collaboration server, which removes the canvas of a deleted board. */
   documents: BoardDocuments;
+  /** Where the content of uploaded files lies (spec 20a). */
+  files: FileStorage;
 };
 
-export function createApp({ env, db, auth, mail, live, documents }: AppDeps): Hono {
+export function createApp({ env, db, auth, mail, live, documents, files }: AppDeps): Hono {
   const app = new Hono();
 
   if (env.NODE_ENV === 'production') app.use('*', securityHeaders(env.APP_URL));
 
   app.get('/health', (c) => c.json({ status: 'ok' }));
 
-  // No API request needs more than this (a message has at most 8000 characters); larger bodies are
-  // refused while they are read, so nobody can make the server buffer huge uploads.
-  app.use(
-    '/api/*',
-    bodyLimit({ maxSize: API_BODY_LIMIT, onError: (c) => apiError(c, 'too_large') }),
-  );
+  // No API request needs more than this (a message has at most 8000 characters), except an upload;
+  // larger bodies are refused while they are read, so nobody can make the server buffer more.
+  const apiLimit = bodyLimit({
+    maxSize: API_BODY_LIMIT,
+    onError: (c) => apiError(c, 'too_large'),
+  });
+  const uploadLimit = bodyLimit({
+    maxSize: UPLOAD_BODY_LIMIT,
+    onError: (c) => apiError(c, 'too_large'),
+  });
+  const limitBody: MiddlewareHandler = (c, next) =>
+    c.req.method === 'POST' && UPLOAD_PATH.test(c.req.path)
+      ? uploadLimit(c, next)
+      : apiLimit(c, next);
+  app.use('/api/*', limitBody);
   // Form-like requests (which browsers send cross-site without asking) must come from the web app.
   // SameSite cookies stop other sites, this also stops sibling subdomains of the same site.
   app.use('/api/*', csrf({ origin: new URL(env.APP_URL).origin }));
@@ -75,6 +94,8 @@ export function createApp({ env, db, auth, mail, live, documents }: AppDeps): Ho
   const messageLimiter = createRateLimiter({ limit: MESSAGES_PER_MINUTE, windowMs: 60_000 });
   app.route('/api/projects/:projectId/messages', messageRoutes(db.app, auth, live, messageLimiter));
   app.route('/api/projects/:projectId/runs', runRoutes(db.app, auth));
+  const uploadLimiter = createRateLimiter({ limit: UPLOADS_PER_MINUTE, windowMs: 60_000 });
+  app.route('/api/projects/:projectId/files', fileRoutes(db.app, auth, files, uploadLimiter));
   app.route('/api/projects/:projectId/boards', boardRoutes(db.app, auth, live, documents));
   app.route('/api/projects/:projectId/proposals', proposalRoutes(db.app, auth, live, documents));
   app.route('/api/projects/:projectId/agents', agentRoutes(db.app, auth, live));

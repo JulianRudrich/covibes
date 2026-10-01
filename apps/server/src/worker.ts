@@ -12,6 +12,7 @@ import {
   streamAgentReply,
 } from '@server/ai-gateway';
 import { createBoardClient } from '@server/collab/board-client';
+import { defaultFilesDir, localStorage } from '@server/storage/storage';
 import { releaseAbandonedJobs } from '@server/tasks/abandoned-jobs';
 import { AGENT_TURN_TASK, agentTurnTask } from '@server/tasks/agent-turn';
 import { OBSERVE_TASK, observeTask } from '@server/tasks/observe';
@@ -82,6 +83,7 @@ const runner = await run({
     [AGENT_TURN_TASK]: agentTurnTask({
       admin,
       boards,
+      files: localStorage(env.FILES_DIR ?? defaultFilesDir()),
       reply: streamAgentReply,
       complete: completeText,
     }),

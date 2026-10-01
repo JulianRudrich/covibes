@@ -282,6 +282,17 @@ function toSdkTool(definition: AgentTool) {
     definition.input,
     async (input): Promise<CallToolResult> => {
       try {
+        if (definition.runWithImage) {
+          const { text, image } = await definition.runWithImage(input);
+          return {
+            content: [
+              { type: 'text', text },
+              ...(image
+                ? [{ type: 'image' as const, data: image.data, mimeType: image.mediaType }]
+                : []),
+            ],
+          };
+        }
         return { content: [{ type: 'text', text: await definition.run(input) }] };
       } catch (error) {
         // The model learns what went wrong and can correct the call or tell the team.

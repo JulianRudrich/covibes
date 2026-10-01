@@ -44,10 +44,19 @@ export const serverEnvSchema = z
      * board to draw for an agent. Unset, the collaboration server accepts no such connection.
      */
     INTERNAL_TOKEN: z.string().min(32).optional(),
+    /**
+     * Folder of the file storage (spec 20a), shared with the worker. Unset, development uses
+     * `.data/files` in the repository; the built server has no repository around it.
+     */
+    FILES_DIR: z.string().min(1).optional(),
   })
   .refine((env) => Boolean(env.GITLAB_CLIENT_ID) === Boolean(env.GITLAB_CLIENT_SECRET), {
     message: 'GITLAB_CLIENT_ID and GITLAB_CLIENT_SECRET must be set together',
     path: ['GITLAB_CLIENT_SECRET'],
+  })
+  .refine((env) => env.NODE_ENV !== 'production' || Boolean(env.FILES_DIR), {
+    message: 'Production needs FILES_DIR, the folder for uploaded files (shared with the worker)',
+    path: ['FILES_DIR'],
   })
   .refine((env) => !env.SMTP_URL || Boolean(env.MAIL_FROM), {
     message: 'MAIL_FROM is required when SMTP_URL is set',

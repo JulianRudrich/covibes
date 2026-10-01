@@ -1,6 +1,6 @@
 import type { HandRaise, ProjectMember, ProjectRole } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PanelHeader, PanelTitle } from '@web/components/ui/panel';
@@ -12,6 +12,7 @@ import { chatStatus, runsQuery } from '@web/features/chat/runs';
 import { ChatStatusPill } from '@web/features/chat/status-pill';
 import { useSendMessage } from '@web/features/chat/use-send-message';
 import { useStopDebate } from '@web/features/debates/queries';
+import { useUploads, type UploadProblem } from '@web/features/files/use-uploads';
 import { useVoteActions } from '@web/features/decisions/queries';
 import type { Voting } from '@web/features/decisions/vote-card';
 import { handsQuery, useHandDecisions, useOfferDecisions } from '@web/features/hands/queries';
@@ -67,6 +68,13 @@ export function ChatPanel({
   const votes = useVoteActions(projectId, user.id, (reason) => {
     onNotice(t(reason === 'already_decided' ? 'votes.alreadyClosed' : 'votes.failed'));
   });
+  const reportUpload = useCallback(
+    (problem: UploadProblem, name: string) => {
+      onNotice(t(`files.problems.${problem}`, { name }));
+    },
+    [onNotice, t],
+  );
+  const uploads = useUploads(projectId, reportUpload);
   const stopDebate = useStopDebate(projectId, user.name, (reason) => {
     onNotice(t(reason === 'already_decided' ? 'debates.alreadyStopped' : 'debates.stopFailed'));
   });
@@ -120,8 +128,9 @@ export function ChatPanel({
           ) : (
             <Composer
               agents={team}
-              onSend={(content) => {
-                send(content);
+              uploads={uploads}
+              onSend={(content, attachments) => {
+                send(content, attachments);
               }}
             />
           )}

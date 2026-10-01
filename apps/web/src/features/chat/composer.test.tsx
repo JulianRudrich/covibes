@@ -1,5 +1,5 @@
 import type { AgentKey } from '@covibes/shared';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@web/components/ui/tooltip';
@@ -42,7 +42,7 @@ describe('Composer', () => {
     type(textbox, '  Hallo Team  ');
     fireEvent.keyDown(textbox, { key: 'Enter' });
 
-    expect(onSend).toHaveBeenCalledExactlyOnceWith('Hallo Team');
+    expect(onSend).toHaveBeenCalledExactlyOnceWith('Hallo Team', []);
     expect(textbox).toHaveValue('');
     expect(textbox).toHaveFocus();
   });
@@ -90,7 +90,7 @@ describe('Composer', () => {
     expect(sendButton()).toBeEnabled();
     fireEvent.click(sendButton());
 
-    expect(onSend).toHaveBeenCalledExactlyOnceWith('Klingt gut');
+    expect(onSend).toHaveBeenCalledExactlyOnceWith('Klingt gut', []);
     expect(textbox).toHaveValue('');
     expect(textbox).toHaveFocus();
     expect(sendButton()).toBeDisabled();
@@ -174,25 +174,11 @@ describe('Composer', () => {
     expect(textbox).toHaveValue('Hallo @Moderator ');
   });
 
-  it('shows "Attach" as unavailable with a tooltip that explains why', async () => {
-    renderComposer();
-    const attach = screen.getByRole('button', { name: 'Datei anhängen' });
-
-    expect(attach).toHaveAttribute('aria-disabled', 'true');
-    act(() => {
-      attach.focus();
-    });
-
-    expect(attach).toHaveFocus();
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Anhänge kommen später.');
-  });
-
   it('disables everything while disabled', () => {
     const { onSend, textbox } = renderComposer({ disabled: true });
 
     expect(textbox).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Agent erwähnen' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Datei anhängen' })).toBeDisabled();
     expect(sendButton()).toBeDisabled();
 
     fireEvent.keyDown(textbox, { key: 'Enter' });

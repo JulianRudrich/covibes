@@ -88,6 +88,7 @@ During development Vite forwards `/api` to the server. Web app and API therefore
 | `ai-gateway/` | the only path to models: provider registry, streaming, usage metering, limits, prompt caching |
 | `agents/` | agent definitions and prompts as versioned files |
 | `tools/` | the agents' tools with Zod schemas, e.g. `add_block` |
+| `storage/` | the file storage behind one interface (a local folder), and what an uploaded file is by its content |
 | `rules/` | rule engine: decides for every tool action whether it runs directly, becomes a proposal, goes into the approval queue or is rejected |
 | `integrations/` | GitLab, web search, email |
 | `db/` | connections (app role and admin role), `withUser` transaction for every request on behalf of a user |
@@ -175,6 +176,7 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - An offer is a moderator message with a row in `offers`; a raised hand is a row in `hand_raises`. Owners and editors decide both through database functions, which queue the agent's run like the mention trigger does.
   - A run of a raised hand counts as own initiative, a run of an accepted offer as an instruction.
   - Every look is metered in `ai_runs` with the kind `observe`.
+- **Files (spec 20a):** people attach images, PDFs and text files to chat messages. The server decides what a file is by its content, stores it through the storage interface and serves it to members only, never as something the browser runs. Every agent's context lists the attached files, and the tool `read_file` returns text, the text of a PDF or the image itself; what a file says is quoted as data (invariant 6).
 - **Debates (spec 18):** a job chain with a fixed number of rounds. At the end the moderator summarizes.
   - The moderator opens a debate on request with `start_debate`: two or three specialists of the team, one to three rounds, one debate at a time per project. The debate belongs to the moderator's answer and shows as a card in it.
   - Every turn is an ordinary agent run with its own message. A trigger on `ai_runs` advances the debate when one of its runs ends: the next participant, after the last turn the moderator's summary, and the end. A run that failed for good aborts the debate.
@@ -247,7 +249,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `tasks` | tasks with milestone, assignee, spec reference and GitLab issue |
 | `git_connections`, `oauth_tokens`, `git_actions` | GitLab connection, tokens (encrypted), audit log |
 | `notifications` | in-app notifications and "Waiting for you" |
-| `files` | references to stored files |
+| `files` | files attached to chat messages: name, kind (image, PDF, text), size and the key of the content in the file storage |
 | `ai_runs`, `usage` | agent runs (status, queue), usage and costs |
 
 ## Auth and permissions

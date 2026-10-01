@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { api, ApiError } from '@web/lib/api';
 import { stubApi } from '@web/test-utils';
@@ -14,6 +14,24 @@ describe('api', () => {
     await expect(
       api<undefined>('/projects/p1/boards/b1', { method: 'DELETE' }),
     ).resolves.toBeUndefined();
+  });
+
+  it('sends JSON as JSON and a form as it is', async () => {
+    const types: (string | null)[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+        types.push(new Headers(init?.headers).get('content-type'));
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }),
+    );
+    await api('/projects', { method: 'POST', body: '{}' });
+    await api('/projects/p1/files', { method: 'POST', body: new FormData() });
+    await api('/projects');
+    vi.unstubAllGlobals();
+
+    // The browser sets the type and boundary of a form itself.
+    expect(types).toEqual(['application/json', null, null]);
   });
 
   it('throws the error code of the server', async () => {

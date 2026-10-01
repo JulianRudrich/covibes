@@ -24,6 +24,7 @@ const { app, env } = createTestServer({
   GITLAB_CLIENT_ID: 'id',
   GITLAB_CLIENT_SECRET: 'secret',
   WEB_DIST_DIR: webDir,
+  FILES_DIR: join(webDir, 'files'),
 });
 
 describe('web app in production', () => {

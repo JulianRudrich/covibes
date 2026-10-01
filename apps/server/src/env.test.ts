@@ -9,7 +9,7 @@ const required = {
   BETTER_AUTH_SECRET: 'x'.repeat(32),
 };
 
-const production = { ...required, NODE_ENV: 'production' };
+const production = { ...required, NODE_ENV: 'production', FILES_DIR: '/data/files' };
 const smtp = {
   SMTP_URL: 'smtps://user:secret@mail.example.com:465',
   MAIL_FROM: 'Covibes <a@b.de>',
@@ -71,6 +71,14 @@ describe('loadServerEnv', () => {
     expect(
       loadServerEnv({ ...production, GITLAB_CLIENT_ID: 'id', GITLAB_CLIENT_SECRET: 's' }).NODE_ENV,
     ).toBe('production');
+  });
+
+  it('needs the folder for uploaded files in production only (spec 20a)', () => {
+    expect(loadServerEnv(required).FILES_DIR).toBeUndefined();
+    expect(() => loadServerEnv({ ...production, ...smtp, FILES_DIR: undefined })).toThrow(
+      /FILES_DIR/,
+    );
+    expect(loadServerEnv({ ...production, ...smtp }).FILES_DIR).toBe('/data/files');
   });
 
   it('reads trusted proxies as a list', () => {

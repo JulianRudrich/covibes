@@ -402,6 +402,31 @@ describe('streamAgentReply', () => {
     expect(output).toEqual({ content: [{ type: 'text', text: 'Added "API"' }] });
   });
 
+  it('shows the model the image a tool returns (spec 20a)', async () => {
+    const readFile: AgentTool = {
+      name: 'read_file',
+      description: 'Reads a file',
+      input: {},
+      run: () => Promise.resolve('The image follows.'),
+      runWithImage: () =>
+        Promise.resolve({
+          text: 'The image follows.',
+          image: { mediaType: 'image/png', data: 'aGFsbG8=' },
+        }),
+    };
+    replyWith(result());
+    await streamAgentReply(request({ tools: [readFile] }));
+
+    const output = await toolHandler(passedOptions(), 'read_file')({ fileId: 'x' }, {});
+
+    expect(output).toEqual({
+      content: [
+        { type: 'text', text: 'The image follows.' },
+        { type: 'image', data: 'aGFsbG8=', mimeType: 'image/png' },
+      ],
+    });
+  });
+
   it('returns a failing tool to the model as an error result', async () => {
     const broken: AgentTool = {
       ...addBlock,

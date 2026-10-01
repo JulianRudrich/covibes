@@ -3,6 +3,8 @@
 // and the database last.
 import { spawn, type ChildProcess } from 'node:child_process';
 
+import { join } from 'node:path';
+
 import { startLocalDatabase } from '@covibes/db/local';
 
 const SERVER_HEALTH_URL = 'http://127.0.0.1:3001/health';
@@ -29,6 +31,8 @@ const childEnv: NodeJS.ProcessEnv = {
   // Server and worker share it; the worker uses it to draw on boards for the agents.
   INTERNAL_TOKEN: database.secrets.internalToken,
   COLLAB_URL: 'ws://127.0.0.1:3001/api/collab',
+  // Uploaded files (spec 20a) lie next to the local database.
+  FILES_DIR: join(import.meta.dirname, '..', '.data', 'files'),
 };
 // A PORT from the caller (e.g. a preview tool) means the web app, which always runs on 5173.
 // The server keeps its own port, which the web app's proxy expects.

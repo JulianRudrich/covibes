@@ -1,10 +1,16 @@
-import { MESSAGE_MAX_LENGTH } from '@covibes/shared';
-import { ArrowUp, AtSign, Paperclip } from 'lucide-react';
+import {
+  FILE_ACCEPT,
+  formatFileSize,
+  MESSAGE_MAX_LENGTH,
+  type MessageAttachment,
+} from '@covibes/shared';
+import { ArrowUp, AtSign, FileText, LoaderCircle, Paperclip, X } from 'lucide-react';
 import {
   useId,
   useLayoutEffect,
   useRef,
   useState,
+  type ClipboardEvent,
   type SubmitEvent,
   type KeyboardEvent,
 } from 'react';
@@ -20,13 +26,19 @@ import {
 import { IconButton } from '@web/components/ui/icon-button';
 import { Tooltip } from '@web/components/ui/tooltip';
 import { AgentAvatar } from '@web/features/agents/agent-avatar';
+import type { Uploads } from '@web/features/files/use-uploads';
 import { useAgents } from '@web/features/agents/agents';
 
 type ComposerProps = {
   /** The agents the `@` menu offers: the project's team (spec 14), by key. */
   agents: readonly string[];
-  /** Receives the trimmed text; empty and whitespace-only messages never arrive here. */
-  onSend: (content: string) => void;
+  /**
+   * Receives the trimmed text and the uploaded files to take along; empty and whitespace-only
+   * messages never arrive here.
+   */
+  onSend: (content: string, attachments: readonly MessageAttachment[]) => void;
+  /** The files of the message being written (spec 20a); without it nothing can be attached. */
+  uploads?: Uploads;
   disabled?: boolean;
 };
 
@@ -39,17 +51,20 @@ function isComposing(event: KeyboardEvent<HTMLTextAreaElement>) {
 
 /**
  * Message input of the chat. Enter sends, Shift+Enter breaks the line, the field grows up to about
- * six lines. "@" offers the agents of the team.
+ * six lines. "@" offers the agents of the team; the paperclip attaches files, and images can be
+ * pasted (spec 20a). Files upload at once and show as chips above the text.
  */
-export function Composer({ agents, onSend, disabled = false }: ComposerProps) {
-  const { t } = useTranslation();
+export function Composer({ agents, onSend, uploads, disabled = false }: ComposerProps) {
+  const { t, i18n } = useTranslation();
   const resolve = useAgents();
   const hintId = useId();
   const [draft, setDraft] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // Caret behind an inserted mention, applied when the closing menu hands focus back.
   const pendingCaretRef = useRef<number | null>(null);
-  const canSend = !disabled && draft.trim() !== '';
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // A message waits for its files; it still needs text.
+  const canSend = !disabled && draft.trim() !== '' && uploads?.uploading !== true;
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current;
@@ -61,8 +76,9 @@ export function Composer({ agents, onSend, disabled = false }: ComposerProps) {
 
   function send() {
     const content = draft.trim();
-    if (disabled || content === '') return;
-    onSend(content);
+    if (!canSend || content === '') return;
+    onSend(content, uploads?.attachments ?? []);
+    uploads?.clear();
     setDraft('');
     textareaRef.current?.focus();
   }
@@ -76,6 +92,14 @@ export function Composer({ agents, onSend, disabled = false }: ComposerProps) {
     if (event.key !== 'Enter' || event.shiftKey || isComposing(event)) return;
     event.preventDefault();
     send();
+  }
+
+  /** Files in the clipboard (e.g. a screenshot) are attached; text is pasted as usual. */
+  function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    const files = Array.from(event.clipboardData.files);
+    if (!uploads || files.length === 0) return;
+    event.preventDefault();
+    uploads.add(files);
   }
 
   function insertMention(name: string) {
@@ -106,6 +130,42 @@ export function Composer({ agents, onSend, disabled = false }: ComposerProps) {
       onSubmit={handleSubmit}
       className="flex flex-col rounded-panel border border-border-strong bg-bg-panel shadow-button-secondary transition-shadow has-[textarea:focus]:ring-3 has-[textarea:focus]:ring-focus-soft"
     >
+      {uploads && uploads.items.length > 0 ? (
+        <ul
+          aria-label={t('files.attached')}
+          className="m-0 flex list-none flex-wrap gap-1.5 px-2 pt-2"
+        >
+          {uploads.items.map((item) => (
+            <li
+              key={item.localId}
+              className="flex h-7 max-w-full items-center gap-1.5 rounded-btn-s border border-border-soft bg-bg-muted pr-0.5 pl-2 text-small text-text-body"
+            >
+              {item.status === 'uploading' ? (
+                <LoaderCircle
+                  size={13}
+                  className="shrink-0 animate-spin text-text-3 motion-reduce:animate-none"
+                  aria-label={t('files.uploading')}
+                />
+              ) : (
+                <FileText size={13} className="shrink-0 text-text-3" aria-hidden="true" />
+              )}
+              <span className="min-w-0 truncate font-medium">{item.name}</span>
+              <span className="shrink-0 text-meta text-text-3 tabular-nums">
+                {formatFileSize(item.sizeBytes, i18n.language)}
+              </span>
+              <IconButton
+                aria-label={t('files.remove', { name: item.name })}
+                className="size-6"
+                onClick={() => {
+                  uploads.remove(item.localId);
+                }}
+              >
+                <X size={13} aria-hidden="true" />
+              </IconButton>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <textarea
         ref={textareaRef}
         rows={1}
@@ -114,6 +174,7 @@ export function Composer({ agents, onSend, disabled = false }: ComposerProps) {
           setDraft(event.target.value);
         }}
         onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
         placeholder={t('chat.placeholder')}
         aria-label={t('chat.placeholder')}
         aria-describedby={hintId}
@@ -149,18 +210,34 @@ export function Composer({ agents, onSend, disabled = false }: ComposerProps) {
             })}
           </DropdownMenuContent>
         </DropdownMenu>
-        {/* aria-disabled instead of disabled: a disabled button gets neither hover nor focus, so
-            its tooltip could never say why it does nothing yet. */}
-        <Tooltip content={t('chat.attachLater')} side="top">
-          <IconButton
-            aria-label={t('chat.attach')}
-            aria-disabled="true"
-            disabled={disabled}
-            className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-disabled:hover:text-text-2b"
-          >
-            <Paperclip size={15} aria-hidden="true" />
-          </IconButton>
-        </Tooltip>
+        {uploads ? (
+          <>
+            <Tooltip content={t('files.attachHint')} side="top">
+              <IconButton
+                aria-label={t('chat.attach')}
+                disabled={disabled}
+                onClick={() => {
+                  fileInputRef.current?.click();
+                }}
+              >
+                <Paperclip size={15} aria-hidden="true" />
+              </IconButton>
+            </Tooltip>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={FILE_ACCEPT}
+              aria-label={t('files.choose')}
+              className="hidden"
+              onChange={(event) => {
+                uploads.add(Array.from(event.target.files ?? []));
+                // The same file can be chosen again after it was taken off.
+                event.target.value = '';
+              }}
+            />
+          </>
+        ) : null}
         <span id={hintId} className="mr-2 ml-auto text-meta whitespace-nowrap text-text-4">
           {t('chat.enterToSend')}
         </span>

@@ -68,7 +68,8 @@
       "back": "Zur Projektliste"
     },
     "toProjects": "Zur Projektliste",
-    "proposalsOnly": "Nur Vorschläge"
+    "proposalsOnly": "Nur Vorschläge",
+    "observer": "Agents melden sich"
   },
   "devMails": {
     "title": "Entwicklungs-Postfach",
@@ -244,7 +245,8 @@
     "readOnly": "Du hast Lesezugriff.",
     "loadError": "Die Nachrichten konnten nicht geladen werden.",
     "typing": "{{name}} schreibt",
-    "waiting": "{{count}} wartet",
+    "waiting_one": "{{count}} wartet",
+    "waiting_other": "{{count}} warten",
     "typingShort": "schreibt",
     "replyTo": "Antwort an {{name}}",
     "agentNeutral": "Agent · neutral",
@@ -275,6 +277,24 @@
       "alreadyDecided": "Über diesen Vorschlag wurde schon entschieden.",
       "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
     }
+  },
+  "hands": {
+    "label": "Handzeichen",
+    "raises": "{{name}} meldet sich",
+    "listen": "Anhören",
+    "dismiss": "Nicht jetzt",
+    "dismissAgent": "{{name}}: nicht jetzt",
+    "alreadyDecided": "Darum hat sich schon jemand gekümmert.",
+    "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+  },
+  "offers": {
+    "later": "Später",
+    "accepted": "Angenommen",
+    "acceptedBy": "Angenommen von {{name}}",
+    "declined": "Verschoben",
+    "declinedBy": "Verschoben von {{name}}",
+    "alreadyDecided": "Über dieses Angebot wurde schon entschieden.",
+    "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
   },
   "overview": {
     "waiting": "Wartet auf dich",

@@ -113,6 +113,18 @@ export {
   type CanvasOperationInput,
 } from './canvas/operations';
 export {
+  HAND_REASON_MAX_LENGTH,
+  handRaiseSchema,
+  MAX_OPEN_HANDS,
+  messageOfferSchema,
+  OFFER_KINDS,
+  OFFER_STATUSES,
+  type HandRaise,
+  type MessageOffer,
+  type OfferKind,
+  type OfferStatus,
+} from './hands';
+export {
   PROPOSAL_KINDS,
   PROPOSAL_REASONS,
   PROPOSAL_STATUSES,

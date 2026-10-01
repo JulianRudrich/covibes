@@ -16,12 +16,17 @@ export type ProjectRole = (typeof PROJECT_ROLES)[number];
 export const createProjectInputSchema = z.object({ name: projectNameSchema });
 
 /** `PATCH /api/projects/:projectId` (owners): the settings that exist so far. */
-export const updateProjectInputSchema = z.object({ proposalsOnly: z.boolean() });
+/** `PATCH /api/projects/:projectId`: owners change the settings that are given. */
+export const updateProjectInputSchema = z
+  .object({ proposalsOnly: z.boolean().optional(), observer: z.boolean().optional() })
+  .refine((input) => input.proposalsOnly !== undefined || input.observer !== undefined);
 export type UpdateProjectInput = z.infer<typeof updateProjectInputSchema>;
 
 /** `projects.settings` as stored; unknown keys from later versions are kept. */
 export const projectSettingsSchema = z.looseObject({
   proposalsOnly: z.boolean().optional().catch(undefined),
+  /** Agents speak up on their own (spec 15); on unless switched off. */
+  observer: z.boolean().optional().catch(undefined),
 });
 export type CreateProjectInput = z.infer<typeof createProjectInputSchema>;
 
@@ -83,6 +88,8 @@ export type ProjectDetails = {
   boards: ProjectBoard[];
   /** Even instructions to agents arrive as proposals first (spec 13). */
   proposalsOnly: boolean;
+  /** The observer lets agents offer help and raise hands (spec 15). */
+  observer: boolean;
   /** The project's team in catalog order, the moderator first (spec 14). */
   agents: ProjectAgent[];
 };

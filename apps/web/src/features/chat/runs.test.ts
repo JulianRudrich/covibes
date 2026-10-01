@@ -68,6 +68,11 @@ describe('chatStatus', () => {
   it('reports waiting runs alone', () => {
     expect(chatStatus([run('1')], [])).toEqual({ typing: null, waiting: 1 });
   });
+
+  it('counts open raised hands as waiting (spec 15)', () => {
+    expect(chatStatus([], [], 2)).toEqual({ typing: null, waiting: 2 });
+    expect(chatStatus([run('1')], [], 1)).toEqual({ typing: null, waiting: 2 });
+  });
 });
 
 describe('applyRunEvent', () => {

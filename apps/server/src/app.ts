@@ -7,6 +7,7 @@ import { HTTPException } from 'hono/http-exception';
 import { agentRoutes } from '@server/api/agents';
 import { boardRoutes } from '@server/api/boards';
 import { apiError } from '@server/api/errors';
+import { handRoutes, offerRoutes } from '@server/api/hands';
 import { messageRoutes } from '@server/api/messages';
 import { projectRoutes } from '@server/api/projects';
 import { proposalRoutes } from '@server/api/proposals';
@@ -75,6 +76,8 @@ export function createApp({ env, db, auth, mail, live, documents }: AppDeps): Ho
   app.route('/api/projects/:projectId/boards', boardRoutes(db.app, auth, live, documents));
   app.route('/api/projects/:projectId/proposals', proposalRoutes(db.app, auth, live, documents));
   app.route('/api/projects/:projectId/agents', agentRoutes(db.app, auth, live));
+  app.route('/api/projects/:projectId/hands', handRoutes(db.app, auth));
+  app.route('/api/projects/:projectId/offers', offerRoutes(db.app, auth));
   app.route('/api/projects', projectRoutes(db.app, auth, live));
 
   // In the Docker image the server also delivers the web app (spec 02b); locally Vite does.

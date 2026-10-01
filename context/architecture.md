@@ -106,7 +106,7 @@ During development Vite forwards `/api` to the server. Web app and API therefore
 1. The client sends a message to `POST /api/projects/:id/messages`. The server writes it on behalf of the user; RLS checks the role.
 2. A database trigger creates the jobs:
    - For an `@` mention it creates `agent_turn` in the serial queue `agent:{projectId}:{agentId}`. Each agent handles one request after the other; different agents work in parallel.
-   - It always creates an observer job with `job_key = observer:{projectId}` as well. Every new job replaces the previous one, so the observer only runs after a few seconds of quiet.
+   - It always creates an observer job with `job_key = observer:{projectId}` as well, 15 seconds ahead. Every new job replaces the previous one, so the observer only runs after a pause. Owners can switch the observer off per project.
 3. The server distributes the new message over the channel `project:{projectId}` to everyone who has the project open.
 4. The worker runs `agent_turn`:
    1. load the context
@@ -151,7 +151,11 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - create a raised hand (at most two open)
   - do nothing
 
-  It never acts itself.
+  It never acts itself. Details (spec 15):
+  - It waits while an agent of the project waits or works, and asks its model (Claude Sonnet 5.5, fixed instructions, JSON answer) only when the limits leave something to start.
+  - An offer is a moderator message with a row in `offers`; a raised hand is a row in `hand_raises`. Owners and editors decide both through database functions, which queue the agent's run like the mention trigger does.
+  - A run of a raised hand counts as own initiative, a run of an accepted offer as an instruction.
+  - Every look is metered in `ai_runs` with the kind `observe`.
 - **Debates:** a job chain with a fixed number of rounds. At the end the moderator summarizes.
 - **External agents (after V1):** the agent runner gets an adapter interface. Through it, an external endpoint (A2A or webhook) answers instead of a model. Rules and tools stay the same.
 
@@ -212,7 +216,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `plans`, `plan_versions`, `plan_suggestions` | plan, versions, AI suggestions per section |
 | `messages` | chat: author (human or agent), mentions, block references |
 | `agents`, `project_agents` | agent definitions, team per project |
-| `hand_raises` | raised hands (open, heard, dismissed) |
+| `hand_raises`, `offers` | raised hands (open, heard, dismissed); the moderator's offers of help (open, accepted, declined) |
 | `proposals` | proposals: canvas change, variant, plan update, Git action |
 | `decisions`, `criteria` | decision log with comparison, alternatives, approval and history; project criteria |
 | `tasks` | tasks with milestone, assignee, spec reference and GitLab issue |

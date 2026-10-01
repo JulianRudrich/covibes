@@ -707,6 +707,94 @@ describe('the team in the agent turn', () => {
   });
 });
 
+describe('raised hands and offers (spec 15)', () => {
+  it('lets a specialist make the point of its raised hand, as its own initiative', async () => {
+    const { projectId, boardId, send } = await createProject();
+    await test.db.admin
+      .insertInto('project_agents')
+      .values({ project_id: projectId, agent_key: 'security' })
+      .execute();
+    await send('Wir speichern die Termine in der Cloud.');
+    const hand = await test.db.admin
+      .insertInto('hand_raises')
+      .values({
+        project_id: projectId,
+        agent_key: 'security',
+        reason: 'Welche Daten gehen an externe KI-Anbieter?',
+        status: 'heard',
+        decided_at: new Date(),
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const run = await test.db.admin
+      .insertInto('ai_runs')
+      .values({ project_id: projectId, agent_key: 'security', hand_raise_id: hand.id })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const { boards, doc } = memoryBoards();
+    const { deps, reply: model, complete } = turnDeps(drawsApi, boards, 'instruction');
+
+    await runAgentTurn(deps, { runId: run.id }, FIRST_ATTEMPT);
+
+    expect(complete).not.toHaveBeenCalled();
+    expect(model.mock.calls[0]?.[0].prompt).toContain(
+      'Earlier you raised your hand in this chat for this point:\n<request>\nWelche Daten gehen an externe KI-Anbieter?\n</request>\nSomeone asked you to speak now.',
+    );
+    // Its own initiative: the drawing becomes a proposal.
+    expect(readNodes(doc(boardId))).toEqual([]);
+    expect(await proposalsOf(run.id)).toMatchObject([{ reason: 'initiative' }]);
+    expect(await reply(run.id)).toMatchObject({
+      author: { kind: 'agent', agentKey: 'security' },
+      replyTo: null,
+    });
+  });
+
+  it('does an accepted offer as an instruction, in answer to the offer', async () => {
+    const { projectId, boardId, send } = await createProject();
+    await send('Dann nehmen wir React Flow.');
+    const message = await test.db.admin
+      .insertInto('messages')
+      .values({
+        project_id: projectId,
+        author_kind: 'agent',
+        author_agent_key: 'moderator',
+        content: 'Ihr seid euch einig. Soll ich es festhalten?',
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const offer = await test.db.admin
+      .insertInto('offers')
+      .values({
+        project_id: projectId,
+        message_id: message.id,
+        kind: 'consensus',
+        action: 'Ja, festhalten',
+        task: 'Note the agreement on the canvas.',
+        status: 'accepted',
+        decided_at: new Date(),
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const run = await test.db.admin
+      .insertInto('ai_runs')
+      .values({ project_id: projectId, agent_key: 'moderator', offer_id: offer.id })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const { boards, doc } = memoryBoards();
+    const { deps, reply: model, complete } = turnDeps(drawsApi, boards, 'question');
+
+    await runAgentTurn(deps, { runId: run.id }, FIRST_ATTEMPT);
+
+    expect(complete).not.toHaveBeenCalled();
+    expect(model.mock.calls[0]?.[0].prompt).toContain(
+      'Someone accepted the offer. Do it now: Note the agreement on the canvas.',
+    );
+    expect(readNodes(doc(boardId))).toMatchObject([{ label: 'API' }]);
+    expect(await proposalsOf(run.id)).toEqual([]);
+    expect(await reply(run.id)).toMatchObject({ replyTo: message.id });
+  });
+});
+
 describe('buildPrompt', () => {
   it('lists frames first, then blocks and notes with their frame, then the arrows', () => {
     const doc = memoryBoards().doc(randomUUID());

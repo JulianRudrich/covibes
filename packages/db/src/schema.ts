@@ -54,9 +54,12 @@ export interface AiRuns {
   created_at: Generated<Timestamp>;
   error: string | null;
   finished_at: Timestamp | null;
+  hand_raise_id: string | null;
   id: Generated<string>;
   input_tokens: Generated<number>;
+  kind: Generated<string>;
   model: string | null;
+  offer_id: string | null;
   output_tokens: Generated<number>;
   project_id: string;
   provider: string | null;
@@ -138,6 +141,18 @@ export interface GraphileWorkerPrivateTasks {
   identifier: string;
 }
 
+export interface HandRaises {
+  agent_key: string;
+  created_at: Generated<Timestamp>;
+  decided_at: Timestamp | null;
+  decided_by: string | null;
+  id: Generated<string>;
+  project_id: string;
+  reason: string;
+  run_id: string | null;
+  status: Generated<string>;
+}
+
 export interface Messages {
   author_agent_key: string | null;
   author_kind: string;
@@ -151,6 +166,20 @@ export interface Messages {
   reply_to: string | null;
   status: Generated<string>;
   updated_at: Generated<Timestamp>;
+}
+
+export interface Offers {
+  action: string;
+  created_at: Generated<Timestamp>;
+  decided_at: Timestamp | null;
+  decided_by: string | null;
+  id: Generated<string>;
+  kind: string;
+  message_id: string;
+  project_id: string;
+  run_id: string | null;
+  status: Generated<string>;
+  task: string;
 }
 
 export interface ProjectAgents {
@@ -243,7 +272,9 @@ export interface DB {
   'graphile_worker._private_tasks': GraphileWorkerPrivateTasks;
   'graphile_worker.jobs': GraphileWorkerJobs;
   'graphile_worker.migrations': GraphileWorkerMigrations;
+  hand_raises: HandRaises;
   messages: Messages;
+  offers: Offers;
   project_agents: ProjectAgents;
   project_members: ProjectMembers;
   projects: Projects;

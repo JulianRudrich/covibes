@@ -34,6 +34,7 @@ function details(boards: ProjectBoard[], role: ProjectDetails['role'] = 'owner')
     members: [],
     boards,
     proposalsOnly: false,
+    observer: true,
     agents: [{ key: 'moderator', model: null }],
   };
 }

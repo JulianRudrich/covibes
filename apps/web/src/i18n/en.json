@@ -68,7 +68,8 @@
       "back": "To the project list"
     },
     "toProjects": "To the project list",
-    "proposalsOnly": "Proposals only"
+    "proposalsOnly": "Proposals only",
+    "observer": "Agents speak up"
   },
   "devMails": {
     "title": "Development mailbox",
@@ -244,7 +245,8 @@
     "readOnly": "You have read access.",
     "loadError": "The messages could not be loaded.",
     "typing": "{{name}} is typing",
-    "waiting": "{{count}} waiting",
+    "waiting_one": "{{count}} waiting",
+    "waiting_other": "{{count}} waiting",
     "typingShort": "is typing",
     "replyTo": "Reply to {{name}}",
     "agentNeutral": "Agent · neutral",
@@ -275,6 +277,24 @@
       "alreadyDecided": "This proposal was decided already.",
       "failed": "That did not work. Please try again."
     }
+  },
+  "hands": {
+    "label": "Raised hands",
+    "raises": "{{name}} raises a hand",
+    "listen": "Listen",
+    "dismiss": "Not now",
+    "dismissAgent": "{{name}}: not now",
+    "alreadyDecided": "Someone took care of this already.",
+    "failed": "That did not work. Please try again."
+  },
+  "offers": {
+    "later": "Later",
+    "accepted": "Accepted",
+    "acceptedBy": "Accepted by {{name}}",
+    "declined": "Postponed",
+    "declinedBy": "Postponed by {{name}}",
+    "alreadyDecided": "This offer was decided already.",
+    "failed": "That did not work. Please try again."
   },
   "overview": {
     "waiting": "Waiting for you",

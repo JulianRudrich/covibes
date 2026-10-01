@@ -25,6 +25,7 @@ import {
 import { loadMessage, selectMessages, toMessage } from '@server/chat/rows';
 import type { BoardAccess } from '@server/collab/board-client';
 import { MAX_DELTA_LENGTH, notifyLive } from '@server/realtime/notifications';
+import type { Intent } from '@server/rules/decide';
 import { classifyIntent } from '@server/rules/intent';
 import { describeOperations, loadOpenProposals, openRunProposal } from '@server/tasks/run-proposal';
 import { loadTeam, teamWriter, type TeamContext } from '@server/tasks/run-team';
@@ -135,7 +136,59 @@ type Run = {
   projectId: string;
   triggerMessageId: string | null;
   replyMessageId: string | null;
+  /** The message the reply answers. */
+  replyTo: string | null;
 };
+
+/**
+ * What a run answers besides a message that mentions the agent (spec 15): its own raised hand that
+ * someone listened to, or the moderator's offer of help that someone accepted.
+ */
+export type Occasion =
+  | { kind: 'hand'; reason: string; by: string }
+  | { kind: 'offer'; offer: string; task: string; by: string };
+
+/** The raised hand or accepted offer that started a run, and the message its reply answers. */
+async function loadOccasion(
+  admin: Kysely<DB>,
+  row: { trigger_message_id: string | null; hand_raise_id: string | null; offer_id: string | null },
+): Promise<{ occasion: Occasion | null; replyTo: string | null }> {
+  if (row.hand_raise_id) {
+    const hand = await admin
+      .selectFrom('hand_raises')
+      .leftJoin('users', 'users.id', 'hand_raises.decided_by')
+      .select(['hand_raises.reason', 'users.name'])
+      .where('hand_raises.id', '=', row.hand_raise_id)
+      .executeTakeFirst();
+    if (hand) {
+      return {
+        occasion: { kind: 'hand', reason: hand.reason, by: hand.name ?? 'Someone' },
+        replyTo: null,
+      };
+    }
+  }
+  if (row.offer_id) {
+    const offer = await admin
+      .selectFrom('offers')
+      .innerJoin('messages', 'messages.id', 'offers.message_id')
+      .leftJoin('users', 'users.id', 'offers.decided_by')
+      .select(['offers.task', 'offers.message_id', 'messages.content', 'users.name'])
+      .where('offers.id', '=', row.offer_id)
+      .executeTakeFirst();
+    if (offer) {
+      return {
+        occasion: {
+          kind: 'offer',
+          offer: offer.content,
+          task: offer.task,
+          by: offer.name ?? 'Someone',
+        },
+        replyTo: offer.message_id,
+      };
+    }
+  }
+  return { occasion: null, replyTo: row.trigger_message_id };
+}
 
 /**
  * One answer of an agent (spec 07): mark the run as running, stream the reply into a new agent
@@ -153,17 +206,29 @@ export async function runAgentTurn(
   const { runId } = payloadSchema.parse(payload);
   const row = await deps.admin
     .selectFrom('ai_runs')
-    .select(['id', 'project_id', 'agent_key', 'status', 'trigger_message_id', 'reply_message_id'])
+    .select([
+      'id',
+      'project_id',
+      'agent_key',
+      'status',
+      'trigger_message_id',
+      'reply_message_id',
+      'hand_raise_id',
+      'offer_id',
+    ])
     .where('id', '=', runId)
+    .where('kind', '=', 'reply')
     .executeTakeFirst();
   // Gone with its project, or finished: nothing to do.
   if (!row || row.status === 'done' || row.status === 'error') return;
 
+  const { occasion, replyTo } = await loadOccasion(deps.admin, row);
   const run: Run = {
     id: row.id,
     projectId: row.project_id,
     triggerMessageId: row.trigger_message_id,
     replyMessageId: row.reply_message_id,
+    replyTo,
   };
   const agent = findAgent(row.agent_key);
   if (!agent) {
@@ -201,6 +266,7 @@ export async function runAgentTurn(
         // The owner's choice for this project, or the catalog default.
         model: member.model ?? agent.model,
         team,
+        occasion,
         projectName: project.name,
         messageId,
         proposalsOnly,
@@ -261,7 +327,7 @@ function startRun(admin: Kysely<DB>, run: Run, agent: AgentDefinition): Promise<
           author_agent_key: agent.key,
           content: '',
           status: 'streaming',
-          reply_to: run.triggerMessageId,
+          reply_to: run.replyTo,
         })
         .returning('id')
         .executeTakeFirstOrThrow();
@@ -287,6 +353,7 @@ async function converse(
     agent: AgentDefinition;
     model: string;
     team: TeamContext;
+    occasion: Occasion | null;
     projectName: string;
     messageId: string;
     proposalsOnly: boolean;
@@ -314,9 +381,18 @@ async function converse(
 
   // The rule engine needs the intent of the message (spec 13). It is classified next to the
   // agent's reply, so the reply does not wait; the first canvas tool does.
-  const intent = conversation.request
-    ? classifyIntent(deps.complete, conversation.request.content, attempt.signal)
-    : Promise.resolve({ intent: 'question' as const, costUsd: 0, inputTokens: 0, outputTokens: 0 });
+  // A raised hand is the agent's own initiative; accepting an offer is an instruction of the
+  // person who accepted it (spec 15). Neither needs a classification.
+  const given = (intent: Intent) =>
+    Promise.resolve({ intent, costUsd: 0, inputTokens: 0, outputTokens: 0 });
+  const intent =
+    turn.occasion?.kind === 'hand'
+      ? given('initiative')
+      : turn.occasion?.kind === 'offer'
+        ? given('instruction')
+        : conversation.request
+          ? classifyIntent(deps.complete, conversation.request.content, attempt.signal)
+          : given('question');
 
   const rules = {
     intent: intent.then((result) => result.intent),
@@ -376,6 +452,7 @@ async function converse(
         ...canvas,
         proposals,
         ...conversation,
+        occasion: turn.occasion,
       }),
       tools,
       onText: deltas.push,
@@ -547,6 +624,8 @@ export function buildPrompt(context: {
   proposals?: readonly { id: string; agentKey: string; operations: CanvasOperation[] }[];
   messages: readonly ChatMessage[];
   request: ChatMessage | undefined;
+  /** A raised hand or an accepted offer, which the reply answers instead of a message. */
+  occasion?: Occasion | null;
 }): string {
   const proposals = context.proposals ?? [];
   const canvas = [
@@ -564,9 +643,15 @@ export function buildPrompt(context: {
   const chat = context.messages
     .map((message) => `${authorName(message)}: ${message.content}`)
     .join('\n');
-  const request = context.request
-    ? `Answer this message from ${authorName(context.request)}:\n<request>\n${asData(context.request.content)}\n</request>`
-    : 'The message addressed to you was removed. Answer the latest message in the chat.';
+  const { occasion } = context;
+  const request =
+    occasion?.kind === 'hand'
+      ? `Earlier you raised your hand in this chat for this point:\n<request>\n${asData(occasion.reason)}\n</request>\n${asData(occasion.by)} asked you to speak now. Make your point briefly and concretely, in the language of the conversation, without a greeting.`
+      : occasion?.kind === 'offer'
+        ? `You offered the team your help:\n<request>\n${asData(occasion.offer)}\n</request>\n${asData(occasion.by)} accepted the offer. Do it now: ${asData(occasion.task)}`
+        : context.request
+          ? `Answer this message from ${authorName(context.request)}:\n<request>\n${asData(context.request.content)}\n</request>`
+          : 'The message addressed to you was removed. Answer the latest message in the chat.';
   return [
     `Project: ${asData(context.projectName)}`,
     ...(context.team ? [`<team>\n${describeTeam(context.team)}\n</team>`] : []),

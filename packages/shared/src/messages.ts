@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { AGENT_KEYS } from './agents/keys';
+import { messageOfferSchema } from './hands';
 
 /** Same limit as the check constraint on `messages.content` (packages/db/migrations). */
 export const MESSAGE_MAX_LENGTH = 8000;
@@ -27,6 +28,8 @@ export const chatMessageSchema = z.object({
   mentions: z.array(z.enum(AGENT_KEYS)),
   replyTo: z.string().nullable(),
   status: z.enum(MESSAGE_STATUSES),
+  /** The moderator's offer of help that this message makes, if any (spec 15). */
+  offer: messageOfferSchema.optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -72,6 +75,7 @@ export type AiRun = z.infer<typeof aiRunSchema>;
  * - `boards`: a board was created, renamed or deleted; the project's boards are loaded again
  * - `proposals`: an agent proposed something, or a proposal was applied or rejected (spec 13)
  * - `project`: the project's settings or team changed, e.g. the proposals-only mode
+ * - `hands`: an agent raised a hand, or someone listened to it or dismissed it (spec 15)
  */
 export const liveEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('message'), message: chatMessageSchema }),
@@ -80,5 +84,6 @@ export const liveEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('boards') }),
   z.object({ type: z.literal('proposals') }),
   z.object({ type: z.literal('project') }),
+  z.object({ type: z.literal('hands') }),
 ]);
 export type LiveEvent = z.infer<typeof liveEventSchema>;

@@ -80,6 +80,7 @@ const DETAILS: ProjectDetails = {
   ],
   boards: [{ id: '33333333-3333-4333-8333-333333333333', title: 'Haupt-Canvas', kind: 'main' }],
   proposalsOnly: false,
+  observer: true,
   agents: [{ key: 'moderator', model: null }],
 };
 const EXTRA_BOARD: ProjectBoard = {
@@ -292,6 +293,26 @@ describe('with a session', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Zur Projektliste' }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/');
+    });
+  });
+
+  it('lets owners switch off that agents speak up on their own (spec 15)', async () => {
+    const api = stubApi({
+      [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+      [`PATCH /api/projects/${PROJECT.id}`]: () => ({ status: 204, body: null }),
+    });
+    renderApp(`/p/${PROJECT.id}`);
+
+    fireEvent.keyDown(await screen.findByRole('button', { name: /Covibes V1/ }), { key: 'Enter' });
+    const observer = await screen.findByRole('menuitemcheckbox', { name: 'Agents melden sich' });
+    expect(observer).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(observer);
+
+    await waitFor(() => {
+      expect(api).toHaveBeenCalledWith(
+        `/api/projects/${PROJECT.id}`,
+        expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ observer: false }) }),
+      );
     });
   });
 

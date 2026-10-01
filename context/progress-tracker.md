@@ -7,7 +7,7 @@
 Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog, observer, decisions, variants, debates, custom agents and knowledge. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 15: observer, offering help and raised hands (branch `spec/15-observer`)
+- nothing; spec 16 is next to be worked out
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -118,11 +118,18 @@ Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog
   - Claude Sonnet 5.5 as a second model for agents
 
   Lint, type check, format, 687 tests and build pass; verified with `pnpm dev` and a second tab.
+- [x] **Spec 15 observer, offering help and raised hands:**
+  - after a pause in the chat an observer (Claude Sonnet 5.5) looks at the conversation; it waits while agents answer and only asks its model when something could be started
+  - the moderator offers help on consensus or when the team is stuck, with its action and "Später" in its card; accepting makes it act
+  - specialists raise hands above the composer, at most two; "Anhören" lets them speak, as their own initiative
+  - owners switch the observer off in the project menu
+
+  Lint, type check, format, 726 tests and build pass; verified with `pnpm dev`.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M3 (AI core):** spec 15 (observer, offering help and raised hands) is worked out and in progress; specs 16 to 20 follow one after the other.
+1. **M3 (AI core):** spec 16 (decisions, criteria and decision processes) is worked out next, then specs 17 to 20 one after the other.
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -228,3 +235,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-09-30, spec 12 implemented; M2 completed.** Details are in the spec under "Implementation notes". The live test with the moderator found three faults that the unit tests could not see, all fixed: a growing frame took the blocks of other frames, arranged frames covered each other, and a request for three diagrams ran out of the six round trips an agent reply was allowed; the limit is now 16.
 - **2026-09-30, spec 13 implemented.** Details are in the spec under "Implementation notes". Agents now propose instead of drawing when they are only asked a question, in the proposals-only mode or on a block someone edits. The "Waiting for you" cards for proposals came along from spec 22. The live test had to wait a few hours for the subscription's session limit.
 - **2026-09-30, spec 14 implemented.** Details are in the spec under "Implementation notes". The owner chose the catalog as planned, a start with the moderator only and Claude Opus 5.5 for all agents. The live test found two things the unit tests could not see, both fixed: a request to add an agent counted as a question, and agents named each other in English within German answers.
+- **2026-10-01, spec 15 implemented.** Details are in the spec under "Implementation notes". The owner chose Claude Sonnet 5.5 for the observer. The live test found one fault the unit tests could not see: the message list did not follow when a raised hand appeared below it.

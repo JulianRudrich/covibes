@@ -20,6 +20,9 @@ export type ProjectSettings = {
   /** Only owners change the settings; everyone else sees them. */
   canChange: boolean;
   onProposalsOnlyChange: (proposalsOnly: boolean) => void;
+  /** Agents offer help and raise hands on their own (spec 15). */
+  observer: boolean;
+  onObserverChange: (observer: boolean) => void;
 };
 
 type WorkspaceShellProps = {

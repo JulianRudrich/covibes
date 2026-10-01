@@ -97,8 +97,9 @@ export function WorkspaceHeader({
 }
 
 /**
- * The project name opens the project menu: back to the project list, and the proposals-only mode
- * (spec 13), which only owners switch until the project settings exist (spec 16).
+ * The project name opens the project menu: back to the project list, the proposals-only mode
+ * (spec 13) and whether agents speak up on their own (spec 15), which only owners switch until the
+ * project settings exist (spec 16).
  */
 function ProjectMenu({
   projectName,
@@ -137,6 +138,20 @@ function ProjectMenu({
         >
           {t('workspace.proposalsOnly')}
           {settings.proposalsOnly ? (
+            <Check size={14} strokeWidth={2} className="ml-auto text-text-2" aria-hidden="true" />
+          ) : null}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          role="menuitemcheckbox"
+          aria-checked={settings.observer}
+          disabled={!settings.canChange}
+          className="data-disabled:cursor-default data-disabled:opacity-60"
+          onSelect={() => {
+            settings.onObserverChange(!settings.observer);
+          }}
+        >
+          {t('workspace.observer')}
+          {settings.observer ? (
             <Check size={14} strokeWidth={2} className="ml-auto text-text-2" aria-hidden="true" />
           ) : null}
         </DropdownMenuItem>

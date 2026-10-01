@@ -156,6 +156,10 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
         onProposalsOnlyChange: (proposalsOnly) => {
           updateProject.mutate({ proposalsOnly });
         },
+        observer: project.observer,
+        onObserverChange: (observer) => {
+          updateProject.mutate({ observer });
+        },
       }}
       activePhase={DEMO_ACTIVE_PHASE}
       members={members}
@@ -184,6 +188,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
             user={{ id: user.id, name: user.name }}
             readOnly={readOnly}
             team={teamKeys}
+            onNotice={showNotice}
           />
         ) : null
       }

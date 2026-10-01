@@ -72,9 +72,11 @@ export function applyRunEvent(queryClient: QueryClient, projectId: string, run: 
 export function chatStatus(
   runs: readonly AiRun[],
   messages: readonly ChatMessage[],
+  /** Open raised hands wait to speak too (spec 15). */
+  openHands = 0,
 ): ChatStatus | null {
   // Finished runs (`done`, `error`) are only markers in the cache, see `applyRunEvent`.
-  const waiting = runs.filter((run) => run.status === 'queued').length;
+  const waiting = runs.filter((run) => run.status === 'queued').length + openHands;
   const running = runs.filter((run) => run.status === 'running');
   const streaming = new Set(
     messages.filter((message) => message.status === 'streaming').map((message) => message.id),

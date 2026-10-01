@@ -1,4 +1,4 @@
-import type { AgentKey } from '@covibes/shared';
+import type { AgentKey, HandRaise } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
@@ -9,6 +9,8 @@ import { messagesQuery } from '@web/features/chat/queries';
 import { chatStatus, runsQuery } from '@web/features/chat/runs';
 import { ChatStatusPill } from '@web/features/chat/status-pill';
 import { useSendMessage } from '@web/features/chat/use-send-message';
+import { handsQuery, useHandDecisions, useOfferDecisions } from '@web/features/hands/queries';
+import { RaisedHands } from '@web/features/hands/raised-hands';
 
 type ChatPanelProps = {
   projectId: string;
@@ -17,6 +19,8 @@ type ChatPanelProps = {
   readOnly: boolean;
   /** The agents of the team (spec 14): only they can be mentioned. */
   team: readonly AgentKey[];
+  /** Shows a short note, e.g. when deciding a raised hand or an offer failed. */
+  onNotice: (text: string) => void;
 };
 
 /**
@@ -24,17 +28,24 @@ type ChatPanelProps = {
  * streaming agent answers, the status pill of the agent runs and the composer. The live updates
  * arrive through the project's live channel (`useProjectLive`), which writes them into the cache.
  */
-export function ChatPanel({ projectId, user, readOnly, team }: ChatPanelProps) {
+export function ChatPanel({ projectId, user, readOnly, team, onNotice }: ChatPanelProps) {
   const { t } = useTranslation();
   const messages = useQuery(messagesQuery(projectId));
   const runs = useQuery(runsQuery(projectId));
+  const hands = useQuery(handsQuery(projectId)).data ?? NO_HANDS;
   const { send, retry } = useSendMessage(projectId, { userId: user.id, name: user.name }, team);
+  const decideHand = useHandDecisions(projectId, (reason) => {
+    onNotice(t(reason === 'already_decided' ? 'hands.alreadyDecided' : 'hands.failed'));
+  });
+  const decideOffer = useOfferDecisions(projectId, user.name, (reason) => {
+    onNotice(t(reason === 'already_decided' ? 'offers.alreadyDecided' : 'offers.failed'));
+  });
 
   return (
     <>
       <PanelHeader className="justify-between">
         <PanelTitle>{t('panels.chat')}</PanelTitle>
-        <ChatStatusPill status={chatStatus(runs.data ?? [], messages.data ?? [])} />
+        <ChatStatusPill status={chatStatus(runs.data ?? [], messages.data ?? [], hands.length)} />
       </PanelHeader>
 
       <div className="flex min-h-0 flex-col">
@@ -47,10 +58,17 @@ export function ChatPanel({ projectId, user, readOnly, team }: ChatPanelProps) {
             {t('chat.loadError')}
           </p>
         ) : (
-          <MessageList items={messages.data} currentUserId={user.id} team={team} onRetry={retry} />
+          <MessageList
+            items={messages.data}
+            currentUserId={user.id}
+            team={team}
+            onRetry={retry}
+            onOffer={readOnly ? undefined : decideOffer}
+          />
         )}
 
-        <div className="px-4 pt-3 pb-4">
+        <div className="flex flex-col gap-2.5 px-4 pt-3 pb-4">
+          <RaisedHands hands={hands} onDecide={readOnly ? undefined : decideHand} />
           {readOnly ? (
             <p className="m-0 rounded-panel bg-bg-muted px-3.5 py-3 text-center text-ui text-text-3">
               {t('chat.readOnly')}
@@ -68,3 +86,5 @@ export function ChatPanel({ projectId, user, readOnly, team }: ChatPanelProps) {
     </>
   );
 }
+
+const NO_HANDS: HandRaise[] = [];

@@ -1,10 +1,11 @@
 import type { AgentKey } from '@covibes/shared';
-import { CornerDownRight } from 'lucide-react';
+import { Check, CornerDownRight } from 'lucide-react';
 import { useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Avatar } from '@web/components/ui/avatar';
 import { Badge } from '@web/components/ui/badge';
+import { Button } from '@web/components/ui/button';
 import { MentionText } from '@web/features/chat/mention-text';
 import { TypingDots } from '@web/features/chat/status-pill';
 import type { ChatItem } from '@web/features/chat/types';
@@ -52,6 +53,8 @@ type ChatMessageViewProps = {
    * kept; an agent's answer for the agents of the team it names.
    */
   team?: readonly AgentKey[];
+  /** Accepts or declines the moderator's offer of help (spec 15); viewers get no buttons. */
+  onOffer?: (message: ChatItem, accept: boolean) => void;
 };
 
 /**
@@ -66,6 +69,7 @@ export function ChatMessageView({
   replyToName,
   onRetry,
   team = NO_AGENTS,
+  onOffer,
 }: ChatMessageViewProps) {
   const { t, i18n } = useTranslation();
   const id = useId();
@@ -215,6 +219,7 @@ export function ChatMessageView({
       <Card labelledBy={labelIds.join(' ')}>
         {header}
         {body}
+        {item.offer ? <OfferActions item={item} onOffer={onOffer} /> : null}
       </Card>
     );
   }
@@ -233,6 +238,54 @@ export function ChatMessageView({
         {body}
       </div>
     </article>
+  );
+}
+
+/**
+ * The moderator's offer of help (spec 15; handoff: the buttons of the moderator's card): its action
+ * and "Später" while open, then a line with a check that says who decided.
+ */
+function OfferActions({
+  item,
+  onOffer,
+}: {
+  item: ChatItem;
+  onOffer?: (message: ChatItem, accept: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  const { offer } = item;
+  if (!offer) return null;
+  if (offer.status === 'open') {
+    if (!onOffer) return null;
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        <Button
+          variant="primary"
+          onClick={() => {
+            onOffer(item, true);
+          }}
+        >
+          {offer.action}
+        </Button>
+        <Button
+          onClick={() => {
+            onOffer(item, false);
+          }}
+        >
+          {t('offers.later')}
+        </Button>
+      </div>
+    );
+  }
+  const accepted = offer.status === 'accepted';
+  const text = offer.decidedBy
+    ? t(accepted ? 'offers.acceptedBy' : 'offers.declinedBy', { name: offer.decidedBy })
+    : t(accepted ? 'offers.accepted' : 'offers.declined');
+  return (
+    <p className="m-0 flex items-center gap-1.5 border-t border-agent-moderator-divider pt-2.5 text-small text-agent-moderator-dark">
+      <Check size={14} strokeWidth={2.4} className="shrink-0" aria-hidden="true" />
+      {text}
+    </p>
   );
 }
 

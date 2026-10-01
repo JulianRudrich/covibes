@@ -3,6 +3,7 @@ import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { applyLiveEvent } from '@web/features/chat/queries';
 import { runsQueryKey } from '@web/features/chat/runs';
 import { messagesQueryKey } from '@web/features/chat/types';
+import { handsQueryKey } from '@web/features/hands/queries';
 import { projectQuery } from '@web/features/projects/queries';
 import { proposalsQueryKey } from '@web/features/proposals/queries';
 import { useLiveChannel } from '@web/features/realtime/live-channel';
@@ -31,6 +32,8 @@ export function useProjectLive(projectId: string) {
         reload(projectQuery(projectId).queryKey);
       } else if (event.type === 'proposals') {
         reload(proposalsQueryKey(projectId));
+      } else if (event.type === 'hands') {
+        reload(handsQueryKey(projectId));
       } else {
         applyLiveEvent(queryClient, projectId, event);
       }
@@ -40,6 +43,7 @@ export function useProjectLive(projectId: string) {
       reload(runsQueryKey(projectId));
       reload(projectQuery(projectId).queryKey);
       reload(proposalsQueryKey(projectId));
+      reload(handsQueryKey(projectId));
     },
   });
 }

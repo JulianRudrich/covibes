@@ -109,6 +109,7 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
           kind: board.kind === 'main' ? ('main' as const) : ('extra' as const),
         })),
         proposalsOnly: settings.success && settings.data.proposalsOnly === true,
+        observer: !settings.success || settings.data.observer !== false,
         agents,
       };
     });
@@ -116,7 +117,8 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
     return c.json<ProjectDetails>(details);
   });
 
-  // The project's settings (spec 13: the proposals-only mode); only owners change them.
+  // The project's settings (spec 13: the proposals-only mode, spec 15: the observer); only owners
+  // change them.
   routes.patch('/:projectId', async (c) => {
     const user = c.get('user');
     if (!user) return apiError(c, 'unauthorized');
@@ -132,12 +134,11 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
         .executeTakeFirst();
       if (!project) return 'not_found' as const;
       if (project.role !== 'owner') return 'forbidden' as const;
-      // Merged into the stored settings, so settings of later specs stay as they are.
+      // Merged into the stored settings, so the other settings stay as they are; settings that
+      // are not given are undefined and left out of the JSON.
       await trx
         .updateTable('projects')
-        .set({
-          settings: sql`settings || ${JSON.stringify({ proposalsOnly: input.data.proposalsOnly })}::jsonb`,
-        })
+        .set({ settings: sql`settings || ${JSON.stringify(input.data)}::jsonb` })
         .where('id', '=', projectId.data)
         .execute();
       return 'updated' as const;

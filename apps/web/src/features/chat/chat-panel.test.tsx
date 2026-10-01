@@ -81,6 +81,7 @@ function renderPanel(readOnly = false) {
           user={OLGA}
           readOnly={readOnly}
           team={['moderator', 'backend', 'critic', 'data']}
+          onNotice={vi.fn()}
         />
       </TooltipProvider>
     </QueryClientProvider>,

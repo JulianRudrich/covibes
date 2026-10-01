@@ -3,6 +3,7 @@ import {
   AI_RUN_STATUSES,
   isAgentKey,
   MESSAGE_STATUSES,
+  messageOfferSchema,
   type AiRun,
   type AiRunStatus,
   type ChatMessage,
@@ -20,23 +21,33 @@ function isStatus(value: string): value is MessageStatus {
 }
 
 export function selectMessages(db: Kysely<DB>) {
-  return db
-    .selectFrom('messages')
-    .leftJoin('users', 'users.id', 'messages.author_user_id')
-    .select([
-      'messages.id',
-      'messages.project_id',
-      'messages.author_kind',
-      'messages.author_user_id',
-      'messages.author_agent_key',
-      'users.name as author_name',
-      'messages.content',
-      'messages.mentions',
-      'messages.reply_to',
-      'messages.status',
-      'messages.created_at',
-      'messages.updated_at',
-    ]);
+  return (
+    db
+      .selectFrom('messages')
+      .leftJoin('users', 'users.id', 'messages.author_user_id')
+      // The moderator's offer of help that the message makes (spec 15), and who decided it.
+      .leftJoin('offers', 'offers.message_id', 'messages.id')
+      .leftJoin('users as deciders', 'deciders.id', 'offers.decided_by')
+      .select([
+        'offers.id as offer_id',
+        'offers.kind as offer_kind',
+        'offers.action as offer_action',
+        'offers.status as offer_status',
+        'deciders.name as offer_decided_by',
+        'messages.id',
+        'messages.project_id',
+        'messages.author_kind',
+        'messages.author_user_id',
+        'messages.author_agent_key',
+        'users.name as author_name',
+        'messages.content',
+        'messages.mentions',
+        'messages.reply_to',
+        'messages.status',
+        'messages.created_at',
+        'messages.updated_at',
+      ])
+  );
 }
 
 type MessageRow = Awaited<ReturnType<ReturnType<typeof selectMessages>['executeTakeFirstOrThrow']>>;
@@ -51,6 +62,13 @@ export function toMessage(row: MessageRow): ChatMessage | undefined {
     if (!row.author_user_id) return undefined;
     author = { kind: 'human', userId: row.author_user_id, name: row.author_name ?? '' };
   }
+  const offer = messageOfferSchema.safeParse({
+    id: row.offer_id,
+    kind: row.offer_kind,
+    action: row.offer_action,
+    status: row.offer_status,
+    decidedBy: row.offer_decided_by,
+  });
   return {
     id: row.id,
     projectId: row.project_id,
@@ -59,6 +77,7 @@ export function toMessage(row: MessageRow): ChatMessage | undefined {
     mentions: row.mentions.filter(isAgentKey),
     replyTo: row.reply_to,
     status: isStatus(row.status) ? row.status : 'complete',
+    ...(offer.success ? { offer: offer.data } : {}),
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
@@ -74,9 +93,11 @@ function isRunStatus(value: string): value is AiRunStatus {
   return (AI_RUN_STATUSES as readonly string[]).includes(value);
 }
 
+/** Runs that answer in the chat; the observer's looks (spec 15) are not part of the chat. */
 export function selectRuns(db: Kysely<DB>) {
   return db
     .selectFrom('ai_runs')
+    .where('kind', '=', 'reply')
     .select([
       'id',
       'project_id',

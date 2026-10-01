@@ -67,10 +67,32 @@ Agents take part without being called, but never act unasked. After a pause in t
 - Packages: none new
 
 ## Checklist
-- [ ] After a pause in the chat the observer looks once; while an agent answers, it waits for the answer.
-- [ ] When the team agrees or is stuck, the moderator offers help with its action and "Später"; accepting makes it act, declining shows "Verschoben"; everyone sees the decision live.
-- [ ] A specialist of the team raises a hand on a risk; at most two are open; "Anhören" lets it speak, "Nicht jetzt" removes it; viewers only see the cards.
-- [ ] Owners switch the observer off and on in the project menu.
-- [ ] The derived looks were checked from screenshots and are listed in `ui-context.md`.
-- [ ] Tests for the observer, the functions and routes, the trigger and the agent turns from raised hands and offers pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] After a pause in the chat the observer looks once; while an agent answers, it waits for the answer.
+- [x] When the team agrees or is stuck, the moderator offers help with its action and "Später"; accepting makes it act, declining shows "Verschoben"; everyone sees the decision live.
+- [x] A specialist of the team raises a hand on a risk; at most two are open; "Anhören" lets it speak, "Nicht jetzt" removes it; viewers only see the cards.
+- [x] Owners switch the observer off and on in the project menu.
+- [x] The derived looks were checked from screenshots and are listed in `ui-context.md`.
+- [x] Tests for the observer, the functions and routes, the trigger and the agent turns from raised hands and offers pass.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-10-01)
+- **Schedule:** the trigger on human messages adds the job `observe` with the job key and its own queue per project (`observer:{projectId}`), so a newer message replaces the waiting job and two looks at one project never run at the same time. While agents work, the task schedules itself again under the same key.
+- **When the observer asks its model:** only with at least two human messages in the conversation, at least one of them new since the last look, and when the limits leave something to start (no open offer and three human messages since the last one, or a free raised hand for a specialist of the team). Otherwise the look costs nothing.
+- **Looks are runs:** every look that asked the model is a row in `ai_runs` with the kind `observe` (tokens and cost included, failed looks too); its start time, taken from the database's clock, is what "new since the last look" compares with. The chat's run list and status only show runs of the kind `reply`.
+- **Answer:** the model answers with one JSON object; the worker takes the object out of the text and validates it. A broken offer or broken raised hands are dropped separately; raised hands of agents outside the team, of the moderator or beyond the limit are ignored.
+- **Deciding:** `listen_to_hand`, `dismiss_hand` and `decide_offer` are database functions for owners and editors (the API checks the same first). They create the run and its job and announce the change through `NOTIFY`, so the API needs no access to the job queue. An agent that leaves the team takes its open raised hands along.
+- **Agent turn:** a run of a raised hand gets the reason as its request and the intent own initiative; a run of an accepted offer gets the offer and its task, the intent instruction, and answers the offer's message. Neither asks the intent classifier.
+- **Offer in the message:** the chat loads a message together with its offer (kind, action, status, who decided), so the moderator's card shows the buttons or the line "Angenommen von …" for everyone, also after a reload.
+- **Web:**
+  - Raised hands sit above the composer as in the handoff; the critic and the moderator use their second tint and border, all other agents their only one. "Nicht jetzt" is an icon button on the card.
+  - The status pill counts open raised hands as waiting; the German text now has a plural ("2 warten").
+  - The message list stays at the bottom when it gets shorter, e.g. when a raised hand appears below it.
+  - "Agents melden sich" in the project menu; for editors and viewers it shows but cannot be switched.
+- **Verified** with `pnpm dev` in the project "Praxis-Termine":
+  - After four messages that ended in "dann nehmen wir FullCalendar … einverstanden", the moderator offered to sum up the decision and note it on the canvas, with "Ja, festhalten" and "Später". At the same look the security agent raised a hand: "Patientennamen im Kalender: Wer darf was sehen?". The status pill showed "1 wartet".
+  - "Ja, festhalten" showed "Angenommen von olga"; the moderator summed up and drew a block and a note directly.
+  - "Anhören" removed the card, and the security agent made its point.
+  - Two messages about a single server without backups made the DevOps agent raise a hand.
+  - The live test found that the list did not follow when the card appeared; fixed and covered by a test, since the hidden browser pane of the test does not run resize observers.
+  - Viewers, declining and dismissing are covered by the tests of the database, the API and the components.
+- **Known limits:** the observer judges by the latest 30 messages. Raised hands do not appear in "Waiting for you" yet (spec 22), and a consensus is noted on the canvas instead of in a decision log until spec 16.

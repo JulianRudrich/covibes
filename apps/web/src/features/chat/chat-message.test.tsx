@@ -302,6 +302,63 @@ describe('ChatMessageView', () => {
   });
 });
 
+describe('offers of help (spec 15)', () => {
+  function offerMessage(overrides: Partial<NonNullable<ChatItem['offer']>> = {}): ChatItem {
+    return {
+      ...agentMessage('moderator'),
+      content: 'Ihr seid euch einig: React Flow. Soll ich das festhalten?',
+      offer: {
+        id: '33333333-3333-4333-8333-333333333333',
+        kind: 'consensus',
+        action: 'Ja, festhalten',
+        status: 'open',
+        decidedBy: null,
+        ...overrides,
+      },
+    };
+  }
+
+  it('offers its action and "Später" in the moderator card', () => {
+    const onOffer = vi.fn();
+    const item = offerMessage();
+    render(<ChatMessageView item={item} isOwn={false} onOffer={onOffer} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ja, festhalten' }));
+    expect(onOffer).toHaveBeenCalledWith(item, true);
+    expect(screen.getByRole('button', { name: 'Ja, festhalten' })).toHaveClass('bg-ink');
+    fireEvent.click(screen.getByRole('button', { name: 'Später' }));
+    expect(onOffer).toHaveBeenCalledWith(item, false);
+  });
+
+  it('shows viewers no buttons', () => {
+    render(<ChatMessageView item={offerMessage()} isOwn={false} />);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('replaces the buttons with who decided', () => {
+    const { rerender } = render(
+      <ChatMessageView
+        item={offerMessage({ status: 'accepted', decidedBy: 'Sam' })}
+        isOwn={false}
+        onOffer={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByText('Angenommen von Sam')).toHaveClass(
+      'border-agent-moderator-divider',
+      'text-agent-moderator-dark',
+    );
+
+    rerender(
+      <ChatMessageView
+        item={offerMessage({ status: 'declined', decidedBy: null })}
+        isOwn={false}
+      />,
+    );
+    expect(screen.getByText('Verschoben')).toBeInTheDocument();
+  });
+});
+
 describe('MentionText', () => {
   it('keeps the text unchanged when nothing is mentioned', () => {
     const { container } = render(

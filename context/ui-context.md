@@ -92,6 +92,7 @@ In `apps/web` the tokens are a Tailwind v4 theme in `apps/web/src/styles/theme.c
   --color-agent-moderator-tint-2: #F4FAFB;
   --color-agent-moderator-border: #CDE6E9;
   --color-agent-moderator-border-2: #BFE3E6; /* edge labels, canvas references */
+  --color-agent-moderator-divider: #D7ECEE; /* line above the confirmation in the moderator's card */
   --color-agent-backend: #3563E9;
   --color-agent-backend-dark: #2346B0;
   --color-agent-backend-tint: #EEF2FE;
@@ -256,6 +257,7 @@ Since 2026-09-30 the app is built with the prototype design; design changes, imp
 - inactive board tabs, the tab menu, renaming in place, the delete dialog with the `danger` button and the note pill over the canvas (spec 11)
 - proposals (spec 13): proposed notes and frames with the dashed agent border and tint, the dashed outline and the pill "Vorschlag" on blocks that a proposal changes or moves, the completed lines under "Wartet auf dich" for rejected proposals, and the project menu with "Nur Vorschläge"
 - agents (spec 14): the colors of product, frontend, DevOps, security, ML and content (base, dark, tint, border, derived from the system of the four handoff agents), the avatar letters of all agents, and the team popover of the header
+- observer (spec 15): raised hands of agents other than the critic (their tint and border instead of a second tint), the icon button "Nicht jetzt" on a raised hand, the line "Angenommen von …" / "Verschoben von …" under an offer, and "Agents melden sich" in the project menu
 - diagram types (spec 12): the type icon and name in the frame header and its menu, the block types of mind map, data model, flow and sitemap as block cards with their own icons, entity cards with fields in Geist Mono, arrows from the right to the left edge in mind maps and data models
 
 ## Still to be designed

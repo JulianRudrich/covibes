@@ -1,5 +1,5 @@
 import type { AgentKey } from '@covibes/shared';
-import { Fragment, useLayoutEffect, useRef } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ChatMessageView } from '@web/features/chat/chat-message';
@@ -15,6 +15,8 @@ type MessageListProps = {
   /** The agents of the team, whose mentions in agent answers are shown as chips. */
   team: readonly AgentKey[];
   onRetry: (id: string) => void;
+  /** Accepts or declines the moderator's offer of help; without it the buttons are left out. */
+  onOffer?: (message: ChatItem, accept: boolean) => void;
 };
 
 function DayDivider({ label }: { label: string }) {
@@ -31,7 +33,7 @@ function DayDivider({ label }: { label: string }) {
  * The chat history with a divider per day ("Today" or the date). It follows new messages as long
  * as the reader is at the bottom; after scrolling up it stays put, except for own new messages.
  */
-export function MessageList({ items, currentUserId, team, onRetry }: MessageListProps) {
+export function MessageList({ items, currentUserId, team, onRetry, onOffer }: MessageListProps) {
   const { t, i18n } = useTranslation();
   const scroller = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
@@ -51,6 +53,21 @@ export function MessageList({ items, currentUserId, team, onRetry }: MessageList
       atBottom.current = true;
     }
   }, [items, currentUserId]);
+
+  // The list gets shorter when something appears below it, e.g. a raised hand above the composer
+  // (spec 15); a reader at the bottom stays there.
+  const hasItems = items.length > 0;
+  useEffect(() => {
+    const element = scroller.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => {
+      if (atBottom.current) element.scrollTop = element.scrollHeight;
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasItems]);
 
   function onScroll() {
     const element = scroller.current;
@@ -97,6 +114,7 @@ export function MessageList({ items, currentUserId, team, onRetry }: MessageList
                   replyToName={replyToName}
                   team={team}
                   onRetry={onRetry}
+                  onOffer={onOffer}
                 />
               </li>
             </Fragment>

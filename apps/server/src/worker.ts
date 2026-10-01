@@ -14,11 +14,12 @@ import {
 import { createBoardClient } from '@server/collab/board-client';
 import { releaseAbandonedJobs } from '@server/tasks/abandoned-jobs';
 import { AGENT_TURN_TASK, agentTurnTask } from '@server/tasks/agent-turn';
+import { OBSERVE_TASK, observeTask } from '@server/tasks/observe';
 import { loadWorkerEnv, type WorkerEnv } from '@server/worker-env';
 
-// The worker process (spec 07): runs the jobs the database creates for agent mentions. Every agent
-// has its own queue per project, so it answers one request after the other; up to five runs of
-// different agents or projects work at the same time.
+// The worker process (spec 07): runs the jobs the database creates for agent mentions and the
+// observer (spec 15). Every agent has its own queue per project, so it answers one request after
+// the other; up to five runs of different agents or projects work at the same time.
 const CONCURRENCY = 5;
 
 function readEnvOrExit(): WorkerEnv {
@@ -84,6 +85,7 @@ const runner = await run({
       reply: streamAgentReply,
       complete: completeText,
     }),
+    [OBSERVE_TASK]: observeTask({ admin, complete: completeText }),
   },
 });
 

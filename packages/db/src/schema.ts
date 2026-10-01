@@ -100,6 +100,22 @@ export interface Criteria {
   updated_at: Generated<Timestamp>;
 }
 
+export interface CustomAgents {
+  can_draw: Generated<boolean>;
+  color: Generated<number>;
+  created_at: Generated<Timestamp>;
+  deleted_at: Timestamp | null;
+  id: Generated<string>;
+  instructions: Generated<string>;
+  model: string | null;
+  name: string;
+  owner_id: string;
+  project_id: string | null;
+  role: string;
+  template: string | null;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface Debates {
   created_at: Generated<Timestamp>;
   finished_at: Timestamp | null;
@@ -361,6 +377,7 @@ export interface DB {
   boards: Boards;
   comparisons: Comparisons;
   criteria: Criteria;
+  custom_agents: CustomAgents;
   debates: Debates;
   decision_log: DecisionLog;
   decisions: Decisions;

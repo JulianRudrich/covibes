@@ -167,6 +167,46 @@ describe('the observer', () => {
     ]);
   });
 
+  it('lets a custom agent of the team raise a hand (spec 19)', async () => {
+    const { projectId, send } = await createProject(['critic']);
+    const project = await test.db.admin
+      .selectFrom('projects')
+      .select('owner_id')
+      .where('id', '=', projectId)
+      .executeTakeFirstOrThrow();
+    const agent = await test.db.admin
+      .insertInto('custom_agents')
+      .values({ owner_id: project.owner_id, name: 'Jurist', role: 'Prüft Verträge' })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    await test.db.admin
+      .insertInto('project_agents')
+      .values({ project_id: projectId, agent_key: agent.id })
+      .execute();
+    await send('Wir speichern die Adressen einfach alle.');
+    await send('Ja, das ist am einfachsten.');
+    const { deps, complete } = observerDeps(
+      JSON.stringify({
+        offer: null,
+        hands: [
+          { agent: agent.id, reason: 'Einwand zur Einwilligung' },
+          { agent: 'no-such-agent', reason: 'Zählt nicht' },
+        ],
+      }),
+    );
+
+    expect(await runObserver(deps, { projectId })).toBe('looked');
+
+    const prompt = complete.mock.calls[0]?.[0].prompt ?? '';
+    expect(prompt).toContain(
+      `- Jurist (custom agent, mentioned as @Jurist), key ${agent.id}: Prüft Verträge`,
+    );
+    expect(prompt).toContain(`by: critic, ${agent.id}`);
+    expect(await handsOf(projectId)).toEqual([
+      { agent_key: agent.id, reason: 'Einwand zur Einwilligung', status: 'open' },
+    ]);
+  });
+
   it('only looks at messages that are new since its last look', async () => {
     const { projectId, send } = await createProject(['critic']);
     await send('Erste Idee');

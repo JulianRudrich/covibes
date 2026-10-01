@@ -5,6 +5,7 @@ import { csrf } from 'hono/csrf';
 import { HTTPException } from 'hono/http-exception';
 
 import { agentRoutes } from '@server/api/agents';
+import { customAgentRoutes } from '@server/api/custom-agents';
 import { boardRoutes } from '@server/api/boards';
 import { criteriaRoutes, decisionRoutes } from '@server/api/decisions';
 import { apiError } from '@server/api/errors';
@@ -84,6 +85,7 @@ export function createApp({ env, db, auth, mail, live, documents }: AppDeps): Ho
   app.route('/api/projects/:projectId/criteria', criteriaRoutes(db.app, auth));
   app.route('/api/projects/:projectId/decisions', decisionRoutes(db.app, auth));
   app.route('/api/projects', projectRoutes(db.app, auth, live));
+  app.route('/api/agents', customAgentRoutes(db.app, auth, live));
 
   // In the Docker image the server also delivers the web app (spec 02b); locally Vite does.
   if (env.WEB_DIST_DIR) serveWebApp(app, env.WEB_DIST_DIR);

@@ -1,11 +1,9 @@
 import type { DB } from '@covibes/db';
 import {
   HAND_REASON_MAX_LENGTH,
-  isAgentKey,
   MAX_OPEN_HANDS,
   OFFER_KINDS,
   projectSettingsSchema,
-  type AgentKey,
   type DecisionProcess,
   type ChatMessage,
 } from '@covibes/shared';
@@ -13,7 +11,13 @@ import type { Task } from 'graphile-worker';
 import { sql, type Kysely } from 'kysely';
 import { z } from 'zod';
 
-import { CATALOG, describeName, findAgent } from '@server/agents/catalog';
+import {
+  describeName,
+  findAgent,
+  teamDefinitions,
+  type AgentDefinition,
+} from '@server/agents/catalog';
+import { loadCustomAgentNames } from '@server/agents/custom';
 import { loadPrompt } from '@server/agents/prompts';
 import type { AgentReplyResult } from '@server/ai-gateway';
 import { selectMessages, toMessage } from '@server/chat/rows';
@@ -110,10 +114,10 @@ function asData(text: string): string {
   return text.replace(/<(\/?)(team|decisions|earlier|chat)>/gi, '‹$1$2›');
 }
 
-function authorName(message: ChatMessage): string {
-  return message.author.kind === 'human'
-    ? message.author.name || 'Someone'
-    : (findAgent(message.author.agentKey)?.names.en ?? message.author.agentKey);
+function authorName(message: ChatMessage, names?: ReadonlyMap<string, string>): string {
+  if (message.author.kind === 'human') return message.author.name || 'Someone';
+  const { agentKey } = message.author;
+  return findAgent(agentKey)?.names.en ?? names?.get(agentKey) ?? 'Agent';
 }
 
 type History = {
@@ -124,7 +128,10 @@ type History = {
 /** The observer's context as one text; its instructions come separately as the system prompt. */
 export function buildObserverPrompt(context: {
   projectName: string;
-  team: readonly AgentKey[];
+  /** Catalog agents by key or definition, custom agents (spec 19) by definition. */
+  team: readonly (string | AgentDefinition)[];
+  /** The names of custom agents by key, for the authors of the chat. */
+  agentNames?: ReadonlyMap<string, string>;
   messages: readonly ChatMessage[];
   /** Messages after this moment are new since the observer's last look. */
   lastLook: Date | null;
@@ -136,10 +143,10 @@ export function buildObserverPrompt(context: {
   /** Why no offer is possible now, or null when it is. */
   offerBlocked: string | null;
   /** Specialists that may raise a hand now, and how many hands are allowed. */
-  canRaise: { agents: readonly AgentKey[]; count: number };
+  canRaise: { agents: readonly string[]; count: number };
 }): string {
-  const team = CATALOG.filter((agent) => context.team.includes(agent.key))
-    .map((agent) => `- ${describeName(agent)}, key ${agent.key}: ${agent.role}`)
+  const team = teamDefinitions(context.team)
+    .map((agent) => `- ${asData(describeName(agent))}, key ${agent.key}: ${asData(agent.role)}`)
     .join('\n');
   const offers =
     context.history.offers.length > 0
@@ -156,7 +163,7 @@ export function buildObserverPrompt(context: {
   const chat = context.messages
     .map((message) => {
       const isNew = !context.lastLook || new Date(message.createdAt) > context.lastLook;
-      return `${isNew ? '(new) ' : ''}${authorName(message)}: ${message.content}`;
+      return `${isNew ? '(new) ' : ''}${authorName(message, context.agentNames)}: ${message.content}`;
     })
     .join('\n');
   const allowed = [
@@ -312,7 +319,13 @@ export async function runObserver(deps: ObserverDeps, payload: unknown): Promise
       system: OBSERVER_PROMPT,
       prompt: buildObserverPrompt({
         projectName: project.name,
-        team: team.members.map((member) => member.key),
+        team: team.members.map((member) => member.definition),
+        agentNames: await loadCustomAgentNames(
+          admin,
+          messages.flatMap((message) =>
+            message.author.kind === 'agent' ? [message.author.agentKey] : [],
+          ),
+        ),
         messages,
         lastLook,
         history: {
@@ -434,7 +447,6 @@ async function raiseHands(
 ) {
   let raised = 0;
   for (const hand of hands) {
-    if (!isAgentKey(hand.agent)) continue;
     try {
       await admin
         .insertInto('hand_raises')

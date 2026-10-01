@@ -19,7 +19,11 @@ export type AvatarProps = CommonProps &
         kind: 'human';
         /** `strong` is used on the app background (header). */ tone?: 'default' | 'strong';
       }
-    | { kind: 'agent'; agent: AgentKey }
+    | {
+        kind: 'agent';
+        /** A catalog agent, or `custom` with a class `agent-color-N` that picks the color. */
+        agent: AgentKey | 'custom';
+      }
   );
 
 const SIZE_CLASSES: Record<AvatarSize, string> = {
@@ -37,7 +41,7 @@ const AGENT_RADIUS: Record<AvatarSize, string> = {
   28: 'rounded-md',
 };
 
-const AGENT_BACKGROUND: Record<AgentKey, string> = {
+const AGENT_BACKGROUND: Record<AgentKey | 'custom', string> = {
   moderator: 'bg-agent-moderator',
   backend: 'bg-agent-backend',
   critic: 'bg-agent-critic',
@@ -48,6 +52,7 @@ const AGENT_BACKGROUND: Record<AgentKey, string> = {
   security: 'bg-agent-security',
   ml: 'bg-agent-ml',
   content: 'bg-agent-content',
+  custom: 'bg-agent-custom',
 };
 
 export function Avatar(props: AvatarProps) {

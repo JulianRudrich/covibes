@@ -7,7 +7,7 @@
 Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog, observer, decisions, variants, debates, custom agents and knowledge. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 19: custom agents (branch `spec/19-custom-agents`)
+- nothing; spec 20 is next
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -150,11 +150,17 @@ Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog
   - owners and editors end a debate early; a turn that fails for good aborts it
 
   Lint, type check, format, 872 tests and build pass; verified with `pnpm dev`.
+- [x] **Spec 19 custom agents:**
+  - people create their own agents in an editor: name, role, instructions, color, model and whether the agent may draw, from scratch or from a catalog specialist
+  - personal agents for the creator's projects, or shared in one project; in a team they behave like catalog specialists, with the shared rules in force
+  - an agent key is a catalog key or a custom agent's id everywhere; one directory resolves name, initials and color in the web app
+
+  Lint, type check, format, 938 tests and build pass; verified with `pnpm dev`.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M3 (AI core):** spec 19 (custom agents) is worked out and in progress; spec 20 (agent knowledge) follows.
+1. **M3 (AI core):** spec 20 (agent knowledge: uploads, links, web search) is next and closes M3. It chooses the provider of the web search, which is the owner's decision.
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -265,3 +271,4 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-10-01, spec 16b implemented.** Details are in the spec under "Implementation notes". The coding agent decided the rules of a vote (one visible vote per owner and editor, it ends when all voted or an owner ends it, a tie decides nothing) and how the processes change recording a decision; spec 16 is complete with it.
 - **2026-10-01, spec 17 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that variants are one proposal with a diagram per variant, that the server places them in one row with the tops aligned, that the canvas offers only "Übernehmen" per variant while "Verwerfen" for all sits in the overview, and that the canvas does not move to new variants by itself.
 - **2026-10-01, spec 18 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that a debate has two or three specialists and one to three rounds (two by default), that the moderator leads but does not argue, that debate runs have no tools, that the database advances the chain, that owners and editors can end a debate early with a summary of what was said, and that a turn that fails for good aborts the debate.
+- **2026-10-01, spec 19 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that a custom agent's key is its id, that a personal agent's instructions stay with its creator while a shared agent is edited by owners and editors, that custom agents draw or only talk (no choice of single tools), the six custom colors and the two-letter avatars, the limits of 20 agents, and that the templates are texts of the web app.

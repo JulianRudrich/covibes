@@ -1,7 +1,7 @@
-import type { AgentKey } from '@covibes/shared';
 import { Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { agentClass, useAgents } from '@web/features/agents/agents';
 import { AGENT_BACKGROUND } from '@web/features/canvas/agent-look';
 import { cn } from '@web/lib/cn';
 
@@ -20,13 +20,21 @@ export function Sparkle() {
  * The pill "Gerade gezeichnet" right above an element an agent changed. It stays mounted after
  * the change, so it can fade out together with border and ring.
  */
-export function JustDrawnPill({ agent, visible }: { agent: AgentKey; visible: boolean }) {
+export function JustDrawnPill({
+  agent,
+  visible,
+}: {
+  /** The key of the agent that changed the element. */
+  agent: string;
+  visible: boolean;
+}) {
   const { t } = useTranslation();
+  const agents = useAgents();
   return (
     <div
       className={cn(
         'absolute -top-[27px] -right-[1.5px] flex h-[22px] items-center gap-[5px] rounded-sm pr-2 pl-1.5 text-meta font-medium whitespace-nowrap text-on-ink transition-[opacity,visibility] duration-200 motion-reduce:transition-none',
-        AGENT_BACKGROUND[agent],
+        agentClass(AGENT_BACKGROUND, agents(agent)),
         !visible && 'invisible opacity-0',
       )}
     >

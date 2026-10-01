@@ -1,9 +1,15 @@
-import { AGENT_KEYS, EDGE_LABEL_MAX_LENGTH, type AgentKey } from '@covibes/shared';
+import {
+  AGENT_KEYS,
+  CUSTOM_AGENT_COLORS,
+  EDGE_LABEL_MAX_LENGTH,
+  type AgentKey,
+} from '@covibes/shared';
 import { BaseEdge, EdgeLabelRenderer, type EdgeProps } from '@xyflow/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { AGENT_LABEL, agentColor } from '@web/features/canvas/agent-look';
+import { agentClass, agentColor, useAgents, type AgentInfo } from '@web/features/agents/agents';
+import { AGENT_LABEL } from '@web/features/canvas/agent-look';
 import { useCanvasActions } from '@web/features/canvas/canvas-actions';
 import type { ArrowFlowEdge } from '@web/features/canvas/flow-mapping';
 import { useFocusOnMount, useInPlaceEditing } from '@web/features/canvas/in-place-editing';
@@ -11,10 +17,23 @@ import { useFocusOnMount, useInPlaceEditing } from '@web/features/canvas/in-plac
 import { useJustDrawnBy } from '@web/features/canvas/use-just-drawn';
 import { cn } from '@web/lib/cn';
 
-type MarkerTone = 'edge' | 'ink' | AgentKey;
+/** One arrowhead per color: the two neutral ones, every catalog agent and every custom color. */
+type AgentTone = AgentKey | `custom-${string}`;
+type MarkerTone = 'edge' | 'ink' | AgentTone;
 
 function markerId(tone: MarkerTone) {
   return `covibes-arrowhead-${tone}`;
+}
+
+function toneOf(agent: Pick<AgentInfo, 'look' | 'color'>): AgentTone {
+  return agent.look === 'custom' ? `custom-${String(agent.color ?? 5)}` : agent.look;
+}
+
+/** The look a marker tone stands for. */
+function lookOf(tone: AgentTone): Pick<AgentInfo, 'look' | 'color'> {
+  return tone.startsWith('custom-')
+    ? { look: 'custom', color: Number(tone.slice('custom-'.length)) }
+    : { look: tone as AgentKey, color: null };
 }
 
 const TONE_COLOR: Record<'edge' | 'ink', string> = {
@@ -27,7 +46,12 @@ const TONE_COLOR: Record<'edge' | 'ink', string> = {
  * them by id.
  */
 export function ArrowMarkers() {
-  const tones: MarkerTone[] = ['edge', 'ink', ...AGENT_KEYS];
+  const tones: MarkerTone[] = [
+    'edge',
+    'ink',
+    ...AGENT_KEYS,
+    ...CUSTOM_AGENT_COLORS.map((color): AgentTone => `custom-${String(color)}`),
+  ];
   return (
     <svg className="absolute size-0" aria-hidden="true">
       <defs>
@@ -45,7 +69,8 @@ export function ArrowMarkers() {
             <path
               d="M0 0 L10 5 L0 10 z"
               style={{
-                fill: tone === 'edge' || tone === 'ink' ? TONE_COLOR[tone] : agentColor(tone),
+                fill:
+                  tone === 'edge' || tone === 'ink' ? TONE_COLOR[tone] : agentColor(lookOf(tone)),
               }}
             />
           </marker>
@@ -62,14 +87,17 @@ export function ArrowMarkers() {
  */
 export function CanvasArrow({ id, data, selected }: EdgeProps<ArrowFlowEdge>) {
   const actions = useCanvasActions();
-  const justDrawnBy = useJustDrawnBy(
+  const agents = useAgents();
+  const justDrawnKey = useJustDrawnBy(
     data ?? { changedByAgent: null, lastChangedAt: new Date(0).toISOString() },
   );
+  const justDrawnBy = justDrawnKey ? agents(justDrawnKey) : null;
   const geometry = data?.geometry;
   if (!data || !geometry) return null;
 
-  const tone: MarkerTone = selected ? 'ink' : (justDrawnBy ?? 'edge');
-  const stroke = tone === 'edge' || tone === 'ink' ? TONE_COLOR[tone] : agentColor(tone);
+  const tone: MarkerTone = selected ? 'ink' : justDrawnBy ? toneOf(justDrawnBy) : 'edge';
+  const stroke =
+    selected || !justDrawnBy ? TONE_COLOR[selected ? 'ink' : 'edge'] : agentColor(justDrawnBy);
   const editing = actions.editingId === id;
 
   return (
@@ -96,7 +124,7 @@ export function CanvasArrow({ id, data, selected }: EdgeProps<ArrowFlowEdge>) {
                 className={cn(
                   'flex h-5 items-center rounded-sm border px-[7px] font-mono text-badge whitespace-nowrap',
                   justDrawnBy && !selected
-                    ? AGENT_LABEL[justDrawnBy]
+                    ? agentClass(AGENT_LABEL, justDrawnBy)
                     : 'border-border-float bg-bg-panel text-text-2b',
                 )}
               >

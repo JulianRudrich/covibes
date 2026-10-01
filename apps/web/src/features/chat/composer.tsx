@@ -1,4 +1,4 @@
-import { MESSAGE_MAX_LENGTH, type AgentKey } from '@covibes/shared';
+import { MESSAGE_MAX_LENGTH } from '@covibes/shared';
 import { ArrowUp, AtSign, Paperclip } from 'lucide-react';
 import {
   useId,
@@ -10,7 +10,6 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Avatar } from '@web/components/ui/avatar';
 import { Button } from '@web/components/ui/button';
 import {
   DropdownMenu,
@@ -20,10 +19,12 @@ import {
 } from '@web/components/ui/dropdown-menu';
 import { IconButton } from '@web/components/ui/icon-button';
 import { Tooltip } from '@web/components/ui/tooltip';
+import { AgentAvatar } from '@web/features/agents/agent-avatar';
+import { useAgents } from '@web/features/agents/agents';
 
 type ComposerProps = {
-  /** The agents the `@` menu offers: the project's team (spec 14). */
-  agents: readonly AgentKey[];
+  /** The agents the `@` menu offers: the project's team (spec 14), by key. */
+  agents: readonly string[];
   /** Receives the trimmed text; empty and whitespace-only messages never arrive here. */
   onSend: (content: string) => void;
   disabled?: boolean;
@@ -42,6 +43,7 @@ function isComposing(event: KeyboardEvent<HTMLTextAreaElement>) {
  */
 export function Composer({ agents, onSend, disabled = false }: ComposerProps) {
   const { t } = useTranslation();
+  const resolve = useAgents();
   const hintId = useId();
   const [draft, setDraft] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -127,26 +129,21 @@ export function Composer({ agents, onSend, disabled = false }: ComposerProps) {
             </IconButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            {agents.map((agent) => {
-              const name = t(`agents.${agent}`);
+            {agents.map((key) => {
+              const agent = resolve(key);
               return (
                 <DropdownMenuItem
-                  key={agent}
+                  key={key}
                   onSelect={() => {
-                    insertMention(name);
+                    // A custom agent is mentioned by its handle, e.g. "UX-Writer" (spec 19).
+                    insertMention(agent.mention);
                   }}
                 >
                   {/* The item's text already names the agent. */}
                   <span aria-hidden="true" className="flex">
-                    <Avatar
-                      kind="agent"
-                      agent={agent}
-                      size={24}
-                      label={name}
-                      initials={t(`agentInitials.${agent}`)}
-                    />
+                    <AgentAvatar agent={agent} size={24} />
                   </span>
-                  {name}
+                  {agent.name}
                 </DropdownMenuItem>
               );
             })}

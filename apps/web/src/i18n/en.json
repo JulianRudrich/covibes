@@ -102,7 +102,8 @@
     "devops": "DevOps",
     "security": "Security",
     "ml": "ML",
-    "content": "Content"
+    "content": "Content",
+    "unknown": "Agent"
   },
   "agentRoles": {
     "moderator": "Neutral moderation",
@@ -145,7 +146,75 @@
       "claude-sonnet-5-5": "Sonnet 5.5",
       "claude-haiku-4-5-20251001": "Haiku 4.5"
     },
+    "edit": "Edit",
+    "editAgent": "Edit {{name}}",
+    "createAgent": "Create your own agent",
+    "personal": "Personal",
+    "shared": "Shared",
+    "nameTaken": "The team already has an agent that answers to this name.",
     "failed": "The team could not be changed. Please try again."
+  },
+  "agentEditor": {
+    "createTitle": "Create your own agent",
+    "editTitle": "Edit {{name}}",
+    "hint": "The same rules apply to all agents: what nobody asked for is a proposal, and the instructions cannot override the shared rules.",
+    "template": "Template",
+    "noTemplate": "No template",
+    "name": "Name",
+    "nameRule": "Words of letters and digits, separated by single spaces or hyphens.",
+    "mentionedAs": "The agent is mentioned with @{{handle}}.",
+    "nameInvalid": "Please use 2 to 24 characters: words of letters and digits, separated by single spaces or hyphens.",
+    "nameReserved": "An agent of the catalog already answers to this name.",
+    "nameTaken": "You already have an agent with this name, or the project has one.",
+    "role": "Role",
+    "rolePlaceholder": "What the agent does, in one line",
+    "instructions": "Instructions",
+    "instructionsPlaceholder": "What the agent should look out for, what it knows and how it answers",
+    "count": "{{count}} / {{max}}",
+    "color": "Color",
+    "colors": {
+      "1": "Green",
+      "2": "Red",
+      "3": "Brown",
+      "4": "Steel blue",
+      "5": "Graphite",
+      "6": "Wine red"
+    },
+    "model": "Model",
+    "canDraw": {
+      "label": "May draw on the canvas",
+      "text": "Without it the agent only answers in the chat."
+    },
+    "scope": {
+      "title": "Visibility",
+      "personal": {
+        "label": "Personal",
+        "text": "Only you see and edit it. You can add it to the team of all your projects."
+      },
+      "project": {
+        "label": "Shared in the project",
+        "text": "All members of \"{{project}}\" see it with its instructions; owners and editors maintain it."
+      },
+      "creatorOnly": "Only {{name}} can change the visibility."
+    },
+    "create": "Create",
+    "save": "Save",
+    "delete": "Delete",
+    "deleteConfirm": "Delete for good",
+    "deleteHint": "The agent leaves every team. Its messages stay.",
+    "limitReached": "More than 20 custom agents are not possible here.",
+    "failed": "That did not work. Please try again."
+  },
+  "agentTemplates": {
+    "critic": "You look for weak points: risks, contradictions, unchecked assumptions, missing parts and costs nobody has named yet.\nBe constructive and specific: name the most important problem first, say why it matters and how the team could check or solve it. One strong point beats five weak ones.\nSay clearly what you think. Criticize ideas, never people, and say so when something is sound.",
+    "product": "You think from the users and the value: who uses the product, which problem it solves for them and how the team knows that it works.\nYou help to cut the scope: what belongs in the first version, what can wait and what can go. Name priorities and the reason behind them.\nAsk for the target group, the most important use case and a measurable goal when they are unclear.",
+    "frontend": "You care for everything users see and touch: screens, flows, interaction, states such as loading, empty and error, accessibility and layouts for small and large screens.\nYou also know the frontend technology: frameworks, state, routing, performance and how the frontend talks to the backend.\nThink from a concrete user in a concrete situation, and name the simplest flow that works.",
+    "backend": "You care for the server side: services, APIs, business logic, background jobs and queues, integrations with other systems, and how the parts talk to each other.\nPrefer simple, proven solutions and name their trade-offs, such as consistency, scaling, costs and the effort to run them.",
+    "data": "You care for the data: the data model, the choice of database, queries and indexes, migrations, consistency, retention and backups.\nAsk which data exists, who reads and writes it how often, and what must never get lost.",
+    "devops": "You care for running the product: hosting, environments, deployment, CI/CD, monitoring, logs, backups, scaling and operating costs.\nPrefer what a small team can run reliably, and say what it costs in money and effort.\nName what must be in place before the first users arrive, and what can come later.",
+    "security": "You care for security and privacy: authentication and access rights, secrets, attack surfaces, personal data, data flows to third parties, and legal requirements such as the GDPR.\nName the most important risk first, how likely and how harmful it is, and a proportionate measure. Do not alarm the team with unlikely risks.\nAsk which personal data is processed, where it goes and who can see it.\nYou give an assessment, not legal advice; for binding legal questions recommend asking a lawyer.",
+    "ml": "You care for machine learning and AI models: whether a model fits the problem at all, which kind (a hosted language model, an own model or simple rules), the data it needs, evaluation, costs, latency and failure cases.\nSay honestly when a simpler solution without machine learning is enough.\nName how the team can measure whether the model works well enough.",
+    "content": "You care for content: texts and tone, the information architecture, the structure of pages, findability in search engines, and who writes and maintains the content.\nThink from the questions readers have and the words they search for."
   },
   "panels": {
     "chat": "Chat",

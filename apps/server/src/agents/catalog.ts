@@ -13,7 +13,8 @@ import { loadPrompt } from '@server/agents/prompts';
  * The instructions are the agent's role plus the rules all agents share, so no role can drop them.
  */
 export type AgentDefinition = {
-  key: AgentKey;
+  /** A catalog key, or the id of a custom agent (spec 19). */
+  key: string;
   /** Display names; the prompt names agents in both languages. */
   names: { de: string; en: string };
   /** What the agent does, in one line, for the team overview in the prompt. */
@@ -26,20 +27,23 @@ export type AgentDefinition = {
   prompt: string;
   /** Tools the agent may use, by name. */
   tools: readonly string[];
-  scope: 'catalog';
+  scope: 'catalog' | 'personal' | 'project';
+  /** How a custom agent is mentioned, e.g. `UX-Writer`; catalog agents go by their names. */
+  mention?: string;
 };
 
 /** The canvas tools every catalog agent uses (specs 08 to 13). */
-const CANVAS_TOOLS = [
+export const CANVAS_TOOLS: readonly string[] = [
   'add_block',
   'update_block',
   'connect_blocks',
   'add_note',
   'add_frame',
   'arrange_frame',
-] as const;
+];
 
-const COMMON_PROMPT = loadPrompt('common');
+/** The rules all agents share; every agent's instructions end with them. */
+export const COMMON_PROMPT = loadPrompt('common');
 
 /** What differs between the catalog agents; everything else is the same for all of them. */
 const ROLES: Readonly<
@@ -127,8 +131,35 @@ export function findAgent(key: string): AgentDefinition | undefined {
   return isAgentKey(key) ? BY_KEY.get(key) : undefined;
 }
 
-/** The agent's name for the prompt, e.g. `Critic` or `Critic ("Kritiker" in German)`. */
+/** Catalog agents in catalog order, then custom agents by name. */
+export function byTeamOrder(a: AgentDefinition, b: AgentDefinition): number {
+  const position = (agent: AgentDefinition) =>
+    isAgentKey(agent.key) ? AGENT_KEYS.indexOf(agent.key) : AGENT_KEYS.length;
+  return (
+    position(a) - position(b) ||
+    a.names.en.localeCompare(b.names.en, 'en', { sensitivity: 'base' }) ||
+    a.key.localeCompare(b.key)
+  );
+}
+
+/**
+ * The definitions of a team in team order. Catalog agents may be given by key; custom agents
+ * (spec 19) come with their definition. Keys of no catalog agent are left out.
+ */
+export function teamDefinitions(members: readonly (string | AgentDefinition)[]): AgentDefinition[] {
+  return members
+    .flatMap((member) => (typeof member === 'string' ? (findAgent(member) ?? []) : member))
+    .sort(byTeamOrder);
+}
+
+/**
+ * The agent's name for the prompt, e.g. `Critic`, `Critic ("Kritiker" in German)` or, for a custom
+ * agent, `UX Writer (custom agent, mentioned as @UX-Writer)`.
+ */
 export function describeName(agent: AgentDefinition): string {
+  if (agent.mention !== undefined) {
+    return `${agent.names.en} (custom agent, mentioned as @${agent.mention})`;
+  }
   return agent.names.de === agent.names.en
     ? agent.names.en
     : `${agent.names.en} ("${agent.names.de}" in German)`;

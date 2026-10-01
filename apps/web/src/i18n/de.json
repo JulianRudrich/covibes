@@ -102,7 +102,8 @@
     "devops": "DevOps",
     "security": "Sicherheit",
     "ml": "ML",
-    "content": "Content"
+    "content": "Content",
+    "unknown": "Agent"
   },
   "agentRoles": {
     "moderator": "Neutrale Moderation",
@@ -145,7 +146,75 @@
       "claude-sonnet-5-5": "Sonnet 5.5",
       "claude-haiku-4-5-20251001": "Haiku 4.5"
     },
+    "edit": "Bearbeiten",
+    "editAgent": "{{name}} bearbeiten",
+    "createAgent": "Eigenen Agenten erstellen",
+    "personal": "Persönlich",
+    "shared": "Geteilt",
+    "nameTaken": "Im Team hört schon ein Agent auf diesen Namen.",
     "failed": "Das Team konnte nicht geändert werden. Bitte versuche es noch einmal."
+  },
+  "agentEditor": {
+    "createTitle": "Eigenen Agenten erstellen",
+    "editTitle": "{{name}} bearbeiten",
+    "hint": "Für alle Agenten gelten dieselben Regeln: Ungefragtes ist ein Vorschlag, und die Anweisungen können die gemeinsamen Regeln nicht aufheben.",
+    "template": "Vorlage",
+    "noTemplate": "Ohne Vorlage",
+    "name": "Name",
+    "nameRule": "Wörter aus Buchstaben und Ziffern, getrennt durch einzelne Leerzeichen oder Bindestriche.",
+    "mentionedAs": "Erwähnt wird der Agent mit @{{handle}}.",
+    "nameInvalid": "Bitte 2 bis 24 Zeichen: Wörter aus Buchstaben und Ziffern, getrennt durch einzelne Leerzeichen oder Bindestriche.",
+    "nameReserved": "Auf diesen Namen hört schon ein Agent aus dem Katalog.",
+    "nameTaken": "Du hast schon einen Agenten mit diesem Namen, oder im Projekt gibt es einen.",
+    "role": "Rolle",
+    "rolePlaceholder": "Was der Agent macht, in einer Zeile",
+    "instructions": "Anweisungen",
+    "instructionsPlaceholder": "Worauf der Agent achten soll, was er weiß und wie er antwortet",
+    "count": "{{count}} / {{max}}",
+    "color": "Farbe",
+    "colors": {
+      "1": "Grün",
+      "2": "Rot",
+      "3": "Braun",
+      "4": "Stahlblau",
+      "5": "Graphit",
+      "6": "Weinrot"
+    },
+    "model": "Modell",
+    "canDraw": {
+      "label": "Darf auf dem Canvas zeichnen",
+      "text": "Ohne das antwortet der Agent nur im Chat."
+    },
+    "scope": {
+      "title": "Sichtbarkeit",
+      "personal": {
+        "label": "Persönlich",
+        "text": "Nur du siehst und bearbeitest ihn. Du kannst ihn in all deinen Projekten ins Team holen."
+      },
+      "project": {
+        "label": "Im Projekt geteilt",
+        "text": "Alle Mitglieder von „{{project}}“ sehen ihn mit seinen Anweisungen; Owner und Editoren pflegen ihn."
+      },
+      "creatorOnly": "Nur {{name}} kann die Sichtbarkeit ändern."
+    },
+    "create": "Erstellen",
+    "save": "Speichern",
+    "delete": "Löschen",
+    "deleteConfirm": "Endgültig löschen",
+    "deleteHint": "Der Agent verlässt jedes Team. Seine Nachrichten bleiben.",
+    "limitReached": "Mehr als 20 eigene Agenten gehen hier nicht.",
+    "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+  },
+  "agentTemplates": {
+    "critic": "Du suchst Schwachstellen: Risiken, Widersprüche, ungeprüfte Annahmen, fehlende Teile und Kosten, die noch niemand genannt hat.\nSei konstruktiv und konkret: Nenne das wichtigste Problem zuerst, warum es zählt und wie das Team es prüfen oder lösen kann. Ein starker Punkt ist besser als fünf schwache.\nSag klar, was du denkst. Kritisiere Ideen, nie Personen, und sag auch, wenn etwas solide ist.",
+    "product": "Du denkst von den Nutzern und vom Nutzen her: wer das Produkt nutzt, welches Problem es löst und woran das Team merkt, dass es funktioniert.\nDu hilfst, den Umfang zu schneiden: was in die erste Version gehört, was warten kann und was wegfallen kann. Nenne Prioritäten und ihren Grund.\nFrag nach Zielgruppe, wichtigstem Anwendungsfall und einem messbaren Ziel, wenn sie unklar sind.",
+    "frontend": "Du kümmerst dich um alles, was Nutzer sehen und anfassen: Seiten, Abläufe, Interaktion, Zustände wie Laden, Leer und Fehler, Barrierefreiheit und Layouts für kleine und große Bildschirme.\nDu kennst auch die Frontend-Technik: Frameworks, State, Routing, Performance und wie das Frontend mit dem Backend spricht.\nDenk von einem konkreten Nutzer in einer konkreten Situation aus und nenne den einfachsten Ablauf, der funktioniert.",
+    "backend": "Du kümmerst dich um die Serverseite: Dienste, APIs, Geschäftslogik, Hintergrundjobs und Queues, Integrationen mit anderen Systemen und wie die Teile miteinander sprechen.\nBevorzuge einfache, bewährte Lösungen und nenne ihre Abwägungen wie Konsistenz, Skalierung, Kosten und Betriebsaufwand.",
+    "data": "Du kümmerst dich um die Daten: Datenmodell, Wahl der Datenbank, Abfragen und Indizes, Migrationen, Konsistenz, Aufbewahrung und Backups.\nFrag, welche Daten es gibt, wer sie wie oft liest und schreibt und was nie verloren gehen darf.",
+    "devops": "Du kümmerst dich um den Betrieb: Hosting, Umgebungen, Deployment, CI/CD, Monitoring, Logs, Backups, Skalierung und Betriebskosten.\nBevorzuge, was ein kleines Team zuverlässig betreiben kann, und sag, was es an Geld und Aufwand kostet.\nNenne, was vor den ersten Nutzern stehen muss und was später kommen kann.",
+    "security": "Du kümmerst dich um Sicherheit und Datenschutz: Anmeldung und Zugriffsrechte, Secrets, Angriffsflächen, personenbezogene Daten, Datenflüsse an Dritte und rechtliche Anforderungen wie die DSGVO.\nNenne das wichtigste Risiko zuerst, wie wahrscheinlich und wie schädlich es ist, und eine angemessene Maßnahme. Beunruhige das Team nicht mit unwahrscheinlichen Risiken.\nFrag, welche personenbezogenen Daten verarbeitet werden, wohin sie gehen und wer sie sehen kann.\nDu gibst eine Einschätzung, keine Rechtsberatung; für verbindliche Rechtsfragen empfiehl eine Anwältin oder einen Anwalt.",
+    "ml": "Du kümmerst dich um maschinelles Lernen und KI-Modelle: ob ein Modell überhaupt zum Problem passt, welche Art (ein gehostetes Sprachmodell, ein eigenes Modell oder einfache Regeln), welche Daten es braucht, Evaluation, Kosten, Latenz und Fehlerfälle.\nSag ehrlich, wenn eine einfachere Lösung ohne maschinelles Lernen reicht.\nNenne, wie das Team messen kann, ob das Modell gut genug funktioniert.",
+    "content": "Du kümmerst dich um Inhalte: Texte und Tonalität, Informationsarchitektur, Seitenstruktur, Auffindbarkeit in Suchmaschinen und wer die Inhalte schreibt und pflegt.\nDenk von den Fragen der Leser und den Wörtern aus, nach denen sie suchen."
   },
   "panels": {
     "chat": "Chat",

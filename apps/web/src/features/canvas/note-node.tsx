@@ -2,7 +2,8 @@ import type { NodeProps } from '@xyflow/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Avatar } from '@web/components/ui/avatar';
+import { AgentAvatar } from '@web/features/agents/agent-avatar';
+import { agentClass, useAgents } from '@web/features/agents/agents';
 import { AGENT_BORDER } from '@web/features/canvas/agent-look';
 import { useCanvasActions } from '@web/features/canvas/canvas-actions';
 import type { NoteFlowNode, NoteNodeData } from '@web/features/canvas/flow-mapping';
@@ -18,9 +19,10 @@ import { aiRing } from '@web/lib/styles';
  */
 export function NoteNode({ id, data, selected }: NodeProps<NoteFlowNode>) {
   const actions = useCanvasActions();
+  const agents = useAgents();
   const justDrawnBy = useJustDrawnBy(data);
   const lockedBy = data.lockedBy;
-  const agent = lockedBy ? null : justDrawnBy;
+  const agent = lockedBy || !justDrawnBy ? null : agents(justDrawnBy);
   const editing = actions.editingId === id;
 
   return (
@@ -30,7 +32,7 @@ export function NoteNode({ id, data, selected }: NodeProps<NoteFlowNode>) {
         lockedBy
           ? 'cursor-not-allowed border-[1.5px] border-human shadow-lock'
           : agent
-            ? cn('border-[1.5px]', AGENT_BORDER[agent])
+            ? cn('border-[1.5px]', agentClass(AGENT_BORDER, agent))
             : 'border border-note-border shadow-note',
         selected && !lockedBy && 'outline-2 outline-offset-2 outline-ink',
       )}
@@ -57,17 +59,12 @@ export function NoteNode({ id, data, selected }: NodeProps<NoteFlowNode>) {
 function NoteFooter({ data }: { data: NoteNodeData }) {
   const { t } = useTranslation();
   const { authorOf } = useCanvasActions();
+  const agents = useAgents();
   const { name, initials } = authorOf(data.createdBy);
   return (
     <div className="flex shrink-0 items-center gap-1.5 text-meta text-note-meta">
       {data.createdBy.kind === 'agent' ? (
-        <Avatar
-          kind="agent"
-          agent={data.createdBy.agentKey}
-          size={16}
-          label={name}
-          initials={initials}
-        />
+        <AgentAvatar agent={agents(data.createdBy.agentKey)} size={16} />
       ) : (
         <span
           role="img"

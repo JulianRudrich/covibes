@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@web/components/ui/button';
 import { IconButton } from '@web/components/ui/icon-button';
 import { Tooltip } from '@web/components/ui/tooltip';
+import { agentClass, useAgents } from '@web/features/agents/agents';
 import {
   AGENT_BACKGROUND,
   AGENT_DARK_TEXT,
@@ -27,31 +28,33 @@ type RaisedHandsProps = {
  */
 export function RaisedHands({ hands, onDecide }: RaisedHandsProps) {
   const { t } = useTranslation();
+  const agents = useAgents();
   if (hands.length === 0) return null;
 
   return (
     <ul aria-label={t('hands.label')} className="m-0 flex list-none flex-col gap-2.5 p-0">
       {hands.map((hand) => {
-        const name = t(`agents.${hand.agentKey}`);
+        const agent = agents(hand.agentKey);
+        const { name } = agent;
         return (
           <li
             key={hand.id}
             className={cn(
               'flex items-center gap-2.5 rounded-card border py-2.5 pr-2.5 pl-3',
-              AGENT_HAND[hand.agentKey],
+              agentClass(AGENT_HAND, agent),
             )}
           >
             <span
               aria-hidden="true"
               className={cn(
                 'grid size-7 shrink-0 place-items-center rounded-md text-on-ink',
-                AGENT_BACKGROUND[hand.agentKey],
+                agentClass(AGENT_BACKGROUND, agent),
               )}
             >
               <Hand size={15} strokeWidth={2} />
             </span>
             <p className="m-0 min-w-0 flex-1 text-ui leading-snug wrap-break-word text-text-2">
-              <strong className={cn('font-semibold', AGENT_DARK_TEXT[hand.agentKey])}>
+              <strong className={cn('font-semibold', agentClass(AGENT_DARK_TEXT, agent))}>
                 {t('hands.raises', { name })}
               </strong>
               {` – ${hand.reason}`}
@@ -59,7 +62,7 @@ export function RaisedHands({ hands, onDecide }: RaisedHandsProps) {
             {onDecide ? (
               <div className="flex shrink-0 items-center gap-0.5">
                 <Button
-                  className={cn('bg-bg-panel', AGENT_HAND_BUTTON[hand.agentKey])}
+                  className={cn('bg-bg-panel', agentClass(AGENT_HAND_BUTTON, agent))}
                   onClick={() => {
                     onDecide(hand, 'listen');
                   }}

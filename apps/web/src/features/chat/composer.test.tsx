@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@web/components/ui/tooltip';
+import { AgentDirectoryProvider } from '@web/features/agents/agent-directory';
 import { Composer } from '@web/features/chat/composer';
 
 function renderComposer({
@@ -130,6 +131,38 @@ describe('Composer', () => {
     });
     expect(textbox.selectionStart).toBe(20);
     expect(textbox.selectionEnd).toBe(20);
+  });
+
+  it('mentions a custom agent by its handle (spec 19)', async () => {
+    const onSend = vi.fn<(content: string) => void>();
+    const writer = {
+      key: '11111111-1111-4111-8111-111111111111',
+      name: 'UX Writer',
+      role: 'Texte',
+      color: 3,
+      model: null,
+      canDraw: true,
+      scope: 'personal' as const,
+      ownerId: '22222222-2222-4222-8222-222222222222',
+      ownerName: 'Olga',
+      deleted: false,
+    };
+    render(
+      <TooltipProvider>
+        <AgentDirectoryProvider agents={[writer]}>
+          <Composer agents={['moderator', writer.key]} onSend={onSend} />
+        </AgentDirectoryProvider>
+      </TooltipProvider>,
+    );
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Agent erwähnen' }), { key: 'Enter' });
+    const item = await screen.findByRole('menuitem', { name: 'UX Writer' });
+    expect(item).toHaveTextContent('UWUX Writer');
+    fireEvent.click(item);
+
+    await waitFor(() => {
+      expect(screen.getByRole('textbox')).toHaveValue('@UX-Writer ');
+    });
   });
 
   it('separates a mention from a word right before the caret', async () => {

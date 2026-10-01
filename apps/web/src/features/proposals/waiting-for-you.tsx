@@ -12,6 +12,8 @@ import { Trans, useTranslation } from 'react-i18next';
 
 import { Avatar } from '@web/components/ui/avatar';
 import { Button } from '@web/components/ui/button';
+import { AgentAvatar } from '@web/features/agents/agent-avatar';
+import { agentClass, useAgents } from '@web/features/agents/agents';
 import { AGENT_DARK_TEXT } from '@web/features/canvas/agent-look';
 import type { DecideProposal, DecidedProposal } from '@web/features/proposals/queries';
 import { proposalSummary } from '@web/features/proposals/summary';
@@ -58,6 +60,7 @@ export function WaitingForYou({
   onOpenBoard,
 }: WaitingForYouProps) {
   const { t, i18n } = useTranslation();
+  const agents = useAgents();
   const agentList = useAgentList();
 
   return (
@@ -80,22 +83,16 @@ export function WaitingForYou({
       {proposals.length > 0 ? (
         <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
           {proposals.map((proposal) => {
-            const agent = t(`agents.${proposal.agentKey}`);
+            const agent = agents(proposal.agentKey);
             return (
               <li
                 key={proposal.id}
                 className="flex flex-col gap-2.5 rounded-card border border-border bg-bg-panel p-3 shadow-panel"
               >
                 <div className="flex items-center gap-1.5 text-meta text-text-3">
-                  <Avatar
-                    kind="agent"
-                    agent={proposal.agentKey}
-                    size={16}
-                    label={agent}
-                    initials={t(`agentInitials.${proposal.agentKey}`)}
-                  />
-                  <span className={cn('font-medium', AGENT_DARK_TEXT[proposal.agentKey])}>
-                    {agent}
+                  <AgentAvatar agent={agent} size={16} />
+                  <span className={cn('font-medium', agentClass(AGENT_DARK_TEXT, agent))}>
+                    {agent.name}
                   </span>
                   <span>
                     ·{' '}

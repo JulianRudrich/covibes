@@ -14,6 +14,7 @@ export type ApiErrorCode =
   | 'limit_reached'
   | 'already_decided'
   | 'being_edited'
+  | 'name_taken'
   | 'internal';
 
 /** `GET /api/config`: settings the web app may know before login. */

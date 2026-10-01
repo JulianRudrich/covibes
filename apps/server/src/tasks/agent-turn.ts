@@ -1,6 +1,5 @@
 import type { DB } from '@covibes/db';
 import {
-  isAgentKey,
   projectSettingsSchema,
   readEdges,
   readNodes,
@@ -8,7 +7,6 @@ import {
   type CanvasNode,
   type CanvasOperation,
   type ChatMessage,
-  type AgentKey,
   type DecisionProcess,
   type ModeratorStance,
   type NodeLock,
@@ -17,7 +15,14 @@ import type { Task } from 'graphile-worker';
 import { sql, type Kysely } from 'kysely';
 import { z } from 'zod';
 
-import { CATALOG, describeName, findAgent, type AgentDefinition } from '@server/agents/catalog';
+import {
+  CATALOG,
+  describeName,
+  findAgent,
+  teamDefinitions,
+  type AgentDefinition,
+} from '@server/agents/catalog';
+import { loadCustomAgentNames, resolveAgent } from '@server/agents/custom';
 import {
   GatewayConfigError,
   GatewayLimitError,
@@ -179,7 +184,7 @@ export type Occasion =
   | {
       kind: 'debate';
       question: string;
-      participants: AgentKey[];
+      participants: string[];
       round: number;
       rounds: number;
       /** Whether this turn opens the debate. */
@@ -188,7 +193,7 @@ export type Occasion =
   | {
       kind: 'debate_summary';
       question: string;
-      participants: AgentKey[];
+      participants: string[];
       /** Who ended the debate early, if someone did. */
       stoppedBy: string | null;
     };
@@ -229,7 +234,7 @@ async function loadOccasion(
       ])
       .where('debates.id', '=', row.debate_id)
       .executeTakeFirst();
-    const participants = debate?.participants.filter(isAgentKey) ?? [];
+    const participants = debate?.participants ?? [];
     if (debate && row.debate_round !== null) {
       return {
         occasion: {
@@ -372,9 +377,10 @@ export async function runAgentTurn(
     replyMessageId: row.reply_message_id,
     replyTo,
   };
-  const agent = findAgent(row.agent_key);
+  const agent = await resolveAgent(deps.admin, row.agent_key);
   if (!agent) {
-    // The trigger only creates runs for agents that can answer; this is a leftover of an old one.
+    // The trigger only creates runs for agents of the team; this one is unknown to this version,
+    // or a custom agent that was deleted since.
     await settleRun(deps.admin, run, { status: 'error', error: `No agent "${row.agent_key}"` });
     return;
   }
@@ -659,6 +665,16 @@ async function converse(
     }
   }
 
+  // Custom agents (spec 19) go by their name: those of the team, of the chat and of a debate.
+  const agentNames = await loadCustomAgentNames(deps.admin, [
+    ...turn.team.members.map((entry) => entry.key),
+    ...conversation.messages.flatMap((message) =>
+      message.author.kind === 'agent' ? [message.author.agentKey] : [],
+    ),
+    ...proposals.map((proposal) => proposal.agentKey),
+    ...(turn.occasion && 'participants' in turn.occasion ? turn.occasion.participants : []),
+  ]);
+
   const deltas = createDeltaStream(deps.flushMs ?? FLUSH_MS, async (text) => {
     try {
       await notifyLive(deps.admin, { kind: 'delta', projectId: run.projectId, messageId, text });
@@ -676,10 +692,11 @@ async function converse(
         projectName: turn.projectName,
         team: {
           self: agent.key,
-          members: turn.team.members.map((entry) => entry.key),
+          members: turn.team.members.map((entry) => entry.definition),
           proposed: turn.team.proposed,
           rejected: turn.team.rejected,
         },
+        agentNames,
         ...canvas,
         proposals,
         ...conversation,
@@ -732,10 +749,12 @@ async function loadConversation(admin: Kysely<DB>, run: Run) {
   return { messages, request };
 }
 
-function authorName(message: ChatMessage): string {
+/** The English name of a catalog agent, or the name of a custom agent from `names`. */
+type NameOf = (agentKey: string) => string;
+
+function authorName(message: ChatMessage, nameOf: NameOf): string {
   if (message.author.kind === 'human') return message.author.name || 'Someone';
-  const { agentKey } = message.author;
-  return findAgent(agentKey)?.names.en ?? agentKey.charAt(0).toUpperCase() + agentKey.slice(1);
+  return nameOf(message.author.agentKey);
 }
 
 /** Chat text is data: it must not close the sections the prompt is built from. */
@@ -747,25 +766,26 @@ function asData(text: string): string {
 }
 
 /**
- * The team of the project (spec 14). An agent that can add agents also sees the catalog agents
- * outside the team, and what became of earlier proposals.
+ * The team of the project (spec 14): catalog agents by key or definition, custom agents (spec 19)
+ * by definition. An agent that can add agents also sees the catalog agents outside the team, and
+ * what became of earlier proposals.
  */
 function describeTeam(team: {
-  self: AgentKey;
-  members: readonly AgentKey[];
-  proposed?: readonly AgentKey[];
-  rejected?: readonly AgentKey[];
+  self: string;
+  members: readonly (string | AgentDefinition)[];
+  proposed?: readonly string[];
+  rejected?: readonly string[];
 }): string {
+  const members = teamDefinitions(team.members);
   const line = (agent: AgentDefinition, note = '') =>
-    `- ${describeName(agent)}, key ${agent.key}: ${agent.role}${note}`;
+    `- ${asData(describeName(agent))}, key ${agent.key}: ${asData(agent.role)}${note}`;
   const lines = [
     "The agents of this project's team; only they answer when someone mentions them:",
-    ...CATALOG.filter((agent) => team.members.includes(agent.key)).map((agent) =>
-      line(agent, agent.key === team.self ? ' (you)' : ''),
-    ),
+    ...members.map((agent) => line(agent, agent.key === team.self ? ' (you)' : '')),
   ];
   const self = findAgent(team.self);
-  const others = CATALOG.filter((agent) => !team.members.includes(agent.key));
+  const inTeam = new Set(members.map((agent) => agent.key));
+  const others = CATALOG.filter((agent) => !inTeam.has(agent.key));
   if (self?.tools.includes('add_agents') && others.length > 0) {
     lines.push(
       'Catalog agents not in the team yet:',
@@ -906,12 +926,15 @@ function describeDecisions(
   ];
 }
 
-function agentNames(keys: readonly AgentKey[]): string {
-  return keys.map((key) => findAgent(key)?.names.en ?? key).join(', ');
+function agentNames(keys: readonly string[], nameOf: NameOf): string {
+  return keys.map(nameOf).join(', ');
 }
 
 /** What a participant's turn in a debate is for (spec 18): open, answer, or close. */
-function describeDebateTurn(occasion: Extract<Occasion, { kind: 'debate' }>): string {
+function describeDebateTurn(
+  occasion: Extract<Occasion, { kind: 'debate' }>,
+  nameOf: NameOf,
+): string {
   const closing = occasion.rounds > 1 && occasion.round === occasion.rounds;
   const task = occasion.first
     ? 'You open the debate: state your position from the view of your role and give your strongest reasons.'
@@ -921,7 +944,7 @@ function describeDebateTurn(occasion: Extract<Occasion, { kind: 'debate' }>): st
         ? 'This is the last round: answer the strongest point against your position, concede what the others got right, and say in one sentence what you would do.'
         : 'Answer what the others said since your last turn: take up their strongest point, say where you agree and where you still disagree and why.';
   return [
-    `The moderator opened a debate between ${agentNames(occasion.participants)} on this question:`,
+    `The moderator opened a debate between ${agentNames(occasion.participants, nameOf)} on this question:`,
     `<request>\n${asData(occasion.question)}\n</request>`,
     `It is your turn in round ${String(occasion.round)} of ${String(occasion.rounds)}; the turns so far are in the chat. ${task}`,
     'Argue by the criteria of the project and stay with the question. Three or four sentences of about 80 words in all, in the language of the conversation, without a greeting. Address the others by name, without @. You cannot draw or change anything in a debate, and you do not decide: the team does.',
@@ -929,12 +952,15 @@ function describeDebateTurn(occasion: Extract<Occasion, { kind: 'debate' }>): st
 }
 
 /** The moderator's summary at the end of a debate (spec 18). */
-function describeDebateSummary(occasion: Extract<Occasion, { kind: 'debate_summary' }>): string {
+function describeDebateSummary(
+  occasion: Extract<Occasion, { kind: 'debate_summary' }>,
+  nameOf: NameOf,
+): string {
   const ended = occasion.stoppedBy
     ? `${asData(occasion.stoppedBy)} ended the debate early`
     : 'The debate is over';
   return [
-    `${ended}. ${agentNames(occasion.participants)} debated this question:`,
+    `${ended}. ${agentNames(occasion.participants, nameOf)} debated this question:`,
     `<request>\n${asData(occasion.question)}\n</request>`,
     'Sum the debate up for the team, in the language of the conversation: where the participants agree, where they still differ, and what speaks for each side by the criteria of the project. Follow your stance on whether you recommend something. Then ask the team how it wants to go on. Three to six sentences; add no arguments of your own, and decide and record nothing.',
   ].join('\n');
@@ -948,6 +974,8 @@ export function buildPrompt(context: {
   projectName: string;
   /** The team (spec 14); `self` is the agent that answers. */
   team?: Parameters<typeof describeTeam>[0];
+  /** The names of custom agents by key (spec 19), for the chat and for debates. */
+  agentNames?: ReadonlyMap<string, string>;
   nodes: readonly CanvasNode[];
   edges?: readonly CanvasEdge[];
   locks?: ReadonlyMap<string, NodeLock>;
@@ -963,6 +991,8 @@ export function buildPrompt(context: {
   moderation?: Moderation;
 }): string {
   const proposals = context.proposals ?? [];
+  const nameOf: NameOf = (agentKey) =>
+    findAgent(agentKey)?.names.en ?? asData(context.agentNames?.get(agentKey) ?? 'Agent');
   const canvas = [
     describeCanvas(context.nodes, context.edges ?? [], context.locks),
     ...(proposals.length > 0
@@ -970,13 +1000,13 @@ export function buildPrompt(context: {
           'Open proposals (not on the canvas until someone applies them):',
           ...proposals.map(
             (proposal) =>
-              `- by ${proposal.agentKey}: ${describeOperations(proposal.operations, context.nodes)}`,
+              `- by ${nameOf(proposal.agentKey)}: ${describeOperations(proposal.operations, context.nodes)}`,
           ),
         ]
       : []),
   ].join('\n');
   const chat = context.messages
-    .map((message) => `${authorName(message)}: ${message.content}`)
+    .map((message) => `${authorName(message, nameOf)}: ${message.content}`)
     .join('\n');
   const { occasion } = context;
   const request =
@@ -987,11 +1017,11 @@ export function buildPrompt(context: {
         : occasion?.kind === 'reopen'
           ? `${asData(occasion.by)} reopened the decision "${asData(occasion.topic)}" (it was: ${asData(occasion.previous)}) for this reason:\n<request>\n${asData(occasion.reason)}\n</request>\nStart a new round in the language of the conversation: say in one sentence what was decided and why it is open again, then ask the team what speaks for and against now. Do not decide it yourself.`
           : occasion?.kind === 'debate'
-            ? describeDebateTurn(occasion)
+            ? describeDebateTurn(occasion, nameOf)
             : occasion?.kind === 'debate_summary'
-              ? describeDebateSummary(occasion)
+              ? describeDebateSummary(occasion, nameOf)
               : context.request
-                ? `Answer this message from ${authorName(context.request)}:\n<request>\n${asData(context.request.content)}\n</request>`
+                ? `Answer this message from ${authorName(context.request, nameOf)}:\n<request>\n${asData(context.request.content)}\n</request>`
                 : 'The message addressed to you was removed. Answer the latest message in the chat.';
   return [
     `Project: ${asData(context.projectName)}`,

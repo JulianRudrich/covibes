@@ -1,4 +1,4 @@
-import type { AgentKey, MessageDebate } from '@covibes/shared';
+import type { MessageDebate } from '@covibes/shared';
 import { Fragment, useEffect, useLayoutEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -14,7 +14,7 @@ type MessageListProps = {
   items: readonly ChatItem[];
   currentUserId: string;
   /** The agents of the team, whose mentions in agent answers are shown as chips. */
-  team: readonly AgentKey[];
+  team: readonly string[];
   onRetry: (id: string) => void;
   /** Accepts or declines the moderator's offer of help; without it the buttons are left out. */
   onOffer?: (message: ChatItem, accept: boolean) => void;

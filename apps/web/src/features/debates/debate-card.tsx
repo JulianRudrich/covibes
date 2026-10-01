@@ -2,8 +2,9 @@ import { debatedRounds, debateProgress, type MessageDebate } from '@covibes/shar
 import { Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { Avatar } from '@web/components/ui/avatar';
 import { Button } from '@web/components/ui/button';
+import { AgentAvatar } from '@web/features/agents/agent-avatar';
+import { agentClass, useAgents } from '@web/features/agents/agents';
 import { AGENT_DARK_TEXT } from '@web/features/canvas/agent-look';
 import { cn } from '@web/lib/cn';
 
@@ -21,6 +22,7 @@ export function DebateCard({
   onStop?: (debate: MessageDebate) => void;
 }) {
   const { t } = useTranslation();
+  const agents = useAgents();
   const title = t('debates.title', { topic: debate.topic });
   const progress = debate.status === 'running' && !debate.stopped ? debateProgress(debate) : null;
 
@@ -30,22 +32,18 @@ export function DebateCard({
       <div className="flex flex-col gap-2 rounded-md border border-agent-moderator-border bg-bg-panel px-2.5 py-2">
         <p className="m-0 text-ui font-medium wrap-break-word text-text">{debate.question}</p>
         <ul className="m-0 flex list-none flex-wrap gap-x-3 gap-y-1 p-0">
-          {debate.participants.map((agent) => {
-            const name = t(`agents.${agent}`);
+          {debate.participants.map((key) => {
+            const agent = agents(key);
             return (
               <li
-                key={agent}
-                aria-current={progress?.speaker === agent ? 'true' : undefined}
+                key={key}
+                aria-current={progress?.speaker === key ? 'true' : undefined}
                 className="flex items-center gap-1.5 text-small"
               >
-                <Avatar
-                  kind="agent"
-                  agent={agent}
-                  size={16}
-                  label={name}
-                  initials={t(`agentInitials.${agent}`)}
-                />
-                <span className={cn('font-medium', AGENT_DARK_TEXT[agent])}>{name}</span>
+                <AgentAvatar agent={agent} size={16} />
+                <span className={cn('font-medium', agentClass(AGENT_DARK_TEXT, agent))}>
+                  {agent.name}
+                </span>
               </li>
             );
           })}
@@ -59,7 +57,7 @@ export function DebateCard({
               ? t('debates.turn', {
                   round: progress.round,
                   rounds: debate.rounds,
-                  agent: t(`agents.${progress.speaker}`),
+                  agent: agents(progress.speaker).name,
                 })
               : t(debate.stopped ? 'debates.stopping' : 'debates.summarizing')}
           </span>

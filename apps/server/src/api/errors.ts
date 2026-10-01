@@ -12,6 +12,7 @@ const ERRORS = {
   limit_reached: { status: 409, message: 'The limit is reached.' },
   already_decided: { status: 409, message: 'This was decided already.' },
   being_edited: { status: 409, message: 'Someone is editing this right now.' },
+  name_taken: { status: 409, message: 'This name is taken.' },
   internal: { status: 500, message: 'Something went wrong.' },
 } as const satisfies Record<ApiErrorCode, { status: number; message: string }>;
 

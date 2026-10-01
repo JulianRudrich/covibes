@@ -4,6 +4,8 @@ import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { AgentDirectoryProvider } from '@web/features/agents/agent-directory';
+
 import { PageMessage } from '@web/components/page-message';
 import { sessionQuery, type SessionUser } from '@web/features/auth/session';
 import { BoardTabs } from '@web/features/canvas/board-tabs';
@@ -18,8 +20,7 @@ import {
   type DecidedProposal,
 } from '@web/features/proposals/queries';
 import { WaitingForYou } from '@web/features/proposals/waiting-for-you';
-import { useTeamMutations } from '@web/features/team/queries';
-import { TeamMenu } from '@web/features/team/team-menu';
+import { ProjectTeam } from '@web/features/team/project-team';
 import { DEMO_ACTIVE_PHASE } from '@web/features/workspace/demo-workspace';
 import { useProjectLive } from '@web/features/workspace/use-project-live';
 import { WorkspaceShell, type WorkspaceMember } from '@web/features/workspace/workspace-shell';
@@ -154,105 +155,89 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
     [proposals],
   );
   const updateProject = useUpdateProject(project.id);
-  const team = useTeamMutations(project.id, () => {
-    showNotice(t('team.failed'));
-  });
   const teamKeys = useMemo(() => project.agents.map((agent) => agent.key), [project.agents]);
 
   return (
-    <WorkspaceShell
-      projectName={project.name}
-      settings={{
-        stance: project.stance,
-        decisionProcess: project.decisionProcess,
-        proposalsOnly: project.proposalsOnly,
-        observer: project.observer,
-        canChange: project.role === 'owner',
-        onChange: (change) => {
-          updateProject.mutate(change);
-        },
-      }}
-      activePhase={DEMO_ACTIVE_PHASE}
-      members={members}
-      user={user}
-      team={
-        <TeamMenu
-          agents={project.agents}
-          canEdit={!readOnly}
-          canChooseModel={project.role === 'owner'}
-          onAdd={(agentKey) => {
-            team.add.mutate(agentKey);
-          }}
-          onRemove={(agentKey) => {
-            team.remove.mutate(agentKey);
-          }}
-          onModelChange={(agentKey, model) => {
-            team.setModel.mutate({ agentKey, model });
-          }}
-        />
-      }
-      chat={
-        user ? (
-          <ChatPanel
-            key={project.id}
-            projectId={project.id}
-            user={{ id: user.id, name: user.name }}
-            readOnly={readOnly}
-            team={teamKeys}
-            members={project.members}
-            role={project.role}
-            moderatorNeutral={project.stance !== 'opinion'}
-            onNotice={showNotice}
-          />
-        ) : null
-      }
-      canvas={
-        activeBoard && user ? (
-          <CanvasPanel
-            boardId={activeBoard.id}
-            tabs={
-              <BoardTabs
-                projectId={project.id}
-                boards={project.boards}
-                activeBoardId={activeBoard.id}
-                readOnly={readOnly}
-                onSelect={(boardId) => selectBoard(boardId)}
-                onNotice={showNotice}
-              />
-            }
-            notice={notice}
-            user={{ id: user.id, name: user.name }}
-            members={project.members}
-            readOnly={readOnly}
-            proposals={proposals}
-            onDecide={decide}
-            canAdoptVariants={canConfirmDecisions}
-          />
-        ) : null
-      }
-      overview={
-        <>
-          {proposals.length > 0 || decided.length > 0 ? (
-            <WaitingForYou
-              proposals={proposals}
-              decided={decided}
-              canDecide={!readOnly}
-              canConfirmDecisions={canConfirmDecisions}
-              onDecide={decide}
-              activeBoardId={activeBoard?.id ?? null}
-              onOpenBoard={(boardId) => void selectBoard(boardId)}
+    <AgentDirectoryProvider agents={project.customAgents}>
+      <WorkspaceShell
+        projectName={project.name}
+        settings={{
+          stance: project.stance,
+          decisionProcess: project.decisionProcess,
+          proposalsOnly: project.proposalsOnly,
+          observer: project.observer,
+          canChange: project.role === 'owner',
+          onChange: (change) => {
+            updateProject.mutate(change);
+          },
+        }}
+        activePhase={DEMO_ACTIVE_PHASE}
+        members={members}
+        user={user}
+        team={<ProjectTeam project={project} userId={user?.id ?? ''} onNotice={showNotice} />}
+        chat={
+          user ? (
+            <ChatPanel
+              key={project.id}
+              projectId={project.id}
+              user={{ id: user.id, name: user.name }}
+              readOnly={readOnly}
+              team={teamKeys}
+              members={project.members}
+              role={project.role}
+              moderatorNeutral={project.stance !== 'opinion'}
+              onNotice={showNotice}
             />
-          ) : null}
-          <DecisionsOverview
-            key={project.id}
-            projectId={project.id}
-            comparing={comparing}
-            readOnly={readOnly}
-            onNotice={showNotice}
-          />
-        </>
-      }
-    />
+          ) : null
+        }
+        canvas={
+          activeBoard && user ? (
+            <CanvasPanel
+              boardId={activeBoard.id}
+              tabs={
+                <BoardTabs
+                  projectId={project.id}
+                  boards={project.boards}
+                  activeBoardId={activeBoard.id}
+                  readOnly={readOnly}
+                  onSelect={(boardId) => selectBoard(boardId)}
+                  onNotice={showNotice}
+                />
+              }
+              notice={notice}
+              user={{ id: user.id, name: user.name }}
+              members={project.members}
+              readOnly={readOnly}
+              proposals={proposals}
+              onDecide={decide}
+              canAdoptVariants={canConfirmDecisions}
+            />
+          ) : null
+        }
+        overview={
+          <>
+            {proposals.length > 0 || decided.length > 0 ? (
+              <WaitingForYou
+                proposals={proposals}
+                decided={decided}
+                canDecide={!readOnly}
+                canConfirmDecisions={canConfirmDecisions}
+                onDecide={decide}
+                activeBoardId={activeBoard?.id ?? null}
+                onOpenBoard={(boardId) => void selectBoard(boardId)}
+              />
+            ) : null}
+            <DecisionsOverview
+              key={project.id}
+              projectId={project.id}
+              comparing={comparing}
+              readOnly={readOnly}
+              onNotice={showNotice}
+            />
+          </>
+        }
+      />
+    </AgentDirectoryProvider>
   );
 }
 

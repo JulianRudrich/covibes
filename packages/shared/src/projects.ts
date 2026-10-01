@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-import { AGENT_KEYS, AGENT_MODELS, type AgentKey, type AgentModel } from './agents/keys';
+import { agentKeySchema, type CustomAgentSummary } from './agents/custom';
+import { AGENT_MODELS, type AgentModel } from './agents/keys';
 
 /** Same limits as the check constraint on `projects.name` (packages/db/migrations). */
 export const PROJECT_NAME_MAX_LENGTH = 120;
@@ -91,11 +92,17 @@ export function nextBoardTitle(titles: readonly string[]): string {
   return `Board ${String(number)}`;
 }
 
-/** An agent of the project's team (spec 14); `model` null is the catalog default. */
-export type ProjectAgent = { key: AgentKey; model: AgentModel | null };
+/**
+ * An agent of the project's team (spec 14): a catalog agent or a custom agent (spec 19). `model`
+ * null is the agent's own default.
+ */
+export type ProjectAgent = { key: string; model: AgentModel | null };
 
-/** `POST /api/projects/:projectId/agents`: owners and editors add a catalog agent. */
-export const addProjectAgentInputSchema = z.object({ agentKey: z.enum(AGENT_KEYS) });
+/**
+ * `POST /api/projects/:projectId/agents`: owners and editors add a catalog agent, or a custom
+ * agent they may use.
+ */
+export const addProjectAgentInputSchema = z.object({ agentKey: agentKeySchema });
 export type AddProjectAgentInput = z.infer<typeof addProjectAgentInputSchema>;
 
 /** `PATCH /api/projects/:projectId/agents/:agentKey`: owners choose the model; null resets it. */
@@ -117,6 +124,8 @@ export type ProjectDetails = {
   /** The moderator's stance and how the project decides (spec 16b). */
   stance: ModeratorStance;
   decisionProcess: DecisionProcess;
-  /** The project's team in catalog order, the moderator first (spec 14). */
+  /** The project's team: catalog agents in catalog order, then custom agents by name. */
   agents: ProjectAgent[];
+  /** The custom agents the project refers to: its team, its shared agents, earlier authors. */
+  customAgents: CustomAgentSummary[];
 };

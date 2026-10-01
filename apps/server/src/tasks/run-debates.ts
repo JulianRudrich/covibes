@@ -1,5 +1,4 @@
 import type { DB } from '@covibes/db';
-import type { AgentKey } from '@covibes/shared';
 import type { Kysely } from 'kysely';
 
 import { notifyLive } from '@server/realtime/notifications';
@@ -11,8 +10,8 @@ function hasCode(error: unknown, code: string): boolean {
 
 /** How the moderator's tool opens a debate for one run (spec 18). */
 export type DebateWriter = {
-  /** The agents of the project's team, read fresh for every call. */
-  team: () => Promise<ReadonlySet<AgentKey>>;
+  /** The agents of the project's team with their names by key, read fresh for every call. */
+  team: () => Promise<ReadonlyMap<string, string>>;
   /**
    * Opens a debate tied to the run's answer; the chain starts once the answer is finished
    * (migration 0012). `busy` if another debate of the project is not over yet.
@@ -20,7 +19,7 @@ export type DebateWriter = {
   start: (debate: {
     topic: string;
     question: string;
-    participants: readonly AgentKey[];
+    participants: readonly string[];
     rounds: number;
   }) => Promise<'started' | 'busy'>;
 };
@@ -33,7 +32,7 @@ export function debateWriter(
   return {
     team: async () => {
       const team = await loadTeam(admin, run.projectId);
-      return new Set(team.members.map((member) => member.key));
+      return new Map(team.members.map((member) => [member.key, member.definition.names.en]));
     },
     start: async (debate) => {
       const active = await admin

@@ -3,7 +3,6 @@ import {
   DECISION_STATUSES,
   decisionAlternativeSchema,
   decisionOperationSchema,
-  type AgentKey,
   type Comparison,
   type DecisionAlternative,
   type DecisionOperation,
@@ -147,7 +146,7 @@ export type DecisionWriter = {
 export function decisionWriter(
   admin: Kysely<DB>,
   /** `messageId` is the run's answer, which carries its comparison and its vote. */
-  run: { id: string; projectId: string; agentKey: AgentKey; messageId: string },
+  run: { id: string; projectId: string; agentKey: string; messageId: string },
 ): DecisionWriter {
   let queue = Promise.resolve();
   function serialized<T>(write: () => Promise<T>): Promise<T> {

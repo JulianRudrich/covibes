@@ -84,6 +84,7 @@ const DETAILS: ProjectDetails = {
   stance: 'criteria',
   decisionProcess: 'consensus',
   agents: [{ key: 'moderator', model: null }],
+  customAgents: [],
 };
 const EXTRA_BOARD: ProjectBoard = {
   id: '44444444-4444-4444-8444-444444444444',

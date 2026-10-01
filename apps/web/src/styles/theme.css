@@ -109,6 +109,38 @@
   --color-agent-content-tint: #eef4dc;
   --color-agent-content-border: #d3e2a8;
 
+  /* Custom agents (spec 19): six colors in the same system: green, red, brown, steel, graphite,
+     wine. An element picks one with the class agent-color-N (below); the utilities use
+     agent-custom, which is graphite unless a class says otherwise. */
+  --color-agent-custom-1: #1f7a3d;
+  --color-agent-custom-1-dark: #165a2c;
+  --color-agent-custom-1-tint: #e6f4ea;
+  --color-agent-custom-1-border: #bfe0c9;
+  --color-agent-custom-2: #c62828;
+  --color-agent-custom-2-dark: #961d1d;
+  --color-agent-custom-2-tint: #fdeaea;
+  --color-agent-custom-2-border: #f3c4c4;
+  --color-agent-custom-3: #7a4b2a;
+  --color-agent-custom-3-dark: #5a361d;
+  --color-agent-custom-3-tint: #f5ece5;
+  --color-agent-custom-3-border: #e0cbb9;
+  --color-agent-custom-4: #2a6f97;
+  --color-agent-custom-4-dark: #1e5273;
+  --color-agent-custom-4-tint: #e6f1f7;
+  --color-agent-custom-4-border: #bdd9e8;
+  --color-agent-custom-5: #4d4d57;
+  --color-agent-custom-5-dark: #36363e;
+  --color-agent-custom-5-tint: #ededf0;
+  --color-agent-custom-5-border: #d0d0d6;
+  --color-agent-custom-6: #7b1e3a;
+  --color-agent-custom-6-dark: #5a152a;
+  --color-agent-custom-6-tint: #f7e8ed;
+  --color-agent-custom-6-border: #e5c1cc;
+  --color-agent-custom: var(--color-agent-custom-5);
+  --color-agent-custom-dark: var(--color-agent-custom-5-dark);
+  --color-agent-custom-tint: var(--color-agent-custom-5-tint);
+  --color-agent-custom-border: var(--color-agent-custom-5-border);
+
   /* Aliases for components added later via the shadcn CLI. */
   --color-background: var(--color-bg-panel);
   --color-foreground: var(--color-text);
@@ -180,4 +212,42 @@
       transform: translateY(-2px);
     }
   }
+}
+
+/* The color of a custom agent: sets what the agent-custom utilities resolve to on the element. */
+.agent-color-1 {
+  --color-agent-custom: var(--color-agent-custom-1);
+  --color-agent-custom-dark: var(--color-agent-custom-1-dark);
+  --color-agent-custom-tint: var(--color-agent-custom-1-tint);
+  --color-agent-custom-border: var(--color-agent-custom-1-border);
+}
+.agent-color-2 {
+  --color-agent-custom: var(--color-agent-custom-2);
+  --color-agent-custom-dark: var(--color-agent-custom-2-dark);
+  --color-agent-custom-tint: var(--color-agent-custom-2-tint);
+  --color-agent-custom-border: var(--color-agent-custom-2-border);
+}
+.agent-color-3 {
+  --color-agent-custom: var(--color-agent-custom-3);
+  --color-agent-custom-dark: var(--color-agent-custom-3-dark);
+  --color-agent-custom-tint: var(--color-agent-custom-3-tint);
+  --color-agent-custom-border: var(--color-agent-custom-3-border);
+}
+.agent-color-4 {
+  --color-agent-custom: var(--color-agent-custom-4);
+  --color-agent-custom-dark: var(--color-agent-custom-4-dark);
+  --color-agent-custom-tint: var(--color-agent-custom-4-tint);
+  --color-agent-custom-border: var(--color-agent-custom-4-border);
+}
+.agent-color-5 {
+  --color-agent-custom: var(--color-agent-custom-5);
+  --color-agent-custom-dark: var(--color-agent-custom-5-dark);
+  --color-agent-custom-tint: var(--color-agent-custom-5-tint);
+  --color-agent-custom-border: var(--color-agent-custom-5-border);
+}
+.agent-color-6 {
+  --color-agent-custom: var(--color-agent-custom-6);
+  --color-agent-custom-dark: var(--color-agent-custom-6-dark);
+  --color-agent-custom-tint: var(--color-agent-custom-6-tint);
+  --color-agent-custom-border: var(--color-agent-custom-6-border);
 }

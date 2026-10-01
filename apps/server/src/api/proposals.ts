@@ -20,7 +20,7 @@ import { apiError } from '@server/api/errors';
 import { functionError } from '@server/api/hands';
 import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
-import { isAgentKey } from '@server/chat/rows';
+import { isKnownAgentKey } from '@server/chat/rows';
 import type { BoardDocuments } from '@server/collab/collab';
 import { withUser, type AppDb } from '@server/db/database';
 import type { LivePublisher } from '@server/realtime/realtime';
@@ -238,7 +238,7 @@ export function proposalRoutes(
         }
         return { applied: decisions.length, skipped: 0 };
       }
-      if (!isAgentKey(row.agent_key)) throw new Error(`Unknown agent ${row.agent_key}`);
+      if (!isKnownAgentKey(row.agent_key)) throw new Error(`Proposal ${row.id} has no known agent`);
       if (!row.board_id) throw new Error(`Proposal ${row.id} has no board`);
       const author = { kind: 'agent' as const, agentKey: row.agent_key };
       const board = { boardId: row.board_id, projectId: row.project_id };

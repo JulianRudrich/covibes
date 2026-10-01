@@ -38,6 +38,7 @@ function details(boards: ProjectBoard[], role: ProjectDetails['role'] = 'owner')
     stance: 'criteria',
     decisionProcess: 'consensus',
     agents: [{ key: 'moderator', model: null }],
+    customAgents: [],
   };
 }
 

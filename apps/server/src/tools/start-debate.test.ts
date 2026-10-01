@@ -1,14 +1,21 @@
-import type { AgentKey } from '@covibes/shared';
 import { describe, expect, it } from 'vitest';
 
 import type { DebateWriter } from '@server/tasks/run-debates';
 import { startDebateTool } from '@server/tools/start-debate';
 
+/** English names as the team's definitions carry them. */
+const NAMES: Record<string, string> = {
+  moderator: 'Moderator',
+  backend: 'Backend',
+  critic: 'Critic',
+  security: 'Security',
+};
+
 /** A debate writer that keeps what `start_debate` opens. */
-function debates(team: AgentKey[], outcome: 'started' | 'busy' = 'started') {
+function debates(team: string[], outcome: 'started' | 'busy' = 'started') {
   const opened: Parameters<DebateWriter['start']>[0][] = [];
   const writer: DebateWriter = {
-    team: () => Promise.resolve(new Set(team)),
+    team: () => Promise.resolve(new Map(team.map((key) => [key, NAMES[key] ?? key]))),
     start: (debate) => {
       opened.push(debate);
       return Promise.resolve(outcome);

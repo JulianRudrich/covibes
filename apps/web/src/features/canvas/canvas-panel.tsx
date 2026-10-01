@@ -53,6 +53,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { PanelHeader } from '@web/components/ui/panel';
+import { useAgents } from '@web/features/agents/agents';
 import { arrowGeometries, type Rect } from '@web/features/canvas/arrow-geometry';
 import { BOARD_PANEL_ID, boardTabId } from '@web/features/canvas/board-ids';
 import { BlockNode } from '@web/features/canvas/block-node';
@@ -200,6 +201,7 @@ function Board({
   canAdoptVariants,
 }: BoardProps) {
   const { t } = useTranslation();
+  const agents = useAgents();
   const { doc } = connection;
   const { locks, ownClientId, setEditing } = useNodeLocks(connection.provider);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -379,10 +381,8 @@ function Board({
       },
       authorOf: (elementAuthor) => {
         if (elementAuthor.kind === 'agent') {
-          return {
-            name: t(`agents.${elementAuthor.agentKey}`),
-            initials: t(`agentInitials.${elementAuthor.agentKey}`),
-          };
+          const { name, initials } = agents(elementAuthor.agentKey);
+          return { name, initials };
         }
         if (elementAuthor.userId === user.id) {
           return { name: t('common.you'), initials: t('common.you') };
@@ -405,6 +405,7 @@ function Board({
       author,
       user.id,
       memberNames,
+      agents,
       t,
     ],
   );

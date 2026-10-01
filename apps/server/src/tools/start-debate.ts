@@ -1,22 +1,17 @@
 import {
-  AGENT_KEYS,
+  agentKeySchema,
   DEBATE_DEFAULT_ROUNDS,
   DEBATE_MAX_PARTICIPANTS,
   DEBATE_MAX_ROUNDS,
   DEBATE_MIN_PARTICIPANTS,
   DEBATE_QUESTION_MAX_LENGTH,
   DEBATE_TOPIC_MAX_LENGTH,
-  type AgentKey,
 } from '@covibes/shared';
 import { z } from 'zod';
 
 import { findAgent } from '@server/agents/catalog';
 import { defineTool, type AgentTool } from '@server/ai-gateway';
 import type { DebateWriter } from '@server/tasks/run-debates';
-
-function names(keys: readonly AgentKey[]): string {
-  return keys.map((key) => findAgent(key)?.names.en ?? key).join(', ');
-}
 
 /**
  * `start_debate` (spec 18): the moderator opens a visible debate between two or three specialists
@@ -42,10 +37,14 @@ export function startDebateTool(options: { debates: DebateWriter }): AgentTool {
         .max(DEBATE_QUESTION_MAX_LENGTH)
         .describe('The question to debate, as one sentence in the language of the conversation'),
       participants: z
-        .array(z.enum(AGENT_KEYS).exclude(['moderator']))
+        .array(
+          agentKeySchema.refine((key) => key !== 'moderator', 'The moderator leads the debate'),
+        )
         .min(DEBATE_MIN_PARTICIPANTS)
         .max(DEBATE_MAX_PARTICIPANTS)
-        .describe('The keys of the specialists who debate, in the order they speak'),
+        .describe(
+          'The keys of the specialists who debate, as listed in the team, in the order they speak',
+        ),
       rounds: z
         .number()
         .int()
@@ -60,6 +59,8 @@ export function startDebateTool(options: { debates: DebateWriter }): AgentTool {
         throw new Error('A debate needs at least two different participants.');
       }
       const team = await options.debates.team();
+      const names = (keys: readonly string[]) =>
+        keys.map((key) => findAgent(key)?.names.en ?? team.get(key) ?? key).join(', ');
       const missing = unique.filter((key) => !team.has(key));
       if (missing.length > 0) {
         return `Not in the team: ${names(missing)}. No debate was opened. Only agents of the team can debate: choose others, or add them with add_agents first and open the debate once they are in the team.`;

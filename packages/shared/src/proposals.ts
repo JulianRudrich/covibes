@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { agentKeySchema } from './agents/custom';
 import { AGENT_KEYS } from './agents/keys';
 import { canvasOperationSchema } from './canvas/operations';
 import { decisionOperationSchema, variantsOperationSchema } from './decisions';
@@ -38,7 +39,7 @@ export type TeamOperation = z.output<typeof teamOperationSchema>;
 const proposalFields = {
   id: z.uuid(),
   projectId: z.uuid(),
-  agentKey: z.enum(AGENT_KEYS),
+  agentKey: agentKeySchema,
   status: z.enum(PROPOSAL_STATUSES),
   reason: z.enum(PROPOSAL_REASONS),
   /** Titles of the existing elements the operations refer to, as they were when proposed. */

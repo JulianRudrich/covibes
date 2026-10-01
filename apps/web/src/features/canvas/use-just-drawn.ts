@@ -1,4 +1,3 @@
-import type { AgentKey } from '@covibes/shared';
 import { useLayoutEffect, useState } from 'react';
 
 import { justDrawnRemainingMs } from '@web/features/canvas/flow-mapping';
@@ -10,9 +9,9 @@ import { justDrawnRemainingMs } from '@web/features/canvas/flow-mapping';
  * already old (e.g. after a reconnect) never flashes up.
  */
 export function useJustDrawnBy(data: {
-  changedByAgent: AgentKey | null;
+  changedByAgent: string | null;
   lastChangedAt: string;
-}): AgentKey | null {
+}): string | null {
   const { changedByAgent, lastChangedAt } = data;
   const [overAt, setOverAt] = useState(() =>
     justDrawnRemainingMs(data, Date.now()) > 0 ? null : lastChangedAt,

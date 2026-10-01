@@ -3,6 +3,7 @@ import {
   AI_RUN_STATUSES,
   comparisonSchema,
   isAgentKey,
+  isCustomAgentKey,
   MESSAGE_STATUSES,
   messageDebateSchema,
   messageDebateTurnSchema,
@@ -19,6 +20,11 @@ import { sql, type Kysely } from 'kysely';
 // `db` is a transaction on behalf of a user (RLS) or the admin connection.
 
 export { isAgentKey };
+
+/** A key that names an agent: a catalog agent, or a custom agent by its id (spec 19). */
+export function isKnownAgentKey(value: unknown): value is string {
+  return isAgentKey(value) || isCustomAgentKey(value);
+}
 
 function isStatus(value: string): value is MessageStatus {
   return (MESSAGE_STATUSES as readonly string[]).includes(value);
@@ -103,7 +109,7 @@ type MessageRow = Awaited<ReturnType<ReturnType<typeof selectMessages>['executeT
 export function toMessage(row: MessageRow): ChatMessage | undefined {
   let author: ChatMessage['author'];
   if (row.author_kind === 'agent') {
-    if (!isAgentKey(row.author_agent_key)) return undefined;
+    if (!isKnownAgentKey(row.author_agent_key)) return undefined;
     author = { kind: 'agent', agentKey: row.author_agent_key };
   } else {
     if (!row.author_user_id) return undefined;
@@ -130,7 +136,7 @@ export function toMessage(row: MessageRow): ChatMessage | undefined {
     topic: row.debate_topic,
     question: row.debate_question,
     // Agents that this version does not know cannot be shown.
-    participants: row.debate_participants?.filter(isAgentKey),
+    participants: row.debate_participants?.filter(isKnownAgentKey),
     rounds: row.debate_rounds,
     turns: row.debate_turns,
     status: row.debate_status,
@@ -148,7 +154,7 @@ export function toMessage(row: MessageRow): ChatMessage | undefined {
     projectId: row.project_id,
     author,
     content: row.content,
-    mentions: row.mentions.filter(isAgentKey),
+    mentions: row.mentions.filter(isKnownAgentKey),
     replyTo: row.reply_to,
     status: isStatus(row.status) ? row.status : 'complete',
     ...(offer.success ? { offer: offer.data } : {}),
@@ -191,7 +197,7 @@ type RunRow = Awaited<ReturnType<ReturnType<typeof selectRuns>['executeTakeFirst
 
 /** The API form of a run. Runs of agents that this version does not know are left out. */
 export function toRun(row: RunRow): AiRun | undefined {
-  if (!isAgentKey(row.agent_key) || !isRunStatus(row.status)) return undefined;
+  if (!isKnownAgentKey(row.agent_key) || !isRunStatus(row.status)) return undefined;
   return {
     id: row.id,
     projectId: row.project_id,

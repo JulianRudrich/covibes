@@ -1,4 +1,4 @@
-import type { AgentKey, MessageDebate } from '@covibes/shared';
+import type { MessageDebate } from '@covibes/shared';
 import { Check, CornerDownRight, MessagesSquare } from 'lucide-react';
 import { useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { Avatar } from '@web/components/ui/avatar';
 import { Badge } from '@web/components/ui/badge';
 import { Button } from '@web/components/ui/button';
+import { AgentAvatar } from '@web/features/agents/agent-avatar';
+import { agentClass, useAgents, type AgentLook } from '@web/features/agents/agents';
 import { MentionText } from '@web/features/chat/mention-text';
 import { TypingDots } from '@web/features/chat/status-pill';
 import { DebateCard } from '@web/features/debates/debate-card';
@@ -15,7 +17,7 @@ import type { ChatItem } from '@web/features/chat/types';
 import { cn } from '@web/lib/cn';
 import { formatClockTime, initialsOf } from '@web/lib/format';
 
-const AGENT_NAME_COLOR: Record<AgentKey, string> = {
+const AGENT_NAME_COLOR: Record<AgentLook, string> = {
   moderator: 'text-agent-moderator-dark',
   backend: 'text-agent-backend-dark',
   critic: 'text-agent-critic-dark',
@@ -26,9 +28,10 @@ const AGENT_NAME_COLOR: Record<AgentKey, string> = {
   security: 'text-agent-security-dark',
   ml: 'text-agent-ml-dark',
   content: 'text-agent-content-dark',
+  custom: 'text-agent-custom-dark',
 };
 
-const AGENT_CARET: Record<AgentKey, string> = {
+const AGENT_CARET: Record<AgentLook, string> = {
   moderator: 'bg-agent-moderator',
   backend: 'bg-agent-backend',
   critic: 'bg-agent-critic',
@@ -39,9 +42,10 @@ const AGENT_CARET: Record<AgentKey, string> = {
   security: 'bg-agent-security',
   ml: 'bg-agent-ml',
   content: 'bg-agent-content',
+  custom: 'bg-agent-custom',
 };
 
-const NO_AGENTS: readonly AgentKey[] = [];
+const NO_AGENTS: readonly string[] = [];
 
 type ChatMessageViewProps = {
   item: ChatItem;
@@ -55,7 +59,7 @@ type ChatMessageViewProps = {
    * The agents of the team (spec 14). A person's message shows chips for the mentions the server
    * kept; an agent's answer for the agents of the team it names.
    */
-  team?: readonly AgentKey[];
+  team?: readonly string[];
   /** Accepts or declines the moderator's offer of help (spec 15); viewers get no buttons. */
   onOffer?: (message: ChatItem, accept: boolean) => void;
   /** Who votes and how, for the vote card of a message (spec 16b). */
@@ -86,17 +90,14 @@ export function ChatMessageView({
 }: ChatMessageViewProps) {
   const { t, i18n } = useTranslation();
   const id = useId();
+  const agents = useAgents();
   const { author, delivery } = item;
-  const agent = author.kind === 'agent' ? author.agentKey : null;
-  const isModerator = agent === 'moderator';
+  const agent = author.kind === 'agent' ? agents(author.agentKey) : null;
+  const isModerator = agent?.key === 'moderator';
   // The agent whose answer is still streaming in, if any.
   const streamingAgent = agent !== null && item.status === 'streaming' ? agent : null;
   const name =
-    author.kind === 'agent'
-      ? t(`agents.${author.agentKey}`)
-      : isOwn
-        ? t('common.you')
-        : author.name;
+    agent !== null ? agent.name : author.kind === 'human' && !isOwn ? author.name : t('common.you');
 
   // Screen readers announce each message as "name (Agent) time (delivery state)".
   const labelIds = [
@@ -107,12 +108,9 @@ export function ChatMessageView({
   ].filter((labelId) => labelId !== null);
 
   const avatar =
-    author.kind === 'agent' ? (
-      <Avatar
-        kind="agent"
-        agent={author.agentKey}
-        label={name}
-        initials={t(`agentInitials.${author.agentKey}`)}
+    agent !== null ? (
+      <AgentAvatar
+        agent={agent}
         size={isModerator ? 24 : 28}
         className={isModerator ? undefined : 'text-status'}
       />
@@ -120,7 +118,7 @@ export function ChatMessageView({
       <Avatar
         kind="human"
         label={name}
-        initials={isOwn ? t('common.you') : initialsOf(author.name)}
+        initials={isOwn || author.kind !== 'human' ? t('common.you') : initialsOf(author.name)}
       />
     );
 
@@ -138,7 +136,7 @@ export function ChatMessageView({
         id={`${id}-name`}
         className={cn(
           'min-w-0 text-ui font-semibold wrap-break-word',
-          agent === null ? 'text-text' : AGENT_NAME_COLOR[agent],
+          agent === null ? 'text-text' : agentClass(AGENT_NAME_COLOR, agent),
         )}
       >
         {name}
@@ -155,7 +153,7 @@ export function ChatMessageView({
           id={`${id}-time`}
           className={cn(
             'flex shrink-0 items-center gap-1.5 text-meta',
-            AGENT_NAME_COLOR[streamingAgent],
+            agentClass(AGENT_NAME_COLOR, streamingAgent),
             isModerator && 'ml-auto',
           )}
         >
@@ -209,7 +207,7 @@ export function ChatMessageView({
             aria-hidden="true"
             className={cn(
               'ml-px inline-block h-[15px] w-0.5 translate-y-[3px] animate-caret-blink motion-reduce:animate-none',
-              AGENT_CARET[streamingAgent],
+              agentClass(AGENT_CARET, streamingAgent),
             )}
           />
         ) : null}

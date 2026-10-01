@@ -69,11 +69,40 @@ People create their own agents in Covibes: a name, a role, instructions, a color
 - Packages: none new
 
 ## Checklist
-- [ ] A user creates a custom agent, from scratch or from a catalog specialist, and edits and deletes it.
-- [ ] In a project the new agent joins the team, shows with its name, initials and color everywhere, and answers a mention in its role with the shared rules in force.
-- [ ] A personal agent is only visible and editable to its creator, who adds it to other projects; a shared agent is visible to the project's members and editable by owners and editors.
-- [ ] An agent that may not draw only talks; one that may draws on an instruction and proposes otherwise.
-- [ ] Custom agents can raise a hand and take part in a debate; names that the team already answers to are refused.
-- [ ] The derived looks were checked from screenshots and are listed in `ui-context.md`.
-- [ ] Tests for the database, the API, the prompt, the agent turn and the components pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] A user creates a custom agent, from scratch or from a catalog specialist, and edits and deletes it.
+- [x] In a project the new agent joins the team, shows with its name, initials and color everywhere, and answers a mention in its role with the shared rules in force.
+- [x] A personal agent is only visible and editable to its creator, who adds it to other projects; a shared agent is visible to the project's members and editable by owners and editors.
+- [x] An agent that may not draw only talks; one that may draws on an instruction and proposes otherwise.
+- [x] Custom agents can raise a hand and take part in a debate; names that the team already answers to are refused.
+- [x] The derived looks were checked from screenshots and are listed in `ui-context.md`.
+- [x] Tests for the database, the API, the prompt, the agent turn and the components pass.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-10-01)
+- **A custom agent's key is its id.** The columns that hold an agent key (`project_agents`, `messages`, `ai_runs`, `proposals`, `hand_raises`, `debates.participants`) stayed as they are; a catalog key is a word, a custom key is a lowercase UUID, and `agentKeySchema` accepts both. Only what the moderator does itself (`add_agents`, the actor of a decision) stayed with the catalog keys.
+- **Database (`0013_custom_agents.sql`):**
+  - `custom_agents` with RLS as planned; the name is unique per creator among personal agents and per project among shared ones, ignoring case. Deleting is a mark (`deleted_at`), so the row keeps the name for old messages.
+  - The insert policy of `project_agents` asks `can_add_agent`: a custom agent must be shared in the project or be the user's own personal agent.
+  - `project_agent_directory` gives members name, role, color, model and scope of every custom agent the project refers to (shared in it, in its team, or author of a run), never the instructions.
+  - `delete_custom_agent` marks the agent and removes it from every team, also in projects the user is no part of; a trigger takes an agent out of the other teams when it becomes shared in one project. Both tell the affected projects live.
+- **Server:**
+  - `resolveAgent` returns the catalog definition or builds one from the row: the prompt names the agent and its role, puts the creator's text into `<instructions>` (it cannot close its own section) and ends with the shared rules of `common.md`, which the prompt says take precedence. The tools are the canvas tools or none; an agent without them is told that it only takes part in the chat.
+  - The team is loaded with definitions, so the agent turn, the observer and debates need no catalog lookups: the `<team>` section lists a custom agent as "UX Writer (custom agent, mentioned as @UX-Writer)", and chat authors, open proposals and debate participants go by name. Names of custom agents that left the team or were deleted are loaded for the messages at hand.
+  - `/api/agents` creates, lists, changes and deletes; RLS decides, the route only gives clearer answers (403 for viewers, `name_taken`, `limit_reached`). Adding a custom agent to a team checks that the user may use it and that no team agent answers to the same name.
+  - Mentions are resolved with the names of the team: catalog agents by their fixed names, custom agents by their handle.
+- **Web:**
+  - `useAgents()` resolves any agent key to name, initials, role, mention and look from the translations or the project's directory (`AgentDirectoryProvider`). Every component that showed an agent uses it; the class maps got a `custom` look, and `agentClass` adds `agent-color-N`, which sets the custom color variables on the element. An agent nobody knows any more shows as "Agent" in graphite.
+  - The team popover lists custom agents with "Persönlich" or "Geteilt" and their own default model, offers the usable ones under "Agent hinzufügen", and opens the editor through the pencil or "Eigenen Agenten erstellen".
+  - The editor validates the name before asking the server, shows how the agent is mentioned, sends only what changed, and deletes after a second click. The templates are texts of the web app in German and English (`agentTemplates.*`), written after the role prompts of the catalog.
+- **Verified** with `pnpm dev` in the project "Vereins-App":
+  - "Eigenen Agenten erstellen" with the template "Kritiker" filled role and instructions; changed to "Kassenwart" without the right to draw, the agent joined the team with the avatar "KA" in green.
+  - "@Kassenwart Was kostet uns das Hosting im Monat ungefähr? Zeichne bitte auch einen Block dazu." was answered in its role and within its instructions (a rough sum in euros, three sentences), with name, badge and mention chip in its color; nothing was drawn. Its answer suggested mentioning it again for the block, which is why agents without the canvas tools are now told that they only take part in the chat.
+  - Edited to draw and shared in the project, the team showed it as "Geteilt"; "@Kassenwart Zeichne bitte einen Block …" drew the block with "KA Kassenwart" as its author.
+  - Deleting it took it out of the team; its messages and its block kept its name.
+  - The looks were checked from screenshots of the editor, the chat and the team popover. The block the custom agent drew lay outside the visible part of the canvas; its author line and colors were checked through the page's elements.
+  - Roles, a second person's personal agent, the name clash in a team, raised hands and debates with a custom agent are covered by the tests of the database, the API, the agent turn, the observer and the components; they were not tried live.
+- **Known limits:**
+  - Renaming a custom agent is not checked against the teams it is in; if two agents of a team end up with the same handle, the first in team order answers.
+  - The moderator does not add custom agents (`add_agents` stays with the catalog); people do.
+  - A personal agent stays in a team when its creator leaves the project; the members can remove it but not edit it.
+  - Knowledge (files, links, web search) comes with spec 20.

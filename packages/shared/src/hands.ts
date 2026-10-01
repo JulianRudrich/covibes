@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { AGENT_KEYS } from './agents/keys';
+import { agentKeySchema } from './agents/custom';
 
 /** Longest reason of a raised hand (check constraint on `hand_raises.reason`). */
 export const HAND_REASON_MAX_LENGTH = 300;
@@ -12,7 +12,7 @@ export const HAND_REASON_MAX_LENGTH = 300;
 export const handRaiseSchema = z.object({
   id: z.uuid(),
   projectId: z.uuid(),
-  agentKey: z.enum(AGENT_KEYS),
+  agentKey: agentKeySchema,
   /** What the agent wants to say, in one line, e.g. "Einwand zu den Kosten". */
   reason: z.string(),
   createdAt: z.string(),

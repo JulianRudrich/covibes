@@ -1,7 +1,6 @@
 import {
   changedNodeIds,
   NOTE_SIZE,
-  type AgentKey,
   type CanvasOperation,
   type Position,
   type Proposal,
@@ -18,7 +17,8 @@ const GHOST_BLOCK_HEIGHT = { withActions: 124, plain: 86 };
 export type GhostElement = {
   id: string;
   proposalId: string;
-  agentKey: AgentKey;
+  /** The key of the proposing agent, catalog or custom. */
+  agentKey: string;
   kind: 'block' | 'note' | 'frame';
   label: string;
   subtitle: string;
@@ -34,7 +34,8 @@ export type GhostElement = {
 export type GhostArrow = {
   id: string;
   proposalId: string;
-  agentKey: AgentKey;
+  /** The key of the proposing agent, catalog or custom. */
+  agentKey: string;
   source: string;
   target: string;
   label: string;
@@ -44,7 +45,7 @@ export type ProposalOverlay = {
   elements: GhostElement[];
   arrows: GhostArrow[];
   /** Existing elements that a proposal changes or moves, by the proposing agent. */
-  changed: Map<string, AgentKey>;
+  changed: Map<string, string>;
 };
 
 /** The operations one proposal, or one of its variants, draws on a board. */

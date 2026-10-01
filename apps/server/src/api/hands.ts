@@ -2,7 +2,6 @@ import type { DB } from '@covibes/db';
 import {
   castVoteInputSchema,
   handRaiseSchema,
-  isAgentKey,
   projectIdSchema,
   type ApiErrorCode,
   type HandRaise,
@@ -14,6 +13,7 @@ import { z } from 'zod';
 import { apiError } from '@server/api/errors';
 import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
+import { isKnownAgentKey } from '@server/chat/rows';
 import { withUser, type AppDb } from '@server/db/database';
 
 function membership(trx: Transaction<DB>, projectId: string, userId: string) {
@@ -110,7 +110,7 @@ export function handRoutes(db: AppDb, auth: Auth) {
     });
     if (!rows) return apiError(c, 'not_found');
     const hands = rows.flatMap((row) => {
-      if (!isAgentKey(row.agent_key)) return [];
+      if (!isKnownAgentKey(row.agent_key)) return [];
       const hand = handRaiseSchema.safeParse({
         id: row.id,
         projectId: row.project_id,

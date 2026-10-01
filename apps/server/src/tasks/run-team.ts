@@ -1,7 +1,6 @@
 import type { DB } from '@covibes/db';
 import {
   AGENT_KEYS,
-  isAgentKey,
   isAgentModel,
   teamOperationSchema,
   type AgentKey,
@@ -12,6 +11,8 @@ import {
 import type { Kysely } from 'kysely';
 import { z } from 'zod';
 
+import { byTeamOrder, findAgent, type AgentDefinition } from '@server/agents/catalog';
+import { loadCustomDefinitions } from '@server/agents/custom';
 import { notifyLive } from '@server/realtime/notifications';
 
 const storedTeamOperationsSchema = z.array(teamOperationSchema);
@@ -27,8 +28,11 @@ function byCatalogOrder(a: AgentKey, b: AgentKey): number {
 }
 
 export type TeamContext = {
-  /** The agents of the team in catalog order, with the model an owner chose. */
-  members: { key: AgentKey; model: AgentModel | null }[];
+  /**
+   * The agents of the team, catalog agents in catalog order and then custom agents (spec 19), each
+   * with its definition and the model an owner chose.
+   */
+  members: { key: string; model: AgentModel | null; definition: AgentDefinition }[];
   /** Agents in open team proposals. */
   proposed: AgentKey[];
   /** Agents the team rejected in a team proposal and did not add since. */
@@ -51,14 +55,20 @@ export async function loadTeam(admin: Kysely<DB>, projectId: string): Promise<Te
       .where('status', 'in', ['open', 'rejected'])
       .execute(),
   ]);
+  const custom = await loadCustomDefinitions(
+    admin,
+    rows.map((row) => row.agent_key),
+  );
+  // Keys that are neither a catalog agent nor an existing custom agent are left out.
   const members = rows
-    .flatMap((row) =>
-      isAgentKey(row.agent_key)
-        ? [{ key: row.agent_key, model: isAgentModel(row.model) ? row.model : null }]
-        : [],
-    )
-    .sort((a, b) => byCatalogOrder(a.key, b.key));
-  const inTeam = new Set(members.map((member) => member.key));
+    .flatMap((row) => {
+      const definition = findAgent(row.agent_key) ?? custom.get(row.agent_key);
+      return definition
+        ? [{ key: row.agent_key, model: isAgentModel(row.model) ? row.model : null, definition }]
+        : [];
+    })
+    .sort((a, b) => byTeamOrder(a.definition, b.definition));
+  const inTeam = new Set<string>(members.map((member) => member.key));
   const keysOf = (status: string) =>
     new Set(
       proposals
@@ -79,7 +89,7 @@ export async function loadTeam(admin: Kysely<DB>, projectId: string): Promise<Te
 /** How the `add_agents` tool changes the team of one run's project (spec 14). */
 export type TeamWriter = {
   /** The team and the agents in open team proposals, read fresh for every call. */
-  load: () => Promise<{ members: ReadonlySet<AgentKey>; proposed: ReadonlySet<AgentKey> }>;
+  load: () => Promise<{ members: ReadonlySet<string>; proposed: ReadonlySet<AgentKey> }>;
   /** Adds agents right away; the agent is the author, so `added_by` stays empty. */
   add: (keys: readonly AgentKey[]) => Promise<void>;
   /** Adds operations to the run's team proposal. */
@@ -92,7 +102,7 @@ export type TeamWriter = {
  */
 export function teamWriter(
   admin: Kysely<DB>,
-  run: { id: string; projectId: string; agentKey: AgentKey },
+  run: { id: string; projectId: string; agentKey: string },
 ): TeamWriter {
   let queue = Promise.resolve();
   function serialized(write: () => Promise<void>): Promise<void> {

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { AGENT_KEYS } from './agents/keys';
+import { agentKeySchema } from './agents/custom';
 import { messageDebateSchema, messageDebateTurnSchema } from './debates';
 import { comparisonSchema, messageVoteSchema } from './decisions';
 import { messageOfferSchema } from './hands';
@@ -16,7 +16,7 @@ export type MessageStatus = (typeof MESSAGE_STATUSES)[number];
 
 export const messageAuthorSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('human'), userId: z.string(), name: z.string() }),
-  z.object({ kind: z.literal('agent'), agentKey: z.enum(AGENT_KEYS) }),
+  z.object({ kind: z.literal('agent'), agentKey: agentKeySchema }),
 ]);
 export type MessageAuthor = z.infer<typeof messageAuthorSchema>;
 
@@ -27,7 +27,7 @@ export const chatMessageSchema = z.object({
   author: messageAuthorSchema,
   content: z.string(),
   /** Agents addressed with `@`, found by the server (`parseMentions`). */
-  mentions: z.array(z.enum(AGENT_KEYS)),
+  mentions: z.array(agentKeySchema),
   replyTo: z.string().nullable(),
   status: z.enum(MESSAGE_STATUSES),
   /** The moderator's offer of help that this message makes, if any (spec 15). */
@@ -68,7 +68,7 @@ export type AiRunStatus = (typeof AI_RUN_STATUSES)[number];
 export const aiRunSchema = z.object({
   id: z.string(),
   projectId: z.string(),
-  agentKey: z.enum(AGENT_KEYS),
+  agentKey: agentKeySchema,
   status: z.enum(AI_RUN_STATUSES),
   triggerMessageId: z.string().nullable(),
   replyMessageId: z.string().nullable(),

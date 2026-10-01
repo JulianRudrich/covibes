@@ -10,7 +10,7 @@ import {
 import { Hono } from 'hono';
 import { sql, type Transaction } from 'kysely';
 
-import { loadProjectAgents } from '@server/api/agents';
+import { loadAgentDirectory, loadProjectAgents } from '@server/api/agents';
 import { apiError } from '@server/api/errors';
 import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
@@ -97,7 +97,8 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
         .orderBy('position')
         .orderBy('created_at')
         .execute();
-      const agents = await loadProjectAgents(trx, projectId.data);
+      const customAgents = await loadAgentDirectory(trx, projectId.data);
+      const agents = await loadProjectAgents(trx, projectId.data, customAgents);
       return {
         id: project.id,
         name: project.name,
@@ -114,6 +115,7 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
         decisionProcess:
           (settings.success ? settings.data.decisionProcess : undefined) ?? ('consensus' as const),
         agents,
+        customAgents,
       };
     });
     if (!details) return apiError(c, 'not_found');

@@ -154,7 +154,7 @@ describe('BlockNode', () => {
 
       expect(block).toHaveClass('border-[1.5px]', 'border-agent-moderator');
       expect(block).not.toHaveClass('border-border-block', 'shadow-block');
-      expect(block.style.boxShadow).toBe(aiRing('moderator'));
+      expect(block.style.boxShadow).toBe(aiRing({ look: 'moderator', color: null }));
       const pill = screen.getByText('Gerade gezeichnet');
       expect(pill).toHaveClass('bg-agent-moderator', 'text-on-ink');
       expect(pill).not.toHaveClass('invisible');

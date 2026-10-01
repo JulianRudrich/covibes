@@ -1,4 +1,4 @@
-import { AGENT_KEYS, AGENT_MENTION_NAMES } from '@covibes/shared';
+import { AGENT_KEYS, AGENT_MENTION_NAMES, type MentionNames } from '@covibes/shared';
 import { describe, expect, it } from 'vitest';
 
 import { CATALOG, describeName, findAgent, MODERATOR } from '@server/agents/catalog';
@@ -47,7 +47,7 @@ describe('catalog', () => {
 
   it('can be mentioned by its German and English name', () => {
     for (const agent of CATALOG) {
-      expect(AGENT_MENTION_NAMES[agent.key]).toEqual(
+      expect((AGENT_MENTION_NAMES as MentionNames)[agent.key]).toEqual(
         expect.arrayContaining([agent.names.de.toLowerCase(), agent.names.en.toLowerCase()]),
       );
     }

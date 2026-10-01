@@ -1,6 +1,6 @@
 import {
   AGENT_KEYS,
-  type AgentKey,
+  isAgentKey,
   type AgentModel,
   type ProjectAgent,
   type ProjectDetails,
@@ -8,9 +8,13 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { projectQuery } from '@web/features/projects/queries';
-import { api } from '@web/lib/api';
+import { api, ApiError } from '@web/lib/api';
 
-function agentsPath(projectId: string, agentKey?: AgentKey) {
+function teamPosition(key: string): number {
+  return isAgentKey(key) ? AGENT_KEYS.indexOf(key) : AGENT_KEYS.length;
+}
+
+function agentsPath(projectId: string, agentKey?: string) {
   const base = `/projects/${encodeURIComponent(projectId)}/agents`;
   return agentKey ? `${base}/${agentKey}` : base;
 }
@@ -20,7 +24,11 @@ function agentsPath(projectId: string, agentKey?: AgentKey) {
  * is undone if the server refuses; afterwards the project is loaded again, as it is for everyone
  * else after the live event.
  */
-export function useTeamMutations(projectId: string, onError: () => void) {
+export function useTeamMutations(
+  projectId: string,
+  /** `name_taken`: the team already has an agent that answers to the new agent's name. */
+  onError: (reason: 'name_taken' | 'failed') => void,
+) {
   const queryClient = useQueryClient();
   const { queryKey } = projectQuery(projectId);
 
@@ -32,23 +40,24 @@ export function useTeamMutations(projectId: string, onError: () => void) {
     );
     return { previous };
   }
-  const rollback = (_error: unknown, _input: unknown, context?: { previous?: ProjectDetails }) => {
+  const rollback = (error: unknown, _input: unknown, context?: { previous?: ProjectDetails }) => {
     if (context?.previous) queryClient.setQueryData(queryKey, context.previous);
-    onError();
+    onError(error instanceof ApiError && error.code === 'name_taken' ? 'name_taken' : 'failed');
   };
   // Only the project: the keys of its messages and runs start with the same parts.
   const reload = () => queryClient.invalidateQueries({ queryKey, exact: true });
 
   const add = useMutation({
-    mutationFn: (agentKey: AgentKey) =>
+    mutationFn: (agentKey: string) =>
       api<undefined>(agentsPath(projectId), {
         method: 'POST',
         body: JSON.stringify({ agentKey }),
       }),
     onMutate: (agentKey) =>
       optimistic((agents) =>
+        // Catalog agents in catalog order; custom agents after them, until the server sorts.
         [...agents.filter((agent) => agent.key !== agentKey), { key: agentKey, model: null }].sort(
-          (a, b) => AGENT_KEYS.indexOf(a.key) - AGENT_KEYS.indexOf(b.key),
+          (a, b) => teamPosition(a.key) - teamPosition(b.key),
         ),
       ),
     onError: rollback,
@@ -56,7 +65,7 @@ export function useTeamMutations(projectId: string, onError: () => void) {
   });
 
   const remove = useMutation({
-    mutationFn: (agentKey: AgentKey) =>
+    mutationFn: (agentKey: string) =>
       api<undefined>(agentsPath(projectId, agentKey), { method: 'DELETE' }),
     onMutate: (agentKey) =>
       optimistic((agents) => agents.filter((agent) => agent.key !== agentKey)),
@@ -65,7 +74,7 @@ export function useTeamMutations(projectId: string, onError: () => void) {
   });
 
   const setModel = useMutation({
-    mutationFn: ({ agentKey, model }: { agentKey: AgentKey; model: AgentModel | null }) =>
+    mutationFn: ({ agentKey, model }: { agentKey: string; model: AgentModel | null }) =>
       api<undefined>(agentsPath(projectId, agentKey), {
         method: 'PATCH',
         body: JSON.stringify({ model }),

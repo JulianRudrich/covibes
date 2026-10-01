@@ -1,21 +1,20 @@
-import { variantLetter, type AgentKey, type Proposal } from '@covibes/shared';
+import { variantLetter, type Proposal } from '@covibes/shared';
 import { useTranslation } from 'react-i18next';
 
-import { Avatar } from '@web/components/ui/avatar';
 import { Button } from '@web/components/ui/button';
+import { AgentAvatar } from '@web/features/agents/agent-avatar';
+import { agentClass, agentColor, useAgents } from '@web/features/agents/agents';
 import {
   AGENT_DARK_TEXT,
   AGENT_PROPOSAL,
   AGENT_TILE,
   AGENT_LABEL,
   AGENT_BACKGROUND,
-  agentColor,
 } from '@web/features/canvas/agent-look';
 import { arrowGeometries, type Rect } from '@web/features/canvas/arrow-geometry';
 import { blockIcon } from '@web/features/canvas/block-types';
 import type { ProposalOverlay, GhostElement } from '@web/features/proposals/proposal-overlay';
 import type { DecideProposal } from '@web/features/proposals/queries';
-import { initialsOf } from '@web/lib/format';
 import { cn } from '@web/lib/cn';
 
 type ProposalLayerProps = {
@@ -48,6 +47,7 @@ export function ProposalLayer({
   onDecide,
 }: ProposalLayerProps) {
   const { t } = useTranslation();
+  const agents = useAgents();
   const allRects = new Map(rects);
   for (const element of overlay.elements) {
     allRects.set(element.id, { ...element.position, ...element.size });
@@ -71,7 +71,7 @@ export function ProposalLayer({
               fill="none"
               strokeWidth={1.5}
               strokeDasharray="5 4"
-              style={{ stroke: agentColor(arrow.agentKey) }}
+              style={{ stroke: agentColor(agents(arrow.agentKey)) }}
               data-testid="proposal-arrow"
             />
           ) : null;
@@ -84,7 +84,7 @@ export function ProposalLayer({
             key={`${arrow.id}-label`}
             className={cn(
               'pointer-events-none absolute top-0 left-0 z-[4] flex h-5 items-center rounded-sm border px-[7px] font-mono text-badge whitespace-nowrap',
-              AGENT_LABEL[arrow.agentKey],
+              agentClass(AGENT_LABEL, agents(arrow.agentKey)),
             )}
             style={{
               transform: `translate(-50%, -50%) translate(${String(geometry.label.x)}px, ${String(geometry.label.y)}px)`,
@@ -102,7 +102,7 @@ export function ProposalLayer({
             key={`${id}-changed`}
             className={cn(
               'pointer-events-none absolute top-0 left-0 z-[4] rounded-[14px] border-[1.5px] border-dashed',
-              AGENT_PROPOSAL[agentKey],
+              agentClass(AGENT_PROPOSAL, agents(agentKey)),
               'bg-transparent',
             )}
             style={{
@@ -115,7 +115,7 @@ export function ProposalLayer({
             <span
               className={cn(
                 'absolute -top-[27px] -right-[1.5px] flex h-[22px] items-center rounded-sm px-2 text-meta font-medium whitespace-nowrap text-on-ink',
-                AGENT_BACKGROUND[agentKey],
+                agentClass(AGENT_BACKGROUND, agents(agentKey)),
               )}
             >
               {t('proposals.marker')}
@@ -177,15 +177,16 @@ function ProposalHeader({
   agentKey,
   variant,
 }: {
-  agentKey: AgentKey;
+  agentKey: string;
   variant: GhostElement['variant'];
 }) {
   const { t } = useTranslation();
-  const name = t(`agents.${agentKey}`);
+  const agent = useAgents()(agentKey);
+  const { name } = agent;
   return (
     <div className="flex h-4 shrink-0 items-center gap-1.5 text-meta">
-      <Avatar kind="agent" agent={agentKey} size={16} label={name} initials={initialsOf(name)} />
-      <span className={cn('truncate font-medium', AGENT_DARK_TEXT[agentKey])}>
+      <AgentAvatar agent={agent} size={16} />
+      <span className={cn('truncate font-medium', agentClass(AGENT_DARK_TEXT, agent))}>
         {variant
           ? t('variants.letter', { letter: variantLetter(variant.position) })
           : t('proposals.header', { agent: name })}
@@ -199,21 +200,14 @@ function VariantHeading({
   agentKey,
   variant,
 }: {
-  agentKey: AgentKey;
+  agentKey: string;
   variant: NonNullable<GhostElement['variant']>;
 }) {
   const { t } = useTranslation();
-  const name = t(`agents.${agentKey}`);
+  const agent = useAgents()(agentKey);
   return (
     <div className="absolute bottom-full left-0 flex w-full items-start gap-2 pb-2">
-      <Avatar
-        kind="agent"
-        agent={agentKey}
-        size={16}
-        label={name}
-        initials={initialsOf(name)}
-        className="mt-0.5"
-      />
+      <AgentAvatar agent={agent} size={16} className="mt-0.5" />
       <span className="min-w-0 text-ui leading-snug font-semibold break-words text-text">
         {t('variants.title', { letter: variantLetter(variant.position), name: variant.name })}
       </span>
@@ -223,6 +217,7 @@ function VariantHeading({
 
 /** One proposed element: a block, a note or a frame. */
 function GhostCard({ element, actions }: { element: GhostElement; actions: React.ReactNode }) {
+  const agent = useAgents()(element.agentKey);
   const Icon = blockIcon(element.blockType);
   const place = {
     transform: `translate(${String(element.position.x)}px, ${String(element.position.y)}px)`,
@@ -231,7 +226,7 @@ function GhostCard({ element, actions }: { element: GhostElement; actions: React
   };
   const frame = cn(
     'nodrag nopan pointer-events-auto absolute top-0 left-0 border-[1.5px] border-dashed',
-    AGENT_PROPOSAL[element.agentKey],
+    agentClass(AGENT_PROPOSAL, agent),
   );
 
   if (element.kind === 'frame') {
@@ -287,7 +282,7 @@ function GhostCard({ element, actions }: { element: GhostElement; actions: React
         <span
           className={cn(
             'grid size-[30px] shrink-0 place-items-center rounded-md border border-dashed',
-            AGENT_TILE[element.agentKey],
+            agentClass(AGENT_TILE, agent),
           )}
         >
           <Icon size={15} strokeWidth={1.8} aria-hidden="true" />

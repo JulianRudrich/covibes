@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { AGENT_KEYS, type AgentKey } from './agents/keys';
+import { agentKeySchema } from './agents/custom';
 
 // Debates (spec 18): on request two or three specialists take turns on a question for a limited
 // number of rounds, then the moderator sums up.
@@ -28,10 +28,7 @@ export const messageDebateSchema = z.object({
   topic: z.string(),
   question: z.string(),
   /** In the order they speak; a round is one turn of each. */
-  participants: z
-    .array(z.enum(AGENT_KEYS))
-    .min(DEBATE_MIN_PARTICIPANTS)
-    .max(DEBATE_MAX_PARTICIPANTS),
+  participants: z.array(agentKeySchema).min(DEBATE_MIN_PARTICIPANTS).max(DEBATE_MAX_PARTICIPANTS),
   rounds: z.number().int().min(1).max(DEBATE_MAX_ROUNDS),
   /** Turns that are finished. */
   turns: z.number().int().min(0),
@@ -55,10 +52,10 @@ export type MessageDebateTurn = z.infer<typeof messageDebateTurnSchema>;
  * all turns are taken.
  */
 export function debateProgress(debate: {
-  participants: readonly AgentKey[];
+  participants: readonly string[];
   rounds: number;
   turns: number;
-}): { round: number; speaker: AgentKey } | null {
+}): { round: number; speaker: string } | null {
   const count = debate.participants.length;
   const speaker = debate.participants[debate.turns % count];
   if (!speaker || debate.turns >= count * debate.rounds) return null;
@@ -66,9 +63,6 @@ export function debateProgress(debate: {
 }
 
 /** The rounds a debate got through; a round that was begun counts. */
-export function debatedRounds(debate: {
-  participants: readonly AgentKey[];
-  turns: number;
-}): number {
+export function debatedRounds(debate: { participants: readonly string[]; turns: number }): number {
   return Math.ceil(debate.turns / debate.participants.length);
 }

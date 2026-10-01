@@ -1,9 +1,10 @@
-import type { AgentKey, HandRaise, ProjectMember, ProjectRole } from '@covibes/shared';
+import type { HandRaise, ProjectMember, ProjectRole } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PanelHeader, PanelTitle } from '@web/components/ui/panel';
+import { useMentionNames } from '@web/features/agents/agents';
 import { Composer } from '@web/features/chat/composer';
 import { MessageList } from '@web/features/chat/message-list';
 import { messagesQuery } from '@web/features/chat/queries';
@@ -21,8 +22,8 @@ type ChatPanelProps = {
   user: { id: string; name: string };
   /** Viewers read along but cannot write. */
   readOnly: boolean;
-  /** The agents of the team (spec 14): only they can be mentioned. */
-  team: readonly AgentKey[];
+  /** The agents of the team (spec 14), by key: only they can be mentioned. */
+  team: readonly string[];
   /** The members of the project and the user's role, for the vote cards (spec 16b). */
   members: readonly ProjectMember[];
   role: ProjectRole;
@@ -51,7 +52,12 @@ export function ChatPanel({
   const messages = useQuery(messagesQuery(projectId));
   const runs = useQuery(runsQuery(projectId));
   const hands = useQuery(handsQuery(projectId)).data ?? NO_HANDS;
-  const { send, retry } = useSendMessage(projectId, { userId: user.id, name: user.name }, team);
+  const mentionNames = useMentionNames(team);
+  const { send, retry } = useSendMessage(
+    projectId,
+    { userId: user.id, name: user.name },
+    mentionNames,
+  );
   const decideHand = useHandDecisions(projectId, (reason) => {
     onNotice(t(reason === 'already_decided' ? 'hands.alreadyDecided' : 'hands.failed'));
   });

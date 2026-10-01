@@ -2,40 +2,104 @@ import type { DB } from '@covibes/db';
 import {
   addProjectAgentInputSchema,
   AGENT_KEYS,
+  customAgentSummarySchema,
   isAgentKey,
   isAgentModel,
+  isCustomAgentKey,
+  mentionHandle,
   projectIdSchema,
+  teamMentionNames,
   updateProjectAgentInputSchema,
-  type AgentKey,
   type ApiErrorCode,
+  type CustomAgentSummary,
+  type MentionNames,
   type ProjectAgent,
 } from '@covibes/shared';
 import { Hono, type Context } from 'hono';
-import type { Kysely, Transaction } from 'kysely';
+import { sql, type Kysely, type Transaction } from 'kysely';
 
 import { apiError } from '@server/api/errors';
 import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
+import { isKnownAgentKey } from '@server/chat/rows';
 import { withUser, type AppDb } from '@server/db/database';
 import type { LivePublisher } from '@server/realtime/realtime';
 
-/** The project's team in catalog order, the moderator first (spec 14). */
+type DirectoryRow = {
+  id: string;
+  name: string;
+  role: string;
+  color: number;
+  model: string | null;
+  can_draw: boolean;
+  scope: string;
+  owner_id: string;
+  owner_name: string;
+  deleted: boolean;
+};
+
+/**
+ * The custom agents the project refers to (spec 19), through the database function that checks
+ * membership: members see name, role and color of every such agent, never its instructions.
+ */
+export async function loadAgentDirectory(
+  db: Kysely<DB> | Transaction<DB>,
+  projectId: string,
+): Promise<CustomAgentSummary[]> {
+  const { rows } = await sql<DirectoryRow>`
+    select * from public.project_agent_directory(${projectId})
+  `.execute(db);
+  return rows.flatMap((row) => {
+    const agent = customAgentSummarySchema.safeParse({
+      key: row.id,
+      name: row.name,
+      role: row.role,
+      color: row.color,
+      model: isAgentModel(row.model) ? row.model : null,
+      canDraw: row.can_draw,
+      scope: row.scope,
+      ownerId: row.owner_id,
+      ownerName: row.owner_name,
+      deleted: row.deleted,
+    });
+    return agent.success ? [agent.data] : [];
+  });
+}
+
+/**
+ * The project's team (spec 14): catalog agents in catalog order, the moderator first, then the
+ * custom agents by name (spec 19). `directory` is the project's agent directory.
+ */
 export async function loadProjectAgents(
   db: Kysely<DB> | Transaction<DB>,
   projectId: string,
+  directory: readonly CustomAgentSummary[],
 ): Promise<ProjectAgent[]> {
   const rows = await db
     .selectFrom('project_agents')
     .select(['agent_key', 'model'])
     .where('project_id', '=', projectId)
     .execute();
+  const custom = directory.filter((agent) => !agent.deleted).map((agent) => agent.key);
+  const position = (key: string) =>
+    isAgentKey(key) ? AGENT_KEYS.indexOf(key) : AGENT_KEYS.length + custom.indexOf(key);
   return rows
-    .flatMap((row) =>
-      isAgentKey(row.agent_key)
-        ? [{ key: row.agent_key, model: isAgentModel(row.model) ? row.model : null }]
-        : [],
-    )
-    .sort((a, b) => AGENT_KEYS.indexOf(a.key) - AGENT_KEYS.indexOf(b.key));
+    .filter((row) => isAgentKey(row.agent_key) || custom.includes(row.agent_key))
+    .map((row) => ({ key: row.agent_key, model: isAgentModel(row.model) ? row.model : null }))
+    .sort((a, b) => position(a.key) - position(b.key));
+}
+
+/** The names the project's team answers to, for the mentions of a message. */
+export async function loadTeamMentionNames(
+  trx: Transaction<DB>,
+  projectId: string,
+): Promise<MentionNames> {
+  const directory = await loadAgentDirectory(trx, projectId);
+  const team = await loadProjectAgents(trx, projectId, directory);
+  return teamMentionNames(
+    team.map((agent) => agent.key),
+    directory,
+  );
 }
 
 function membership(trx: Transaction<DB>, projectId: string, userId: string) {
@@ -47,13 +111,15 @@ function membership(trx: Transaction<DB>, projectId: string, userId: string) {
     .executeTakeFirst();
 }
 
-type Outcome = 'done' | Extract<ApiErrorCode, 'not_found' | 'forbidden' | 'invalid_input'>;
+type Outcome =
+  'done' | Extract<ApiErrorCode, 'not_found' | 'forbidden' | 'invalid_input' | 'name_taken'>;
 type Member = { projectId: string; userId: string; role: string };
 
 /**
- * `/api/projects/:projectId/agents` (spec 14): owners and editors add catalog agents and remove
- * specialists; the moderator always stays. Only owners choose an agent's model. Every change
- * announces `project` on the live channel, so all members see the new team.
+ * `/api/projects/:projectId/agents` (spec 14): owners and editors add catalog agents and custom
+ * agents they may use (spec 19), and remove specialists; the moderator always stays. Only owners
+ * choose an agent's model. Every change announces `project` on the live channel, so all members
+ * see the new team.
  */
 export function agentRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
   const routes = new Hono<{ Variables: SessionVariables }>();
@@ -79,9 +145,9 @@ export function agentRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
     return c.body(null, 204);
   }
 
-  function agentKeyOf(c: Context): AgentKey | undefined {
+  function agentKeyOf(c: Context): string | undefined {
     const key = c.req.param('agentKey');
-    return isAgentKey(key) ? key : undefined;
+    return isKnownAgentKey(key) ? key : undefined;
   }
 
   routes.post('/', async (c) => {
@@ -90,10 +156,32 @@ export function agentRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
     return change(c, async (trx, { projectId, userId }) => {
       // The moderator is part of every project from the start.
       if (!input.success || input.data.agentKey === 'moderator') return 'invalid_input';
+      const { agentKey } = input.data;
+      if (isCustomAgentKey(agentKey)) {
+        // A custom agent must be shared in this project or be the user's own (spec 19); the
+        // insert policy checks the same.
+        const agent = await trx
+          .selectFrom('custom_agents')
+          .select(['name', 'project_id', 'owner_id'])
+          .where('id', '=', agentKey)
+          .executeTakeFirst();
+        const usable =
+          agent &&
+          (agent.project_id === projectId ||
+            (agent.project_id === null && agent.owner_id === userId));
+        if (!usable) return 'not_found';
+        // In a team no two agents answer to the same name.
+        const names = await loadTeamMentionNames(trx, projectId);
+        const handle = mentionHandle(agent.name).toLowerCase();
+        const taken = Object.entries(names).some(
+          ([key, known]) => key !== agentKey && known.includes(handle),
+        );
+        if (taken) return 'name_taken';
+      }
       // Adding an agent that is in the team already changes nothing and is fine.
       await trx
         .insertInto('project_agents')
-        .values({ project_id: projectId, agent_key: input.data.agentKey, added_by: userId })
+        .values({ project_id: projectId, agent_key: agentKey, added_by: userId })
         .onConflict((conflict) => conflict.columns(['project_id', 'agent_key']).doNothing())
         .execute();
       return 'done';

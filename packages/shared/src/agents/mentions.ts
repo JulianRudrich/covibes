@@ -1,4 +1,4 @@
-import { AGENT_MENTION_NAMES, type AgentKey } from './keys';
+import { AGENT_MENTION_NAMES } from './keys';
 
 /**
  * `@name`, where the name is letters, digits, `_` and inner hyphens. Trailing punctuation such as
@@ -18,14 +18,15 @@ function withoutCode(text: string): string {
   return text.replace(CODE, (code) => ' '.repeat(code.length));
 }
 
-export type MentionNames = Readonly<Record<AgentKey, readonly string[]>>;
+/** The lowercase names every agent answers to, by agent key (catalog or custom, spec 19). */
+export type MentionNames = Readonly<Record<string, readonly string[]>>;
 
 export type MessageSegment =
-  { kind: 'text'; text: string } | { kind: 'mention'; text: string; key: AgentKey };
+  { kind: 'text'; text: string } | { kind: 'mention'; text: string; key: string };
 
-function keyForName(names: MentionNames, name: string): AgentKey | undefined {
+function keyForName(names: MentionNames, name: string): string | undefined {
   const lower = name.toLowerCase();
-  return (Object.keys(names) as AgentKey[]).find((key) => names[key].includes(lower));
+  return Object.keys(names).find((key) => names[key]?.includes(lower));
 }
 
 /**
@@ -53,8 +54,8 @@ export function splitMentions(
  * The agents mentioned in a message, each once, in the order of their first mention.
  * Case does not matter: `@Moderator` and `@moderator` are the same.
  */
-export function parseMentions(text: string, names: MentionNames = AGENT_MENTION_NAMES): AgentKey[] {
-  const keys: AgentKey[] = [];
+export function parseMentions(text: string, names: MentionNames = AGENT_MENTION_NAMES): string[] {
+  const keys: string[] = [];
   for (const segment of splitMentions(text, names)) {
     if (segment.kind === 'mention' && !keys.includes(segment.key)) keys.push(segment.key);
   }

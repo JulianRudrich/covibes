@@ -1,10 +1,15 @@
-import type { AgentKey } from '@covibes/shared';
 import type { ReactNode } from 'react';
 
 import { cn } from '@web/lib/cn';
+import { agentClass, type AgentInfo } from '@web/features/agents/agents';
 import { AGENT_TONE } from '@web/lib/styles';
 
-type BadgeProps = { children: ReactNode; agent?: AgentKey; className?: string };
+type BadgeProps = {
+  children: ReactNode;
+  /** Colors the badge like the agent. */
+  agent?: Pick<AgentInfo, 'look' | 'color'>;
+  className?: string;
+};
 
 /** Small label such as "Agent" (18 px high, radius 5). */
 export function Badge({ children, agent, className }: BadgeProps) {
@@ -12,7 +17,7 @@ export function Badge({ children, agent, className }: BadgeProps) {
     <span
       className={cn(
         'inline-flex h-[18px] items-center rounded-xs px-1.5 text-badge font-medium whitespace-nowrap',
-        agent ? AGENT_TONE[agent] : 'bg-bg-subtle text-text-2',
+        agent ? agentClass(AGENT_TONE, agent) : 'bg-bg-subtle text-text-2',
         className,
       )}
     >

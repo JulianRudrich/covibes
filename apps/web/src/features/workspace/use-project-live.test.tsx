@@ -40,6 +40,7 @@ const DETAILS: ProjectDetails = {
   stance: 'criteria',
   decisionProcess: 'consensus',
   agents: [{ key: 'moderator', model: null }],
+  customAgents: [],
 };
 
 /** The workspace's queries plus the live channel, as the workspace page has them. */

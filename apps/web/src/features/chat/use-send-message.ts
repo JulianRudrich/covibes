@@ -1,8 +1,8 @@
 import {
   parseMentions,
   sendMessageInputSchema,
-  type AgentKey,
   type ChatMessage,
+  type MentionNames,
   type SendMessageInput,
 } from '@covibes/shared';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
@@ -44,8 +44,8 @@ async function post(queryClient: QueryClient, projectId: string, input: SendMess
 export function useSendMessage(
   projectId: string,
   author: { userId: string; name: string },
-  /** The agents of the team; like the server, only their mentions count (spec 14). */
-  team: readonly AgentKey[],
+  /** The names the team answers to; like the server, only their mentions count (spec 14). */
+  names: MentionNames,
 ) {
   const queryClient = useQueryClient();
   const { userId, name } = author;
@@ -70,7 +70,7 @@ export function useSendMessage(
         projectId,
         author: { kind: 'human', userId, name },
         content,
-        mentions: parseMentions(content).filter((key) => team.includes(key)),
+        mentions: parseMentions(content, names),
         replyTo: null,
         status: 'complete',
         createdAt: now,
@@ -81,7 +81,7 @@ export function useSendMessage(
       void post(queryClient, projectId, { id, content });
       return true;
     },
-    [queryClient, projectId, userId, name, team],
+    [queryClient, projectId, userId, name, names],
   );
 
   /** Sends a failed message again with the same id; does nothing for any other message. */

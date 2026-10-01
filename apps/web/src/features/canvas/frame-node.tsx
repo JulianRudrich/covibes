@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@web/components/ui/dropdown-menu';
+import { agentClass, useAgents } from '@web/features/agents/agents';
 import { AGENT_BORDER } from '@web/features/canvas/agent-look';
 import { DIAGRAM_TYPE_CHOICES, diagramIcon } from '@web/features/canvas/block-types';
 import { useCanvasActions } from '@web/features/canvas/canvas-actions';
@@ -28,9 +29,10 @@ import { aiRing } from '@web/lib/styles';
 export function FrameNode({ id, data, selected }: NodeProps<FrameFlowNode>) {
   const { t } = useTranslation();
   const actions = useCanvasActions();
+  const agents = useAgents();
   const justDrawnBy = useJustDrawnBy(data);
   const lockedBy = data.lockedBy;
-  const agent = lockedBy ? null : justDrawnBy;
+  const agent = lockedBy || !justDrawnBy ? null : agents(justDrawnBy);
   const editing = actions.editingId === id;
   const canChange = !actions.readOnly && !lockedBy;
   const Icon = diagramIcon(data.diagramType);
@@ -43,7 +45,7 @@ export function FrameNode({ id, data, selected }: NodeProps<FrameFlowNode>) {
         lockedBy
           ? 'border-[1.5px] border-human'
           : agent
-            ? cn('border-[1.5px]', AGENT_BORDER[agent])
+            ? cn('border-[1.5px]', agentClass(AGENT_BORDER, agent))
             : 'border border-frame-border',
         selected && !lockedBy && 'outline-2 outline-offset-2 outline-ink',
       )}

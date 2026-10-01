@@ -1,16 +1,17 @@
 import {
   AGENT_KEYS,
   AGENT_MODELS,
+  agentInitials,
   DEFAULT_AGENT_MODEL,
-  type AgentKey,
+  mentionHandle,
   type AgentModel,
+  type CustomAgent,
   type ProjectAgent,
 } from '@covibes/shared';
-import { Check, ChevronDown, Plus, X } from 'lucide-react';
-import { useId } from 'react';
+import { Check, ChevronDown, Pencil, Plus, X } from 'lucide-react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Avatar } from '@web/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +21,8 @@ import {
 import { IconButton } from '@web/components/ui/icon-button';
 import { Popover, PopoverContent, PopoverTrigger } from '@web/components/ui/popover';
 import { Tooltip } from '@web/components/ui/tooltip';
+import { AgentAvatar } from '@web/features/agents/agent-avatar';
+import { useAgents, type AgentInfo } from '@web/features/agents/agents';
 
 type TeamMenuProps = {
   agents: readonly ProjectAgent[];
@@ -27,15 +30,28 @@ type TeamMenuProps = {
   canEdit: boolean;
   /** Only owners choose the model of an agent. */
   canChooseModel: boolean;
-  onAdd: (agentKey: AgentKey) => void;
-  onRemove: (agentKey: AgentKey) => void;
-  onModelChange: (agentKey: AgentKey, model: AgentModel | null) => void;
+  onAdd: (agentKey: string) => void;
+  onRemove: (agentKey: string) => void;
+  onModelChange: (agentKey: string, model: AgentModel | null) => void;
+  /**
+   * The custom agents the user can use here (spec 19): their personal ones and those shared in the
+   * project. Those among them the user may edit get "Bearbeiten".
+   */
+  customAgents?: readonly CustomAgent[];
+  /** The signed-in user, who edits their own personal agents. */
+  userId?: string;
+  /** Opens the agent editor for a new agent, or for an existing one. */
+  onCreateAgent?: () => void;
+  onEditAgent?: (agent: CustomAgent) => void;
 };
+
+const NO_CUSTOM_AGENTS: readonly CustomAgent[] = [];
 
 /**
  * The agents of the project in the header (spec 14; handoff: the agent avatars next to the
  * humans). A click opens the team popover (derived look): every agent with name, role and model,
- * removing specialists, and adding the catalog agents that are not in the team yet.
+ * removing specialists, and adding agents that are not in the team yet: catalog agents and the
+ * custom agents the user can use (spec 19). Custom agents are created and edited from here.
  */
 export function TeamMenu({
   agents,
@@ -44,34 +60,85 @@ export function TeamMenu({
   onAdd,
   onRemove,
   onModelChange,
+  customAgents = NO_CUSTOM_AGENTS,
+  userId,
+  onCreateAgent,
+  onEditAgent,
 }: TeamMenuProps) {
   const { t } = useTranslation();
+  const fromDirectory = useAgents();
   const titleId = useId();
+  const [open, setOpen] = useState(false);
   const inTeam = new Set(agents.map((agent) => agent.key));
   const available = AGENT_KEYS.filter((key) => !inTeam.has(key));
-  const names = agents.map((agent) => t(`agents.${agent.key}`)).join(', ');
+  const availableCustom = customAgents.filter((agent) => !inTeam.has(agent.key));
+  /**
+   * A personal agent of the user is not in the project's directory until the project knows it is
+   * in the team, so it is also resolved from the list of usable agents.
+   */
+  const resolve = (key: string): AgentInfo => {
+    const agent = fromDirectory(key);
+    const custom = customAgents.find((entry) => entry.key === key);
+    if (agent.custom || !custom) return agent;
+    return {
+      ...agent,
+      name: custom.name,
+      initials: agentInitials(custom.name),
+      role: custom.role,
+      mention: mentionHandle(custom.name),
+      color: custom.color,
+      custom,
+    };
+  };
+  const team = agents.map((agent) => ({ ...agent, info: resolve(agent.key) }));
+  const names = team.map((agent) => agent.info.name).join(', ');
+  // What the user may edit: their own personal agents, and shared agents as owner or editor.
+  const editable = new Map(
+    customAgents
+      .filter((agent) => (agent.scope === 'personal' ? agent.ownerId === userId : canEdit))
+      .map((agent) => [agent.key, agent]),
+  );
+
+  /** Opens the editor; the popover makes room for it. */
+  function edit(agent: CustomAgent | null) {
+    setOpen(false);
+    if (agent) onEditAgent?.(agent);
+    else onCreateAgent?.();
+  }
+
+  function editButton(agentKey: string, name: string) {
+    const agent = onEditAgent ? editable.get(agentKey) : undefined;
+    if (!agent) return null;
+    return (
+      <Tooltip content={t('team.edit')}>
+        <IconButton
+          aria-label={t('team.editAgent', { name })}
+          className="size-6"
+          onClick={() => {
+            edit(agent);
+          }}
+        >
+          <Pencil size={13} aria-hidden="true" />
+        </IconButton>
+      </Tooltip>
+    );
+  }
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         aria-label={t('team.open', { names })}
         className="flex cursor-pointer items-center gap-[3px] rounded-btn-s p-0.5 hover:bg-bg-hover-app focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
       >
-        {agents.map((agent) => (
-          <Tooltip key={agent.key} content={t(`agents.${agent.key}`)}>
+        {team.map((agent) => (
+          <Tooltip key={agent.key} content={agent.info.name}>
             <span className="flex">
-              <Avatar
-                kind="agent"
-                agent={agent.key}
-                size={24}
-                label={t(`agents.${agent.key}`)}
-                initials={t(`agentInitials.${agent.key}`)}
-              />
+              <AgentAvatar agent={agent.info} size={24} />
             </span>
           </Tooltip>
         ))}
       </PopoverTrigger>
-      <PopoverContent aria-labelledby={titleId} className="w-[360px]">
+      <PopoverContent aria-labelledby={titleId} className="w-[380px]">
         <div className="max-h-[min(600px,calc(100dvh-80px))] overflow-y-auto">
           <div className="px-3.5 pt-3 pb-1.5">
             <h2 id={titleId} className="m-0 text-title font-semibold text-text">
@@ -80,35 +147,40 @@ export function TeamMenu({
             <p className="m-0 mt-0.5 text-small text-text-3">{t('team.hint')}</p>
           </div>
           <ul className="m-0 list-none px-1.5 pb-1.5">
-            {agents.map((agent) => {
-              const name = t(`agents.${agent.key}`);
+            {team.map((agent) => {
+              const { name } = agent.info;
               return (
                 <li key={agent.key} className="flex items-center gap-2.5 rounded-sm px-2 py-1.5">
-                  <AgentLine agentKey={agent.key} />
+                  <AgentLine agent={agent.info} />
                   <ModelChoice
                     name={name}
                     model={agent.model}
+                    // A custom agent brings its own default model.
+                    defaultModel={agent.info.custom?.model ?? DEFAULT_AGENT_MODEL}
                     canChoose={canChooseModel}
                     onChange={(model) => {
                       onModelChange(agent.key, model);
                     }}
                   />
-                  {canEdit && agent.key !== 'moderator' ? (
-                    <Tooltip content={t('team.remove')}>
-                      <IconButton
-                        aria-label={t('team.removeAgent', { name })}
-                        className="-mr-1 size-6"
-                        onClick={() => {
-                          onRemove(agent.key);
-                        }}
-                      >
-                        <X size={14} aria-hidden="true" />
-                      </IconButton>
-                    </Tooltip>
-                  ) : canEdit ? (
-                    // Keeps the models of all rows in one column.
-                    <span aria-hidden="true" className="-mr-1 size-6 shrink-0" />
-                  ) : null}
+                  <span className="-mr-1 flex shrink-0 items-center">
+                    {editButton(agent.key, name)}
+                    {canEdit && agent.key !== 'moderator' ? (
+                      <Tooltip content={t('team.remove')}>
+                        <IconButton
+                          aria-label={t('team.removeAgent', { name })}
+                          className="size-6"
+                          onClick={() => {
+                            onRemove(agent.key);
+                          }}
+                        >
+                          <X size={14} aria-hidden="true" />
+                        </IconButton>
+                      </Tooltip>
+                    ) : canEdit ? (
+                      // Keeps the models of all rows in one column.
+                      <span aria-hidden="true" className="size-6 shrink-0" />
+                    ) : null}
+                  </span>
                 </li>
               );
             })}
@@ -118,27 +190,48 @@ export function TeamMenu({
               <h3 className="m-0 px-2 pt-1 pb-1 text-meta font-medium text-text-3">
                 {t('team.add')}
               </h3>
-              {available.length > 0 ? (
+              {available.length + availableCustom.length > 0 ? (
                 <ul className="m-0 list-none p-0">
-                  {available.map((key) => (
-                    <li key={key}>
-                      <button
-                        type="button"
-                        aria-label={t('team.addAgent', { name: t(`agents.${key}`) })}
-                        className="flex w-full cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-left hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-ink"
-                        onClick={() => {
-                          onAdd(key);
-                        }}
-                      >
-                        <AgentLine agentKey={key} />
-                        <Plus size={14} className="shrink-0 text-text-3" aria-hidden="true" />
-                      </button>
-                    </li>
-                  ))}
+                  {[...available, ...availableCustom.map((agent) => agent.key)].map((key) => {
+                    const agent = resolve(key);
+                    return (
+                      <li key={key} className="flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          aria-label={t('team.addAgent', { name: agent.name })}
+                          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-left hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-ink"
+                          onClick={() => {
+                            onAdd(key);
+                          }}
+                        >
+                          <AgentLine agent={agent} />
+                          <Plus size={14} className="shrink-0 text-text-3" aria-hidden="true" />
+                        </button>
+                        {editButton(key, agent.name)}
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="m-0 px-2 pb-1.5 text-small text-text-3">{t('team.allAdded')}</p>
               )}
+              {onCreateAgent ? (
+                <button
+                  type="button"
+                  className="mt-0.5 flex w-full cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-left text-ui font-medium text-text hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-ink"
+                  onClick={() => {
+                    edit(null);
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="grid size-[26px] shrink-0 place-items-center rounded-btn-s border border-dashed border-border-strong text-text-3"
+                  >
+                    <Plus size={14} />
+                  </span>
+                  {t('team.createAgent')}
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -147,22 +240,20 @@ export function TeamMenu({
   );
 }
 
-/** Avatar, name and role of an agent. */
-function AgentLine({ agentKey }: { agentKey: AgentKey }) {
+/** Avatar, name and role of an agent; a custom agent says whether it is personal or shared. */
+function AgentLine({ agent }: { agent: AgentInfo }) {
   const { t } = useTranslation();
-  const name = t(`agents.${agentKey}`);
+  const scope = agent.custom
+    ? t(agent.custom.scope === 'personal' ? 'team.personal' : 'team.shared')
+    : null;
   return (
     <>
-      <Avatar
-        kind="agent"
-        agent={agentKey}
-        size={26}
-        label={name}
-        initials={t(`agentInitials.${agentKey}`)}
-      />
+      <AgentAvatar agent={agent} size={26} />
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-ui font-medium text-text">{name}</span>
-        <span className="truncate text-meta text-text-3">{t(`agentRoles.${agentKey}`)}</span>
+        <span className="truncate text-ui font-medium text-text">{agent.name}</span>
+        <span className="truncate text-meta text-text-3">
+          {[agent.role, scope].filter((part) => part).join(' · ')}
+        </span>
       </span>
     </>
   );
@@ -172,16 +263,19 @@ function AgentLine({ agentKey }: { agentKey: AgentKey }) {
 function ModelChoice({
   name,
   model,
+  defaultModel,
   canChoose,
   onChange,
 }: {
   name: string;
   model: AgentModel | null;
+  /** What the agent uses unless the project chose another model. */
+  defaultModel: AgentModel;
   canChoose: boolean;
   onChange: (model: AgentModel | null) => void;
 }) {
   const { t } = useTranslation();
-  const current = model ?? DEFAULT_AGENT_MODEL;
+  const current = model ?? defaultModel;
   const label = t(`team.models.${current}`);
   if (!canChoose) {
     return (
@@ -211,11 +305,11 @@ function ModelChoice({
               role="menuitemradio"
               aria-checked={option === current}
               onSelect={() => {
-                // The default is stored as "no choice", so it follows a later catalog default.
-                onChange(option === DEFAULT_AGENT_MODEL ? null : option);
+                // The default is stored as "no choice", so it follows a later default.
+                onChange(option === defaultModel ? null : option);
               }}
             >
-              {option === DEFAULT_AGENT_MODEL
+              {option === defaultModel
                 ? t('team.defaultModel', { model: optionLabel })
                 : optionLabel}
               {option === current ? (

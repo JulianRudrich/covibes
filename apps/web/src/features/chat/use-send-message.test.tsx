@@ -82,7 +82,8 @@ function stored(id: string, content: string): ChatMessage {
 }
 
 /** The chat as the panel uses it: the message list and the sending hook. */
-const TEAM = ['moderator', 'backend'] as const;
+/** The names the team answers to: the moderator and backend. */
+const TEAM = { moderator: ['moderator'], backend: ['backend'] };
 
 function renderChat() {
   const requests = stubFetch();

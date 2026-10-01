@@ -1,12 +1,4 @@
-import type {
-  AgentKey,
-  Author,
-  CanvasEdge,
-  CanvasNode,
-  EntityField,
-  NodeLock,
-  Size,
-} from '@covibes/shared';
+import type { Author, CanvasEdge, CanvasNode, EntityField, NodeLock, Size } from '@covibes/shared';
 import type { Edge, Node } from '@xyflow/react';
 
 import type { ArrowGeometry } from '@web/features/canvas/arrow-geometry';
@@ -16,7 +8,8 @@ type CommonData = {
   label: string;
   createdBy: Author;
   /** The agent that made the last change, or null when it was a human. */
-  changedByAgent: AgentKey | null;
+  /** The key of the agent that last changed the element, catalog or custom. */
+  changedByAgent: string | null;
   lastChangedAt: string;
   /** Someone else editing this element right now, or null (spec 08). */
   lockedBy: { name: string } | null;
@@ -48,7 +41,8 @@ export type CanvasFlowNode = BlockFlowNode | NoteFlowNode | FrameFlowNode;
 export type ArrowEdgeData = {
   label: string;
   /** The agent of the last change of the arrow or of its target, whichever is newer. */
-  changedByAgent: AgentKey | null;
+  /** The key of the agent that last changed the element, catalog or custom. */
+  changedByAgent: string | null;
   lastChangedAt: string;
   /** Path and label position, computed by the board from where the blocks are right now. */
   geometry?: ArrowGeometry;
@@ -90,7 +84,7 @@ function byLastChange(a: CanvasNode, b: CanvasNode): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-function agentOf(author: Author): AgentKey | null {
+function agentOf(author: Author): string | null {
   return author.kind === 'agent' ? author.agentKey : null;
 }
 

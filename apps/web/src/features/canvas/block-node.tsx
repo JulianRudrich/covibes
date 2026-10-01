@@ -1,4 +1,4 @@
-import { ENTITY_VISIBLE_FIELDS, type AgentKey, type EntityField } from '@covibes/shared';
+import { ENTITY_VISIBLE_FIELDS, type EntityField } from '@covibes/shared';
 import type { NodeProps } from '@xyflow/react';
 import { Check } from 'lucide-react';
 import { Fragment, useState, type ReactNode } from 'react';
@@ -12,6 +12,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@web/components/ui/dropdown-menu';
+import { AgentAvatar } from '@web/features/agents/agent-avatar';
+import { agentClass, useAgents, type AgentInfo } from '@web/features/agents/agents';
 import {
   AGENT_BORDER,
   AGENT_DARK_TEXT,
@@ -38,10 +40,11 @@ import { aiRing } from '@web/lib/styles';
  */
 export function BlockNode({ id, data, selected }: NodeProps<BlockFlowNode>) {
   const actions = useCanvasActions();
+  const agents = useAgents();
   const justDrawnBy = useJustDrawnBy(data);
   const lockedBy = data.lockedBy;
   // A person editing the block counts more than an agent's change a moment ago.
-  const agent = lockedBy ? null : justDrawnBy;
+  const agent = lockedBy || !justDrawnBy ? null : agents(justDrawnBy);
   const editing = actions.editingId === id;
   const canChange = !actions.readOnly && !lockedBy;
   const Icon = blockIcon(data.blockType);
@@ -53,7 +56,7 @@ export function BlockNode({ id, data, selected }: NodeProps<BlockFlowNode>) {
         lockedBy
           ? 'border-border-soft bg-border-subtle text-text-2'
           : agent
-            ? AGENT_TILE[agent]
+            ? agentClass(AGENT_TILE, agent)
             : 'border-border-soft bg-bg-subtle text-text-2',
       )}
     >
@@ -68,7 +71,7 @@ export function BlockNode({ id, data, selected }: NodeProps<BlockFlowNode>) {
         lockedBy
           ? 'cursor-not-allowed border-[1.5px] border-human bg-bg-locked shadow-lock'
           : agent
-            ? cn('border-[1.5px] bg-bg-panel', AGENT_BORDER[agent])
+            ? cn('border-[1.5px] bg-bg-panel', agentClass(AGENT_BORDER, agent))
             : 'border border-border-block bg-bg-panel shadow-block',
         selected && !lockedBy && 'outline-2 outline-offset-2 outline-ink',
       )}
@@ -106,7 +109,7 @@ export function BlockNode({ id, data, selected }: NodeProps<BlockFlowNode>) {
                 <div
                   className={cn(
                     'truncate text-meta',
-                    agent ? AGENT_DARK_TEXT[agent] : 'text-text-3',
+                    agent ? agentClass(AGENT_DARK_TEXT, agent) : 'text-text-3',
                   )}
                 >
                   {data.subtitle}
@@ -129,28 +132,24 @@ export function BlockNode({ id, data, selected }: NodeProps<BlockFlowNode>) {
   );
 }
 
-function AuthorLine({ data, agent }: { data: BlockNodeData; agent: AgentKey | null }) {
+function AuthorLine({ data, agent }: { data: BlockNodeData; agent: AgentInfo | null }) {
   const { authorOf } = useCanvasActions();
+  const agents = useAgents();
   const { createdBy } = data;
   const { name, initials } = authorOf(createdBy);
+  const author = createdBy.kind === 'agent' ? agents(createdBy.agentKey) : null;
   return (
     <div
       className={cn(
         'mt-auto flex h-[30px] shrink-0 items-center gap-1.5 border-t px-3 text-meta',
-        agent ? AGENT_TINT_BORDER[agent] : 'border-border-subtle',
+        agent ? agentClass(AGENT_TINT_BORDER, agent) : 'border-border-subtle',
       )}
     >
-      {createdBy.kind === 'agent' ? (
+      {author ? (
         <>
-          <Avatar
-            kind="agent"
-            agent={createdBy.agentKey}
-            size={16}
-            label={name}
-            initials={initials}
-          />
-          <span className={cn('truncate font-medium', AGENT_DARK_TEXT[createdBy.agentKey])}>
-            {name}
+          <AgentAvatar agent={author} size={16} />
+          <span className={cn('truncate font-medium', agentClass(AGENT_DARK_TEXT, author))}>
+            {author.name}
           </span>
         </>
       ) : (
@@ -167,7 +166,7 @@ function AuthorLine({ data, agent }: { data: BlockNodeData; agent: AgentKey | nu
  * The fields of an entity in Geist Mono, name left and type right (spec 12); after 8 fields a row
  * says how many more there are.
  */
-function EntityFields({ fields, agent }: { fields: EntityField[]; agent: AgentKey | null }) {
+function EntityFields({ fields, agent }: { fields: EntityField[]; agent: AgentInfo | null }) {
   const { t } = useTranslation();
   const shown = fields.slice(0, ENTITY_VISIBLE_FIELDS);
   const more = fields.length - shown.length;
@@ -177,7 +176,7 @@ function EntityFields({ fields, agent }: { fields: EntityField[]; agent: AgentKe
       className={cn(
         // 3 px + 4 px padding and the 1 px border: the 8 px the model reserves (`blockSize`).
         'm-0 flex list-none flex-col border-t px-3 pt-[3px] pb-1 font-mono text-badge',
-        agent ? AGENT_TINT_BORDER[agent] : 'border-border-subtle',
+        agent ? agentClass(AGENT_TINT_BORDER, agent) : 'border-border-subtle',
       )}
     >
       {shown.map((field, index) => (

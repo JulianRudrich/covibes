@@ -143,6 +143,10 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - knowledge and tools: `knowledge` (file and link references), `tools` (allowed tools)
   - model: `provider`, `model`, `effort`
   - visibility: `scope` (catalog, personal or project)
+- **Custom agents (spec 19):** rows of `custom_agents`, personal (the creator's own, for all their projects) or shared in one project (read by its members, changed by owners and editors).
+  - A custom agent's key is its id: wherever an agent key is stored, it is a catalog key or such an id.
+  - The definition is built per run: the prompt puts the creator's instructions into a marked section and ends with the shared rules, which take precedence; the tools are the canvas tools or none.
+  - Members of a project that refers to a custom agent get its name, role and color through the project's agent directory, never its instructions.
 - **Catalog (spec 14):** the moderator and nine specialists, defined in `apps/server/src/agents/catalog.ts`. Every agent's instructions are its role file followed by `prompts/common.md` with the rules all agents share (canvas, proposals, language, safety), so no role can drop them.
 - **Team per project** (`project_agents`): a new project starts with the moderator, which cannot be removed. Owners and editors add and remove specialists, owners choose each agent's model (Opus 5.5 by default). Only agents of the team answer a mention.
 - **Moderator:** a catalog agent with additional rights. It asks for criteria, records decisions, brings in specialists (`add_agents`, through the rule engine) and leads debates.
@@ -234,7 +238,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `boards`, `yjs_documents` | boards and storage of the Y.Docs |
 | `plans`, `plan_versions`, `plan_suggestions` | plan, versions, AI suggestions per section |
 | `messages` | chat: author (human or agent), mentions, block references |
-| `agents`, `project_agents` | agent definitions, team per project |
+| `custom_agents`, `project_agents` | custom agents (personal or shared in a project); team per project. Catalog agents are defined in code |
 | `hand_raises`, `offers` | raised hands (open, heard, dismissed); the moderator's offers of help (open, accepted, declined) |
 | `proposals` | proposals: canvas change, variants (with the adopted one), team change, decision, plan update, Git action |
 | `decisions`, `criteria`, `decision_log` | decisions per topic with reasoning, alternatives and who confirmed; project criteria; the log of every decision, reopening and change of the criteria |

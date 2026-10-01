@@ -27,6 +27,8 @@ export const projectSettingsSchema = z.looseObject({
   proposalsOnly: z.boolean().optional().catch(undefined),
   /** Agents speak up on their own (spec 15); on unless switched off. */
   observer: z.boolean().optional().catch(undefined),
+  /** The moderator asked for the project criteria (spec 16a) and does not ask again. */
+  criteriaAsked: z.boolean().optional().catch(undefined),
 });
 export type CreateProjectInput = z.infer<typeof createProjectInputSchema>;
 

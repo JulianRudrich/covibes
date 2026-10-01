@@ -48,7 +48,7 @@ const ROLES: Readonly<
   moderator: {
     names: { de: 'Moderator', en: 'Moderator' },
     role: 'neutral moderation: structures the discussion, sums up and puts the team together',
-    tools: [...CANVAS_TOOLS, 'add_agents'],
+    tools: [...CANVAS_TOOLS, 'add_agents', 'update_criteria', 'record_decision'],
   },
   critic: {
     names: { de: 'Kritiker', en: 'Critic' },

@@ -17,6 +17,7 @@ import { loadPrompt } from '@server/agents/prompts';
 import type { AgentReplyResult } from '@server/ai-gateway';
 import { selectMessages, toMessage } from '@server/chat/rows';
 import { notifyLive } from '@server/realtime/notifications';
+import { loadDecisionContext, type DecisionContext } from '@server/tasks/run-decisions';
 import { loadTeam } from '@server/tasks/run-team';
 
 /** Name of the job the database schedules after every human message (migration 0008). */
@@ -105,7 +106,7 @@ export type ObserverOutcome =
 
 /** Chat text is data: it must not close the sections the prompt is built from. */
 function asData(text: string): string {
-  return text.replace(/<(\/?)(team|earlier|chat)>/gi, '‹$1$2›');
+  return text.replace(/<(\/?)(team|decisions|earlier|chat)>/gi, '‹$1$2›');
 }
 
 function authorName(message: ChatMessage): string {
@@ -127,6 +128,8 @@ export function buildObserverPrompt(context: {
   /** Messages after this moment are new since the observer's last look. */
   lastLook: Date | null;
   history: History;
+  /** What is decided, open or waiting for confirmation (spec 16a), so it is not offered again. */
+  decisions?: DecisionContext;
   /** Why no offer is possible now, or null when it is. */
   offerBlocked: string | null;
   /** Specialists that may raise a hand now, and how many hands are allowed. */
@@ -159,9 +162,22 @@ export function buildObserverPrompt(context: {
       ? `- Raised hands: at most ${String(context.canRaise.count)}, by: ${context.canRaise.agents.join(', ')}`
       : '- Raised hands: none',
   ].join('\n');
+  const decisions = context.decisions
+    ? [
+        ...context.decisions.decisions.map((decision) =>
+          decision.status === 'decided'
+            ? `- ${decision.topic}: ${decision.value ?? ''} (decided)`
+            : `- ${decision.topic}: open`,
+        ),
+        ...context.decisions.pending.map(
+          (operation) => `- ${operation.topic}: ${operation.value} (waits for confirmation)`,
+        ),
+      ]
+    : [];
   return [
     `Project: ${asData(context.projectName)}`,
     `<team>\n${team}\n</team>`,
+    `<decisions>\n${decisions.length > 0 ? asData(decisions.join('\n')) : '- none'}\n</decisions>`,
     `<earlier>\nOffers of the moderator, newest first:\n${asData(offers)}\nRaised hands, newest first:\n${asData(hands)}\n</earlier>`,
     `<chat>\n${asData(chat)}\n</chat>`,
     `Messages marked (new) came after your last look.\nWhat you may start now:\n${allowed}`,
@@ -228,8 +244,9 @@ export async function runObserver(deps: ObserverDeps, payload: unknown): Promise
   // A single first message gives nothing to observe yet.
   if (newHumans.length === 0 || humans.length < 2) return 'nothing_new';
 
-  const [team, handRows, offerRows] = await Promise.all([
+  const [team, decisions, handRows, offerRows] = await Promise.all([
     loadTeam(admin, projectId),
+    loadDecisionContext(admin, projectId),
     admin
       .selectFrom('hand_raises')
       .select(['agent_key', 'reason', 'status'])
@@ -299,6 +316,7 @@ export async function runObserver(deps: ObserverDeps, payload: unknown): Promise
             reason: hand.reason,
           })),
         },
+        decisions,
         offerBlocked,
         canRaise,
       }),

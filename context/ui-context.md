@@ -51,6 +51,7 @@ In `apps/web` the tokens are a Tailwind v4 theme in `apps/web/src/styles/theme.c
   --color-frame-border: #CFD7E1;
   --color-border-float: #DFE4EA; /* toolbar, edge labels */
   --color-divider-strong: #CFD6DF; /* divider between humans and agents in the header */
+  --color-divider-row: #F1F3F6;    /* between the rows of the decisions in the overview */
   --color-edge: #8792A2;
   --color-text: #0F1720;
   --color-text-body: #1E2733;
@@ -58,7 +59,8 @@ In `apps/web` the tokens are a Tailwind v4 theme in `apps/web/src/styles/theme.c
   --color-text-2b: #4A5565;
   --color-text-3: #6B7686;   /* meta, subtitles: 4.6:1 on white */
   --color-text-4: #7A8595;   /* times, placeholders */
-  --color-text-5: #9AA4B2;   /* chevrons of the phase bar */
+  --color-text-5: #9AA4B2;   /* chevrons of the phase bar, the ring of an open decision */
+  --color-text-chip: #253041; /* criteria chips */
   --color-text-faint: #B4BDC8; /* divider "/" after the wordmark */
   --color-text-upcoming: #5B6676; /* upcoming phase */
   --color-ring-upcoming: #AAB3BF; /* ring of the upcoming phase */
@@ -257,6 +259,7 @@ Since 2026-09-30 the app is built with the prototype design; design changes, imp
 - inactive board tabs, the tab menu, renaming in place, the delete dialog with the `danger` button and the note pill over the canvas (spec 11)
 - proposals (spec 13): proposed notes and frames with the dashed agent border and tint, the dashed outline and the pill "Vorschlag" on blocks that a proposal changes or moves, the completed lines under "Wartet auf dich" for rejected proposals, and the project menu with "Nur Vorschläge"
 - agents (spec 14): the colors of product, frontend, DevOps, security, ML and content (base, dark, tint, border, derived from the system of the four handoff agents), the avatar letters of all agents, and the team popover of the header
+- decisions and criteria (spec 16a): the link "Protokoll" and the decision log dialog, the dialog of a decision with "Wieder öffnen" and its reason, the hints while a section is empty, editing a criterion in place, the "×" on a chip and the dashed chip "+", and decision cards under "Wartet auf dich" with "Bestätigen"
 - observer (spec 15): raised hands of agents other than the critic (their tint and border instead of a second tint), the icon button "Nicht jetzt" on a raised hand, the line "Angenommen von …" / "Verschoben von …" under an offer, and "Agents melden sich" in the project menu
 - diagram types (spec 12): the type icon and name in the frame header and its menu, the block types of mind map, data model, flow and sitemap as block cards with their own icons, entity cards with fields in Geist Mono, arrows from the right to the left edge in mind maps and data models
 

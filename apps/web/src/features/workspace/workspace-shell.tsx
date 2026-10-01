@@ -6,12 +6,6 @@ import { Panel, PanelHeader, PanelTitle } from '@web/components/ui/panel';
 import type { SessionUser } from '@web/features/auth/session';
 import { WorkspaceHeader } from '@web/features/workspace/workspace-header';
 
-function EmptyHint({ children }: { children: string }) {
-  return (
-    <div className="grid place-items-center p-6 text-center text-ui text-text-3">{children}</div>
-  );
-}
-
 export type WorkspaceMember = { id: string; name: string; isCurrentUser: boolean };
 
 /** The project menu of the header (spec 13): the proposals-only mode. */
@@ -37,7 +31,7 @@ type WorkspaceShellProps = {
   chat: ReactNode;
   /** Content of the canvas panel: its header row and the canvas. */
   canvas: ReactNode;
-  /** Sections of the overview; without any, the overview explains what will appear. */
+  /** Sections of the overview: what waits for the user, decisions and criteria. */
   overview: ReactNode;
 };
 
@@ -75,9 +69,7 @@ export function WorkspaceShell({
           <PanelHeader>
             <PanelTitle>{t('panels.overview')}</PanelTitle>
           </PanelHeader>
-          <div className="min-h-0 overflow-y-auto">
-            {overview ?? <EmptyHint>{t('empty.overview')}</EmptyHint>}
-          </div>
+          <div className="min-h-0 overflow-y-auto">{overview}</div>
         </Panel>
       </main>
     </div>

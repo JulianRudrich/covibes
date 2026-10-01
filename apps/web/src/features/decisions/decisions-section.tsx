@@ -1,0 +1,316 @@
+import { REOPEN_REASON_MAX_LENGTH, type Decision, type DecisionLogEntry } from '@covibes/shared';
+import { Check } from 'lucide-react';
+import { useId, useState, type SubmitEvent } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+
+import { Button } from '@web/components/ui/button';
+import { Dialog, DialogClose, DialogContent } from '@web/components/ui/dialog';
+import { Label } from '@web/components/ui/input';
+import { formatLongDate, formatRelativeTime } from '@web/lib/format';
+
+type DecisionsSectionProps = {
+  decisions: readonly Decision[];
+  /** The decision log, loaded once the dialog opens; undefined while it loads. */
+  log: readonly DecisionLogEntry[] | undefined;
+  onOpenLog: () => void;
+  /** Owners and editors reopen a decision with a reason; viewers only read. */
+  onReopen?: (decision: Decision, reason: string) => void;
+};
+
+const BOLD = { b: <strong className="font-semibold text-text" /> };
+
+/** Handoff "Decisions": a green check circle when decided, a dashed ring while open. */
+function StatusSymbol({ decided }: { decided: boolean }) {
+  return decided ? (
+    <span
+      aria-hidden="true"
+      className="grid size-5 shrink-0 place-items-center rounded-full bg-success-bg text-success"
+    >
+      <Check size={11} strokeWidth={3.2} />
+    </span>
+  ) : (
+    <span
+      aria-hidden="true"
+      className="size-5 shrink-0 rounded-full border-[1.5px] border-dashed border-text-5"
+    />
+  );
+}
+
+/**
+ * "Entscheidungen" in the overview (handoff, section 4; spec 16a): every topic with its value,
+ * decided or open. A row opens the decision with its reasoning and the discarded alternatives,
+ * where owners and editors reopen it; "Protokoll" opens the decision log (derived looks).
+ */
+export function DecisionsSection({ decisions, log, onOpenLog, onReopen }: DecisionsSectionProps) {
+  const { t } = useTranslation();
+  const titleId = useId();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [logOpen, setLogOpen] = useState(false);
+  // The decision may change or disappear while its dialog is open.
+  const open = decisions.find((decision) => decision.id === openId);
+
+  return (
+    <section
+      aria-labelledby={titleId}
+      className="flex flex-col gap-1 border-b border-border-subtle p-4"
+    >
+      <div className="mb-1.5 flex items-center justify-between">
+        <h3 id={titleId} className="m-0 text-ui font-semibold text-text">
+          {t('decisions.title')}
+        </h3>
+        <button
+          type="button"
+          className="cursor-pointer rounded-xs text-meta text-text-3 underline-offset-2 hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-ink"
+          onClick={() => {
+            setLogOpen(true);
+            onOpenLog();
+          }}
+        >
+          {t('decisions.log')}
+        </button>
+      </div>
+
+      {decisions.length === 0 ? (
+        <p className="m-0 text-small text-text-3">{t('decisions.empty')}</p>
+      ) : (
+        <ul className="m-0 list-none p-0">
+          {decisions.map((decision, index) => {
+            const decided = decision.status === 'decided';
+            return (
+              <li key={decision.id} className={index > 0 ? 'border-t border-divider-row' : ''}>
+                <button
+                  type="button"
+                  className="-mx-1.5 flex w-[calc(100%+12px)] cursor-pointer items-center gap-2.5 rounded-sm px-1.5 py-2 text-left hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-ink"
+                  onClick={() => {
+                    setOpenId(decision.id);
+                  }}
+                >
+                  <StatusSymbol decided={decided} />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-meta text-text-3">{decision.topic}</span>
+                    <span
+                      className={
+                        decided
+                          ? 'truncate text-body font-medium text-text'
+                          : 'truncate text-body font-medium text-text-2'
+                      }
+                    >
+                      {decided ? decision.value : t('decisions.notDecided')}
+                    </span>
+                  </span>
+                  {decided ? null : (
+                    <span className="flex h-5 shrink-0 items-center rounded-sm bg-bg-subtle px-[7px] text-badge font-medium text-text-2">
+                      {t('decisions.open')}
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <Dialog
+        open={open !== undefined}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setOpenId(null);
+        }}
+      >
+        {open ? (
+          <DecisionDialog
+            decision={open}
+            onReopen={
+              onReopen
+                ? (reason) => {
+                    onReopen(open, reason);
+                    setOpenId(null);
+                  }
+                : undefined
+            }
+          />
+        ) : null}
+      </Dialog>
+
+      <Dialog open={logOpen} onOpenChange={setLogOpen}>
+        {logOpen ? <DecisionLogDialog log={log} /> : null}
+      </Dialog>
+    </section>
+  );
+}
+
+/** One decision with reasoning and alternatives; owners and editors reopen it with a reason. */
+function DecisionDialog({
+  decision,
+  onReopen,
+}: {
+  decision: Decision;
+  onReopen?: (reason: string) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const reasonId = useId();
+  const [reopening, setReopening] = useState(false);
+  const [reason, setReason] = useState('');
+  const decided = decision.status === 'decided';
+
+  function submit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (onReopen && reason.trim() !== '') onReopen(reason.trim());
+  }
+
+  return (
+    <DialogContent title={decision.topic}>
+      <div className="flex flex-col gap-3 text-ui text-text-body">
+        <div className="flex items-center gap-2.5">
+          <StatusSymbol decided={decided} />
+          <span className="text-title font-semibold text-text">
+            {decided ? decision.value : t('decisions.notDecided')}
+          </span>
+        </div>
+        {decided && decision.decidedAt ? (
+          <p className="m-0 text-small text-text-3">
+            {decision.decidedBy
+              ? t('decisions.confirmedBy', {
+                  name: decision.decidedBy,
+                  date: formatLongDate(decision.decidedAt, i18n.language),
+                })
+              : formatLongDate(decision.decidedAt, i18n.language)}
+          </p>
+        ) : null}
+        {decision.reopenReason ? (
+          <p className="m-0">
+            <Trans
+              i18nKey="decisions.reopenedBecause"
+              values={{ reason: decision.reopenReason }}
+              components={BOLD}
+            />
+          </p>
+        ) : null}
+        {decision.reasoning ? <p className="m-0 leading-normal">{decision.reasoning}</p> : null}
+        {decision.alternatives.length > 0 ? (
+          <div>
+            <h4 className="m-0 mb-1 text-small font-medium text-text-2">
+              {t('decisions.alternatives')}
+            </h4>
+            <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+              {decision.alternatives.map((alternative) => (
+                <li key={alternative.name}>
+                  <strong className="font-semibold text-text">{alternative.name}</strong>
+                  {alternative.note ? ` – ${alternative.note}` : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {reopening ? (
+          <form
+            onSubmit={submit}
+            className="flex flex-col gap-2 border-t border-border-subtle pt-3"
+          >
+            <Label htmlFor={reasonId}>{t('decisions.reopenReason')}</Label>
+            <textarea
+              id={reasonId}
+              value={reason}
+              maxLength={REOPEN_REASON_MAX_LENGTH}
+              rows={3}
+              required
+              className="w-full resize-none rounded-md border border-border-strong bg-bg-panel px-3 py-2 text-ui text-text focus-visible:border-ink focus-visible:outline-none"
+              onChange={(event) => {
+                setReason(event.target.value);
+              }}
+            />
+            <p className="m-0 text-small text-text-3">{t('decisions.reopenHint')}</p>
+            <div className="mt-1 flex justify-end gap-2">
+              <Button
+                onClick={() => {
+                  setReopening(false);
+                }}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" variant="primary" disabled={reason.trim() === ''}>
+                {t('decisions.reopen')}
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className="mt-1 flex justify-end gap-2">
+            {decided && onReopen ? (
+              <Button
+                onClick={() => {
+                  setReopening(true);
+                }}
+              >
+                {t('decisions.reopen')}
+              </Button>
+            ) : null}
+            <DialogClose asChild>
+              <Button variant="primary">{t('common.close')}</Button>
+            </DialogClose>
+          </div>
+        )}
+      </div>
+    </DialogContent>
+  );
+}
+
+/** The decision log, newest first: decisions, reopenings and changes of the criteria. */
+function DecisionLogDialog({ log }: { log: readonly DecisionLogEntry[] | undefined }) {
+  const { t, i18n } = useTranslation();
+
+  return (
+    <DialogContent title={t('decisions.logTitle')} className="w-[min(560px,calc(100vw-32px))]">
+      {log === undefined ? (
+        <p className="m-0 text-ui text-text-3">{t('common.loading')}</p>
+      ) : log.length === 0 ? (
+        <p className="m-0 text-ui text-text-3">{t('decisions.logEmpty')}</p>
+      ) : (
+        <ol className="m-0 flex max-h-[min(60vh,520px)] list-none flex-col gap-3 overflow-y-auto p-0 pr-1">
+          {log.map((entry) => {
+            const by = [entry.user, entry.agentKey ? t(`agents.${entry.agentKey}`) : null].filter(
+              (name) => name !== null,
+            );
+            return (
+              <li key={entry.id} className="flex flex-col gap-0.5 text-ui text-text-body">
+                <span className="leading-snug">
+                  <Trans
+                    i18nKey={`decisions.entry.${entry.kind}`}
+                    values={{
+                      topic: entry.topic ?? '',
+                      value: entry.value ?? '',
+                      previous: entry.previous ?? '',
+                    }}
+                    components={BOLD}
+                  />
+                </span>
+                {entry.reason ? (
+                  <span className="text-small text-text-2">
+                    {t('decisions.reason', { reason: entry.reason })}
+                  </span>
+                ) : null}
+                {entry.kind === 'decided' && entry.reasoning ? (
+                  <span className="text-small text-text-2">{entry.reasoning}</span>
+                ) : null}
+                {entry.kind === 'decided' && entry.alternatives && entry.alternatives.length > 0 ? (
+                  <span className="text-small text-text-2">
+                    {t('decisions.discarded', {
+                      names: entry.alternatives.map((alternative) => alternative.name).join(', '),
+                    })}
+                  </span>
+                ) : null}
+                <span className="text-meta text-text-3">
+                  {[...by, formatRelativeTime(entry.createdAt, i18n.language)].join(' · ')}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+      <div className="mt-4 flex justify-end">
+        <DialogClose asChild>
+          <Button variant="primary">{t('common.close')}</Button>
+        </DialogClose>
+      </div>
+    </DialogContent>
+  );
+}

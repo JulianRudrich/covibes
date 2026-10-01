@@ -145,6 +145,10 @@ During development Vite forwards `/api` to the server. Web app and API therefore
 - **Catalog (spec 14):** the moderator and nine specialists, defined in `apps/server/src/agents/catalog.ts`. Every agent's instructions are its role file followed by `prompts/common.md` with the rules all agents share (canvas, proposals, language, safety), so no role can drop them.
 - **Team per project** (`project_agents`): a new project starts with the moderator, which cannot be removed. Owners and editors add and remove specialists, owners choose each agent's model (Opus 5.5 by default). Only agents of the team answer a mention.
 - **Moderator:** a catalog agent with additional rights. It asks for criteria, records decisions, brings in specialists (`add_agents`, through the rule engine) and leads debates.
+- **Criteria and decisions (spec 16a):**
+  - Every agent's context lists the criteria and the decisions. The moderator records criteria the team states (`update_criteria`, directly) and decisions (`record_decision`, through the rule engine): directly on an instruction or an accepted consensus offer, confirmed by the person who asked; otherwise as a proposal of the kind `decision` that an owner or editor confirms.
+  - Triggers on `criteria` and `decisions` write every change to `decision_log` and announce it on the live channel, so no path can skip the log.
+  - Reopening a decision keeps the old one in the log and queues a moderator run that starts a new round.
 - **Intent:** at the start of every run the agent runner determines the intent of the triggering message: instruction or question. A small model with fixed instructions classifies it next to the agent's reply; if it fails, the message counts as a question. It passes the intent to the rule engine. Observer runs always count as own initiative.
 - **Observer job:** it reads the new messages since its last run and decides to:
   - offer help, on consensus or when the team is stuck
@@ -218,7 +222,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `agents`, `project_agents` | agent definitions, team per project |
 | `hand_raises`, `offers` | raised hands (open, heard, dismissed); the moderator's offers of help (open, accepted, declined) |
 | `proposals` | proposals: canvas change, variant, plan update, Git action |
-| `decisions`, `criteria` | decision log with comparison, alternatives, approval and history; project criteria |
+| `decisions`, `criteria`, `decision_log` | decisions per topic with reasoning, alternatives and who confirmed; project criteria; the log of every decision, reopening and change of the criteria |
 | `tasks` | tasks with milestone, assignee, spec reference and GitLab issue |
 | `git_connections`, `oauth_tokens`, `git_actions` | GitLab connection, tokens (encrypted), audit log |
 | `notifications` | in-app notifications and "Waiting for you" |

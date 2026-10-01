@@ -28,6 +28,11 @@ import { MAX_DELTA_LENGTH, notifyLive } from '@server/realtime/notifications';
 import type { Intent } from '@server/rules/decide';
 import { classifyIntent } from '@server/rules/intent';
 import { describeOperations, loadOpenProposals, openRunProposal } from '@server/tasks/run-proposal';
+import {
+  decisionWriter,
+  loadDecisionContext,
+  type DecisionContext,
+} from '@server/tasks/run-decisions';
 import { loadTeam, teamWriter, type TeamContext } from '@server/tasks/run-team';
 import { addAgentsTool } from '@server/tools/add-agents';
 import { addBlockTool } from '@server/tools/add-block';
@@ -35,6 +40,7 @@ import { addFrameTool } from '@server/tools/add-frame';
 import { addNoteTool } from '@server/tools/add-note';
 import { arrangeFrameTool } from '@server/tools/arrange-frame';
 import { connectBlocksTool } from '@server/tools/connect-blocks';
+import { recordDecisionTool, updateCriteriaTool } from '@server/tools/decision-tools';
 import { describePosition, type CanvasToolOptions } from '@server/tools/placement';
 import { updateBlockTool } from '@server/tools/update-block';
 
@@ -141,18 +147,56 @@ type Run = {
 };
 
 /**
- * What a run answers besides a message that mentions the agent (spec 15): its own raised hand that
- * someone listened to, or the moderator's offer of help that someone accepted.
+ * What a run answers besides a message that mentions the agent: its own raised hand that someone
+ * listened to, the moderator's offer of help that someone accepted (spec 15), or a decision that
+ * someone reopened (spec 16a).
  */
 export type Occasion =
   | { kind: 'hand'; reason: string; by: string }
-  | { kind: 'offer'; offer: string; task: string; by: string };
+  | { kind: 'offer'; offer: string; task: string; by: string }
+  | { kind: 'reopen'; topic: string; previous: string; reason: string; by: string };
 
-/** The raised hand or accepted offer that started a run, and the message its reply answers. */
+/**
+ * What started a run besides a mention, the message its reply answers, and the person on whose
+ * behalf the run acts (who accepted the offer), if any.
+ */
 async function loadOccasion(
   admin: Kysely<DB>,
-  row: { trigger_message_id: string | null; hand_raise_id: string | null; offer_id: string | null },
-): Promise<{ occasion: Occasion | null; replyTo: string | null }> {
+  row: {
+    trigger_message_id: string | null;
+    hand_raise_id: string | null;
+    offer_id: string | null;
+    decision_id: string | null;
+  },
+): Promise<{ occasion: Occasion | null; replyTo: string | null; actorUserId?: string | null }> {
+  if (row.decision_id) {
+    const decision = await admin
+      .selectFrom('decisions')
+      .leftJoin('users', 'users.id', 'decisions.reopened_by')
+      .select(['decisions.topic', 'decisions.reopen_reason', 'users.name'])
+      .where('decisions.id', '=', row.decision_id)
+      .executeTakeFirst();
+    // The value that was reopened is in the log; the decision itself is open again.
+    const reopened = await admin
+      .selectFrom('decision_log')
+      .select('value')
+      .where('decision_id', '=', row.decision_id)
+      .where('kind', '=', 'reopened')
+      .orderBy('created_at', 'desc')
+      .executeTakeFirst();
+    if (decision) {
+      return {
+        occasion: {
+          kind: 'reopen',
+          topic: decision.topic,
+          previous: reopened?.value ?? '',
+          reason: decision.reopen_reason ?? '',
+          by: decision.name ?? 'Someone',
+        },
+        replyTo: null,
+      };
+    }
+  }
   if (row.hand_raise_id) {
     const hand = await admin
       .selectFrom('hand_raises')
@@ -172,7 +216,13 @@ async function loadOccasion(
       .selectFrom('offers')
       .innerJoin('messages', 'messages.id', 'offers.message_id')
       .leftJoin('users', 'users.id', 'offers.decided_by')
-      .select(['offers.task', 'offers.message_id', 'messages.content', 'users.name'])
+      .select([
+        'offers.task',
+        'offers.message_id',
+        'offers.decided_by',
+        'messages.content',
+        'users.name',
+      ])
       .where('offers.id', '=', row.offer_id)
       .executeTakeFirst();
     if (offer) {
@@ -184,6 +234,7 @@ async function loadOccasion(
           by: offer.name ?? 'Someone',
         },
         replyTo: offer.message_id,
+        actorUserId: offer.decided_by,
       };
     }
   }
@@ -215,6 +266,7 @@ export async function runAgentTurn(
       'reply_message_id',
       'hand_raise_id',
       'offer_id',
+      'decision_id',
     ])
     .where('id', '=', runId)
     .where('kind', '=', 'reply')
@@ -222,7 +274,7 @@ export async function runAgentTurn(
   // Gone with its project, or finished: nothing to do.
   if (!row || row.status === 'done' || row.status === 'error') return;
 
-  const { occasion, replyTo } = await loadOccasion(deps.admin, row);
+  const { occasion, replyTo, actorUserId } = await loadOccasion(deps.admin, row);
   const run: Run = {
     id: row.id,
     projectId: row.project_id,
@@ -255,6 +307,12 @@ export async function runAgentTurn(
   const language: Language = project.language === 'en' ? 'en' : 'de';
   const settings = projectSettingsSchema.safeParse(project.settings);
   const proposalsOnly = settings.success && settings.data.proposalsOnly === true;
+  const decisions = await loadDecisionContext(deps.admin, run.projectId);
+  // On its first use the moderator asks for the project criteria, once (spec 16a).
+  const askForCriteria =
+    agent.tools.includes('update_criteria') &&
+    decisions.criteria.length === 0 &&
+    !(settings.success && settings.data.criteriaAsked === true);
 
   const messageId = await startRun(deps.admin, run, agent);
   try {
@@ -267,6 +325,9 @@ export async function runAgentTurn(
         model: member.model ?? agent.model,
         team,
         occasion,
+        actorUserId: actorUserId ?? null,
+        decisions,
+        askForCriteria,
         projectName: project.name,
         messageId,
         proposalsOnly,
@@ -274,6 +335,13 @@ export async function runAgentTurn(
       attempt,
     );
     await finishRun(deps.admin, run, messageId, result, NOTES[language].done);
+    if (askForCriteria) {
+      await deps.admin
+        .updateTable('projects')
+        .set({ settings: sql`settings || '{"criteriaAsked": true}'::jsonb` })
+        .where('id', '=', run.projectId)
+        .execute();
+    }
   } catch (error) {
     // Neither a missing setup nor a used-up quota gets better by retrying in a few seconds.
     const final =
@@ -354,6 +422,10 @@ async function converse(
     model: string;
     team: TeamContext;
     occasion: Occasion | null;
+    /** The person who accepted the offer the run does, if it does one. */
+    actorUserId: string | null;
+    decisions: DecisionContext;
+    askForCriteria: boolean;
     projectName: string;
     messageId: string;
     proposalsOnly: boolean;
@@ -382,7 +454,8 @@ async function converse(
   // The rule engine needs the intent of the message (spec 13). It is classified next to the
   // agent's reply, so the reply does not wait; the first canvas tool does.
   // A raised hand is the agent's own initiative; accepting an offer is an instruction of the
-  // person who accepted it (spec 15). Neither needs a classification.
+  // person who accepted it (spec 15); a reopened decision asks for a new round, not for changes
+  // (spec 16a). None of them needs a classification.
   const given = (intent: Intent) =>
     Promise.resolve({ intent, costUsd: 0, inputTokens: 0, outputTokens: 0 });
   const intent =
@@ -390,9 +463,11 @@ async function converse(
       ? given('initiative')
       : turn.occasion?.kind === 'offer'
         ? given('instruction')
-        : conversation.request
-          ? classifyIntent(deps.complete, conversation.request.content, attempt.signal)
-          : given('question');
+        : turn.occasion?.kind === 'reopen'
+          ? given('question')
+          : conversation.request
+            ? classifyIntent(deps.complete, conversation.request.content, attempt.signal)
+            : given('question');
 
   const rules = {
     intent: intent.then((result) => result.intent),
@@ -427,6 +502,23 @@ async function converse(
     });
     tools.push(addAgentsTool({ team, rules }));
   }
+  if (agent.tools.includes('update_criteria') || agent.tools.includes('record_decision')) {
+    const writer = decisionWriter(deps.admin, {
+      id: run.id,
+      projectId: run.projectId,
+      agentKey: agent.key,
+    });
+    if (agent.tools.includes('update_criteria')) {
+      tools.push(updateCriteriaTool({ decisions: writer }));
+    }
+    if (agent.tools.includes('record_decision')) {
+      // A decision recorded directly is confirmed by whoever asked for it: the person who
+      // accepted the offer, or the author of the message.
+      const author = conversation.request?.author;
+      const actorUserId = turn.actorUserId ?? (author?.kind === 'human' ? author.userId : null);
+      tools.push(recordDecisionTool({ decisions: writer, rules, actorUserId }));
+    }
+  }
 
   const deltas = createDeltaStream(deps.flushMs ?? FLUSH_MS, async (text) => {
     try {
@@ -453,6 +545,11 @@ async function converse(
         proposals,
         ...conversation,
         occasion: turn.occasion,
+        decisions: {
+          ...turn.decisions,
+          withIds: agent.tools.includes('update_criteria'),
+          askForCriteria: turn.askForCriteria,
+        },
       }),
       tools,
       onText: deltas.push,
@@ -503,7 +600,7 @@ function authorName(message: ChatMessage): string {
 
 /** Chat text is data: it must not close the sections the prompt is built from. */
 function asData(text: string): string {
-  return text.replace(/<(\/?)(team|canvas|chat|request)>/gi, '‹$1$2›');
+  return text.replace(/<(\/?)(team|criteria|decisions|canvas|chat|request)>/gi, '‹$1$2›');
 }
 
 /**
@@ -609,6 +706,33 @@ function describeCanvas(
   return lines.join('\n');
 }
 
+/** The project's criteria and decisions (spec 16a), which every agent assesses by. */
+function describeDecisions(
+  context: DecisionContext & { withIds?: boolean },
+): [criteria: string, decisions: string] {
+  const criteria =
+    context.criteria.length > 0
+      ? context.criteria
+          .map((criterion) => `- ${criterion.text}${context.withIds ? `, id ${criterion.id}` : ''}`)
+          .join('\n')
+      : 'The team has stated no criteria yet.';
+  const lines = [
+    ...context.decisions.map((decision) =>
+      decision.status === 'decided'
+        ? `- ${decision.topic}: ${decision.value ?? ''}${decision.reasoning ? ` (${decision.reasoning})` : ''}`
+        : `- ${decision.topic}: open, not decided yet`,
+    ),
+    ...context.pending.map(
+      (operation) => `- ${operation.topic}: ${operation.value} (waits for confirmation)`,
+    ),
+  ];
+  const decisions = lines.length > 0 ? lines.join('\n') : 'Nothing is decided yet.';
+  return [
+    `<criteria>\n${asData(criteria)}\n</criteria>`,
+    `<decisions>\n${asData(decisions)}\n</decisions>`,
+  ];
+}
+
 /**
  * The turn's context as one text: the canvas, the conversation and the message to answer. The
  * agent's instructions come separately as the system prompt, so prompt caching applies to them.
@@ -626,6 +750,8 @@ export function buildPrompt(context: {
   request: ChatMessage | undefined;
   /** A raised hand or an accepted offer, which the reply answers instead of a message. */
   occasion?: Occasion | null;
+  /** Criteria and decisions (spec 16a); `withIds` for the agent that maintains the criteria. */
+  decisions?: DecisionContext & { withIds?: boolean; askForCriteria?: boolean };
 }): string {
   const proposals = context.proposals ?? [];
   const canvas = [
@@ -649,15 +775,20 @@ export function buildPrompt(context: {
       ? `Earlier you raised your hand in this chat for this point:\n<request>\n${asData(occasion.reason)}\n</request>\n${asData(occasion.by)} asked you to speak now. Make your point briefly and concretely, in the language of the conversation, without a greeting.`
       : occasion?.kind === 'offer'
         ? `You offered the team your help:\n<request>\n${asData(occasion.offer)}\n</request>\n${asData(occasion.by)} accepted the offer. Do it now: ${asData(occasion.task)}`
-        : context.request
-          ? `Answer this message from ${authorName(context.request)}:\n<request>\n${asData(context.request.content)}\n</request>`
-          : 'The message addressed to you was removed. Answer the latest message in the chat.';
+        : occasion?.kind === 'reopen'
+          ? `${asData(occasion.by)} reopened the decision "${asData(occasion.topic)}" (it was: ${asData(occasion.previous)}) for this reason:\n<request>\n${asData(occasion.reason)}\n</request>\nStart a new round in the language of the conversation: say in one sentence what was decided and why it is open again, then ask the team what speaks for and against now. Do not decide it yourself.`
+          : context.request
+            ? `Answer this message from ${authorName(context.request)}:\n<request>\n${asData(context.request.content)}\n</request>`
+            : 'The message addressed to you was removed. Answer the latest message in the chat.';
   return [
     `Project: ${asData(context.projectName)}`,
     ...(context.team ? [`<team>\n${describeTeam(context.team)}\n</team>`] : []),
+    ...(context.decisions ? describeDecisions(context.decisions) : []),
     `<canvas>\n${asData(canvas)}\n</canvas>`,
     `<chat>\n${asData(chat)}\n</chat>`,
-    request,
+    context.decisions?.askForCriteria
+      ? `${request}\n\nThe project has no criteria yet and you have not asked for them. After your answer, ask the team once for its goals, budget, time, know-how and priorities, and to answer with @Moderator.`
+      : request,
   ].join('\n\n');
 }
 

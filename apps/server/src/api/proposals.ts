@@ -3,6 +3,7 @@ import {
   applyOperations,
   canvasOperationSchema,
   changedNodeIds,
+  decisionOperationSchema,
   proposalSchema,
   projectIdSchema,
   type ApiErrorCode,
@@ -14,6 +15,7 @@ import { sql, type Transaction } from 'kysely';
 import { z } from 'zod';
 
 import { apiError } from '@server/api/errors';
+import { functionError } from '@server/api/hands';
 import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
 import { isAgentKey } from '@server/chat/rows';
@@ -177,6 +179,10 @@ export function proposalRoutes(
       if (error instanceof BeingEdited) {
         return { ok: false, code: 'being_edited', detail: error.editor };
       }
+      // A decision whose topic was decided in the meantime (spec 16a); the proposal stays open.
+      if (functionError(error) === 'already_decided') {
+        return { ok: false, code: 'already_decided' };
+      }
       throw error;
     }
   }
@@ -199,6 +205,17 @@ export function proposalRoutes(
           .returning('agent_key')
           .execute();
         return { applied: added.length, skipped: keys.length - added.length };
+      }
+      // A decision proposal (spec 16a) is confirmed: the person who applies it decided.
+      if (row.kind === 'decision') {
+        const decisions = z.array(decisionOperationSchema).parse(row.operations);
+        for (const decision of decisions) {
+          await sql`select public.record_decision(
+            ${row.project_id}, ${decision.topic}, ${decision.value}, ${decision.reasoning},
+            ${JSON.stringify(decision.alternatives)}::jsonb, ${row.agent_key}
+          )`.execute(trx);
+        }
+        return { applied: decisions.length, skipped: 0 };
       }
       const operations = z.array(canvasOperationSchema).parse(row.operations);
       if (!isAgentKey(row.agent_key)) throw new Error(`Unknown agent ${row.agent_key}`);

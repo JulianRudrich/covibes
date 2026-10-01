@@ -76,6 +76,7 @@ export type AiRun = z.infer<typeof aiRunSchema>;
  * - `proposals`: an agent proposed something, or a proposal was applied or rejected (spec 13)
  * - `project`: the project's settings or team changed, e.g. the proposals-only mode
  * - `hands`: an agent raised a hand, or someone listened to it or dismissed it (spec 15)
+ * - `decisions`: a decision or the criteria changed (spec 16a); both and the log are loaded again
  */
 export const liveEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('message'), message: chatMessageSchema }),
@@ -85,5 +86,6 @@ export const liveEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('proposals') }),
   z.object({ type: z.literal('project') }),
   z.object({ type: z.literal('hands') }),
+  z.object({ type: z.literal('decisions') }),
 ]);
 export type LiveEvent = z.infer<typeof liveEventSchema>;

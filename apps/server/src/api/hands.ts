@@ -24,14 +24,14 @@ function membership(trx: Transaction<DB>, projectId: string, userId: string) {
     .executeTakeFirst();
 }
 
-/** SQLSTATEs of the deciding functions (migration 0008) and what they mean for the API. */
+/** SQLSTATEs of the deciding functions (migrations 0008 and 0009) and what they mean for the API. */
 const FUNCTION_ERRORS: Readonly<Record<string, ApiErrorCode>> = {
   P0002: 'not_found',
   '42501': 'forbidden',
   '55000': 'already_decided',
 };
 
-function functionError(error: unknown): ApiErrorCode | undefined {
+export function functionError(error: unknown): ApiErrorCode | undefined {
   const code = (error as { code?: unknown } | null)?.code;
   return typeof code === 'string' ? FUNCTION_ERRORS[code] : undefined;
 }

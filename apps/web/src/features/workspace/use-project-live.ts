@@ -3,6 +3,11 @@ import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { applyLiveEvent } from '@web/features/chat/queries';
 import { runsQueryKey } from '@web/features/chat/runs';
 import { messagesQueryKey } from '@web/features/chat/types';
+import {
+  criteriaQueryKey,
+  decisionLogQueryKey,
+  decisionsQueryKey,
+} from '@web/features/decisions/queries';
 import { handsQueryKey } from '@web/features/hands/queries';
 import { projectQuery } from '@web/features/projects/queries';
 import { proposalsQueryKey } from '@web/features/proposals/queries';
@@ -26,6 +31,15 @@ export function useProjectLive(projectId: string) {
       .then(() => queryClient.invalidateQueries({ queryKey, exact: true }));
   }
 
+  function reloadDecisions() {
+    reload(criteriaQueryKey(projectId));
+    reload(decisionsQueryKey(projectId));
+    // The log is only loaded once its dialog opened.
+    if (queryClient.getQueryState(decisionLogQueryKey(projectId))) {
+      reload(decisionLogQueryKey(projectId));
+    }
+  }
+
   useLiveChannel(projectId, {
     onEvent: (event) => {
       if (event.type === 'boards' || event.type === 'project') {
@@ -34,6 +48,8 @@ export function useProjectLive(projectId: string) {
         reload(proposalsQueryKey(projectId));
       } else if (event.type === 'hands') {
         reload(handsQueryKey(projectId));
+      } else if (event.type === 'decisions') {
+        reloadDecisions();
       } else {
         applyLiveEvent(queryClient, projectId, event);
       }
@@ -44,6 +60,7 @@ export function useProjectLive(projectId: string) {
       reload(projectQuery(projectId).queryKey);
       reload(proposalsQueryKey(projectId));
       reload(handsQueryKey(projectId));
+      reloadDecisions();
     },
   });
 }

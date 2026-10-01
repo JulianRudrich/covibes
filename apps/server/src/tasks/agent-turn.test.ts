@@ -297,6 +297,8 @@ describe('agent turn', () => {
       'add_frame',
       'arrange_frame',
       'add_agents',
+      'update_criteria',
+      'record_decision',
     ]);
     expect(call?.prompt).toContain(
       "<team>\nThe agents of this project's team; only they answer when someone mentions them:\n- Moderator, key moderator: neutral moderation",
@@ -305,7 +307,10 @@ describe('agent turn', () => {
       `<canvas>\n- block "Web-App" (React), type app at 100, 200, id ${blockId}, Sam is editing it\n</canvas>`,
     );
     expect(call?.prompt).toMatch(/<chat>\n.+: Wir brauchen eine API\.\n.+: @Moderator, was fehlt/);
-    expect(call?.prompt).toMatch(/<request>\n@Moderator, was fehlt noch\?\n<\/request>$/);
+    // The request comes last; on the first use the question for the criteria follows it.
+    expect(call?.prompt).toMatch(
+      /<request>\n@Moderator, was fehlt noch\?\n<\/request>\n\nThe project has no criteria yet[^\n]+$/,
+    );
   });
 
   it('does not run a finished run again', async () => {
@@ -792,6 +797,250 @@ describe('raised hands and offers (spec 15)', () => {
     expect(readNodes(doc(boardId))).toMatchObject([{ label: 'API' }]);
     expect(await proposalsOf(run.id)).toEqual([]);
     expect(await reply(run.id)).toMatchObject({ replyTo: message.id });
+  });
+});
+
+describe('criteria and decisions (spec 16a)', () => {
+  function settingsOf(projectId: string) {
+    return test.db.admin
+      .selectFrom('projects')
+      .select('settings')
+      .where('id', '=', projectId)
+      .executeTakeFirstOrThrow()
+      .then((row) => row.settings as Record<string, unknown>);
+  }
+
+  it('asks for the criteria on the first use only', async () => {
+    const { projectId, request } = await createProject();
+    const first = await request('@Moderator hallo');
+    const { boards } = memoryBoards();
+    const { deps, reply: model } = turnDeps(() => Promise.resolve(result('Hallo.')), boards);
+
+    await runAgentTurn(deps, { runId: first.runId }, FIRST_ATTEMPT);
+
+    const ask = 'The project has no criteria yet and you have not asked for them.';
+    expect(model.mock.calls[0]?.[0].prompt).toContain(ask);
+    expect(model.mock.calls[0]?.[0].prompt).toContain(
+      '<criteria>\nThe team has stated no criteria yet.\n</criteria>\n\n<decisions>\nNothing is decided yet.\n</decisions>',
+    );
+    expect(await settingsOf(projectId)).toMatchObject({ criteriaAsked: true });
+
+    const second = await request('@Moderator und jetzt?');
+    await runAgentTurn(deps, { runId: second.runId }, FIRST_ATTEMPT);
+    expect(model.mock.calls[1]?.[0].prompt).not.toContain(ask);
+  });
+
+  it('records the criteria the team states, in the name of the moderator', async () => {
+    const { projectId, request } = await createProject();
+    const { runId } = await request('@Moderator Ziel: MVP in drei Monaten, Hosting in der EU');
+    const { boards } = memoryBoards();
+    const recordsCriteria: Model = async (call) => {
+      const tool = call.tools.find((entry) => entry.name === 'update_criteria');
+      if (!tool) throw new Error('update_criteria is missing');
+      return result(await tool.run({ add: ['MVP in 3 Monaten', 'EU-Hosting'] }));
+    };
+    const { deps } = turnDeps(recordsCriteria, boards, 'question');
+
+    await runAgentTurn(deps, { runId }, FIRST_ATTEMPT);
+
+    const criteria = await test.db.admin
+      .selectFrom('criteria')
+      .select(['text', 'created_by_agent'])
+      .where('project_id', '=', projectId)
+      .orderBy('text')
+      .execute();
+    expect(criteria).toEqual([
+      { text: 'EU-Hosting', created_by_agent: 'moderator' },
+      { text: 'MVP in 3 Monaten', created_by_agent: 'moderator' },
+    ]);
+    const log = await test.db.admin
+      .selectFrom('decision_log')
+      .select(['kind', 'actor_agent'])
+      .where('project_id', '=', projectId)
+      .execute();
+    expect(log).toEqual([
+      { kind: 'criterion_added', actor_agent: 'moderator' },
+      { kind: 'criterion_added', actor_agent: 'moderator' },
+    ]);
+  });
+
+  /** The moderator records a decision with record_decision, like Claude would. */
+  const recordsDecision: Model = async (call) => {
+    const tool = call.tools.find((entry) => entry.name === 'record_decision');
+    if (!tool) throw new Error('record_decision is missing');
+    return result(
+      await tool.run({
+        topic: 'Canvas',
+        value: 'React Flow',
+        reasoning: 'MIT-Lizenz',
+        alternatives: [{ name: 'tldraw', note: 'Lizenz' }],
+      }),
+    );
+  };
+
+  function decisionsOf(projectId: string) {
+    return test.db.admin
+      .selectFrom('decisions')
+      .innerJoin('users', 'users.id', 'decisions.decided_by')
+      .select(['decisions.topic', 'decisions.status', 'decisions.value', 'users.email'])
+      .where('decisions.project_id', '=', projectId)
+      .execute();
+  }
+
+  it('records a decision directly on an instruction, confirmed by its author', async () => {
+    const { projectId, request } = await createProject();
+    const { runId } = await request('@Moderator halte fest: wir nehmen React Flow');
+    const { boards } = memoryBoards();
+    const { deps } = turnDeps(recordsDecision, boards, 'instruction');
+
+    await runAgentTurn(deps, { runId }, FIRST_ATTEMPT);
+
+    expect(await decisionsOf(projectId)).toMatchObject([
+      { topic: 'Canvas', status: 'decided', value: 'React Flow' },
+    ]);
+    expect(await proposalsOf(runId)).toEqual([]);
+    await until(() => eventsFor(projectId).some((event) => event.type === 'decisions'));
+
+    // The next turn sees the decision and the criteria of the project.
+    await test.db.admin
+      .insertInto('criteria')
+      .values({ project_id: projectId, text: 'Quality over cost' })
+      .execute();
+    const next = await request('@Moderator was ist entschieden?');
+    const again = turnDeps(() => Promise.resolve(result('React Flow.')), boards);
+    await runAgentTurn(again.deps, { runId: next.runId }, FIRST_ATTEMPT);
+    const prompt = again.reply.mock.calls[0]?.[0].prompt ?? '';
+    expect(prompt).toMatch(/<criteria>\n- Quality over cost, id [0-9a-f-]{36}\n<\/criteria>/);
+    expect(prompt).toContain('<decisions>\n- Canvas: React Flow (MIT-Lizenz)\n</decisions>');
+  });
+
+  it('records the decision of an accepted consensus offer, confirmed by who accepted', async () => {
+    const { projectId, send } = await createProject();
+    await send('Dann nehmen wir React Flow.');
+    const owner = await test.db.admin
+      .selectFrom('project_members')
+      .innerJoin('users', 'users.id', 'project_members.user_id')
+      .select(['users.id', 'users.email'])
+      .where('project_id', '=', projectId)
+      .executeTakeFirstOrThrow();
+    const message = await test.db.admin
+      .insertInto('messages')
+      .values({
+        project_id: projectId,
+        author_kind: 'agent',
+        author_agent_key: 'moderator',
+        content: 'Ihr seid euch einig. Soll ich die Entscheidung festhalten?',
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const offer = await test.db.admin
+      .insertInto('offers')
+      .values({
+        project_id: projectId,
+        message_id: message.id,
+        kind: 'consensus',
+        action: 'Ja, festhalten',
+        task: 'Record the decision: topic Canvas, value React Flow.',
+        status: 'accepted',
+        decided_at: new Date(),
+        decided_by: owner.id,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const run = await test.db.admin
+      .insertInto('ai_runs')
+      .values({ project_id: projectId, agent_key: 'moderator', offer_id: offer.id })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const { boards } = memoryBoards();
+    const { deps } = turnDeps(recordsDecision, boards, 'question');
+
+    await runAgentTurn(deps, { runId: run.id }, FIRST_ATTEMPT);
+
+    expect(await decisionsOf(projectId)).toEqual([
+      { topic: 'Canvas', status: 'decided', value: 'React Flow', email: owner.email },
+    ]);
+    expect(await proposalsOf(run.id)).toEqual([]);
+  });
+
+  it('lets a decision wait for confirmation when nobody asked to record it', async () => {
+    const { projectId, request } = await createProject();
+    const { runId } = await request('@Moderator sind wir uns bei React Flow einig?');
+    const { boards } = memoryBoards();
+    const { deps } = turnDeps(recordsDecision, boards, 'question');
+
+    await runAgentTurn(deps, { runId }, FIRST_ATTEMPT);
+
+    expect(await decisionsOf(projectId)).toEqual([]);
+    expect(await proposalsOf(runId)).toMatchObject([
+      {
+        kind: 'decision',
+        board_id: null,
+        reason: 'question',
+        operations: [{ op: 'decide', topic: 'Canvas', value: 'React Flow' }],
+      },
+    ]);
+    expect((await reply(runId)).content).toContain('It is not recorded until someone');
+
+    const next = await request('@Moderator und?');
+    const again = turnDeps(() => Promise.resolve(result('Wartet.')), boards);
+    await runAgentTurn(again.deps, { runId: next.runId }, FIRST_ATTEMPT);
+    expect(again.reply.mock.calls[0]?.[0].prompt).toContain(
+      '- Canvas: React Flow (waits for confirmation)',
+    );
+  });
+
+  it('starts a new round for a reopened decision, without changing anything itself', async () => {
+    const { projectId, boardId, send } = await createProject();
+    await send('Wir hatten React Flow gewählt.');
+    const owner = await test.db.admin
+      .selectFrom('project_members')
+      .innerJoin('users', 'users.id', 'project_members.user_id')
+      .select(['users.id', 'users.name'])
+      .where('project_id', '=', projectId)
+      .executeTakeFirstOrThrow();
+    const decision = await test.db.admin
+      .insertInto('decisions')
+      .values({
+        project_id: projectId,
+        topic: 'Canvas',
+        status: 'decided',
+        value: 'React Flow',
+        decided_by: owner.id,
+        decided_at: new Date(),
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    await test.db.admin
+      .updateTable('decisions')
+      .set({
+        status: 'open',
+        value: null,
+        decided_at: null,
+        decided_by: null,
+        reopen_reason: 'Die Lizenz hat sich geändert',
+        reopened_by: owner.id,
+      })
+      .where('id', '=', decision.id)
+      .execute();
+    const run = await test.db.admin
+      .insertInto('ai_runs')
+      .values({ project_id: projectId, agent_key: 'moderator', decision_id: decision.id })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const { boards, doc } = memoryBoards();
+    const { deps, reply: model, complete } = turnDeps(drawsApi, boards, 'instruction');
+
+    await runAgentTurn(deps, { runId: run.id }, FIRST_ATTEMPT);
+
+    expect(complete).not.toHaveBeenCalled();
+    expect(model.mock.calls[0]?.[0].prompt).toContain(
+      `${owner.name} reopened the decision "Canvas" (it was: React Flow) for this reason:\n<request>\nDie Lizenz hat sich geändert\n</request>\nStart a new round`,
+    );
+    // A new round asks; what the moderator draws on its own is a proposal.
+    expect(readNodes(doc(boardId))).toEqual([]);
+    expect(await proposalsOf(run.id)).toMatchObject([{ kind: 'canvas', reason: 'question' }]);
+    expect(await reply(run.id)).toMatchObject({ replyTo: null });
   });
 });
 

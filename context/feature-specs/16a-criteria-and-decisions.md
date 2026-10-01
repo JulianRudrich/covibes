@@ -62,11 +62,34 @@ Spec 16 is built in two parts. This part brings criteria, decisions and the log 
 - Packages: none new
 
 ## Checklist
-- [ ] On its first use the moderator asks for the criteria once; what the team states appears as chips in "Kriterien"; owners and editors change them there.
-- [ ] On an instruction or an accepted consensus offer the moderator records the decision directly; otherwise it waits under "Wartet auf dich" until someone confirms it.
-- [ ] Decisions show in the overview as in the handoff; the log lists decisions, reopenings and changes of the criteria with who and when.
-- [ ] Reopening with a reason opens the decision again, keeps the old one in the log and makes the moderator start a new round.
-- [ ] Viewers see everything but change nothing; changes appear live for everyone.
-- [ ] The derived looks were checked from screenshots and are listed in `ui-context.md`.
-- [ ] Tests for triggers, functions, tools, API and the agent turn pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] On its first use the moderator asks for the criteria once; what the team states appears as chips in "Kriterien"; owners and editors change them there.
+- [x] On an instruction or an accepted consensus offer the moderator records the decision directly; otherwise it waits under "Wartet auf dich" until someone confirms it.
+- [x] Decisions show in the overview as in the handoff; the log lists decisions, reopenings and changes of the criteria with who and when.
+- [x] Reopening with a reason opens the decision again, keeps the old one in the log and makes the moderator start a new round.
+- [x] Viewers see everything but change nothing; changes appear live for everyone.
+- [x] The derived looks were checked from screenshots and are listed in `ui-context.md`.
+- [x] Tests for triggers, functions, tools, API and the agent turn pass.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-10-01)
+- **The log is written by the database:** triggers on `criteria` and `decisions` insert the entries of `decision_log` and the trigger on the log announces `decisions` on the live channel. The API, the worker and the functions therefore neither log nor announce themselves. The log's time is the wall clock, so the entries of one transaction keep their order.
+- **Who acted:** a criterion carries who added it (a person or an agent). For changes and removals by the worker the transaction names the agent (`app.agent_key`); a decision carries who confirmed it and which agent recorded it.
+- **Deciding:** `private.decide` is the one place that records a decision. The worker calls it for an instruction with the author of the message (or the person who accepted the offer); `record_decision` calls it for an owner or editor who confirms a proposal. A decided topic raises an error there, so it can only change after reopening.
+- **Decision proposals:** one proposal per decision, so each is confirmed on its own. If the topic was decided in the meantime, confirming answers "already decided" and the proposal stays open to be rejected.
+- **First use:** the project remembers in its settings (`criteriaAsked`) that the moderator asked for the criteria, so it asks once even when the question has left the conversation window. As long as criteria exist it does not ask at all.
+- **Reopening:** `reopen_decision` clears value, reasoning and alternatives (the log keeps them), stores the reason on the decision and queues a moderator run with `decision_id`. That run counts as a question, so the moderator asks for arguments and anything it draws is a proposal.
+- **Criteria of the moderator** are inserted one after the other, so they keep the order the team stated them in.
+- **Web:**
+  - The overview always shows "Entscheidungen" and "Kriterien"; the hint for an empty overview is gone. Both sections load with the project and reload on the live event `decisions`; the log loads when its dialog opens.
+  - A row opens the decision with reasoning, alternatives and who confirmed it; owners and editors reopen it there. "Protokoll" opens the log.
+  - Criteria: a click on a chip edits it in place (Enter or leaving saves, Escape cancels, an emptied chip is removed), the "×" appears over the chip's end on hover, and the dashed chip "+" adds one.
+  - Decision proposals say "Entscheidung" and "Bestätigen", and their completed line reads "… bestätigt".
+- **Verified** with `pnpm dev` in a new project "Vereins-App":
+  - The first answer of the moderator ended with the question for goals, budget, time, know-how and priorities and asked to answer with `@Moderator`. The answer became six chips, e.g. "MVP in 3 Monaten", "EU-Hosting" and "Wenig Wartung".
+  - "Ich denke, wir nehmen PostgreSQL statt SQLite … Siehst du das auch so?" made the moderator weigh both by the criteria and propose "Datenbank: PostgreSQL"; "Bestätigen" put it into "Entscheidungen".
+  - "Halte bitte fest: Das Frontend bauen wir mit React, Vue haben wir verworfen …" was recorded directly, with Vue as the discarded alternative.
+  - Reopening "Frontend" with a reason showed it as open with the chip "offen"; the moderator named what was decided and why it is open again and asked for arguments by the criteria.
+  - The log listed all of it, newest first, and a criterion added by hand.
+  - The live test showed the criteria in a random order, because they had been inserted in one statement; fixed.
+  - Viewers and the limits are covered by the tests of the database, the API and the components.
+- **Known limits:** decisions cannot be recorded by hand without the moderator. The log shows its latest 200 entries. The other decision processes, the comparison card and the moderator's stance come with spec 16b.

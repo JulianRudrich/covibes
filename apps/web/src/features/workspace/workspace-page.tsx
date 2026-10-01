@@ -9,6 +9,7 @@ import { sessionQuery, type SessionUser } from '@web/features/auth/session';
 import { BoardTabs } from '@web/features/canvas/board-tabs';
 import { CanvasPanel } from '@web/features/canvas/canvas-panel';
 import { ChatPanel } from '@web/features/chat/chat-panel';
+import { DecisionsOverview } from '@web/features/decisions/decisions-overview';
 import { projectQuery, useUpdateProject } from '@web/features/projects/queries';
 import {
   decidedQueryKey,
@@ -216,16 +217,24 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
         ) : null
       }
       overview={
-        proposals.length > 0 || decided.length > 0 ? (
-          <WaitingForYou
-            proposals={proposals}
-            decided={decided}
-            canDecide={!readOnly}
-            onDecide={decide}
-            activeBoardId={activeBoard?.id ?? null}
-            onOpenBoard={(boardId) => void selectBoard(boardId)}
+        <>
+          {proposals.length > 0 || decided.length > 0 ? (
+            <WaitingForYou
+              proposals={proposals}
+              decided={decided}
+              canDecide={!readOnly}
+              onDecide={decide}
+              activeBoardId={activeBoard?.id ?? null}
+              onOpenBoard={(boardId) => void selectBoard(boardId)}
+            />
+          ) : null}
+          <DecisionsOverview
+            key={project.id}
+            projectId={project.id}
+            readOnly={readOnly}
+            onNotice={showNotice}
           />
-        ) : null
+        </>
       }
     />
   );

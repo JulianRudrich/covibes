@@ -5,7 +5,8 @@
     "share": "Share",
     "you": "You",
     "cancel": "Cancel",
-    "loading": "Loading …"
+    "loading": "Loading …",
+    "close": "Close"
   },
   "auth": {
     "title": "Sign in to Covibes",
@@ -153,8 +154,7 @@
     "overview": "Overview"
   },
   "empty": {
-    "chat": "No messages yet.",
-    "overview": "Open items, decisions and criteria will appear here."
+    "chat": "No messages yet."
   },
   "canvas": {
     "newBlock": "New block",
@@ -266,7 +266,8 @@
       "updateNode": "Change <b>{{name}}</b>",
       "arrangeFrame": "Arrange <b>{{name}}</b>",
       "move": "Move elements",
-      "team": "Add to the team"
+      "team": "Add to the team",
+      "decision": "<b>{{topic}}</b>: {{value}}"
     },
     "more_one": "+ 1 more change",
     "more_other": "+ {{count}} more changes",
@@ -276,7 +277,10 @@
       "beingEdited": "{{name}} is editing something this proposal changes. Please try again in a moment.",
       "alreadyDecided": "This proposal was decided already.",
       "failed": "That did not work. Please try again."
-    }
+    },
+    "confirm": "Confirm",
+    "confirmed": "<b>{{name}}</b> confirmed",
+    "kindDecision": "Decision"
   },
   "hands": {
     "label": "Raised hands",
@@ -295,6 +299,42 @@
     "declinedBy": "Postponed by {{name}}",
     "alreadyDecided": "This offer was decided already.",
     "failed": "That did not work. Please try again."
+  },
+  "decisions": {
+    "title": "Decisions",
+    "empty": "No decisions yet.",
+    "log": "Log",
+    "logTitle": "Decision log",
+    "logEmpty": "No entries yet.",
+    "open": "open",
+    "notDecided": "Not decided yet",
+    "confirmedBy": "Confirmed by {{name}} · {{date}}",
+    "reopenedBecause": "<b>Open again:</b> {{reason}}",
+    "alternatives": "Discarded",
+    "reopen": "Reopen",
+    "reopenReason": "Why should the decision be open again?",
+    "reopenHint": "The old decision stays in the log, and the moderator starts a new round.",
+    "reopenFailed": "The decision could not be reopened. Please try again.",
+    "reason": "Reason: {{reason}}",
+    "discarded": "Discarded: {{names}}",
+    "entry": {
+      "decided": "Decided: <b>{{topic}}</b> – {{value}}",
+      "reopened": "<b>{{topic}}</b> reopened (was: {{value}})",
+      "opened": "<b>{{topic}}</b> noted as open",
+      "criterion_added": "Criterion <b>{{value}}</b> added",
+      "criterion_changed": "Criterion <b>{{previous}}</b> changed to <b>{{value}}</b>",
+      "criterion_removed": "Criterion <b>{{value}}</b> removed"
+    }
+  },
+  "criteria": {
+    "title": "Criteria",
+    "empty": "No criteria yet.",
+    "add": "Add criterion",
+    "addFirst": "Criterion",
+    "change": "Change criterion \"{{text}}\"",
+    "remove": "Remove criterion \"{{text}}\"",
+    "limitReached": "A project has at most 20 criteria.",
+    "failed": "The criteria could not be changed. Please try again."
   },
   "overview": {
     "waiting": "Waiting for you",

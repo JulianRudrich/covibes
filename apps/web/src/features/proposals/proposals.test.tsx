@@ -1,4 +1,4 @@
-import type { CanvasProposal, Proposal, TeamProposal } from '@covibes/shared';
+import type { CanvasProposal, DecisionProposal, Proposal, TeamProposal } from '@covibes/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -207,6 +207,65 @@ describe('team proposals (spec 14)', () => {
     fireEvent.click(within(card).getByRole('button', { name: 'Übernehmen' }));
     expect(onDecide).toHaveBeenCalledWith(team, 'apply');
     expect(section).toHaveTextContent('Daten und ML übernommen');
+  });
+});
+
+describe('decision proposals (spec 16a)', () => {
+  const decision: DecisionProposal = {
+    id: '88888888-8888-4888-8888-888888888888',
+    projectId: PROJECT,
+    kind: 'decision',
+    boardId: null,
+    agentKey: 'moderator',
+    status: 'open',
+    reason: 'question',
+    names: {},
+    operations: [
+      {
+        op: 'decide',
+        topic: 'Canvas',
+        value: 'React Flow',
+        reasoning: 'Strukturierte Blöcke, MIT-Lizenz',
+        alternatives: [{ name: 'tldraw', note: 'Lizenz' }],
+      },
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  it('leave the canvas alone', () => {
+    expect(proposalOverlay([decision], BOARD, new Set()).elements).toEqual([]);
+  });
+
+  it('wait under "Wartet auf dich" until someone confirms them', () => {
+    const onDecide = vi.fn();
+    render(
+      <WaitingForYou
+        proposals={[decision]}
+        decided={[
+          { id: 'z', name: 'Backend: Hono', decision: true, status: 'applied' },
+          { id: 'q', name: 'Hosting: Frankfurt', decision: true, status: 'rejected' },
+        ]}
+        canDecide
+        onDecide={onDecide}
+        activeBoardId={BOARD}
+        onOpenBoard={vi.fn()}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Wartet auf dich' });
+    const [card] = within(section).getAllByRole('listitem');
+    if (!card) throw new Error('The card is missing');
+    expect(card).toHaveTextContent('Moderator· Entscheidung');
+    expect(card).toHaveTextContent('Canvas: React Flow');
+    expect(card).toHaveTextContent('Strukturierte Blöcke, MIT-Lizenz');
+    expect(within(card).getByText('Canvas').tagName).toBe('STRONG');
+    fireEvent.click(within(card).getByRole('button', { name: 'Bestätigen' }));
+    expect(onDecide).toHaveBeenCalledWith(decision, 'apply');
+    fireEvent.click(within(card).getByRole('button', { name: 'Verwerfen' }));
+    expect(onDecide).toHaveBeenCalledWith(decision, 'reject');
+    expect(section).toHaveTextContent('Backend: Hono bestätigt');
+    expect(section).toHaveTextContent('Hosting: Frankfurt verworfen');
   });
 });
 

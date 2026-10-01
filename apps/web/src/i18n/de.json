@@ -5,7 +5,8 @@
     "share": "Teilen",
     "you": "Du",
     "cancel": "Abbrechen",
-    "loading": "Wird geladen …"
+    "loading": "Wird geladen …",
+    "close": "Schließen"
   },
   "auth": {
     "title": "Bei Covibes anmelden",
@@ -153,8 +154,7 @@
     "overview": "Überblick"
   },
   "empty": {
-    "chat": "Noch keine Nachrichten.",
-    "overview": "Hier erscheinen offene Punkte, Entscheidungen und Kriterien."
+    "chat": "Noch keine Nachrichten."
   },
   "canvas": {
     "newBlock": "Neuer Block",
@@ -266,7 +266,8 @@
       "updateNode": "<b>{{name}}</b> ändern",
       "arrangeFrame": "<b>{{name}}</b> anordnen",
       "move": "Elemente verschieben",
-      "team": "Ins Team holen"
+      "team": "Ins Team holen",
+      "decision": "<b>{{topic}}</b>: {{value}}"
     },
     "more_one": "+ 1 weitere Änderung",
     "more_other": "+ {{count}} weitere Änderungen",
@@ -276,7 +277,10 @@
       "beingEdited": "{{name}} bearbeitet gerade etwas, das der Vorschlag ändert. Versuche es gleich noch einmal.",
       "alreadyDecided": "Über diesen Vorschlag wurde schon entschieden.",
       "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
-    }
+    },
+    "confirm": "Bestätigen",
+    "confirmed": "<b>{{name}}</b> bestätigt",
+    "kindDecision": "Entscheidung"
   },
   "hands": {
     "label": "Handzeichen",
@@ -295,6 +299,42 @@
     "declinedBy": "Verschoben von {{name}}",
     "alreadyDecided": "Über dieses Angebot wurde schon entschieden.",
     "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+  },
+  "decisions": {
+    "title": "Entscheidungen",
+    "empty": "Noch keine Entscheidungen.",
+    "log": "Protokoll",
+    "logTitle": "Entscheidungsprotokoll",
+    "logEmpty": "Noch keine Einträge.",
+    "open": "offen",
+    "notDecided": "Noch nicht entschieden",
+    "confirmedBy": "Bestätigt von {{name}} · {{date}}",
+    "reopenedBecause": "<b>Wieder offen:</b> {{reason}}",
+    "alternatives": "Verworfen",
+    "reopen": "Wieder öffnen",
+    "reopenReason": "Warum soll die Entscheidung wieder offen sein?",
+    "reopenHint": "Die alte Entscheidung bleibt im Protokoll, und der Moderator startet eine neue Runde.",
+    "reopenFailed": "Die Entscheidung konnte nicht wieder geöffnet werden. Bitte versuche es noch einmal.",
+    "reason": "Grund: {{reason}}",
+    "discarded": "Verworfen: {{names}}",
+    "entry": {
+      "decided": "Entschieden: <b>{{topic}}</b> – {{value}}",
+      "reopened": "<b>{{topic}}</b> wieder geöffnet (war: {{value}})",
+      "opened": "<b>{{topic}}</b> als offen notiert",
+      "criterion_added": "Kriterium <b>{{value}}</b> hinzugefügt",
+      "criterion_changed": "Kriterium <b>{{previous}}</b> geändert zu <b>{{value}}</b>",
+      "criterion_removed": "Kriterium <b>{{value}}</b> entfernt"
+    }
+  },
+  "criteria": {
+    "title": "Kriterien",
+    "empty": "Noch keine Kriterien.",
+    "add": "Kriterium hinzufügen",
+    "addFirst": "Kriterium",
+    "change": "Kriterium „{{text}}“ ändern",
+    "remove": "Kriterium „{{text}}“ entfernen",
+    "limitReached": "Ein Projekt hat höchstens 20 Kriterien.",
+    "failed": "Die Kriterien konnten nicht geändert werden. Bitte versuche es noch einmal."
   },
   "overview": {
     "waiting": "Wartet auf dich",

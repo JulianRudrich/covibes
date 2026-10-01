@@ -1,4 +1,10 @@
-import type { AgentKey, CanvasProposal, Proposal, TeamProposal } from '@covibes/shared';
+import type {
+  AgentKey,
+  CanvasProposal,
+  DecisionProposal,
+  Proposal,
+  TeamProposal,
+} from '@covibes/shared';
 import { Check } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
 
@@ -85,13 +91,18 @@ export function WaitingForYou({
                   <span className={cn('font-medium', AGENT_DARK_TEXT[proposal.agentKey])}>
                     {agent}
                   </span>
-                  <span>· {t('proposals.kind')}</span>
+                  <span>
+                    ·{' '}
+                    {t(proposal.kind === 'decision' ? 'proposals.kindDecision' : 'proposals.kind')}
+                  </span>
                   <span className="ml-auto tabular-nums">
                     {formatRelativeTime(proposal.createdAt, i18n.language)}
                   </span>
                 </div>
                 {proposal.kind === 'team' ? (
                   <TeamSummary proposal={proposal} />
+                ) : proposal.kind === 'decision' ? (
+                  <DecisionSummary proposal={proposal} />
                 ) : (
                   <CanvasSummary
                     proposal={proposal}
@@ -108,7 +119,7 @@ export function WaitingForYou({
                         onDecide(proposal, 'apply');
                       }}
                     >
-                      {t('proposals.apply')}
+                      {t(proposal.kind === 'decision' ? 'proposals.confirm' : 'proposals.apply')}
                     </Button>
                     <Button
                       size="s"
@@ -139,7 +150,11 @@ export function WaitingForYou({
               {/* Two lines at most, so a long list of agents still says what happened. */}
               <span className="line-clamp-2 min-w-0">
                 <Trans
-                  i18nKey={`proposals.${entry.status}`}
+                  i18nKey={
+                    entry.decision && entry.status === 'applied'
+                      ? 'proposals.confirmed'
+                      : `proposals.${entry.status}`
+                  }
                   values={{ name: entry.agents ? agentList(entry.agents) : entry.name }}
                   components={BOLD}
                 />
@@ -225,6 +240,26 @@ function TeamSummary({ proposal }: { proposal: TeamProposal }) {
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/** A decision that waits for confirmation (spec 16a): topic, value and the moderator's reasoning. */
+function DecisionSummary({ proposal }: { proposal: DecisionProposal }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {proposal.operations.map((operation) => (
+        <div key={operation.topic} className="text-body leading-snug text-text-body">
+          <Trans
+            i18nKey="proposals.summary.decision"
+            values={{ topic: operation.topic, value: operation.value }}
+            components={BOLD}
+          />
+          {operation.reasoning ? (
+            <div className="mt-0.5 text-meta text-text-3">{operation.reasoning}</div>
+          ) : null}
+        </div>
+      ))}
     </div>
   );
 }

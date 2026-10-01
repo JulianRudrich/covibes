@@ -52,6 +52,7 @@ export interface AiRuns {
   agent_key: string;
   cost_usd: Generated<Numeric>;
   created_at: Generated<Timestamp>;
+  decision_id: string | null;
   error: string | null;
   finished_at: Timestamp | null;
   hand_raise_id: string | null;
@@ -76,6 +77,46 @@ export interface Boards {
   position: Generated<number>;
   project_id: string;
   title: string;
+}
+
+export interface Criteria {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  created_by_agent: string | null;
+  id: Generated<string>;
+  project_id: string;
+  text: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface DecisionLog {
+  actor_agent: string | null;
+  actor_user: string | null;
+  created_at: Generated<Timestamp>;
+  decision_id: string | null;
+  details: Generated<Json>;
+  id: Generated<string>;
+  kind: string;
+  project_id: string;
+  topic: string | null;
+  value: string | null;
+}
+
+export interface Decisions {
+  alternatives: Generated<Json>;
+  created_at: Generated<Timestamp>;
+  decided_at: Timestamp | null;
+  decided_by: string | null;
+  id: Generated<string>;
+  project_id: string;
+  reasoning: Generated<string>;
+  recorded_by_agent: string | null;
+  reopen_reason: string | null;
+  reopened_by: string | null;
+  status: Generated<string>;
+  topic: string;
+  updated_at: Generated<Timestamp>;
+  value: string | null;
 }
 
 export interface GraphileWorkerJobs {
@@ -266,6 +307,9 @@ export interface DB {
   accounts: Accounts;
   ai_runs: AiRuns;
   boards: Boards;
+  criteria: Criteria;
+  decision_log: DecisionLog;
+  decisions: Decisions;
   'graphile_worker._private_job_queues': GraphileWorkerPrivateJobQueues;
   'graphile_worker._private_jobs': GraphileWorkerPrivateJobs;
   'graphile_worker._private_known_crontabs': GraphileWorkerPrivateKnownCrontabs;

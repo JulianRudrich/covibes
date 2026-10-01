@@ -25,6 +25,7 @@
   --color-frame-border: #cfd7e1;
   --color-border-float: #dfe4ea;
   --color-divider-strong: #cfd6df;
+  --color-divider-row: #f1f3f6;
   --color-edge: #8792a2;
   --color-text: #0f1720;
   --color-text-body: #1e2733;
@@ -33,6 +34,7 @@
   --color-text-3: #6b7686;
   --color-text-4: #7a8595;
   --color-text-5: #9aa4b2;
+  --color-text-chip: #253041;
   --color-text-faint: #b4bdc8;
   --color-text-upcoming: #5b6676;
   --color-ring-upcoming: #aab3bf;

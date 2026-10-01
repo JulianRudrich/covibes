@@ -13,11 +13,16 @@ export function decidedQueryKey(projectId: string) {
   return ['projects', projectId, 'proposals', 'decided'] as const;
 }
 
-/** `name` is what a canvas proposal is about; a team proposal (spec 14) names its agents. */
+/**
+ * `name` is what a canvas proposal is about or the decision that was confirmed (spec 16a); a team
+ * proposal (spec 14) names its agents.
+ */
 export type DecidedProposal = {
   id: string;
   name: string;
   agents?: AgentKey[];
+  /** A decision is confirmed instead of applied. */
+  decision?: boolean;
   status: 'applied' | 'rejected';
 };
 
@@ -81,7 +86,14 @@ export function useProposalDecisions(
           id: proposal.id,
           ...(proposal.kind === 'team'
             ? { name: '', agents: proposal.operations.map((operation) => operation.agentKey) }
-            : { name: proposalSummary(proposal).name }),
+            : proposal.kind === 'decision'
+              ? {
+                  name: proposal.operations
+                    .map((operation) => `${operation.topic}: ${operation.value}`)
+                    .join(', '),
+                  decision: true,
+                }
+              : { name: proposalSummary(proposal).name }),
           status: decision === 'apply' ? 'applied' : 'rejected',
         },
       ]);

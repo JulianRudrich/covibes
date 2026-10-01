@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@web/components/ui/button';
 import { DialogClose, DialogContent } from '@web/components/ui/dialog';
 import { FieldError, Input, Label } from '@web/components/ui/input';
+import { AgentKnowledge } from '@web/features/agents/agent-knowledge';
 import { useCustomAgentMutations } from '@web/features/agents/queries';
 import { ApiError } from '@web/lib/api';
 import { cn } from '@web/lib/cn';
@@ -352,6 +353,14 @@ export function AgentEditor({
               </p>
             )}
           </fieldset>
+
+          {agent === null ? (
+            <p className="m-0 px-1.5 text-small leading-snug text-text-3">
+              {t('agentEditor.knowledge.afterCreate')}
+            </p>
+          ) : (
+            <AgentKnowledge agentKey={agent.key} />
+          )}
         </div>
 
         {error ? <FieldError>{error}</FieldError> : null}

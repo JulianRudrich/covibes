@@ -35,6 +35,9 @@ const TOOL_SERVER = 'covibes';
  */
 const MAX_TURNS = 16;
 
+/** Claude Code's own web search, the only built-in tool a run can get (spec 20b). */
+const WEB_SEARCH_TOOL = 'WebSearch';
+
 /** A hanging tool would block the agent's queue; after this the model gets an error instead. */
 const TOOL_TIMEOUT_MS = 60_000;
 
@@ -139,6 +142,7 @@ export async function streamAgentReply(request: AgentReplyRequest): Promise<Agen
     model: model.id,
     usage,
     costUsd: costOf(result, usage, model),
+    webSearches: webSearchesOf(result),
   };
 }
 
@@ -258,10 +262,14 @@ async function isolatedOptions(
     maxTurns: MAX_TURNS,
     includePartialMessages: true,
     abortController,
-    tools: [],
+    // None of Claude Code's own tools, except the web search when the run may search.
+    tools: request.webSearch ? [WEB_SEARCH_TOOL] : [],
     mcpServers: { [TOOL_SERVER]: tools },
     strictMcpConfig: true,
-    allowedTools: request.tools.map((definition) => `mcp__${TOOL_SERVER}__${definition.name}`),
+    allowedTools: [
+      ...request.tools.map((definition) => `mcp__${TOOL_SERVER}__${definition.name}`),
+      ...(request.webSearch ? [WEB_SEARCH_TOOL] : []),
+    ],
     // Everything not allowed above is denied, and nobody is ever asked.
     permissionMode: 'dontAsk',
     permissionPrompts: 'none',
@@ -350,6 +358,11 @@ function usageOf(result: SDKResultMessage): AgentReplyUsage {
     }),
     { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
   );
+}
+
+/** Web searches of all model calls of the run. */
+function webSearchesOf(result: SDKResultMessage): number {
+  return Object.values(result.modelUsage).reduce((sum, entry) => sum + entry.webSearchRequests, 0);
 }
 
 /** The SDK's cost when it knew the price of every model it called, else the registry's prices. */

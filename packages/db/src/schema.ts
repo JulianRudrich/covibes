@@ -48,6 +48,21 @@ export interface Accounts {
   user_id: string;
 }
 
+export interface AgentKnowledge {
+  agent_id: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  file_kind: string | null;
+  id: Generated<string>;
+  kind: string;
+  media_type: string | null;
+  name: string;
+  note: Generated<string>;
+  size_bytes: number | null;
+  storage_key: string | null;
+  url: string | null;
+}
+
 export interface AiRuns {
   agent_key: string;
   cost_usd: Generated<Numeric>;
@@ -70,6 +85,7 @@ export interface AiRuns {
   started_at: Timestamp | null;
   status: Generated<string>;
   trigger_message_id: string | null;
+  web_searches: Generated<number>;
 }
 
 export interface Boards {
@@ -386,6 +402,7 @@ export interface YjsDocuments {
 
 export interface DB {
   accounts: Accounts;
+  agent_knowledge: AgentKnowledge;
   ai_runs: AiRuns;
   boards: Boards;
   comparisons: Comparisons;

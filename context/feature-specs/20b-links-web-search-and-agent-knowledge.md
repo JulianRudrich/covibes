@@ -57,11 +57,40 @@ Second part of spec 20; part 20a brought the uploads.
 - Packages: none new
 
 ## Checklist
-- [ ] An agent asked for a current fact searches the web and names its sources; the run counts its searches.
-- [ ] An agent asked about a posted link reads it with `read_link`; internal addresses and other non-public targets are refused.
-- [ ] Owners switch web access off for a project; then agents neither search nor read links.
-- [ ] Web addresses in chat messages are links that open in a new tab.
-- [ ] Who may edit a custom agent adds files and links to its knowledge and removes them; the agent reads them in a run.
-- [ ] The derived looks were checked from screenshots and are listed in `ui-context.md`.
-- [ ] Tests for the fetch, the tools, the gateway, the database, the API, the agent turn and the components pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] An agent asked for a current fact searches the web and names its sources; the run counts its searches.
+- [x] An agent asked about a posted link reads it with `read_link`; internal addresses and other non-public targets are refused.
+- [x] Owners switch web access off for a project; then agents neither search nor read links.
+- [x] Web addresses in chat messages are links that open in a new tab.
+- [x] Who may edit a custom agent adds files and links to its knowledge and removes them; the agent reads them in a run.
+- [x] The derived looks were checked from screenshots and are listed in `ui-context.md`.
+- [x] Tests for the fetch, the tools, the gateway, the database, the API, the agent turn and the components pass.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-10-01)
+- **Web search:** a reply request carries `webSearch`; the gateway then offers Claude Code's built-in `WebSearch` as the only built-in tool next to the request's own tools and allows it, with nobody asked. The result carries `webSearches`, the sum over all models of the run, and the run stores it in `ai_runs.web_searches`. Classifications and the observer never search.
+- **`read_link`:** own tool, offered to every agent of the team while the project allows the web, never in a debate.
+  - **The fetch** (`integrations/web/fetch-page.ts`) uses `node:http` and `node:https` with its own connection per request. Only `http` on port 80 and `https` on port 443, no credentials in the address. An IP written into the address is checked before connecting; a name is resolved by a lookup that refuses the name if any of its addresses is not public, and that lookup is the one the connection uses, so a name cannot resolve differently between check and connection. Refused are loopback, private, link-local (also the metadata address), carrier NAT, documentation, benchmark, multicast and reserved ranges, and for IPv6 the unspecified, loopback, IPv4-mapped and IPv4-compatible, NAT64, 6to4, Teredo, unique local, link-local and multicast ranges.
+  - Redirects are followed by hand, at most five, each checked like the first address. One time limit of 10 seconds covers the whole fetch. Text is cut off at 2 MB, a PDF beyond 10 MB is refused. Readable are `text/*`, JSON, XML and PDF; a body that is packed although plain bytes were asked for is refused. The request sends a fixed user agent and nothing of the person or the server.
+  - **The text:** HTML becomes plain text without dependencies (`html-to-text.ts`: scripts, styles and the like dropped, blocks as lines, lists and table cells kept apart, character references decoded last); the charset comes from the header, then from the page's `meta`, then UTF-8. A PDF is read like an uploaded one. Long text comes in parts of 20,000 characters; a run keeps up to ten pages, so reading on does not fetch again.
+  - The content is quoted in `<page>` (it cannot close its own section) with the note that it is data. Every failure has its own sentence for the model, e.g. that an address is not on the public web and should not be tried in other spellings.
+- **The switch:** `webAccess` in the project settings, on unless switched off; owners change it with the existing `PATCH`. Off, the run gets neither the search nor `read_link`, and its context says so and that an owner can switch it on.
+- **Sources:** the shared rules tell every agent when to search, to read a posted link before answering about it, and to end with "Quellen:" or "Sources:" and at most three plain addresses, because the chat shows no Markdown.
+- **Links in the chat:** `splitLinks` finds `http` and `https` addresses (without the punctuation of the sentence around them, with brackets that were opened in the address) and Markdown links; nothing else becomes a link. They open in a new tab with `noopener noreferrer`. Mentions are found in the text between the links.
+- **Knowledge of custom agents:**
+  - `agent_knowledge` holds up to ten entries per agent: a file (content in the file storage, the same kinds and limits as uploads, decided by content) or a link with a note of up to 200 characters. Entries are added and removed, never changed.
+  - RLS through two functions that mirror `custom_agents`: who reads the agent reads its knowledge, who edits it maintains it. The owner of a project that only uses someone's personal agent gets "not found".
+  - `/api/agents/:agentId/knowledge`: list, `…/files` (multipart, within the upload limits and the upload rate limit), `…/links`, delete, and `…/:itemId/content` served like an uploaded file.
+  - A run of a custom agent lists its knowledge in `<knowledge>`: files with their id for `read_file`, links with their note for `read_link`. `read_file` finds the running agent's own knowledge files next to the project's files; another agent of the same project does not. With web access off the section says that links cannot be read.
+  - In the agent editor the section "Wissen" appears for an existing agent, with a counter, the entries as rows (icon, name or address, size or note, "×"), "Datei hinzufügen" and the two fields for a link. Changes apply at once, apart from "Speichern". A new agent shows a line that knowledge can be added once it exists.
+- **Verified** with `pnpm dev` in the project "Vereins-App":
+  - "@Backend Welche Node.js-Version ist aktuell die neueste LTS? Bitte im Web nachschlagen." was answered with the current version and "Quellen: https://nodejs.org/en/about/previous-releases"; the run stored one web search.
+  - "@Sicherheit Lies bitte https://example.com … Danach lies http://127.0.0.1:3001/api/health und http://localhost:54320 …": the page was summarized, both local addresses were refused, and the agent said so. All addresses show as links in the chat.
+  - With "Web-Zugriff" switched off, "@Backend Such bitte im Web …" was answered with "der Webzugriff in diesem Projekt ist ausgeschaltet; ein Owner kann ihn in den Projekteinstellungen einschalten", and from its own knowledge, marked as unchecked. Switched on again afterwards.
+  - A custom agent "Vereinsjurist" got a Markdown file and a link in "Wissen"; `example.org` without a scheme was refused with a note. Asked for the youth fee, it answered from § 7 of its file, named the file, and noticed that the number differs from one in an earlier upload; it also read its link.
+  - Viewers, foreign agents, the limits, redirects, time and size limits are covered by the tests of the database, the API, the fetch and the tools; they were not tried live.
+- **Known limits:**
+  - Pages that need JavaScript, a login or cookies have no text to read. A server that packs its answer although plain bytes were asked for is refused.
+  - With an API key instead of the subscription every search costs money; the count per run is stored, a limit per project comes with the usage limits (spec 31).
+  - The search runs at the model provider, so which pages it finds cannot be restricted here; only `read_link` is our own fetch.
+  - Content of knowledge files stays in the storage when the agent is deleted (the agent is only marked as deleted).
+  - Knowledge is not searched: the agent sees the list and reads what it needs.

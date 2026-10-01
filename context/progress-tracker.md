@@ -1,13 +1,13 @@
 # Progress Tracker
 
 ## Current phase
-**M2 completed (2026-09-30): the canvas is complete** with blocks, arrows, frames, notes, toolbar, undo, boards and diagram types. Next is M3 (AI core); the product is built spec by spec.
+**M3 completed (2026-10-01): the AI core is complete** with the rule engine and proposals, the agent catalog, the observer, decisions, variants, debates, custom agents, uploads, web search and agent knowledge. Next is M4 (collaboration); the product is built spec by spec.
 
 ## Current goal
-Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog, observer, decisions, variants, debates, custom agents and knowledge. Covibes is developed locally; the public launch comes at the end.
+Build collaboration (M4, specs 21 to 24): invitations, roles and the read-only link, "Waiting for you" and notifications, "Since you were away", and the phase indicator with the next step. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 20b: links, web search and the knowledge of custom agents (branch `spec/20b-web-and-knowledge`)
+- Nothing. Next is spec 21 (invitations, roles and read-only link), the first spec of M4.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -162,11 +162,17 @@ Build the AI core (M3, specs 13 to 20): rule engine and proposals, agent catalog
   - every agent reads attached files with `read_file`: text, the text of a PDF, or the image itself
 
   Lint, type check, format, 996 tests and build pass; verified with `pnpm dev`.
+- [x] **Spec 20b links, web search and the knowledge of custom agents:**
+  - agents search the web (Claude's own search behind a switch of the gateway) and read posted links with `read_link`, which only reaches the public web; they name their sources, and the chat shows web addresses as links
+  - owners switch web access off per project; every run counts its web searches
+  - custom agents get their own knowledge, up to ten files and links, maintained in the agent editor and read in a run when the question calls for it
+
+  Lint, type check, format, 1065 tests and build pass; verified with `pnpm dev`. **M3 is complete with it.**
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M3 (AI core):** spec 20 (agent knowledge) closes M3 and is built in two parts: 20a (uploads) is done; 20b (links, web search, knowledge of custom agents) is worked out and in progress.
+1. **M4 (collaboration):** M3 (AI core) is complete with spec 20b. Next is spec 21 (invitations, roles and read-only link); it is worked out before it is built. Its share dialog and read-only view are derived from the prototype design until the design pass (spec 36).
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -279,4 +285,5 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-10-01, spec 17 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that variants are one proposal with a diagram per variant, that the server places them in one row with the tops aligned, that the canvas offers only "Übernehmen" per variant while "Verwerfen" for all sits in the overview, and that the canvas does not move to new variants by itself.
 - **2026-10-01, spec 18 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that a debate has two or three specialists and one to three rounds (two by default), that the moderator leads but does not argue, that debate runs have no tools, that the database advances the chain, that owners and editors can end a debate early with a summary of what was said, and that a turn that fails for good aborts the debate.
 - **2026-10-01, spec 19 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that a custom agent's key is its id, that a personal agent's instructions stay with its creator while a shared agent is edited by owners and editors, that custom agents draw or only talk (no choice of single tools), the six custom colors and the two-letter avatars, the limits of 20 agents, and that the templates are texts of the web app.
+- **2026-10-01, spec 20b implemented.** Details are in the spec under "Implementation notes". The coding agent decided that reading links is an own tool that only reaches the public web (the built-in link reader stays off), the limits (10 seconds, 2 MB of text, PDFs up to 10 MB, five redirects), one switch per project for search and links, that sources are plain addresses at the end of an answer, ten knowledge entries per custom agent, and that knowledge is maintained for existing agents only and applies at once.
 - **2026-10-01, spec 20a implemented.** Details are in the spec under "Implementation notes". The owner chose Claude's own web search for spec 20b. The coding agent split spec 20 into two parts and decided the limits (5 files per message, 10 MB per file, 5 MB per image), the allowed kinds (images, PDF, plain text), that a message still needs text, and added the package `unpdf` (MIT) for the text of PDFs.

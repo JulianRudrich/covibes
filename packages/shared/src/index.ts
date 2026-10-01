@@ -205,6 +205,16 @@ export {
   type MessageDebateTurn,
 } from './debates';
 export {
+  addKnowledgeLinkInputSchema,
+  agentKnowledgeItemSchema,
+  KNOWLEDGE_NOTE_MAX_LENGTH,
+  KNOWLEDGE_URL_MAX_LENGTH,
+  MAX_AGENT_KNOWLEDGE,
+  webUrlSchema,
+  type AddKnowledgeLinkInput,
+  type AgentKnowledgeItem,
+} from './agents/knowledge';
+export {
   attachmentIdsSchema,
   FILE_ACCEPT,
   FILE_KINDS,

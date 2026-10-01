@@ -199,6 +199,30 @@ describe('ChatMessageView', () => {
     expect(text).toHaveTextContent(content);
   });
 
+  it('shows web addresses as links that open in a new tab, next to mentions', () => {
+    const content =
+      '@Backend lies https://example.org/preise?plan=basis. Quellen: https://a.example/x, [Doku](https://b.example/y)';
+    render(<ChatMessageView item={human({ content, mentions: ['backend'] })} isOwn={false} />);
+    const text = messageText(screen.getByRole('article'));
+
+    const links = within(text).getAllByRole('link');
+    expect(links.map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
+      ['https://example.org/preise?plan=basis', 'https://example.org/preise?plan=basis'],
+      ['https://a.example/x', 'https://a.example/x'],
+      ['Doku', 'https://b.example/y'],
+    ]);
+    for (const link of links) {
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    }
+    expect(within(text).getByText('@Backend')).toHaveClass('bg-agent-backend-tint');
+    // Nothing but web addresses becomes a link.
+    render(
+      <ChatMessageView item={human({ content: 'javascript:alert(1) www.example.org' })} isOwn />,
+    );
+    expect(within(screen.getAllByRole('article')[1] as HTMLElement).queryByRole('link')).toBeNull();
+  });
+
   it('shows no chip for an agent that the server did not keep, e.g. one outside the team', () => {
     const content = '@Sicherheit und @Moderator, was meint ihr?';
     render(<ChatMessageView item={human({ content, mentions: ['moderator'] })} isOwn={false} />);

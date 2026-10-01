@@ -197,6 +197,26 @@
       },
       "creatorOnly": "Nur {{name}} kann die Sichtbarkeit ändern."
     },
+    "knowledge": {
+      "title": "Wissen",
+      "hint": "Dateien und Links, die der Agent liest, wenn eine Frage es verlangt. Änderungen hier gelten sofort.",
+      "afterCreate": "Wissen (Dateien und Links) kannst du hinzufügen, sobald der Agent erstellt ist.",
+      "addFile": "Datei hinzufügen",
+      "chooseFile": "Datei für das Wissen auswählen",
+      "url": "Adresse des Links",
+      "note": "Notiz zum Link",
+      "notePlaceholder": "Wofür? (optional)",
+      "addLink": "Link hinzufügen",
+      "remove": "{{name}} entfernen",
+      "full": "Mehr als {{max}} Einträge gehen nicht. Entferne einen, um einen neuen hinzuzufügen.",
+      "problems": {
+        "limit": "Ein Agent hat höchstens 10 Einträge im Wissen.",
+        "tooLarge": "Die Datei ist zu groß: Bilder bis 5 MB, andere Dateien bis 10 MB.",
+        "unsupported": "Diese Datei geht nicht: Es gehen Bilder (PNG, JPEG, WebP, GIF), PDFs und Textdateien.",
+        "invalidLink": "Bitte eine Web-Adresse, die mit http:// oder https:// beginnt.",
+        "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+      }
+    },
     "create": "Erstellen",
     "save": "Speichern",
     "delete": "Löschen",
@@ -518,6 +538,10 @@
       "observer": {
         "label": "Agents melden sich",
         "text": "Der Moderator bietet Hilfe an, Spezialisten heben die Hand."
+      },
+      "webAccess": {
+        "label": "Web-Zugriff",
+        "text": "Agents dürfen im Web suchen und Links lesen."
       }
     }
   },

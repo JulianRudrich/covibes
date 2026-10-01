@@ -31,14 +31,19 @@ const JURIST: CustomAgent = {
 
 type Call = { url: string; method: string; body: unknown };
 
-/** Answers every request with `response` and keeps what was sent. */
+/**
+ * Answers every request with `response` and keeps what was sent. The knowledge of an existing
+ * agent (spec 20b) loads next to the form; it is empty here and tested on its own.
+ */
 function stubApi(response: () => Response) {
   const calls: Call[] = [];
   vi.stubGlobal(
     'fetch',
     vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (url.endsWith('/knowledge')) return Promise.resolve(json([]));
       calls.push({
-        url: typeof input === 'string' ? input : input instanceof URL ? input.href : input.url,
+        url,
         method: init?.method ?? 'GET',
         body: typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : undefined,
       });
@@ -126,6 +131,11 @@ describe('AgentEditor: a new agent', () => {
     const calls = stubApi(() => json(JURIST, 201));
     renderEditor(null);
     expect(screen.getByRole('radio', { name: 'Stahlblau' })).toBeChecked();
+    // Knowledge belongs to an agent that exists.
+    expect(screen.queryByRole('group', { name: /Wissen/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toHaveTextContent(
+      'Wissen (Dateien und Links) kannst du hinzufügen, sobald der Agent erstellt ist.',
+    );
     expect(screen.getByRole('radio', { name: /Persönlich/ })).toBeChecked();
     expect(screen.getByLabelText('Modell')).toHaveValue('claude-opus-5-5');
 
@@ -223,6 +233,14 @@ describe('AgentEditor: an existing agent', () => {
       expect(onDone).toHaveBeenCalledOnce();
     });
     expect(calls).toEqual([]);
+  });
+
+  it('shows the knowledge of the agent, and for a new agent says when it can be added', async () => {
+    stubApi(() => json(JURIST));
+    renderEditor(JURIST);
+    const knowledge = await screen.findByRole('group', { name: /Wissen/ });
+    expect(within(knowledge).getByRole('button', { name: 'Datei hinzufügen' })).toBeEnabled();
+    expect(within(knowledge).getByLabelText('Adresse des Links')).toBeInTheDocument();
   });
 
   it('lets only the creator change who sees a shared agent', () => {

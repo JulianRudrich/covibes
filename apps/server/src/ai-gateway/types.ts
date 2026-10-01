@@ -56,6 +56,11 @@ export type AgentReplyRequest = {
   /** The conversation and context for this turn, as one text. */
   prompt: string;
   tools: readonly AgentTool[];
+  /**
+   * The run may search the web (spec 20b). The search is a capability of the gateway and not one
+   * of the request's tools, so whichever search stands behind it can change.
+   */
+  webSearch?: boolean;
   /** Called with each piece of reply text as it arrives. */
   onText: (delta: string) => void;
   signal?: AbortSignal;
@@ -76,6 +81,8 @@ export type AgentReplyResult = {
   usage: AgentReplyUsage;
   /** Cost of the whole turn in USD as reported or computed; an estimate, not a bill. */
   costUsd: number;
+  /** How many web searches the run made. */
+  webSearches: number;
 };
 
 /** Thrown for configuration problems (unknown model, no credentials); never retried. */

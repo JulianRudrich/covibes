@@ -1,4 +1,10 @@
-import type { CreateCustomAgentInput, CustomAgent, UpdateCustomAgentInput } from '@covibes/shared';
+import type {
+  AddKnowledgeLinkInput,
+  AgentKnowledgeItem,
+  CreateCustomAgentInput,
+  CustomAgent,
+  UpdateCustomAgentInput,
+} from '@covibes/shared';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { projectQuery } from '@web/features/projects/queries';
@@ -55,4 +61,60 @@ export function useCustomAgentMutations(projectId: string) {
   });
 
   return { create, update, remove };
+}
+
+/** The path of an agent's knowledge below `/api`. */
+function knowledgePath(agentKey: string): string {
+  return `/agents/${encodeURIComponent(agentKey)}/knowledge`;
+}
+
+/** The address a file of an agent's knowledge is downloaded from. */
+export function knowledgeFileUrl(agentKey: string, itemId: string): string {
+  return `/api${knowledgePath(agentKey)}/${encodeURIComponent(itemId)}/content`;
+}
+
+/** The knowledge of a custom agent (spec 20b): its files and links, oldest first. */
+export function agentKnowledgeQuery(agentKey: string) {
+  return queryOptions({
+    queryKey: ['agent-knowledge', agentKey] as const,
+    queryFn: () => api<AgentKnowledgeItem[]>(knowledgePath(agentKey)),
+  });
+}
+
+/** Adding a file or a link to an agent's knowledge and removing an entry; each applies at once. */
+export function useAgentKnowledgeMutations(agentKey: string) {
+  const queryClient = useQueryClient();
+  const reload = () =>
+    queryClient.invalidateQueries({ queryKey: agentKnowledgeQuery(agentKey).queryKey });
+
+  const addFile = useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.set('file', file);
+      return api<AgentKnowledgeItem>(`${knowledgePath(agentKey)}/files`, {
+        method: 'POST',
+        body: form,
+      });
+    },
+    onSettled: reload,
+  });
+
+  const addLink = useMutation({
+    mutationFn: (input: AddKnowledgeLinkInput) =>
+      api<AgentKnowledgeItem>(`${knowledgePath(agentKey)}/links`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSettled: reload,
+  });
+
+  const remove = useMutation({
+    mutationFn: (itemId: string) =>
+      api<undefined>(`${knowledgePath(agentKey)}/${encodeURIComponent(itemId)}`, {
+        method: 'DELETE',
+      }),
+    onSettled: reload,
+  });
+
+  return { addFile, addLink, remove };
 }

@@ -50,6 +50,7 @@ function answer(text: string): AgentReplyResult {
     model: INTENT_MODEL,
     usage: { inputTokens: 120, outputTokens: 2, cacheReadTokens: 0, cacheWriteTokens: 0 },
     costUsd: 0.00013,
+    webSearches: 0,
   };
 }
 

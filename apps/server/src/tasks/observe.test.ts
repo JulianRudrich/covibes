@@ -23,6 +23,7 @@ function result(text: string): AgentReplyResult {
     model: OBSERVER_MODEL,
     usage: { inputTokens: 900, outputTokens: 60, cacheReadTokens: 2000, cacheWriteTokens: 0 },
     costUsd: 0.0031,
+    webSearches: 0,
   };
 }
 

@@ -244,6 +244,36 @@ describe('streamAgentReply', () => {
       cacheWriteTokens: 200,
     });
     expect(reply.costUsd).toBe(0.42);
+    expect(reply.webSearches).toBe(0);
+  });
+
+  it('switches the web search on for a run that may search, and counts its searches', async () => {
+    replyWith(
+      result({
+        modelUsage: {
+          'claude-opus-5-5': modelUsage({
+            inputTokens: 100,
+            outputTokens: 50,
+            webSearchRequests: 2,
+          }),
+          'claude-haiku-4-5': modelUsage({
+            inputTokens: 20,
+            outputTokens: 4,
+            webSearchRequests: 1,
+          }),
+        },
+      }),
+    );
+
+    const reply = await streamAgentReply(request({ webSearch: true }));
+
+    // The search is the only one of Claude Code's own tools, next to the gateway tools.
+    expect(passedOptions()).toMatchObject({
+      tools: ['WebSearch'],
+      allowedTools: ['mcp__covibes__add_block', 'WebSearch'],
+      permissionMode: 'dontAsk',
+    });
+    expect(reply.webSearches).toBe(3);
   });
 
   it('computes the cost from the registry prices when the SDK reports none', async () => {

@@ -33,8 +33,17 @@ export type FileReader = {
 const isKind = (value: string): value is FileKind =>
   (FILE_KINDS as readonly string[]).includes(value);
 
-/** The files of one project for the worker; `admin` is the role the worker uses. */
-export function fileReader(admin: Kysely<DB>, storage: FileStorage, projectId: string): FileReader {
+/**
+ * The files of one project for the worker; `admin` is the role the worker uses. With
+ * `knowledgeOf`, the id of the custom agent that runs, its knowledge files (spec 20b) are found
+ * too: they belong to the agent and not to the project.
+ */
+export function fileReader(
+  admin: Kysely<DB>,
+  storage: FileStorage,
+  projectId: string,
+  knowledgeOf?: string,
+): FileReader {
   const select = () =>
     admin
       .selectFrom('files')
@@ -79,7 +88,25 @@ export function fileReader(admin: Kysely<DB>, storage: FileStorage, projectId: s
     find: async (fileId) => {
       if (!z.uuid().safeParse(fileId).success) return undefined;
       const row = await select().where('files.id', '=', fileId).executeTakeFirst();
-      return row ? toFile(row)[0] : undefined;
+      if (row) return toFile(row)[0];
+      if (knowledgeOf === undefined) return undefined;
+      const own = await admin
+        .selectFrom('agent_knowledge')
+        .select(['id', 'name', 'file_kind', 'media_type', 'size_bytes', 'storage_key'])
+        .where('id', '=', fileId)
+        .where('agent_id', '=', knowledgeOf)
+        .where('kind', '=', 'file')
+        .executeTakeFirst();
+      if (!own?.file_kind || !isKind(own.file_kind) || !own.storage_key) return undefined;
+      return {
+        id: own.id,
+        name: own.name,
+        kind: own.file_kind,
+        mediaType: own.media_type ?? '',
+        sizeBytes: own.size_bytes ?? 0,
+        storageKey: own.storage_key,
+        uploadedBy: null,
+      };
     },
     content: (file) => storage.get(file.storageKey),
   };
@@ -144,7 +171,9 @@ export function readFileTool(options: {
   async function read(fileId: string, part: number): Promise<ToolResult> {
     const file = await options.files.find(fileId);
     if (!file) {
-      return { text: `There is no file with the id ${fileId}. Use an id from the list of files.` };
+      return {
+        text: `There is no file with the id ${fileId}. Use an id from the lists in the context.`,
+      };
     }
     const content = await options.files.content(file);
     if (!content) {
@@ -200,7 +229,7 @@ export function readFileTool(options: {
     ...defineTool({
       name: 'read_file',
       description:
-        'Reads a file that someone attached to the chat: a text file as text, a PDF as the text of its pages, an image as the image itself. Use the id from the list of files in the context. Long files come in parts; ask for the next part to read on.',
+        'Reads a file that someone attached to the chat, or a file of your own knowledge: a text file as text, a PDF as the text of its pages, an image as the image itself. Use the id from the list in the context. Long files come in parts; ask for the next part to read on.',
       input: {
         fileId: z.string().min(1).max(100).describe('The id of the file from the list of files'),
         part: z

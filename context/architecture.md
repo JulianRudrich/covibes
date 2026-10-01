@@ -41,7 +41,7 @@ Browser ── React app (static files)
 | Server | Node and TypeScript: Hono, Hocuspocus, Graphile Worker | API, login, collaboration, jobs |
 | Hosting | local during development (`pnpm dev`); Docker image for self-hosting (spec 02b) | see "Environments and deployment" |
 | AI layer | AI SDK (npm package `ai`), encapsulated in the `ai-gateway` module | provider-independent model calls |
-| Web search | own search interface; behind it Claude's own web search (owner decision, 2026-10-01, spec 20b) | search tool for all models |
+| Web search and links | a switch of the AI gateway ("this run may search"); behind it Claude's own web search (owner decision, 2026-10-01, spec 20b). Reading a link is an own tool with a guarded fetch | current facts and posted links for the agents |
 | Email | SMTP behind an interface; locally a development mailbox in the app | login links, invitations, notifications |
 | GitLab | `@gitbeaker/rest`, webhooks | repository, issues, merge requests |
 | Monitoring | set up for the public launch | errors in web and server |
@@ -177,6 +177,11 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - A run of a raised hand counts as own initiative, a run of an accepted offer as an instruction.
   - Every look is metered in `ai_runs` with the kind `observe`.
 - **Files (spec 20a):** people attach images, PDFs and text files to chat messages. The server decides what a file is by its content, stores it through the storage interface and serves it to members only, never as something the browser runs. Every agent's context lists the attached files, and the tool `read_file` returns text, the text of a PDF or the image itself; what a file says is quoted as data (invariant 6).
+- **Web and knowledge (spec 20b):**
+  - A run may search the web when the project allows it (`webAccess`, on by default, changed by owners). The search is a capability of the gateway and not one of the request's tools, so another search can take its place; every run stores how many searches it made.
+  - Reading a link is the own tool `read_link`. Its fetch only reaches the public web: `http` and `https` on their standard ports, the host resolved by the connection's own lookup and refused if any address is not public, every redirect checked again, with limits on time and size. The model provider's link reader stays off, since it would fetch from wherever it runs without these checks.
+  - A custom agent has its own knowledge (`agent_knowledge`): files and links its editors give it. A run lists it in the agent's context, and the agent reads an entry with `read_file` or `read_link` when the question calls for it; nothing is pasted into every prompt. Who reads the agent's instructions sees its knowledge.
+  - Pages, search results and knowledge are quoted as data (invariant 6); agents name their sources as plain addresses, which the chat shows as links.
 - **Debates (spec 18):** a job chain with a fixed number of rounds. At the end the moderator summarizes.
   - The moderator opens a debate on request with `start_debate`: two or three specialists of the team, one to three rounds, one debate at a time per project. The debate belongs to the moderator's answer and shows as a card in it.
   - Every turn is an ordinary agent run with its own message. A trigger on `ai_runs` advances the debate when one of its runs ends: the next participant, after the last turn the moderator's summary, and the end. A run that failed for good aborts the debate.
@@ -234,13 +239,14 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | Table | Purpose |
 |---|---|
 | `users`, `sessions`, `accounts`, `verifications` | accounts and sessions (Better Auth); `users` holds name, image and language |
-| `projects` | name, owner, language, settings: stance, decision process, proposals-only mode |
+| `projects` | name, owner, language, settings: stance, decision process, proposals-only mode, observer, web access |
 | `project_members` | role (owner, editor, viewer), `can_approve_git` |
 | `invitations`, `share_links` | invitations, read-only links |
 | `boards`, `yjs_documents` | boards and storage of the Y.Docs |
 | `plans`, `plan_versions`, `plan_suggestions` | plan, versions, AI suggestions per section |
 | `messages` | chat: author (human or agent), mentions, block references |
 | `custom_agents`, `project_agents` | custom agents (personal or shared in a project); team per project. Catalog agents are defined in code |
+| `agent_knowledge` | the knowledge of a custom agent: files (content in the file storage) and links with a note |
 | `hand_raises`, `offers` | raised hands (open, heard, dismissed); the moderator's offers of help (open, accepted, declined) |
 | `proposals` | proposals: canvas change, variants (with the adopted one), team change, decision, plan update, Git action |
 | `decisions`, `criteria`, `decision_log` | decisions per topic with reasoning, alternatives and who confirmed; project criteria; the log of every decision, reopening and change of the criteria |
@@ -250,7 +256,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `git_connections`, `oauth_tokens`, `git_actions` | GitLab connection, tokens (encrypted), audit log |
 | `notifications` | in-app notifications and "Waiting for you" |
 | `files` | files attached to chat messages: name, kind (image, PDF, text), size and the key of the content in the file storage |
-| `ai_runs`, `usage` | agent runs (status, queue), usage and costs |
+| `ai_runs`, `usage` | agent runs (status, queue, web searches), usage and costs |
 
 ## Auth and permissions
 - **Sign-in:** Better Auth on the server under `/api/auth/*`.

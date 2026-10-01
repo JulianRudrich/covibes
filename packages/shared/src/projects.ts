@@ -36,6 +36,7 @@ export const updateProjectInputSchema = z
   .object({
     proposalsOnly: z.boolean().optional(),
     observer: z.boolean().optional(),
+    webAccess: z.boolean().optional(),
     stance: z.enum(MODERATOR_STANCES).optional(),
     decisionProcess: z.enum(DECISION_PROCESSES).optional(),
   })
@@ -48,6 +49,8 @@ export const projectSettingsSchema = z.looseObject({
   proposalsOnly: z.boolean().optional().catch(undefined),
   /** Agents speak up on their own (spec 15); on unless switched off. */
   observer: z.boolean().optional().catch(undefined),
+  /** Agents search the web and read links (spec 20b); on unless switched off. */
+  webAccess: z.boolean().optional().catch(undefined),
   stance: z.enum(MODERATOR_STANCES).optional().catch(undefined),
   decisionProcess: z.enum(DECISION_PROCESSES).optional().catch(undefined),
   /** The moderator asked for the project criteria (spec 16a) and does not ask again. */
@@ -121,6 +124,8 @@ export type ProjectDetails = {
   proposalsOnly: boolean;
   /** The observer lets agents offer help and raise hands (spec 15). */
   observer: boolean;
+  /** Agents may search the web and read links (spec 20b). */
+  webAccess: boolean;
   /** The moderator's stance and how the project decides (spec 16b). */
   stance: ModeratorStance;
   decisionProcess: DecisionProcess;

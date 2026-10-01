@@ -43,6 +43,27 @@ function encodedFileName(name: string): string {
 }
 
 /**
+ * The headers a stored file is served with. Only images are shown in the browser; everything else
+ * is a download, and text is never served as something the browser would run.
+ */
+export function fileHeaders(file: {
+  name: string;
+  kind: string;
+  mediaType: string;
+  size: number;
+}): Record<string, string> {
+  const inline = file.kind === 'image';
+  return {
+    'content-type': file.kind === 'text' ? 'text/plain; charset=utf-8' : file.mediaType,
+    'content-length': String(file.size),
+    'content-disposition': `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodedFileName(file.name)}`,
+    'x-content-type-options': 'nosniff',
+    'content-security-policy': "default-src 'none'; sandbox",
+    'cache-control': 'private, max-age=3600',
+  };
+}
+
+/**
  * `/api/projects/:projectId/files` (spec 20a): owners and editors upload files to attach to their
  * next message; members open them. The server decides what a file is by its content, and serves
  * everything with headers that keep the browser from running it.
@@ -136,18 +157,16 @@ export function fileRoutes(db: AppDb, auth: Auth, storage: FileStorage, limiter:
     const content = file && (await storage.get(file.storage_key));
     if (!file || !content) return apiError(c, 'not_found');
 
-    // Only images are shown in the browser; everything else is a download, and text is never
-    // served as something the browser would run.
-    const inline = file.kind === 'image';
-    const contentType = file.kind === 'text' ? 'text/plain; charset=utf-8' : file.media_type;
-    return c.body(new Uint8Array(content), 200, {
-      'content-type': contentType,
-      'content-length': String(content.byteLength),
-      'content-disposition': `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodedFileName(file.name)}`,
-      'x-content-type-options': 'nosniff',
-      'content-security-policy': "default-src 'none'; sandbox",
-      'cache-control': 'private, max-age=3600',
-    });
+    return c.body(
+      new Uint8Array(content),
+      200,
+      fileHeaders({
+        name: file.name,
+        kind: file.kind,
+        mediaType: file.media_type,
+        size: content.byteLength,
+      }),
+    );
   });
 
   // Takes back an upload before its message is sent; attached files stay.

@@ -5,6 +5,7 @@ import { csrf } from 'hono/csrf';
 import { HTTPException } from 'hono/http-exception';
 
 import { agentRoutes } from '@server/api/agents';
+import { agentKnowledgeRoutes } from '@server/api/agent-knowledge';
 import { customAgentRoutes } from '@server/api/custom-agents';
 import { boardRoutes } from '@server/api/boards';
 import { criteriaRoutes, decisionRoutes } from '@server/api/decisions';
@@ -35,7 +36,7 @@ export const API_BODY_LIMIT = 64 * 1024;
 export const UPLOAD_BODY_LIMIT = MAX_FILE_BYTES + 64 * 1024;
 
 /** `POST /api/projects/:projectId/files`, the only route that takes a file. */
-const UPLOAD_PATH = /^\/api\/projects\/[^/]+\/files\/?$/;
+const UPLOAD_PATH = /^\/api\/(projects\/[^/]+\/files|agents\/[^/]+\/knowledge\/files)\/?$/;
 
 export type AppDeps = {
   env: ServerEnv;
@@ -106,6 +107,10 @@ export function createApp({ env, db, auth, mail, live, documents, files }: AppDe
   app.route('/api/projects/:projectId/criteria', criteriaRoutes(db.app, auth));
   app.route('/api/projects/:projectId/decisions', decisionRoutes(db.app, auth));
   app.route('/api/projects', projectRoutes(db.app, auth, live));
+  app.route(
+    '/api/agents/:agentId/knowledge',
+    agentKnowledgeRoutes(db.app, auth, files, uploadLimiter),
+  );
   app.route('/api/agents', customAgentRoutes(db.app, auth, live));
 
   // In the Docker image the server also delivers the web app (spec 02b); locally Vite does.

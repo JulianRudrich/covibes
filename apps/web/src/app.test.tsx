@@ -81,6 +81,7 @@ const DETAILS: ProjectDetails = {
   boards: [{ id: '33333333-3333-4333-8333-333333333333', title: 'Haupt-Canvas', kind: 'main' }],
   proposalsOnly: false,
   observer: true,
+  webAccess: true,
   stance: 'criteria',
   decisionProcess: 'consensus',
   agents: [{ key: 'moderator', model: null }],
@@ -309,6 +310,11 @@ describe('with a session', () => {
     expect(observer).toBeChecked();
     fireEvent.click(observer);
     await patched({ observer: false });
+    const webAccess = within(dialog).getByRole('checkbox', { name: /Web-Zugriff/ });
+    expect(webAccess).toBeChecked();
+    expect(webAccess).toHaveAccessibleDescription('Agents dürfen im Web suchen und Links lesen.');
+    fireEvent.click(webAccess);
+    await patched({ webAccess: false });
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Schließen' }));
     fireEvent.keyDown(menu, { key: 'Enter' });

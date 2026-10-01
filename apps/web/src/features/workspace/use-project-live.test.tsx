@@ -37,6 +37,7 @@ const DETAILS: ProjectDetails = {
   boards: [{ id: '33333333-3333-4333-8333-333333333333', title: 'Haupt-Canvas', kind: 'main' }],
   proposalsOnly: false,
   observer: true,
+  webAccess: true,
   stance: 'criteria',
   decisionProcess: 'consensus',
   agents: [{ key: 'moderator', model: null }],

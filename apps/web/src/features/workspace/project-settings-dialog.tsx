@@ -12,12 +12,13 @@ import { Button } from '@web/components/ui/button';
 import { DialogClose, DialogContent } from '@web/components/ui/dialog';
 import { cn } from '@web/lib/cn';
 
-/** The settings of a project that its owners change (specs 13, 15 and 16b). */
+/** The settings of a project that its owners change (specs 13, 15, 16b and 20b). */
 export type ProjectSettings = {
   stance: ModeratorStance;
   decisionProcess: DecisionProcess;
   proposalsOnly: boolean;
   observer: boolean;
+  webAccess: boolean;
   /** Only owners change the settings; everyone else sees them. */
   canChange: boolean;
   onChange: (change: UpdateProjectInput) => void;
@@ -77,7 +78,7 @@ function Choice({
 
 /**
  * The project settings (spec 16b, derived look): the moderator's stance, how the project decides,
- * and the two switches for agents. Every change applies at once; owners change them, everyone else
+ * and the switches for agents. Every change applies at once; owners change them, everyone else
  * sees them.
  */
 export function ProjectSettingsDialog({ settings }: { settings: ProjectSettings }) {
@@ -146,6 +147,17 @@ export function ProjectSettingsDialog({ settings }: { settings: ProjectSettings 
             text={t('settings.agents.observer.text')}
             onChange={(observer) => {
               settings.onChange({ observer });
+            }}
+          />
+          <Choice
+            type="checkbox"
+            name="webAccess"
+            checked={settings.webAccess}
+            disabled={disabled}
+            label={t('settings.agents.webAccess.label')}
+            text={t('settings.agents.webAccess.text')}
+            onChange={(webAccess) => {
+              settings.onChange({ webAccess });
             }}
           />
         </Group>

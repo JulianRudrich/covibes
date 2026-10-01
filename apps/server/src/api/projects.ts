@@ -111,6 +111,7 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
         })),
         proposalsOnly: settings.success && settings.data.proposalsOnly === true,
         observer: !settings.success || settings.data.observer !== false,
+        webAccess: !settings.success || settings.data.webAccess !== false,
         stance: (settings.success ? settings.data.stance : undefined) ?? ('criteria' as const),
         decisionProcess:
           (settings.success ? settings.data.decisionProcess : undefined) ?? ('consensus' as const),

@@ -197,6 +197,26 @@
       },
       "creatorOnly": "Only {{name}} can change the visibility."
     },
+    "knowledge": {
+      "title": "Knowledge",
+      "hint": "Files and links the agent reads when a question calls for it. Changes here apply at once.",
+      "afterCreate": "You can add knowledge (files and links) once the agent is created.",
+      "addFile": "Add file",
+      "chooseFile": "Choose a file for the knowledge",
+      "url": "Address of the link",
+      "note": "Note on the link",
+      "notePlaceholder": "What for? (optional)",
+      "addLink": "Add link",
+      "remove": "Remove {{name}}",
+      "full": "No more than {{max}} entries. Remove one to add a new one.",
+      "problems": {
+        "limit": "An agent has at most 10 entries in its knowledge.",
+        "tooLarge": "The file is too large: images up to 5 MB, other files up to 10 MB.",
+        "unsupported": "This file does not work: images (PNG, JPEG, WebP, GIF), PDFs and text files do.",
+        "invalidLink": "Please enter a web address that starts with http:// or https://.",
+        "failed": "That did not work. Please try again."
+      }
+    },
     "create": "Create",
     "save": "Save",
     "delete": "Delete",
@@ -518,6 +538,10 @@
       "observer": {
         "label": "Agents speak up",
         "text": "The moderator offers help, specialists raise a hand."
+      },
+      "webAccess": {
+        "label": "Web access",
+        "text": "Agents may search the web and read links."
       }
     }
   },

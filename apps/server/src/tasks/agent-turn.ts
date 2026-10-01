@@ -1,5 +1,6 @@
 import type { DB } from '@covibes/db';
 import {
+  isCustomAgentKey,
   projectSettingsSchema,
   readEdges,
   readNodes,
@@ -23,6 +24,11 @@ import {
   type AgentDefinition,
 } from '@server/agents/catalog';
 import { loadCustomAgentNames, resolveAgent } from '@server/agents/custom';
+import {
+  describeKnowledge,
+  loadAgentKnowledge,
+  type KnowledgeEntry,
+} from '@server/agents/knowledge';
 import {
   GatewayConfigError,
   GatewayLimitError,
@@ -59,6 +65,7 @@ import {
 import { describePosition, type CanvasToolOptions } from '@server/tools/placement';
 import { proposeVariantsTool } from '@server/tools/propose-variants';
 import { describeFile, fileReader, readFileTool, type ProjectFile } from '@server/tools/read-file';
+import { readLinkTool, type PageReader } from '@server/tools/read-link';
 import { startDebateTool } from '@server/tools/start-debate';
 import { updateBlockTool } from '@server/tools/update-block';
 
@@ -148,6 +155,8 @@ export type AgentTurnDeps = {
   boards: BoardAccess;
   /** Where the content of uploaded files lies (spec 20a); without it agents read no files. */
   files?: FileStorage;
+  /** How `read_link` fetches a page (spec 20b); tests pass their own. */
+  pages?: PageReader;
   /** The gateway's `streamAgentReply`; tests pass a scripted model. */
   reply: (request: AgentReplyRequest) => Promise<AgentReplyResult>;
   /** The gateway's `completeText`, for the intent of the triggering message (spec 13). */
@@ -410,6 +419,8 @@ export async function runAgentTurn(
   const language: Language = project.language === 'en' ? 'en' : 'de';
   const settings = projectSettingsSchema.safeParse(project.settings);
   const proposalsOnly = settings.success && settings.data.proposalsOnly === true;
+  // Agents search the web and read links unless the project switched it off (spec 20b).
+  const webAccess = !settings.success || settings.data.webAccess !== false;
   // The moderator's stance and how the project decides (spec 16b).
   const moderation = {
     stance: (settings.success ? settings.data.stance : undefined) ?? ('criteria' as const),
@@ -442,6 +453,7 @@ export async function runAgentTurn(
         projectName: project.name,
         messageId,
         proposalsOnly,
+        webAccess,
       },
       attempt,
     );
@@ -541,6 +553,7 @@ async function converse(
     projectName: string;
     messageId: string;
     proposalsOnly: boolean;
+    webAccess: boolean;
   },
   attempt: AgentTurnAttempt,
 ): Promise<AgentReplyResult> {
@@ -563,8 +576,11 @@ async function converse(
     : { nodes: [], edges: [], locks: new Map<string, NodeLock>() };
   const proposals = await loadOpenProposals(deps.admin, run.projectId);
   // The files people attached to the chat (spec 20a); every agent may read them.
-  const reader = deps.files ? fileReader(deps.admin, deps.files, run.projectId) : undefined;
+  // A custom agent also reads the files of its own knowledge (spec 20b).
+  const custom = isCustomAgentKey(agent.key) ? agent.key : undefined;
+  const reader = deps.files ? fileReader(deps.admin, deps.files, run.projectId, custom) : undefined;
   const files = reader ? await reader.list(FILES_IN_CONTEXT) : [];
+  const knowledge = custom ? await loadAgentKnowledge(deps.admin, custom) : [];
 
   // The rule engine needs the intent of the message (spec 13). It is classified next to the
   // agent's reply, so the reply does not wait; the first canvas tool does.
@@ -592,6 +608,9 @@ async function converse(
   const tools: AgentTool[] = [];
   // Reading changes nothing, so it needs no rule; a debate only talks.
   if (reader && !debating) tools.push(readFileTool({ files: reader }));
+  // The web (spec 20b): the search is the gateway's, reading a link is our own tool.
+  const web = turn.webAccess && !debating;
+  if (web) tools.push(readLinkTool(deps.pages ? { pages: deps.pages } : {}));
   if (board && !debating) {
     const toolOptions: CanvasToolOptions = {
       boards: deps.boards,
@@ -712,6 +731,8 @@ async function converse(
         ...canvas,
         proposals,
         files,
+        // A debate only talks: it lists no knowledge and says nothing about the web.
+        ...(debating ? {} : { knowledge, web }),
         ...conversation,
         occasion: turn.occasion,
         decisions: {
@@ -722,6 +743,7 @@ async function converse(
         moderation: moderates ? turn.moderation : undefined,
       }),
       tools,
+      webSearch: web,
       onText: deltas.push,
       signal: attempt.signal,
     });
@@ -781,7 +803,7 @@ function authorName(message: ChatMessage, nameOf: NameOf): string {
 /** Chat text is data: it must not close the sections the prompt is built from. */
 function asData(text: string): string {
   return text.replace(
-    /<(\/?)(team|moderation|criteria|decisions|canvas|files|chat|request)>/gi,
+    /<(\/?)(team|moderation|criteria|decisions|canvas|files|knowledge|chat|request)>/gi,
     '‹$1$2›',
   );
 }
@@ -1004,6 +1026,10 @@ export function buildPrompt(context: {
   proposals?: readonly { id: string; agentKey: string; operations: CanvasOperation[] }[];
   /** The latest files attached to the chat (spec 20a), which `read_file` reads. */
   files?: readonly ProjectFile[];
+  /** The knowledge of the custom agent that answers (spec 20b). */
+  knowledge?: readonly KnowledgeEntry[];
+  /** Whether the run may search the web and read links (spec 20b). */
+  web?: boolean;
   messages: readonly ChatMessage[];
   request: ChatMessage | undefined;
   /** A raised hand, an accepted offer or a debate, which the reply answers instead of a message. */
@@ -1032,6 +1058,7 @@ export function buildPrompt(context: {
     .map((message) => `${authorName(message, nameOf)}: ${message.content}${attachedTo(message)}`)
     .join('\n');
   const files = context.files ?? [];
+  const knowledge = context.knowledge ?? [];
   const { occasion } = context;
   const request =
     occasion?.kind === 'hand'
@@ -1056,6 +1083,16 @@ export function buildPrompt(context: {
     ...(files.length > 0
       ? [
           `<files>\nFiles people attached to the chat, newest first; read one with read_file and its id:\n${asData(files.map(describeFile).join('\n'))}\n</files>`,
+        ]
+      : []),
+    ...(knowledge.length > 0
+      ? [
+          `<knowledge>\nYour own knowledge, given to you by the person who created you. Read an entry when the question calls for it, a file with read_file and its id, a link with read_link${context.web === false ? ' (web access is switched off in this project, so links cannot be read right now)' : ''}:\n${asData(knowledge.map(describeKnowledge).join('\n'))}\n</knowledge>`,
+        ]
+      : []),
+    ...(context.web === false
+      ? [
+          'Web access is switched off in this project: you cannot search the web or read links. If someone asks for it, say that an owner can switch it on in the project settings.',
         ]
       : []),
     `<chat>\n${asData(chat)}\n</chat>`,
@@ -1153,6 +1190,7 @@ async function finishRun(
         input_tokens: usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens,
         output_tokens: usage.outputTokens,
         cost_usd: result.costUsd.toFixed(6),
+        web_searches: result.webSearches,
         error: null,
         finished_at: sql`now()`,
       })

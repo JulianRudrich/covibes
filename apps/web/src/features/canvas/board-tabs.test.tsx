@@ -35,6 +35,7 @@ function details(boards: ProjectBoard[], role: ProjectDetails['role'] = 'owner')
     boards,
     proposalsOnly: false,
     observer: true,
+    webAccess: true,
     stance: 'criteria',
     decisionProcess: 'consensus',
     agents: [{ key: 'moderator', model: null }],

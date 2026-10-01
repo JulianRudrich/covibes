@@ -166,6 +166,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
           decisionProcess: project.decisionProcess,
           proposalsOnly: project.proposalsOnly,
           observer: project.observer,
+          webAccess: project.webAccess,
           canChange: project.role === 'owner',
           onChange: (change) => {
             updateProject.mutate(change);

@@ -41,7 +41,7 @@ Browser ── React app (static files)
 | Server | Node and TypeScript: Hono, Hocuspocus, Graphile Worker | API, login, collaboration, jobs |
 | Hosting | local during development (`pnpm dev`); Docker image for self-hosting (spec 02b) | see "Environments and deployment" |
 | AI layer | AI SDK (npm package `ai`), encapsulated in the `ai-gateway` module | provider-independent model calls |
-| Web search | own search interface; the provider is chosen in spec 20 | search tool for all models |
+| Web search | own search interface; behind it Claude's own web search (owner decision, 2026-10-01, spec 20b) | search tool for all models |
 | Email | SMTP behind an interface; locally a development mailbox in the app | login links, invitations, notifications |
 | GitLab | `@gitbeaker/rest`, webhooks | repository, issues, merge requests |
 | Monitoring | set up for the public launch | errors in web and server |
@@ -344,4 +344,4 @@ Claude brings web search and web fetch as tools. Providers added later get equiv
 - library for the PDF export
 - the route for GPT, Gemini and Mistral once a second provider is needed
 - default models per catalog agent after the evals; until then Claude Opus 5.5 for all (owner decision, 2026-09-30)
-- provider for web search (spec 20) and for sending email in production
+- provider for sending email in production

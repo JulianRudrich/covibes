@@ -168,9 +168,17 @@ Built in two parts (2026-10-01), because the unit is large:
 - **Design:** **required:** agent editor
 
 ### 20 Agent knowledge: uploads, links, web search
-- **Goal:** file and image uploads through the server's storage interface, reading links and a web search (the provider is chosen in this spec). Everything is available as a tool for all providers, and external content is treated as data only.
-- **Needs:** 14
+Built in two parts (2026-10-01), because the unit is large. External content is treated as data only.
+
+#### 20a Uploads: files and images in the chat
+- **Goal:** file and image uploads through the server's storage interface, attached to chat messages; agents read them with a tool.
+- **Needs:** 19
 - **Design:** small ("Attach" in the composer is available)
+
+#### 20b Links, web search and the knowledge of custom agents
+- **Goal:** agents read links and search the web (Claude's own web search behind the search interface, owner decision of 2026-10-01); custom agents get their own files and links.
+- **Needs:** 20a
+- **Design:** small
 
 ## M4: Collaboration
 

@@ -53,6 +53,7 @@ Covibes only starts when at least one of the two methods is configured.
 - `SMTP_URL=smtps://user:password@mail.example.org:465` (port 587 with STARTTLS: `smtp://…:587`)
 - URL-encode special characters in user or password; `@` becomes `%40`.
 - `MAIL_FROM=Covibes <no-reply@example.org>`, an address the SMTP account may send from.
+- The same access sends the notification mails (mentions, a changed role, what waits for someone). Without SMTP there are none; the notifications in the app work either way.
 
 **Sign in with GitLab:**
 1. Create an application on GitLab under *Preferences → Applications*.

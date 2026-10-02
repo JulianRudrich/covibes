@@ -75,3 +75,54 @@ export function createMailSetup(
   }
   return { mailer: undefined, outbox: undefined };
 }
+
+/**
+ * Hands a mail of the worker to the server's development mailbox (spec 22b): the mailbox lives in
+ * the server's memory, and the worker is another process. Only locally; the server checks the
+ * shared secret.
+ */
+export class ServerMailboxMailer implements Mailer {
+  constructor(
+    private readonly endpoint: string,
+    private readonly token: string,
+  ) {}
+
+  async send(mail: Mail): Promise<void> {
+    const response = await fetch(this.endpoint, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', [INTERNAL_TOKEN_HEADER]: this.token },
+      body: JSON.stringify(mail),
+    });
+    if (!response.ok) {
+      throw new Error(`The development mailbox refused the mail (${String(response.status)})`);
+    }
+  }
+}
+
+/** The header the worker proves itself with to the server's development mailbox. */
+export const INTERNAL_TOKEN_HEADER = 'x-internal-token';
+
+/** Where the server takes the worker's mails for the development mailbox. */
+export const DEV_MAILS_PATH = '/api/dev/mails';
+
+/**
+ * The mailer of the worker: SMTP in production (or none, then nothing is mailed), locally the
+ * server's development mailbox, which the worker reaches where it reaches the boards.
+ */
+export function createWorkerMailer(env: {
+  NODE_ENV: 'development' | 'test' | 'production';
+  SMTP_URL?: string | undefined;
+  MAIL_FROM?: string | undefined;
+  COLLAB_URL: string;
+  INTERNAL_TOKEN: string;
+}): Mailer | undefined {
+  if (env.NODE_ENV === 'production') {
+    return env.SMTP_URL && env.MAIL_FROM
+      ? new SmtpMailer(nodemailer.createTransport(env.SMTP_URL), env.MAIL_FROM)
+      : undefined;
+  }
+  if (env.NODE_ENV === 'test') return undefined;
+  const server = new URL(env.COLLAB_URL);
+  server.protocol = server.protocol === 'wss:' ? 'https:' : 'http:';
+  return new ServerMailboxMailer(new URL(DEV_MAILS_PATH, server).href, env.INTERNAL_TOKEN);
+}

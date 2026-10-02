@@ -1,4 +1,3 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 
@@ -20,6 +19,7 @@ import * as Y from 'yjs';
 
 import type { Auth } from '@server/auth/auth';
 import { withUser, type Database as AppDatabase } from '@server/db/database';
+import { sameSecret } from '@server/secrets';
 import { acceptUpgrade, fetchHeaders } from '@server/websockets';
 
 export type CollabContext = {
@@ -42,12 +42,6 @@ const RESET_CONNECTION = { code: 4205, reason: 'Reset Connection' } as const;
 
 /** The worker, drawing on a board for an agent (spec 07). */
 const SERVICE_USER = { id: 'service', name: 'Covibes', role: 'editor' } as const;
-
-/** Constant-time comparison; hashing first gives both sides the same length. */
-function sameSecret(given: string, expected: string): boolean {
-  const hash = (value: string) => createHash('sha256').update(value).digest();
-  return timingSafeEqual(hash(given), hash(expected));
-}
 
 /** Refuses a document; the client learns "permission denied" and nothing more. */
 class AccessDenied extends Error {

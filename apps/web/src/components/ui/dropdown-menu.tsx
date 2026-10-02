@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { DropdownMenu as MenuPrimitive } from 'radix-ui';
 import type { ComponentProps, ReactNode } from 'react';
 
@@ -61,5 +62,33 @@ export function DropdownMenuItem({
       )}
       {...props}
     />
+  );
+}
+
+/** A switch in a menu: a check marks it as on; choosing it keeps the menu open. */
+export function DropdownMenuCheckboxItem({
+  className,
+  children,
+  ...props
+}: ComponentProps<typeof MenuPrimitive.CheckboxItem>) {
+  return (
+    <MenuPrimitive.CheckboxItem
+      className={cn(
+        'flex h-8 cursor-pointer items-center gap-2 rounded-sm px-2 text-ui text-text-body outline-none select-none',
+        'data-highlighted:bg-bg-subtle data-disabled:pointer-events-none data-disabled:opacity-50',
+        className,
+      )}
+      onSelect={(event) => {
+        event.preventDefault();
+      }}
+      {...props}
+    >
+      <span aria-hidden="true" className="grid size-3.5 shrink-0 place-items-center">
+        <MenuPrimitive.ItemIndicator>
+          <Check size={14} strokeWidth={2.4} />
+        </MenuPrimitive.ItemIndicator>
+      </span>
+      {children}
+    </MenuPrimitive.CheckboxItem>
   );
 }

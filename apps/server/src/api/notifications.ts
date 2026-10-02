@@ -2,8 +2,10 @@ import {
   markNotificationsReadInputSchema,
   NOTIFICATION_PAGE_SIZE,
   notificationSchema,
+  notificationSettingsSchema,
   type Notification,
   type NotificationList,
+  type NotificationSettings,
 } from '@covibes/shared';
 import { Hono } from 'hono';
 import { sql } from 'kysely';
@@ -95,6 +97,38 @@ export function notificationRoutes(db: AppDb, auth: Auth) {
         .execute(),
     );
     return c.body(null, 204);
+  });
+
+  // Whether Covibes also tells the person by mail (spec 22b); on until they turn it off.
+  routes.get('/settings', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    const row = await withUser(db, user.id, (trx) =>
+      trx
+        .selectFrom('notification_settings')
+        .select('email')
+        .where('user_id', '=', user.id)
+        .executeTakeFirst(),
+    );
+    return c.json<NotificationSettings>({ email: row?.email ?? true });
+  });
+
+  routes.patch('/settings', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    const body: unknown = await c.req.json().catch(() => undefined);
+    const input = notificationSettingsSchema.safeParse(body);
+    if (!input.success) return apiError(c, 'invalid_input');
+    const { email } = input.data;
+
+    await withUser(db, user.id, (trx) =>
+      trx
+        .insertInto('notification_settings')
+        .values({ user_id: user.id, email })
+        .onConflict((conflict) => conflict.column('user_id').doUpdateSet({ email }))
+        .execute(),
+    );
+    return c.json<NotificationSettings>({ email });
   });
 
   return routes;

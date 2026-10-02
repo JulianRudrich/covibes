@@ -3,6 +3,7 @@ import { Hono, type MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { csrf } from 'hono/csrf';
 import { HTTPException } from 'hono/http-exception';
+import { z } from 'zod';
 
 import { agentRoutes } from '@server/api/agents';
 import { agentKnowledgeRoutes } from '@server/api/agent-knowledge';
@@ -28,12 +29,24 @@ import { AUTH_BASE_PATH, gitlabLoginEnabled, type Auth } from '@server/auth/auth
 import type { BoardDocuments } from '@server/collab/collab';
 import type { Database } from '@server/db/database';
 import type { ServerEnv } from '@server/env';
-import type { MailSetup } from '@server/integrations/mail/mailer';
+import {
+  DEV_MAILS_PATH,
+  INTERNAL_TOKEN_HEADER,
+  type MailSetup,
+} from '@server/integrations/mail/mailer';
 import type { ProjectConnections } from '@server/realtime/connections';
 import type { LivePublisher } from '@server/realtime/realtime';
 import { createRateLimiter } from '@server/rate-limit';
 import type { FileStorage } from '@server/storage/storage';
+import { sameSecret } from '@server/secrets';
 import { securityHeaders, serveWebApp } from '@server/web-app';
+
+/** A mail the worker hands to the development mailbox. */
+const devMailInputSchema = z.object({
+  to: z.string().min(3).max(320),
+  subject: z.string().min(1).max(300),
+  text: z.string().min(1).max(20_000),
+});
 
 /** Messages one person may send per minute across all projects. */
 export const MESSAGES_PER_MINUTE = 20;
@@ -109,7 +122,20 @@ export function createApp({
   // The development mailbox only exists locally; everywhere else the route is unknown.
   const { outbox } = mail;
   if (env.NODE_ENV === 'development' && outbox) {
-    app.get('/api/dev/mails', (c) => c.json<DevMail[]>(outbox.list()));
+    app.get(DEV_MAILS_PATH, (c) => c.json<DevMail[]>(outbox.list()));
+    // The worker's mails (spec 22b): it is another process and proves itself with the shared
+    // secret; a browser cannot send mails into the mailbox.
+    app.post(DEV_MAILS_PATH, async (c) => {
+      const token = c.req.header(INTERNAL_TOKEN_HEADER);
+      if (!env.INTERNAL_TOKEN || !token || !sameSecret(token, env.INTERNAL_TOKEN)) {
+        return apiError(c, 'forbidden');
+      }
+      const body: unknown = await c.req.json().catch(() => undefined);
+      const mail = devMailInputSchema.safeParse(body);
+      if (!mail.success) return apiError(c, 'invalid_input');
+      await outbox.send(mail.data);
+      return c.body(null, 204);
+    });
   }
 
   const messageLimiter = createRateLimiter({ limit: MESSAGES_PER_MINUTE, windowMs: 60_000 });

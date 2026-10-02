@@ -18,12 +18,19 @@ export const workerEnvSchema = z
      * instance other people use needs the key (architecture "AI providers").
      */
     ANTHROPIC_API_KEY: z.string().min(1).optional(),
+    /** SMTP access for the notification mails (spec 22b), the same as the server's; optional. */
+    SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
+    MAIL_FROM: z.string().min(3).optional(),
     /** Folder of the file storage (spec 20a), the same as the server's. */
     FILES_DIR: z.string().min(1).optional(),
   })
   .refine((env) => env.NODE_ENV !== 'production' || Boolean(env.FILES_DIR), {
     message: 'Production needs FILES_DIR, the folder for uploaded files (shared with the server)',
     path: ['FILES_DIR'],
+  })
+  .refine((env) => !env.SMTP_URL || Boolean(env.MAIL_FROM), {
+    message: 'MAIL_FROM is required when SMTP_URL is set',
+    path: ['MAIL_FROM'],
   })
   .refine((env) => env.NODE_ENV !== 'production' || Boolean(env.ANTHROPIC_API_KEY), {
     message:

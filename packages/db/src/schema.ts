@@ -284,6 +284,13 @@ export interface Invitations {
   uses: Generated<number>;
 }
 
+export interface MemberActivity {
+  last_seen_at: Timestamp | null;
+  project_id: string;
+  user_id: string;
+  waiting_mailed_at: Timestamp | null;
+}
+
 export interface Messages {
   author_agent_key: string | null;
   author_kind: string;
@@ -307,11 +314,18 @@ export interface Notifications {
   excerpt: Generated<string>;
   id: Generated<string>;
   kind: string;
+  mailed_at: Timestamp | null;
   message_id: string | null;
   project_id: string;
   project_name: string;
   read_at: Timestamp | null;
   role: ProjectRole | null;
+  user_id: string;
+}
+
+export interface NotificationSettings {
+  email: Generated<boolean>;
+  last_mail_at: Timestamp | null;
   user_id: string;
 }
 
@@ -463,7 +477,9 @@ export interface DB {
   'graphile_worker.migrations': GraphileWorkerMigrations;
   hand_raises: HandRaises;
   invitations: Invitations;
+  member_activity: MemberActivity;
   messages: Messages;
+  notification_settings: NotificationSettings;
   notifications: Notifications;
   offers: Offers;
   project_agents: ProjectAgents;

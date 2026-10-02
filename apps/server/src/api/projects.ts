@@ -148,6 +148,19 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
     return c.json<ProjectDetails>(details);
   });
 
+  // The member has the project open and visible right now (spec 22b): what waits there counts as
+  // seen, so no mail tells them about it.
+  routes.post('/:projectId/seen', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    const projectId = projectIdSchema.safeParse(c.req.param('projectId'));
+    if (!projectId.success) return apiError(c, 'not_found');
+    await withUser(db, user.id, (trx) =>
+      sql`select public.touch_project_seen(${projectId.data})`.execute(trx),
+    );
+    return c.body(null, 204);
+  });
+
   // The project's settings (spec 13: the proposals-only mode, spec 15: the observer, spec 16b: the
   // moderator's stance and the decision process); only owners change them.
   routes.patch('/:projectId', async (c) => {

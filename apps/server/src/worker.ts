@@ -12,14 +12,16 @@ import {
   streamAgentReply,
 } from '@server/ai-gateway';
 import { createBoardClient } from '@server/collab/board-client';
+import { createWorkerMailer } from '@server/integrations/mail/mailer';
 import { defaultFilesDir, localStorage } from '@server/storage/storage';
 import { releaseAbandonedJobs } from '@server/tasks/abandoned-jobs';
 import { AGENT_TURN_TASK, agentTurnTask } from '@server/tasks/agent-turn';
+import { NOTIFICATION_MAIL_TASK, notificationMailTask } from '@server/tasks/notification-mails';
 import { OBSERVE_TASK, observeTask } from '@server/tasks/observe';
 import { loadWorkerEnv, type WorkerEnv } from '@server/worker-env';
 
-// The worker process (spec 07): runs the jobs the database creates for agent mentions and the
-// observer (spec 15). Every agent has its own queue per project, so it answers one request after
+// The worker process (spec 07): runs the jobs the database creates for agent mentions, the
+// observer (spec 15) and the notification mails (spec 22b). Every agent has its own queue per project, so it answers one request after
 // the other; up to five runs of different agents or projects work at the same time.
 const CONCURRENCY = 5;
 
@@ -88,6 +90,12 @@ const runner = await run({
       complete: completeText,
     }),
     [OBSERVE_TASK]: observeTask({ admin, complete: completeText }),
+    // Sums up by mail what a person has not seen in the app (spec 22b).
+    [NOTIFICATION_MAIL_TASK]: notificationMailTask({
+      admin,
+      mailer: createWorkerMailer(env),
+      appUrl: env.APP_URL,
+    }),
   },
 });
 

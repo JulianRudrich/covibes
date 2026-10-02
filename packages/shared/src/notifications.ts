@@ -55,3 +55,10 @@ export const openVoteSchema = messageVoteSchema.extend({
   createdAt: z.string(),
 });
 export type OpenVote = z.infer<typeof openVoteSchema>;
+
+/**
+ * A person's settings for notifications (spec 22b): whether Covibes also tells them by mail what
+ * they have not seen in the app. `GET` and `PATCH /api/notifications/settings`.
+ */
+export const notificationSettingsSchema = z.object({ email: z.boolean() });
+export type NotificationSettings = z.infer<typeof notificationSettingsSchema>;

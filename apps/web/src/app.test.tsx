@@ -689,6 +689,55 @@ describe('with a session', () => {
     expect(screen.getByRole('link', { name: 'Zur Projektliste' })).toHaveAttribute('href', '/');
   });
 
+  it('turns the notification mails off in the account menu (spec 22b)', async () => {
+    let email = true;
+    const api = stubApi({
+      'GET /api/projects': () => ({ body: [] }),
+      'GET /api/config': () => ({ body: CONFIG }),
+      'GET /api/notifications/settings': () => ({ body: { email } }),
+      'PATCH /api/notifications/settings': (init) => {
+        const wanted = JSON.parse(typeof init?.body === 'string' ? init.body : '{}') as {
+          email: boolean;
+        };
+        ({ email } = wanted);
+        return { body: { email } };
+      },
+    });
+    renderApp('/');
+
+    fireEvent.keyDown(await screen.findByRole('button', { name: 'Konto' }), { key: 'Enter' });
+    const mails = await screen.findByRole('menuitemcheckbox', {
+      name: 'E-Mail-Benachrichtigungen',
+    });
+    // On until the person turns it off.
+    expect(mails).toBeChecked();
+    fireEvent.click(mails);
+
+    await waitFor(() => {
+      expect(mails).not.toBeChecked();
+    });
+    expect(api).toHaveBeenCalledWith(
+      '/api/notifications/settings',
+      expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ email: false }) }),
+    );
+    // The menu stays open, so the switch can be seen changing.
+    expect(screen.getByRole('menuitem', { name: 'Abmelden' })).toBeInTheDocument();
+  });
+
+  it('offers no switch for mails when the server cannot send any', async () => {
+    stubApi({
+      'GET /api/projects': () => ({ body: [] }),
+      'GET /api/config': () => ({ body: { ...CONFIG, emailLogin: false } }),
+      'GET /api/notifications/settings': () => ({ body: { email: true } }),
+    });
+    renderApp('/');
+
+    fireEvent.keyDown(await screen.findByRole('button', { name: 'Konto' }), { key: 'Enter' });
+
+    expect(await screen.findByRole('menuitem', { name: 'Abmelden' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitemcheckbox')).not.toBeInTheDocument();
+  });
+
   it('signs out from the account menu', async () => {
     stubApi({
       'GET /api/projects': () => ({ body: [] }),

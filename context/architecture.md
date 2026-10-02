@@ -255,7 +255,8 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `debates` | debates between agents: question, participants, rounds, finished turns and status |
 | `tasks` | tasks with milestone, assignee, spec reference and GitLab issue |
 | `git_connections`, `oauth_tokens`, `git_actions` | GitLab connection, tokens (encrypted), audit log |
-| `notifications` | notifications per person: mentions, changed roles, removals, new members; with the names they show and when they were read |
+| `notifications` | notifications per person: mentions, changed roles, removals, new members; with the names they show, when they were read and when they were mailed |
+| `notification_settings`, `member_activity` | per person the switch for mails and when the last one went out; per member when they last had the project open and when a mail last told them that something waits |
 | `files` | files attached to chat messages: name, kind (image, PDF, text), size and the key of the content in the file storage |
 | `ai_runs`, `usage` | agent runs (status, queue, web searches), usage and costs |
 
@@ -283,6 +284,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
   - People are mentioned like agents; the server stores whom a message mentions (`messages.mentioned_users`).
   - Triggers write a notification for whom something concerns: a mention, a role someone else changed, a removal, a new member of an own project. A notification carries the names it shows, and everyone reads and marks only their own.
   - The bell asks the server every 30 seconds; there is no person-wide live channel. In the open project a live message that mentions the user reloads it at once.
+  - Mails (spec 22b): a job per person, scheduled by triggers ten minutes ahead, sums up what they have not seen (unread notifications, and what waits in projects they have not opened since) in one mail, at most one in 30 minutes, and notes what it mailed. The worker sends it; locally it hands the mail to the server's development mailbox.
   - "Waiting for you" is what a person can act on in a project: open proposals, raised hands and votes without their vote; a database function counts the same for the project list.
 - **Read-only links (spec 21b):** a link shows the canvas and the overview of a project without an account, never the chat and never a person. A request with a link runs as `covibes_app` without a user; the server sets the link's token for the transaction (`withShareLink`), and select policies let it read the rows of that one project the view needs. Only the hash of the token is stored. The boards' content is read from the collaboration server without connecting, and human authors are removed before it leaves the server.
 

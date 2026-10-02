@@ -27,6 +27,7 @@ import { ProjectShare } from '@web/features/share/project-share';
 import { ProjectTeam } from '@web/features/team/project-team';
 import { DEMO_ACTIVE_PHASE } from '@web/features/workspace/demo-workspace';
 import { useProjectLive } from '@web/features/workspace/use-project-live';
+import { useProjectSeen } from '@web/features/workspace/use-project-seen';
 import { WorkspaceShell, type WorkspaceMember } from '@web/features/workspace/workspace-shell';
 import { ApiError } from '@web/lib/api';
 
@@ -104,6 +105,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
   const { board: requested } = route.useSearch();
   const { notice, show: showNotice } = useNotice();
   useProjectLive(project.id, user?.id);
+  useProjectSeen(project.id);
 
   // The main canvas comes first; it is open unless the address names another board.
   const activeBoard =

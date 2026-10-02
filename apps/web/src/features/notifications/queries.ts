@@ -1,4 +1,8 @@
-import type { MarkNotificationsReadInput, NotificationList } from '@covibes/shared';
+import type {
+  MarkNotificationsReadInput,
+  NotificationList,
+  NotificationSettings,
+} from '@covibes/shared';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@web/lib/api';
@@ -47,5 +51,37 @@ export function useMarkNotificationsRead() {
       });
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey, exact: true }),
+  });
+}
+
+/** Whether Covibes also tells the person by mail what they have not seen (spec 22b). */
+export const notificationSettingsQuery = queryOptions({
+  queryKey: ['notifications', 'settings'] as const,
+  queryFn: () => api<NotificationSettings>('/notifications/settings'),
+  staleTime: Infinity,
+});
+
+/** Turns the mails on or off: shown at once, taken back if the server refuses. */
+export function useUpdateNotificationSettings() {
+  const queryClient = useQueryClient();
+  const { queryKey } = notificationSettingsQuery;
+  return useMutation({
+    mutationFn: (settings: NotificationSettings) =>
+      api<NotificationSettings>('/notifications/settings', {
+        method: 'PATCH',
+        body: JSON.stringify(settings),
+      }),
+    onMutate: async (settings) => {
+      await queryClient.cancelQueries({ queryKey, exact: true });
+      const previous = queryClient.getQueryData(queryKey);
+      queryClient.setQueryData(queryKey, settings);
+      return { previous };
+    },
+    onError: (_error, _settings, context) => {
+      queryClient.setQueryData(queryKey, context?.previous);
+    },
+    onSuccess: (settings) => {
+      queryClient.setQueryData(queryKey, settings);
+    },
   });
 }

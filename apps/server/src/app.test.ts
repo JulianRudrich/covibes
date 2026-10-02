@@ -5,6 +5,9 @@ import { createTestServer } from '@server/testing';
 
 const test = createTestServer();
 const development = createTestServer({ NODE_ENV: 'development' });
+const INTERNAL_TOKEN = 'internal-token-for-the-tests-0123456789';
+const withWorker = createTestServer({ NODE_ENV: 'development', INTERNAL_TOKEN });
+const MAIL = { to: 'alex@example.com', subject: 'Neues für dich', text: 'Hallo Alex' };
 
 describe('GET /health', () => {
   it('reports the server as healthy', async () => {
@@ -45,6 +48,39 @@ describe('development mailbox', () => {
   it('does not exist outside development', async () => {
     const response = await test.app.request('/api/dev/mails');
     expect(response.status).toBe(404);
+    const posted = await test.app.request('/api/dev/mails', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-internal-token': INTERNAL_TOKEN },
+      body: JSON.stringify(MAIL),
+    });
+    expect(posted.status).toBe(404);
+  });
+
+  it('takes the mails of the worker, and of nobody else (spec 22b)', async () => {
+    const post = (token: string | undefined, body: unknown = MAIL) =>
+      withWorker.app.request('/api/dev/mails', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(token === undefined ? {} : { 'x-internal-token': token }),
+        },
+        body: JSON.stringify(body),
+      });
+
+    expect((await post(undefined)).status).toBe(403);
+    expect((await post('wrong-token-that-is-long-enough-0123456789')).status).toBe(403);
+    expect((await post(INTERNAL_TOKEN, { to: 'x' })).status).toBe(400);
+    expect((await post(INTERNAL_TOKEN)).status).toBe(204);
+
+    const mails = (await (await withWorker.app.request('/api/dev/mails')).json()) as DevMail[];
+    expect(mails).toMatchObject([MAIL]);
+    // A server without the shared secret takes no mail from anyone.
+    const open = await development.app.request('/api/dev/mails', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-internal-token': '' },
+      body: JSON.stringify(MAIL),
+    });
+    expect(open.status).toBe(403);
   });
 });
 

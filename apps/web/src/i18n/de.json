@@ -31,6 +31,7 @@
   },
   "account": {
     "menu": "Konto",
+    "emailNotifications": "E-Mail-Benachrichtigungen",
     "signOut": "Abmelden"
   },
   "projects": {

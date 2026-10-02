@@ -322,11 +322,13 @@ export {
   NOTIFICATION_KINDS,
   NOTIFICATION_PAGE_SIZE,
   notificationSchema,
+  notificationSettingsSchema,
   openVoteSchema,
   type MarkNotificationsReadInput,
   type Notification,
   type NotificationKind,
   type NotificationList,
+  type NotificationSettings,
   type OpenVote,
 } from './notifications';
 export { PHASES, phaseStatuses, type Phase, type PhaseStatus } from './phases';

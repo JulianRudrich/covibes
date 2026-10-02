@@ -7,7 +7,7 @@
 Build collaboration (M4, specs 21 to 24): invitations, roles and the read-only link, "Waiting for you" and notifications, "Since you were away", and the phase indicator with the next step. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 23: "Since you were away" (branch `spec/23-since-you-were-away`)
+- Nothing. Next is spec 24 (phase indicator and next step).
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -192,11 +192,17 @@ Build collaboration (M4, specs 21 to 24): invitations, roles and the read-only l
   - the worker sends it; locally it lands in the development mailbox
 
   Lint, type check, format, 1203 tests and build pass; verified with `pnpm dev`. Spec 22 is complete with it.
+- [x] **Spec 23 "Since you were away":**
+  - a member who comes back after an hour or more sees "Seit du weg warst" at the top of the overview: the decisions, the changes per board, the new messages and what waits
+  - with enough new messages the moderator sums up the conversation for that person in a few sentences (Claude Sonnet 5.5, a job of the worker, metered)
+  - "Verstanden" closes it until the next return
+
+  Lint, type check, format, 1236 tests and build pass; verified with `pnpm dev`.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M4 (collaboration):** M3 (AI core) is complete with spec 20b. Spec 21 (invitations, roles and read-only link) is done in two parts. Spec 22 ("Waiting for you" and notifications) is done in two parts. Spec 23 ("Since you were away") is worked out and in progress; spec 24 (phase indicator and next step) follows. The share dialog and the read-only view are derived from the prototype design until the design pass (spec 36).
+1. **M4 (collaboration):** M3 (AI core) is complete with spec 20b. Spec 21 (invitations, roles and read-only link) is done in two parts. Spec 22 ("Waiting for you" and notifications) is done in two parts. Spec 23 ("Since you were away") is done. Next is spec 24 (phase indicator and next step), the last one of M4; it is worked out before it is built. The share dialog and the read-only view are derived from the prototype design until the design pass (spec 36).
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -309,6 +315,7 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-10-01, spec 17 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that variants are one proposal with a diagram per variant, that the server places them in one row with the tops aligned, that the canvas offers only "Übernehmen" per variant while "Verwerfen" for all sits in the overview, and that the canvas does not move to new variants by itself.
 - **2026-10-01, spec 18 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that a debate has two or three specialists and one to three rounds (two by default), that the moderator leads but does not argue, that debate runs have no tools, that the database advances the chain, that owners and editors can end a debate early with a summary of what was said, and that a turn that fails for good aborts the debate.
 - **2026-10-01, spec 19 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that a custom agent's key is its id, that a personal agent's instructions stay with its creator while a shared agent is edited by owners and editors, that custom agents draw or only talk (no choice of single tools), the six custom colors and the two-letter avatars, the limits of 20 agents, and that the templates are texts of the web app.
+- **2026-10-02, spec 23 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that away means an hour without the project in a visible tab, that the summary is a section of the overview that stays until it is closed, what it lists (decisions, criteria, changes per board, messages, what waits), that the moderator's text is written by itself once five messages by others came in, with Claude Sonnet 5.5 like the observer (it runs for every person who returns; the owner can choose another model), and that plan versions and Git events join with their specs. The live test showed that the first text was too long for the column; the prompt now asks for 60 words.
 - **2026-10-02, spec 22b implemented.** Details are in the spec under "Implementation notes". The owner agreed to bundled mails with a pause of 30 minutes and a switch in the account menu. The coding agent decided that a mail waits ten minutes so that active people get none, what counts as seen (the project was open and visible), that a new member is not mailed about, that the worker sends and reaches the development mailbox through the server, and that the link of a project follows the current membership.
 - **2026-10-02, spec 22a implemented.** Details are in the spec under "Implementation notes". The coding agent split spec 22 into two parts and decided that people are mentioned by the handle of their name (agents of the team keep their names), which events notify whom (mentions, a changed role, a removal, a new member for owners), that the bell asks every 30 seconds instead of a person-wide live channel, that raised hands and open votes join "Wartet auf dich" while the moderator's offers stay in the chat, and that the counter counts only what the person can act on.
 - **2026-10-02, spec 21b implemented.** Details are in the spec under "Implementation notes". The owner decided that the link shows the canvas and the overview, without the chat. The coding agent decided that the view names no person (people are "Teammitglied", decisions do not say who confirmed them, no decision log), that there is one link per project without an expiry, that the view is a picture loaded again every 30 seconds instead of a live session, and that every member sees that a link exists.

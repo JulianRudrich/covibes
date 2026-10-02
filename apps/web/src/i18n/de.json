@@ -701,5 +701,31 @@
       "removed": "<b>{{name}}</b> hat dich aus <b>{{project}}</b> entfernt",
       "joined": "<b>{{name}}</b> ist <b>{{project}}</b> beigetreten, als {{role}}"
     }
+  },
+  "away": {
+    "title": "Seit du weg warst",
+    "lastHere": "zuletzt hier {{time}}",
+    "summary": "Zusammenfassung",
+    "writing": "Fasst die Unterhaltung für dich zusammen …",
+    "decided": "Entschieden: <b>{{topic}}</b> – {{value}}",
+    "reopened": "Wieder geöffnet: <b>{{topic}}</b>",
+    "criteria_one": "{{count}} Kriterium geändert",
+    "criteria_other": "{{count}} Kriterien geändert",
+    "board_one": "<b>{{title}}</b>: {{count}} Änderung von {{names}}",
+    "board_other": "<b>{{title}}</b>: {{count}} Änderungen von {{names}}",
+    "boardPlain_one": "<b>{{title}}</b>: {{count}} Änderung",
+    "boardPlain_other": "<b>{{title}}</b>: {{count}} Änderungen",
+    "boardNew": "Neues Board: <b>{{title}}</b>",
+    "messages_one": "{{count}} neue Nachricht von {{names}}",
+    "messages_other": "{{count}} neue Nachrichten von {{names}}",
+    "messagesPlain_one": "{{count}} neue Nachricht",
+    "messagesPlain_other": "{{count}} neue Nachrichten",
+    "mentions_one": "{{count}} Nachricht erwähnt dich",
+    "mentions_other": "{{count}} Nachrichten erwähnen dich",
+    "waiting_one": "{{count}} Sache wartet auf dich",
+    "waiting_other": "{{count}} Sachen warten auf dich",
+    "others_one": "{{count}} weiteren",
+    "others_other": "{{count}} weiteren",
+    "dismiss": "Verstanden"
   }
 }

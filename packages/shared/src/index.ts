@@ -47,6 +47,21 @@ export {
 } from './agents/mentions';
 export type { ApiErrorBody, ApiErrorCode, DevMail, PublicConfig } from './api';
 export {
+  AWAY_AFTER_MS,
+  AWAY_AUTHORS_SHOWN,
+  AWAY_TEXT_STATUSES,
+  awayAuthorSchema,
+  awayBoardSchema,
+  awayDecisionSchema,
+  awaySummarySchema,
+  type AwayAuthor,
+  type AwayBoard,
+  type AwayDecision,
+  type AwaySummary,
+  type AwayTextStatus,
+  type ProjectSeen,
+} from './away';
+export {
   awarenessStateSchema,
   nodeLocks,
   remoteCursors,

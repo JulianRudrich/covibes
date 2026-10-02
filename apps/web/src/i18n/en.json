@@ -701,5 +701,31 @@
       "removed": "<b>{{name}}</b> removed you from <b>{{project}}</b>",
       "joined": "<b>{{name}}</b> joined <b>{{project}}</b> as {{role}}"
     }
+  },
+  "away": {
+    "title": "Since you were away",
+    "lastHere": "last here {{time}}",
+    "summary": "Summary",
+    "writing": "Summing up the conversation for you …",
+    "decided": "Decided: <b>{{topic}}</b> – {{value}}",
+    "reopened": "Reopened: <b>{{topic}}</b>",
+    "criteria_one": "{{count}} criterion changed",
+    "criteria_other": "{{count}} criteria changed",
+    "board_one": "<b>{{title}}</b>: {{count}} change by {{names}}",
+    "board_other": "<b>{{title}}</b>: {{count}} changes by {{names}}",
+    "boardPlain_one": "<b>{{title}}</b>: {{count}} change",
+    "boardPlain_other": "<b>{{title}}</b>: {{count}} changes",
+    "boardNew": "New board: <b>{{title}}</b>",
+    "messages_one": "{{count}} new message by {{names}}",
+    "messages_other": "{{count}} new messages by {{names}}",
+    "messagesPlain_one": "{{count}} new message",
+    "messagesPlain_other": "{{count}} new messages",
+    "mentions_one": "{{count}} message mentions you",
+    "mentions_other": "{{count}} messages mention you",
+    "waiting_one": "{{count}} thing waits for you",
+    "waiting_other": "{{count}} things wait for you",
+    "others_one": "{{count}} other",
+    "others_other": "{{count}} others",
+    "dismiss": "Got it"
   }
 }

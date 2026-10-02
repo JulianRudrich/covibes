@@ -27,6 +27,12 @@ type DecisionsSectionProps = {
   onOpenLog?: () => void;
   /** Owners and editors reopen a decision with a reason; viewers only read. */
   onReopen?: (decision: Decision, reason: string) => void;
+  /**
+   * The decision whose dialog is open, when something outside the section opens decisions too
+   * (spec 23: "Seit du weg warst"); without it the section keeps that to itself.
+   */
+  openId?: string | null;
+  onOpenIdChange?: (decisionId: string | null) => void;
 };
 
 const BOLD = { b: <strong className="font-semibold text-text" /> };
@@ -91,10 +97,14 @@ export function DecisionsSection({
   log,
   onOpenLog,
   onReopen,
+  openId: givenOpenId,
+  onOpenIdChange,
 }: DecisionsSectionProps) {
   const { t } = useTranslation();
   const titleId = useId();
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [ownOpenId, setOwnOpenId] = useState<string | null>(null);
+  const openId = givenOpenId !== undefined ? givenOpenId : ownOpenId;
+  const setOpenId = onOpenIdChange ?? setOwnOpenId;
   const [logOpen, setLogOpen] = useState(false);
   // The decision may change or disappear while its dialog is open.
   const open = decisions.find((decision) => decision.id === openId);

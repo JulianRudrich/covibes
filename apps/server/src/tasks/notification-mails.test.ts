@@ -222,7 +222,9 @@ describe('the notification mail', () => {
     await raiseHand(projectId);
     // The browser tells the server that the project is open and visible.
     const seen = await request(`/api/projects/${projectId}/seen`, alex.cookie, { method: 'POST' });
-    expect(seen.status).toBe(204);
+    expect(seen.status).toBe(200);
+    // A first visit is no return from an absence (spec 23).
+    expect(await seen.json()).toEqual({ returned: false });
     const { outbox, run } = job();
 
     expect(await run(alex.id)).toBe('nothing');

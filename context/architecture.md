@@ -187,6 +187,9 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - Every turn is an ordinary agent run with its own message. A trigger on `ai_runs` advances the debate when one of its runs ends: the next participant, after the last turn the moderator's summary, and the end. A run that failed for good aborts the debate.
   - Runs of a debate only talk: they get no tools and record nothing.
   - Owners and editors end a debate early through the database function `stop_debate`; the turn in progress is finished, then the moderator sums up.
+- **Summary for a return (spec 23):** a member who did not have a project open in a visible tab for an hour is back when they open it again; the database notes that absence (`away_summaries`).
+  - The server fills it on request from what the project records anyway: the decision log, the last change of every board element, the messages.
+  - With five or more messages by others, a job lets the moderator sum up the conversation for that person: Claude Sonnet 5.5 with fixed instructions and no tools, metered in `ai_runs` with the kind `summary`. Only that person reads the text; it is no message in the chat.
 - **External agents (after V1):** the agent runner gets an adapter interface. Through it, an external endpoint (A2A or webhook) answers instead of a model. Rules and tools stay the same.
 
 ### Rule engine
@@ -257,6 +260,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `git_connections`, `oauth_tokens`, `git_actions` | GitLab connection, tokens (encrypted), audit log |
 | `notifications` | notifications per person: mentions, changed roles, removals, new members; with the names they show, when they were read and when they were mailed |
 | `notification_settings`, `member_activity` | per person the switch for mails and when the last one went out; per member when they last had the project open and when a mail last told them that something waits |
+| `away_summaries` | per member the last absence: from when to when, the moderator's summary with its status, and when the member closed it |
 | `files` | files attached to chat messages: name, kind (image, PDF, text), size and the key of the content in the file storage |
 | `ai_runs`, `usage` | agent runs (status, queue, web searches), usage and costs |
 

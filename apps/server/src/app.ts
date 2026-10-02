@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { agentRoutes } from '@server/api/agents';
 import { agentKnowledgeRoutes } from '@server/api/agent-knowledge';
 import { customAgentRoutes } from '@server/api/custom-agents';
+import { awayRoutes } from '@server/api/away';
 import { boardRoutes } from '@server/api/boards';
 import { criteriaRoutes, decisionRoutes } from '@server/api/decisions';
 import { apiError } from '@server/api/errors';
@@ -152,6 +153,7 @@ export function createApp({
   app.route('/api/projects/:projectId/debates', debateRoutes(db.app, auth));
   app.route('/api/projects/:projectId/criteria', criteriaRoutes(db.app, auth));
   app.route('/api/projects/:projectId/decisions', decisionRoutes(db.app, auth));
+  app.route('/api/projects/:projectId/away', awayRoutes(db.app, auth, documents));
   const invitationMailLimiter = createRateLimiter({
     limit: INVITATION_MAILS_PER_HOUR,
     windowMs: 60 * 60_000,

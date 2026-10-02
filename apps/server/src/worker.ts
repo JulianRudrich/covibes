@@ -16,13 +16,15 @@ import { createWorkerMailer } from '@server/integrations/mail/mailer';
 import { defaultFilesDir, localStorage } from '@server/storage/storage';
 import { releaseAbandonedJobs } from '@server/tasks/abandoned-jobs';
 import { AGENT_TURN_TASK, agentTurnTask } from '@server/tasks/agent-turn';
+import { AWAY_SUMMARY_TASK, awaySummaryTask } from '@server/tasks/away-summary';
 import { NOTIFICATION_MAIL_TASK, notificationMailTask } from '@server/tasks/notification-mails';
 import { OBSERVE_TASK, observeTask } from '@server/tasks/observe';
 import { loadWorkerEnv, type WorkerEnv } from '@server/worker-env';
 
 // The worker process (spec 07): runs the jobs the database creates for agent mentions, the
-// observer (spec 15) and the notification mails (spec 22b). Every agent has its own queue per project, so it answers one request after
-// the other; up to five runs of different agents or projects work at the same time.
+// observer (spec 15), the notification mails (spec 22b) and the summaries for people who come
+// back (spec 23). Every agent has its own queue per project, so it answers one request after the
+// other; up to five runs of different agents or projects work at the same time.
 const CONCURRENCY = 5;
 
 function readEnvOrExit(): WorkerEnv {
@@ -90,6 +92,8 @@ const runner = await run({
       complete: completeText,
     }),
     [OBSERVE_TASK]: observeTask({ admin, complete: completeText }),
+    // The moderator sums up the conversation for a member who comes back (spec 23).
+    [AWAY_SUMMARY_TASK]: awaySummaryTask({ admin, complete: completeText }),
     // Sums up by mail what a person has not seen in the app (spec 22b).
     [NOTIFICATION_MAIL_TASK]: notificationMailTask({
       admin,

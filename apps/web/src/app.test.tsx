@@ -1,4 +1,6 @@
 import type {
+  AwaySummary,
+  Decision,
   LiveEvent,
   ProjectBoard,
   ProjectDetails,
@@ -112,6 +114,48 @@ const EXTRA_BOARD: ProjectBoard = {
   kind: 'extra',
 };
 const CONFIG: PublicConfig = { gitlabLogin: false, emailLogin: true, devMailbox: true };
+const CANVAS_DECISION: Decision = {
+  id: '55555555-5555-4555-8555-555555555555',
+  topic: 'Canvas',
+  status: 'decided',
+  value: 'React Flow',
+  reasoning: 'Strukturierte Blöcke und MIT-Lizenz.',
+  alternatives: [],
+  decidedBy: 'Alex Berg',
+  decidedAt: '2026-10-01T18:00:00.000Z',
+  reopenReason: null,
+  comparison: null,
+  tally: null,
+  variants: null,
+};
+/** What happened while Olga was away since yesterday (spec 23). */
+const AWAY: AwaySummary = {
+  since: new Date(Date.now() - 24 * 60 * 60_000).toISOString(),
+  until: new Date().toISOString(),
+  text: 'Alex hat React Flow vorgeschlagen, und der Moderator hat es festgehalten.',
+  textStatus: 'done',
+  decisions: [
+    {
+      id: '66666666-6666-4666-8666-666666666666',
+      kind: 'decided',
+      decisionId: CANVAS_DECISION.id,
+      topic: 'Canvas',
+      value: 'React Flow',
+    },
+  ],
+  criteriaChanges: 0,
+  boards: [
+    {
+      boardId: EXTRA_BOARD.id,
+      title: EXTRA_BOARD.title,
+      isNew: true,
+      changed: 4,
+      by: [{ kind: 'human', name: 'Alex Berg' }],
+      authors: 1,
+    },
+  ],
+  messages: { count: 6, mentions: 0, by: [{ kind: 'human', name: 'Alex Berg' }], authors: 1 },
+};
 
 function signedIn(user: typeof OLGA | null) {
   vi.mocked(authClient.getSession).mockResolvedValue({
@@ -418,6 +462,79 @@ describe('with a session', () => {
     const chat = screen.getByTestId('chat-panel');
     expect(chat).toHaveAttribute('data-project', PROJECT.id);
     expect(chat).toHaveAttribute('data-readonly', 'false');
+  });
+
+  it('shows what happened while the user was away, opens it and closes for good (spec 23)', async () => {
+    let closed = false;
+    const api = stubApi({
+      [`GET /api/projects/${PROJECT.id}`]: () => ({
+        body: { ...DETAILS, boards: [...DETAILS.boards, EXTRA_BOARD] },
+      }),
+      [`GET /api/projects/${PROJECT.id}/decisions`]: () => ({ body: [CANVAS_DECISION] }),
+      [`GET /api/projects/${PROJECT.id}/away`]: () => ({ body: closed ? null : AWAY }),
+      [`POST /api/projects/${PROJECT.id}/away/dismiss`]: () => {
+        closed = true;
+        return { status: 204, body: null };
+      },
+    });
+    const router = renderApp(`/p/${PROJECT.id}`);
+
+    const section = await screen.findByRole('region', { name: 'Seit du weg warst' });
+    expect(section).toHaveTextContent('zuletzt hier gestern');
+    expect(section).toHaveTextContent('Alex hat React Flow vorgeschlagen');
+    expect(section).toHaveTextContent('6 neue Nachrichten von Alex Berg');
+    // It comes first in the overview, above the decisions.
+    const decisions = await screen.findByRole('region', { name: 'Entscheidungen' });
+    expect(
+      section.compareDocumentPosition(decisions) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    // The decision opens with its reasoning, where it can be reopened.
+    await within(decisions).findByText('React Flow');
+    fireEvent.click(within(section).getByRole('button', { name: /Entschieden: Canvas/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Canvas' });
+    expect(dialog).toHaveTextContent('Strukturierte Blöcke und MIT-Lizenz.');
+    expect(within(dialog).getByRole('button', { name: 'Wieder öffnen' })).toBeInTheDocument();
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    // The new board opens from its line.
+    fireEvent.click(within(section).getByRole('button', { name: /Neues Board: Ablauf/ }));
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({ board: EXTRA_BOARD.id });
+    });
+
+    fireEvent.click(within(section).getByRole('button', { name: 'Verstanden' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('region', { name: 'Seit du weg warst' })).not.toBeInTheDocument();
+    });
+    expect(api).toHaveBeenCalledWith(
+      `/api/projects/${PROJECT.id}/away/dismiss`,
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('asks for the summary again when the server says the user is back (spec 23)', async () => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    let asked = 0;
+    const api = stubApi({
+      [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+      [`POST /api/projects/${PROJECT.id}/seen`]: () => ({ body: { returned: true } }),
+      // The absence is noted with the report; only the question after it finds the summary.
+      [`GET /api/projects/${PROJECT.id}/away`]: () => {
+        asked += 1;
+        return { body: asked > 1 ? AWAY : null };
+      },
+    });
+    renderApp(`/p/${PROJECT.id}`);
+
+    expect(await screen.findByRole('region', { name: 'Seit du weg warst' })).toBeInTheDocument();
+    expect(api).toHaveBeenCalledWith(
+      `/api/projects/${PROJECT.id}/seen`,
+      expect.objectContaining({ method: 'POST' }),
+    );
   });
 
   it('opens the project settings from the project menu, where owners change them', async () => {

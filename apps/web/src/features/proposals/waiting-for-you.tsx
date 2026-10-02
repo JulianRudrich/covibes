@@ -20,6 +20,7 @@ import { AGENT_DARK_TEXT } from '@web/features/canvas/agent-look';
 import type { HandDecision } from '@web/features/hands/queries';
 import type { DecideProposal, DecidedProposal } from '@web/features/proposals/queries';
 import { proposalSummary } from '@web/features/proposals/summary';
+import { waitingCount } from '@web/features/proposals/waiting-count';
 import { VariantPreview } from '@web/features/proposals/variant-preview';
 import { formatRelativeTime } from '@web/lib/format';
 import { cn } from '@web/lib/cn';
@@ -85,14 +86,7 @@ export function WaitingForYou({
   const agents = useAgents();
   const agentList = useAgentList();
   // What the user can act on: nothing for viewers, no decisions while only the owner decides.
-  const waiting = canDecide
-    ? proposals.filter(
-        (proposal) =>
-          canConfirmDecisions || (proposal.kind !== 'decision' && proposal.kind !== 'variants'),
-      ).length +
-      hands.length +
-      votes.length
-    : 0;
+  const waiting = waitingCount({ proposals, hands, votes, canDecide, canConfirmDecisions });
 
   return (
     <section

@@ -88,6 +88,16 @@ export interface AiRuns {
   web_searches: Generated<number>;
 }
 
+export interface AwaySummaries {
+  away_from: Timestamp;
+  back_at: Timestamp;
+  dismissed_at: Timestamp | null;
+  project_id: string;
+  text: string | null;
+  text_status: Generated<string>;
+  user_id: string;
+}
+
 export interface Boards {
   created_at: Generated<Timestamp>;
   id: Generated<string>;
@@ -461,6 +471,7 @@ export interface DB {
   accounts: Accounts;
   agent_knowledge: AgentKnowledge;
   ai_runs: AiRuns;
+  away_summaries: AwaySummaries;
   boards: Boards;
   comparisons: Comparisons;
   criteria: Criteria;

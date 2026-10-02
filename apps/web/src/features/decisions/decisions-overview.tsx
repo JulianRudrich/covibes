@@ -21,6 +21,9 @@ type DecisionsOverviewProps = {
   readOnly: boolean;
   /** Shows a short note, e.g. when a change failed. */
   onNotice: (text: string) => void;
+  /** The decision whose dialog is open; "Seit du weg warst" opens decisions too (spec 23). */
+  openDecisionId: string | null;
+  onOpenDecision: (decisionId: string | null) => void;
 };
 
 const NO_DECISIONS: Decision[] = [];
@@ -35,6 +38,8 @@ export function DecisionsOverview({
   comparing,
   readOnly,
   onNotice,
+  openDecisionId,
+  onOpenDecision,
 }: DecisionsOverviewProps) {
   const { t } = useTranslation();
   const decisions = useQuery(decisionsQuery(projectId)).data ?? NO_DECISIONS;
@@ -51,6 +56,8 @@ export function DecisionsOverview({
       <DecisionsSection
         decisions={decisions}
         comparing={comparing}
+        openId={openDecisionId}
+        onOpenIdChange={onOpenDecision}
         log={log}
         onOpenLog={() => {
           setLogWanted(true);

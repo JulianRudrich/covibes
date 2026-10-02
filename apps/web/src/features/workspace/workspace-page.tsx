@@ -8,6 +8,8 @@ import { AgentDirectoryProvider } from '@web/features/agents/agent-directory';
 
 import { PageMessage } from '@web/components/page-message';
 import { sessionQuery, type SessionUser } from '@web/features/auth/session';
+import { awayQuery, useDismissAway } from '@web/features/away/queries';
+import { SinceYouWereAway } from '@web/features/away/since-you-were-away';
 import { BoardTabs } from '@web/features/canvas/board-tabs';
 import { CanvasPanel } from '@web/features/canvas/canvas-panel';
 import { ChatPanel } from '@web/features/chat/chat-panel';
@@ -22,6 +24,7 @@ import {
   useProposalDecisions,
   type DecidedProposal,
 } from '@web/features/proposals/queries';
+import { waitingCount } from '@web/features/proposals/waiting-count';
 import { WaitingForYou } from '@web/features/proposals/waiting-for-you';
 import { ProjectShare } from '@web/features/share/project-share';
 import { ProjectTeam } from '@web/features/team/project-team';
@@ -219,6 +222,12 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
   }, [mentionedHere, markRead, project.id]);
   const teamKeys = useMemo(() => project.agents.map((agent) => agent.key), [project.agents]);
 
+  // "Seit du weg warst" (spec 23): what happened while the user did not have the project open.
+  // A decision it lists opens in the decisions section.
+  const away = useQuery(awayQuery(project.id)).data ?? null;
+  const { mutate: dismissAway } = useDismissAway(project.id);
+  const [openDecisionId, setOpenDecisionId] = useState<string | null>(null);
+
   return (
     <AgentDirectoryProvider agents={project.customAgents}>
       <WorkspaceShell
@@ -280,6 +289,23 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
         }
         overview={
           <>
+            {away ? (
+              <SinceYouWereAway
+                summary={away}
+                waiting={waitingCount({
+                  proposals,
+                  hands: waitingHands,
+                  votes: votesToCast,
+                  canDecide: !readOnly,
+                  canConfirmDecisions,
+                })}
+                onOpenDecision={setOpenDecisionId}
+                onOpenBoard={(boardId) => void selectBoard(boardId)}
+                onDismiss={() => {
+                  dismissAway();
+                }}
+              />
+            ) : null}
             {proposals.length > 0 ||
             decided.length > 0 ||
             waitingHands.length > 0 ||
@@ -305,6 +331,8 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
               comparing={comparing}
               readOnly={readOnly}
               onNotice={showNotice}
+              openDecisionId={openDecisionId}
+              onOpenDecision={setOpenDecisionId}
             />
           </>
         }

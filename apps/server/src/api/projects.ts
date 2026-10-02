@@ -5,6 +5,7 @@ import {
   projectSettingsSchema,
   updateProjectInputSchema,
   type ProjectDetails,
+  type ProjectSeen,
   type ProjectSummary,
 } from '@covibes/shared';
 import { Hono } from 'hono';
@@ -149,16 +150,19 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
   });
 
   // The member has the project open and visible right now (spec 22b): what waits there counts as
-  // seen, so no mail tells them about it.
+  // seen, so no mail tells them about it. The answer says whether they are back from an absence
+  // (spec 23); then "Seit du weg warst" has something new to show.
   routes.post('/:projectId/seen', async (c) => {
     const user = c.get('user');
     if (!user) return apiError(c, 'unauthorized');
     const projectId = projectIdSchema.safeParse(c.req.param('projectId'));
     if (!projectId.success) return apiError(c, 'not_found');
-    await withUser(db, user.id, (trx) =>
-      sql`select public.touch_project_seen(${projectId.data})`.execute(trx),
+    const seen = await withUser(db, user.id, (trx) =>
+      sql<{
+        returned: boolean;
+      }>`select public.touch_project_seen(${projectId.data}) as returned`.execute(trx),
     );
-    return c.body(null, 204);
+    return c.json<ProjectSeen>({ returned: seen.rows[0]?.returned === true });
   });
 
   // The project's settings (spec 13: the proposals-only mode, spec 15: the observer, spec 16b: the

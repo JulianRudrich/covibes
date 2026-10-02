@@ -117,6 +117,18 @@
       "remove": "{{name}} entfernen",
       "removeConfirm": "Entfernen"
     },
+    "readOnly": {
+      "title": "Nur-Lese-Link",
+      "what": "Zeigt Canvas, Entscheidungen und Kriterien ohne Konto. Der Chat und alle Namen bleiben intern.",
+      "inactive": "Dieses Projekt hat keinen Nur-Lese-Link.",
+      "active": "Aktiv seit {{date}}: Wer den Link hat, sieht das Projekt.",
+      "create": "Link erstellen",
+      "replace": "Neu erstellen",
+      "replaceHint": "Ein neuer Link ersetzt den bisherigen, der dann nichts mehr zeigt.",
+      "disable": "Abschalten",
+      "link": "Nur-Lese-Link zum Kopieren",
+      "linkHint": "Wer diesen Link hat, sieht das Projekt ohne Konto. Er wird nur jetzt angezeigt, also kopiere ihn gleich."
+    },
     "leave": {
       "action": "Projekt verlassen",
       "confirm": "Wirklich verlassen",
@@ -171,6 +183,21 @@
         "title": "Diese Einladung gibt es nicht",
         "text": "Der Link ist unvollständig oder falsch. Bitte um eine neue Einladung."
       }
+    }
+  },
+  "shareView": {
+    "loading": "Projekt wird geladen …",
+    "loadError": "Die Ansicht konnte nicht geladen werden.",
+    "readOnly": "Nur lesen",
+    "updated": "Stand {{time}}",
+    "boards": "Boards",
+    "teamMember": "Teammitglied",
+    "emptyBoard": "Dieses Board ist noch leer.",
+    "boardError": "Das Board konnte nicht geladen werden.",
+    "toCovibes": "Zu Covibes",
+    "dead": {
+      "title": "Dieser Link zeigt nichts mehr",
+      "text": "Der Nur-Lese-Link wurde abgeschaltet oder ersetzt, oder er ist unvollständig. Bitte um einen neuen Link."
     }
   },
   "devMails": {

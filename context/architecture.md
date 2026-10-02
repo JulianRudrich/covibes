@@ -241,7 +241,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `users`, `sessions`, `accounts`, `verifications` | accounts and sessions (Better Auth); `users` holds name, image and language |
 | `projects` | name, owner, language, settings: stance, decision process, proposals-only mode, observer, web access |
 | `project_members` | role (owner, editor, viewer), `can_approve_git` |
-| `invitations`, `share_links` | invitations by link or email with role, expiry, uses and the hash of the token; read-only links (spec 21b) |
+| `invitations`, `share_links` | invitations by link or email with role, expiry, uses and the hash of the token; the read-only link of a project (one row, the hash of its token) |
 | `project_people` | everyone who is or was a member of a project, so former members keep their name |
 | `boards`, `yjs_documents` | boards and storage of the Y.Docs |
 | `plans`, `plan_versions`, `plan_suggestions` | plan, versions, AI suggestions per section |
@@ -279,7 +279,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
   - `covibes_app`: for every request on behalf of a user. It is subject to RLS. The server opens a transaction for it and sets `app.user_id` (`withUser`).
   - `covibes_admin`: for migrations, Better Auth and the worker. It bypasses RLS and is never used for user requests.
 - **RLS:** every table has policies built on `private.current_user_id()`, `private.is_member()` and `private.has_role()`. The database protects the data even if a check is missing on the server.
-- **Read-only links:** a server endpoint checks the token in `share_links` and returns a view without write access.
+- **Read-only links (spec 21b):** a link shows the canvas and the overview of a project without an account, never the chat and never a person. A request with a link runs as `covibes_app` without a user; the server sets the link's token for the transaction (`withShareLink`), and select policies let it read the rows of that one project the view needs. Only the hash of the token is stored. The boards' content is read from the collaboration server without connecting, and human authors are removed before it leaves the server.
 
 ## AI providers
 

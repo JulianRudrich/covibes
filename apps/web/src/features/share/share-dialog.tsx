@@ -21,8 +21,10 @@ import { IconButton } from '@web/components/ui/icon-button';
 import { FieldError, Input } from '@web/components/ui/input';
 import {
   invitationsQuery,
+  shareLinkQuery,
   useInvitationMutations,
   useMemberMutations,
+  useShareLinkMutations,
 } from '@web/features/share/queries';
 import { ApiError } from '@web/lib/api';
 import { cn } from '@web/lib/cn';
@@ -59,9 +61,9 @@ type ShareDialogProps = {
 };
 
 /**
- * The share dialog (spec 21a, derived look): owners invite by mail or by link, see the open
- * invitations and manage the members; everyone else sees who is in the project. Everyone can
- * leave. The content of a dialog; the caller opens and closes it.
+ * The share dialog (specs 21a and 21b, derived look): owners invite by mail or by link, see the
+ * open invitations and manage the members and the read-only link; everyone else sees who is in the
+ * project and whether it has such a link. Everyone can leave. The content of a dialog; the caller opens and closes it.
  */
 export function ShareDialog({
   project,
@@ -149,6 +151,8 @@ export function ShareDialog({
             ))}
           </ul>
         </section>
+
+        <ReadOnlyLink projectId={project.id} canManage={isOwner} />
       </div>
 
       {problem ? <FieldError className="mt-3">{t(`share.problems.${problem}`)}</FieldError> : null}
@@ -219,7 +223,6 @@ function Invite({
   const [sentTo, setSentTo] = useState<string | null>(null);
   /** The link that was just made; it is shown this once. */
   const [link, setLink] = useState<{ url: string; role: InvitationRole } | null>(null);
-  const [copied, setCopied] = useState(false);
   const busy = create.isPending;
 
   function reset() {
@@ -246,23 +249,11 @@ function Invite({
 
   async function createLink() {
     reset();
-    setCopied(false);
     try {
       const created = await create.mutateAsync({ kind: 'link', role });
       if (created.url) setLink({ url: created.url, role });
     } catch (error) {
       setProblem(problemOf(error));
-    }
-  }
-
-  async function copyLink() {
-    if (!link) return;
-    try {
-      await navigator.clipboard.writeText(link.url);
-      setCopied(true);
-    } catch {
-      // No clipboard (e.g. no permission): the field is selected, so it can be copied by hand.
-      setCopied(false);
     }
   }
 
@@ -342,38 +333,16 @@ function Invite({
         ) : null}
 
         {link ? (
-          <div className="flex flex-col gap-1.5 rounded-md border border-border-soft bg-bg-muted p-2.5">
-            <div className="flex items-center gap-2">
-              <Input
-                readOnly
-                value={link.url}
-                aria-label={t('share.invite.link')}
-                className="h-7 flex-1 font-mono text-meta"
-                onFocus={(event) => {
-                  event.target.select();
-                }}
-              />
-              <Button
-                size="s"
-                onClick={() => {
-                  void copyLink();
-                }}
-              >
-                {copied ? (
-                  <Check size={13} aria-hidden="true" />
-                ) : (
-                  <Copy size={13} aria-hidden="true" />
-                )}
-                {t(copied ? 'share.invite.copied' : 'share.invite.copy')}
-              </Button>
-            </div>
-            <p className="m-0 text-small leading-snug text-text-3">
-              {t('share.invite.linkHint', {
-                role: t(`projects.roles.${link.role}`),
-                days: INVITATION_DAYS,
-              })}
-            </p>
-          </div>
+          <LinkBox
+            // A new link starts as "not copied yet".
+            key={link.url}
+            url={link.url}
+            label={t('share.invite.link')}
+            hint={t('share.invite.linkHint', {
+              role: t(`projects.roles.${link.role}`),
+              days: INVITATION_DAYS,
+            })}
+          />
         ) : null}
 
         {problem ? <FieldError>{t(`share.problems.${problem}`)}</FieldError> : null}
@@ -414,6 +383,138 @@ function Invite({
         </section>
       ) : null}
     </>
+  );
+}
+
+/** A link that shows only now, with "Kopieren" and what it is good for. */
+function LinkBox({ url, label, hint }: { url: string; label: string; hint: string }) {
+  const { t } = useTranslation();
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {
+      // No clipboard (e.g. no permission): the field is selected, so it can be copied by hand.
+      setCopied(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5 rounded-md border border-border-soft bg-bg-muted p-2.5">
+      <div className="flex items-center gap-2">
+        <Input
+          readOnly
+          value={url}
+          aria-label={label}
+          className="h-7 flex-1 font-mono text-meta"
+          onFocus={(event) => {
+            event.target.select();
+          }}
+        />
+        <Button
+          size="s"
+          onClick={() => {
+            void copy();
+          }}
+        >
+          {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+          {t(copied ? 'share.invite.copied' : 'share.invite.copy')}
+        </Button>
+      </div>
+      <p className="m-0 text-small leading-snug text-text-3">{hint}</p>
+    </div>
+  );
+}
+
+/**
+ * The read-only link of the project (spec 21b): every member sees whether there is one, since
+ * their work is visible through it; owners create it, replace it and switch it off.
+ */
+function ReadOnlyLink({ projectId, canManage }: { projectId: string; canManage: boolean }) {
+  const { t, i18n } = useTranslation();
+  const status = useQuery(shareLinkQuery(projectId)).data;
+  const { create, remove } = useShareLinkMutations(projectId);
+  /** The link that was just made; it is shown this once. */
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const busy = create.isPending || remove.isPending;
+  const since = status?.createdAt
+    ? new Intl.DateTimeFormat(i18n.language, { day: 'numeric', month: 'short' }).format(
+        new Date(status.createdAt),
+      )
+    : null;
+
+  async function createLink() {
+    setFailed(false);
+    try {
+      setUrl((await create.mutateAsync()).url);
+    } catch {
+      setFailed(true);
+    }
+  }
+
+  async function disable() {
+    setFailed(false);
+    setUrl(null);
+    try {
+      await remove.mutateAsync();
+    } catch {
+      setFailed(true);
+    }
+  }
+
+  return (
+    <section aria-label={t('share.readOnly.title')} className="flex flex-col gap-2">
+      <h3 className={SECTION_TITLE}>{t('share.readOnly.title')}</h3>
+      <p className="m-0 text-small leading-snug text-text-3">
+        {status === undefined
+          ? t('share.readOnly.what')
+          : `${
+              since ? t('share.readOnly.active', { date: since }) : t('share.readOnly.inactive')
+            } ${t('share.readOnly.what')}`}
+      </p>
+      {canManage && status !== undefined ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            disabled={busy}
+            title={status.active ? t('share.readOnly.replaceHint') : undefined}
+            onClick={() => {
+              void createLink();
+            }}
+          >
+            <Link2 size={14} aria-hidden="true" />
+            {t(status.active ? 'share.readOnly.replace' : 'share.readOnly.create')}
+          </Button>
+          {status.active ? (
+            <>
+              <Button
+                variant="ghost"
+                disabled={busy}
+                onClick={() => {
+                  void disable();
+                }}
+              >
+                {t('share.readOnly.disable')}
+              </Button>
+              <span className="min-w-0 flex-1 text-meta leading-snug text-text-4">
+                {t('share.readOnly.replaceHint')}
+              </span>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+      {url ? (
+        <LinkBox
+          key={url}
+          url={url}
+          label={t('share.readOnly.link')}
+          hint={t('share.readOnly.linkHint')}
+        />
+      ) : null}
+      {failed ? <FieldError>{t('share.problems.failed')}</FieldError> : null}
+    </section>
   );
 }
 

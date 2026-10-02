@@ -58,3 +58,19 @@ export function withUser<T>(
     return fn(trx);
   });
 }
+
+/**
+ * Runs `fn` in a transaction for a read-only link (spec 21b): no user, but the link's token, which
+ * the database policies read from `app.share_token`. They show the rows of the link's project that
+ * the read-only view needs, and nothing of anyone else.
+ */
+export function withShareLink<T>(
+  db: AppDb,
+  token: string,
+  fn: (trx: Transaction<DB>) => Promise<T>,
+): Promise<T> {
+  return db.transaction().execute(async (trx) => {
+    await sql`select set_config('app.share_token', ${token}, true)`.execute(trx);
+    return fn(trx);
+  });
+}

@@ -373,6 +373,13 @@ export interface Sessions {
   user_id: string;
 }
 
+export interface ShareLinks {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  project_id: string;
+  token_hash: string;
+}
+
 export interface Users {
   created_at: Generated<Timestamp>;
   email: string;
@@ -448,6 +455,7 @@ export interface DB {
   projects: Projects;
   proposals: Proposals;
   sessions: Sessions;
+  share_links: ShareLinks;
   users: Users;
   verifications: Verifications;
   vote_ballots: VoteBallots;

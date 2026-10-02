@@ -284,6 +284,15 @@ export {
   type TeamOperation,
   type TeamProposal,
 } from './proposals';
+export {
+  NO_USER_ID,
+  shareBoardInputSchema,
+  shareViewInputSchema,
+  type CreatedShareLink,
+  type SharedBoard,
+  type SharedProject,
+  type ShareLinkStatus,
+} from './share';
 export { APP_NAME, COLLAB_PATH, LIVE_PATH } from './constants';
 export { defineEnv, EnvValidationError } from './env';
 export {

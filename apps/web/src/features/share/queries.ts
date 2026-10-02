@@ -1,9 +1,13 @@
 import type {
   AcceptInvitationResult,
   CreatedInvitation,
+  CreatedShareLink,
   CreateInvitationInput,
   Invitation,
   InvitationPreview,
+  SharedBoard,
+  SharedProject,
+  ShareLinkStatus,
   UpdateMemberInput,
 } from '@covibes/shared';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -113,5 +117,63 @@ export function useAcceptInvitation() {
       }),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: projectsQuery.queryKey, exact: true }),
+  });
+}
+
+const shareLinkPath = (projectId: string) =>
+  `/projects/${encodeURIComponent(projectId)}/share-link`;
+
+/** Whether the project has a read-only link (spec 21b); every member may know. */
+export function shareLinkQuery(projectId: string) {
+  return queryOptions({
+    queryKey: ['share-link', projectId] as const,
+    queryFn: () => api<ShareLinkStatus>(shareLinkPath(projectId)),
+  });
+}
+
+/** Creating (or replacing) and removing the read-only link; owners only. */
+export function useShareLinkMutations(projectId: string) {
+  const queryClient = useQueryClient();
+  const reload = () =>
+    queryClient.invalidateQueries({ queryKey: shareLinkQuery(projectId).queryKey });
+
+  const create = useMutation({
+    mutationFn: () => api<CreatedShareLink>(shareLinkPath(projectId), { method: 'POST' }),
+    onSettled: reload,
+  });
+
+  const remove = useMutation({
+    mutationFn: () => api<undefined>(shareLinkPath(projectId), { method: 'DELETE' }),
+    onSettled: reload,
+  });
+
+  return { create, remove };
+}
+
+/** How often the read-only view loads again: it is a current picture, not a live session. */
+const SHARED_VIEW_REFRESH_MS = 30_000;
+
+/** What a read-only link shows besides the boards: name, boards, decisions and criteria. */
+export function sharedProjectQuery(token: string) {
+  return queryOptions({
+    queryKey: ['shared', token] as const,
+    queryFn: () =>
+      api<SharedProject>('/share/view', { method: 'POST', body: JSON.stringify({ token }) }),
+    retry: false,
+    refetchInterval: SHARED_VIEW_REFRESH_MS,
+  });
+}
+
+/** The content of one board of a read-only link. */
+export function sharedBoardQuery(token: string, boardId: string) {
+  return queryOptions({
+    queryKey: ['shared', token, 'board', boardId] as const,
+    queryFn: () =>
+      api<SharedBoard>('/share/board', {
+        method: 'POST',
+        body: JSON.stringify({ token, boardId }),
+      }),
+    retry: false,
+    refetchInterval: SHARED_VIEW_REFRESH_MS,
   });
 }

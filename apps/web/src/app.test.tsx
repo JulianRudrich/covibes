@@ -4,6 +4,7 @@ import type {
   ProjectDetails,
   ProjectSummary,
   PublicConfig,
+  SharedProject,
 } from '@covibes/shared';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -43,6 +44,18 @@ vi.mock('@web/features/canvas/canvas-panel', async () => {
           'data-readonly': String(props.readOnly),
         },
         props.notice,
+      ),
+  };
+});
+// The read-only canvas needs a measuring browser like the live one.
+vi.mock('@web/features/share/shared-board', async () => {
+  const { createElement } = await import('react');
+  return {
+    SharedBoardCanvas: (props: { nodes: { label: string }[] }) =>
+      createElement(
+        'div',
+        { 'data-testid': 'shared-board' },
+        props.nodes.map((node) => node.label).join(', '),
       ),
   };
 });
@@ -218,6 +231,101 @@ describe('without a session', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Login-Link senden' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Zu viele Versuche');
+  });
+});
+
+describe('a read-only link', () => {
+  const TOKEN = 'S'.repeat(43);
+  const SHARED: SharedProject = {
+    name: 'Vereins-App',
+    boards: [...DETAILS.boards, EXTRA_BOARD],
+    decisions: [
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        topic: 'Datenbank',
+        status: 'decided',
+        value: 'PostgreSQL',
+        reasoning: 'Bewährt und frei.',
+        alternatives: [],
+        decidedBy: null,
+        decidedAt: '2026-10-01T10:00:00.000Z',
+        reopenReason: null,
+        comparison: null,
+        tally: null,
+        variants: null,
+      },
+    ],
+    criteria: [{ id: '66666666-6666-4666-8666-666666666666', text: 'Kleines Budget' }],
+    customAgents: [],
+  };
+  const node = (label: string) => ({ label });
+
+  it('shows boards and overview without a session, and nothing to change', async () => {
+    signedIn(null);
+    const api = stubApi({
+      'POST /api/share/view': () => ({ body: SHARED }),
+      'POST /api/share/board': (init) => ({
+        body: {
+          nodes:
+            typeof init?.body === 'string' && init.body.includes(EXTRA_BOARD.id)
+              ? [node('Start')]
+              : [node('API')],
+          edges: [],
+        },
+      }),
+    });
+    const router = renderApp(`/share/${TOKEN}`);
+
+    expect(await screen.findByRole('heading', { name: 'Vereins-App' })).toBeInTheDocument();
+    // No login in between.
+    expect(router.state.location.pathname).toBe(`/share/${TOKEN}`);
+    expect(screen.getByText('Nur lesen')).toBeInTheDocument();
+    expect(await screen.findByTestId('shared-board')).toHaveTextContent('API');
+
+    // The overview: decisions and criteria, without the log and without anything to edit.
+    const overview = screen.getByRole('region', { name: 'Überblick' });
+    expect(overview).toHaveTextContent('DatenbankPostgreSQL');
+    expect(overview).toHaveTextContent('Kleines Budget');
+    expect(within(overview).queryByRole('button', { name: 'Protokoll' })).not.toBeInTheDocument();
+    expect(within(overview).queryByRole('button', { name: /Kriterium/ })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('chat-panel')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Teilen' })).not.toBeInTheDocument();
+
+    // A decision opens with its reasoning, and cannot be reopened.
+    fireEvent.click(within(overview).getByRole('button', { name: /Datenbank/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Datenbank' });
+    expect(dialog).toHaveTextContent('Bewährt und frei.');
+    expect(within(dialog).queryByRole('button', { name: /öffnen/ })).not.toBeInTheDocument();
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+
+    // The other board loads when its tab is opened.
+    const tabs = within(screen.getByRole('tablist', { name: 'Boards' })).getAllByRole('tab');
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['Haupt-Canvas', 'Ablauf']);
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(tabs[1] as HTMLElement);
+    await waitFor(() => {
+      expect(screen.getByTestId('shared-board')).toHaveTextContent('Start');
+    });
+    // The token travels in the body, never in an address of the API.
+    expect(api).toHaveBeenCalledWith(
+      '/api/share/board',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ token: TOKEN, boardId: EXTRA_BOARD.id }),
+      }),
+    );
+  });
+
+  it('says so when the link shows nothing any more', async () => {
+    signedIn(null);
+    stubApi({});
+    renderApp(`/share/${TOKEN}`);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Dieser Link zeigt nichts mehr' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/abgeschaltet oder ersetzt/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Zu Covibes' })).toHaveAttribute('href', '/');
   });
 });
 

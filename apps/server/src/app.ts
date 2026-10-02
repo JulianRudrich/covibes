@@ -22,6 +22,7 @@ import { messageRoutes } from '@server/api/messages';
 import { projectRoutes } from '@server/api/projects';
 import { proposalRoutes } from '@server/api/proposals';
 import { runRoutes } from '@server/api/runs';
+import { SHARE_REQUESTS_PER_MINUTE, shareLinkRoutes, shareViewRoutes } from '@server/api/share';
 import { AUTH_BASE_PATH, gitlabLoginEnabled, type Auth } from '@server/auth/auth';
 import type { BoardDocuments } from '@server/collab/collab';
 import type { Database } from '@server/db/database';
@@ -138,6 +139,12 @@ export function createApp({
   );
   app.route('/api/projects/:projectId/members', memberRoutes(db.app, auth, connections));
   app.route('/api/invitations', invitationRoutes(db.app, auth));
+  app.route(
+    '/api/projects/:projectId/share-link',
+    shareLinkRoutes(db.app, auth, { appUrl: env.APP_URL }),
+  );
+  const shareLimiter = createRateLimiter({ limit: SHARE_REQUESTS_PER_MINUTE, windowMs: 60_000 });
+  app.route('/api/share', shareViewRoutes(db.app, documents, shareLimiter));
   app.route('/api/projects', projectRoutes(db.app, auth, live));
   app.route(
     '/api/agents/:agentId/knowledge',

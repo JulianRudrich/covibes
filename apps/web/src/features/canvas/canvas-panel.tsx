@@ -20,7 +20,6 @@ import {
   placeNodes,
   readEdges,
   readNodes,
-  readsLeftToRight,
   resizeFrame,
   updateEdgeLabel,
   updateNode,
@@ -54,7 +53,6 @@ import { useTranslation } from 'react-i18next';
 
 import { PanelHeader } from '@web/components/ui/panel';
 import { useAgents } from '@web/features/agents/agents';
-import { arrowGeometries, type Rect } from '@web/features/canvas/arrow-geometry';
 import { BOARD_PANEL_ID, boardTabId } from '@web/features/canvas/board-ids';
 import { BlockNode } from '@web/features/canvas/block-node';
 import type { BoardConnection } from '@web/features/canvas/board-connection';
@@ -70,6 +68,7 @@ import { FrameNode } from '@web/features/canvas/frame-node';
 import { LiveCursor } from '@web/features/canvas/live-cursor';
 import { NoteNode } from '@web/features/canvas/note-node';
 import { PlacementLayer, type Placement } from '@web/features/canvas/placement-layer';
+import { edgesWithGeometry, nodeRects } from '@web/features/canvas/shown-edges';
 import { ProposalLayer } from '@web/features/proposals/proposal-layer';
 import { proposalOverlay } from '@web/features/proposals/proposal-overlay';
 import type { DecideProposal } from '@web/features/proposals/queries';
@@ -218,16 +217,7 @@ function Board({
   const undo = useUndo(doc, author, !readOnly);
 
   // Where every element is right now, also while one is dragged here.
-  const rects = useMemo(
-    () =>
-      new Map<string, Rect>(
-        nodes.map((node) => [
-          node.id,
-          { ...node.position, width: node.data.size.width, height: node.data.size.height },
-        ]),
-      ),
-    [nodes],
-  );
+  const rects = useMemo(() => nodeRects(nodes), [nodes]);
   // What the open proposals of this board show on top of it (spec 13).
   const overlay = useMemo(
     () => proposalOverlay(proposals, boardId, new Set(rects.keys())),
@@ -239,27 +229,7 @@ function Board({
   );
 
   // Arrows are anchored from where the blocks are right now, also while one is dragged here.
-  const shownEdges = useMemo(() => {
-    // In mind maps and data models, arrows follow the reading direction (spec 12).
-    const sideways = new Set(
-      nodes
-        .filter((node) => node.type === 'block' && readsLeftToRight(node.data.diagramType))
-        .map((node) => node.id),
-    );
-    const geometries = arrowGeometries(
-      edges.map((edge) => ({
-        id: edge.id,
-        source: edge.source,
-        target: edge.target,
-        sideways: sideways.has(edge.source) && sideways.has(edge.target),
-      })),
-      rects,
-    );
-    return edges.map((edge) => {
-      const geometry = geometries.get(edge.id);
-      return edge.data && geometry ? { ...edge, data: { ...edge.data, geometry } } : edge;
-    });
-  }, [nodes, edges, rects]);
+  const shownEdges = useMemo(() => edgesWithGeometry(nodes, edges, rects), [nodes, edges, rects]);
 
   const lockedByOthers = useCallback(
     (id: string) => {

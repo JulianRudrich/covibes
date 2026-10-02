@@ -50,21 +50,44 @@ type Call = { url: string; method: string; body: unknown };
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-/** A server that keeps the invitations in memory, or fails every change with `failWith`. */
-function stubServer(initial: Invitation[] = [], failWith?: { code: string; status: number }) {
+const SHARE_URL = `http://localhost:5173/share/${'s'.repeat(43)}`;
+
+/**
+ * A server that keeps the invitations and the read-only link in memory, or fails every change
+ * with `failWith`.
+ */
+function stubServer(
+  initial: Invitation[] = [],
+  failWith?: { code: string; status: number },
+  shareLinkSince: string | null = null,
+) {
   let invitations = [...initial];
+  let shareLink = shareLinkSince;
   const calls: Call[] = [];
   vi.stubGlobal(
     'fetch',
     vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
       const method = init?.method ?? 'GET';
-      if (method === 'GET') return Promise.resolve(json(invitations));
+      const isShareLink = url.endsWith('/share-link');
+      if (method === 'GET') {
+        return Promise.resolve(
+          json(isShareLink ? { active: shareLink !== null, createdAt: shareLink } : invitations),
+        );
+      }
       const body: unknown = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined;
       calls.push({ url, method, body });
       if (failWith) {
         return Promise.resolve(
           json({ error: { code: failWith.code, message: 'No' } }, failWith.status),
+        );
+      }
+      if (isShareLink) {
+        shareLink = method === 'DELETE' ? null : '2026-10-02T12:00:00.000Z';
+        return Promise.resolve(
+          method === 'DELETE'
+            ? new Response(null, { status: 204 })
+            : json({ url: SHARE_URL, createdAt: shareLink }, 201),
         );
       }
       if (method === 'DELETE' || method === 'PATCH') {
@@ -317,9 +340,68 @@ describe('ShareDialog for an owner', () => {
   });
 });
 
+describe('the read-only link in the share dialog', () => {
+  it('is created by an owner and shown once, with what it shows', async () => {
+    const calls = stubServer();
+    const { dialog } = renderDialog();
+    const readOnly = within(dialog).getByRole('region', { name: 'Nur-Lese-Link' });
+    expect(
+      await within(readOnly).findByText(
+        'Dieses Projekt hat keinen Nur-Lese-Link. Zeigt Canvas, Entscheidungen und Kriterien ohne Konto. Der Chat und alle Namen bleiben intern.',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(readOnly).getByRole('button', { name: 'Link erstellen' }));
+
+    expect(await within(readOnly).findByLabelText('Nur-Lese-Link zum Kopieren')).toHaveValue(
+      SHARE_URL,
+    );
+    expect(readOnly).toHaveTextContent('Er wird nur jetzt angezeigt, also kopiere ihn gleich.');
+    expect(await within(readOnly).findByText(/Aktiv seit 2\. Okt\./)).toBeInTheDocument();
+    expect(calls).toEqual([{ url: `${BASE}/share-link`, method: 'POST', body: undefined }]);
+  });
+
+  it('is replaced and switched off by an owner', async () => {
+    const calls = stubServer([], undefined, '2026-10-01T09:00:00.000Z');
+    const { dialog } = renderDialog();
+    const readOnly = within(dialog).getByRole('region', { name: 'Nur-Lese-Link' });
+    expect(await within(readOnly).findByText(/Aktiv seit 1\. Okt\./)).toBeInTheDocument();
+    // The link itself is not shown again: only its hash is stored.
+    expect(within(readOnly).queryByLabelText('Nur-Lese-Link zum Kopieren')).toBeNull();
+    expect(readOnly).toHaveTextContent('Ein neuer Link ersetzt den bisherigen');
+
+    fireEvent.click(within(readOnly).getByRole('button', { name: 'Neu erstellen' }));
+    expect(await within(readOnly).findByLabelText('Nur-Lese-Link zum Kopieren')).toHaveValue(
+      SHARE_URL,
+    );
+
+    const disable = within(readOnly).getByRole('button', { name: 'Abschalten' });
+    await waitFor(() => {
+      expect(disable).toBeEnabled();
+    });
+    fireEvent.click(disable);
+
+    expect(
+      await within(readOnly).findByText(/Dieses Projekt hat keinen Nur-Lese-Link\./),
+    ).toBeInTheDocument();
+    expect(within(readOnly).queryByLabelText('Nur-Lese-Link zum Kopieren')).toBeNull();
+    expect(within(readOnly).getByRole('button', { name: 'Link erstellen' })).toBeInTheDocument();
+    expect(calls).toEqual([
+      { url: `${BASE}/share-link`, method: 'POST', body: undefined },
+      { url: `${BASE}/share-link`, method: 'DELETE', body: undefined },
+    ]);
+  });
+});
+
 describe('ShareDialog for everyone else', () => {
-  it('shows who is in the project, without inviting or managing', () => {
-    const fetchMock = vi.fn();
+  it('shows who is in the project, without inviting or managing', async () => {
+    const fetchMock = vi.fn((input: string) =>
+      Promise.resolve(
+        input.endsWith('/share-link')
+          ? json({ active: true, createdAt: '2026-10-01T09:00:00.000Z' })
+          : json({ error: { code: 'forbidden', message: 'No' } }, 403),
+      ),
+    );
     vi.stubGlobal('fetch', fetchMock);
     const { dialog } = renderDialog({
       role: 'editor',
@@ -338,8 +420,13 @@ describe('ShareDialog for everyone else', () => {
       'ABAlex Berg (Du)darf Git-Aktionen freigebenBearbeiter',
       'VVeraLeser',
     ]);
-    // The invitations are the owners' business: they are not even asked for.
-    expect(fetchMock).not.toHaveBeenCalled();
     expect(within(dialog).getByRole('button', { name: 'Projekt verlassen' })).toBeEnabled();
+
+    // Every member learns that the project is visible through a link, but only owners manage it.
+    const readOnly = within(dialog).getByRole('region', { name: 'Nur-Lese-Link' });
+    expect(await within(readOnly).findByText(/Aktiv seit 1\. Okt\./)).toBeInTheDocument();
+    expect(within(readOnly).queryByRole('button')).not.toBeInTheDocument();
+    // The invitations are the owners' business: they are not even asked for.
+    expect(fetchMock.mock.calls.map(([input]) => input)).toEqual([`${BASE}/share-link`]);
   });
 });

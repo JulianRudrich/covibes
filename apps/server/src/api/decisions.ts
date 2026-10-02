@@ -191,6 +191,61 @@ const logDetailsSchema = z.object({
 });
 
 /**
+ * The decisions of a project in the order they came up, each with the comparison it followed, the
+ * result of the vote that decided and the variants it chose from. `trx` decides what is visible:
+ * a member's transaction, or the one of a read-only link (spec 21b), which reads no people.
+ */
+export async function loadDecisions(trx: Transaction<DB>, projectId: string): Promise<Decision[]> {
+  const rows = await trx
+    .selectFrom('decisions')
+    .leftJoin('users', 'users.id', 'decisions.decided_by')
+    .leftJoin('comparisons', 'comparisons.id', 'decisions.comparison_id')
+    .leftJoin('votes', 'votes.id', 'decisions.vote_id')
+    .leftJoin('proposals as variants', 'variants.id', 'decisions.variants_id')
+    .select([
+      'comparisons.data as comparison_data',
+      'votes.tally as vote_tally',
+      'variants.operations as variants_operations',
+      'variants.chosen as variants_chosen',
+      'decisions.id',
+      'decisions.topic',
+      'decisions.status',
+      'decisions.value',
+      'decisions.reasoning',
+      'decisions.alternatives',
+      'decisions.decided_at',
+      'decisions.reopen_reason',
+      'users.name as decided_by',
+    ])
+    .where('decisions.project_id', '=', projectId)
+    .orderBy('decisions.created_at')
+    .orderBy('decisions.id')
+    .execute();
+  return rows.flatMap((row) => {
+    const comparison = comparisonSchema.safeParse(row.comparison_data);
+    const tally = voteTallySchema.safeParse(row.vote_tally);
+    return isStatus(row.status)
+      ? [
+          {
+            id: row.id,
+            topic: row.topic,
+            status: row.status,
+            value: row.value,
+            reasoning: row.reasoning,
+            alternatives: readAlternatives(row.alternatives),
+            decidedBy: row.decided_by,
+            decidedAt: row.decided_at?.toISOString() ?? null,
+            reopenReason: row.reopen_reason,
+            comparison: comparison.success ? comparison.data : null,
+            tally: tally.success ? tally.data : null,
+            variants: readVariants(row.variants_operations, row.variants_chosen),
+          },
+        ]
+      : [];
+  });
+}
+
+/**
  * `/api/projects/:projectId/decisions` (spec 16a): the decisions of the project and its decision
  * log for members, and reopening a decision with a reason for owners and editors. Decisions are
  * recorded by the moderator or by confirming its proposal (`/proposals/:id/apply`).
@@ -202,57 +257,10 @@ export function decisionRoutes(db: AppDb, auth: Auth) {
   routes.get('/', async (c) => {
     const outcome = await forMember(db, c, 'read', async (trx, { projectId }) => ({
       ok: true,
-      value: await trx
-        .selectFrom('decisions')
-        .leftJoin('users', 'users.id', 'decisions.decided_by')
-        .leftJoin('comparisons', 'comparisons.id', 'decisions.comparison_id')
-        .leftJoin('votes', 'votes.id', 'decisions.vote_id')
-        .leftJoin('proposals as variants', 'variants.id', 'decisions.variants_id')
-        .select([
-          'comparisons.data as comparison_data',
-          'votes.tally as vote_tally',
-          'variants.operations as variants_operations',
-          'variants.chosen as variants_chosen',
-          'decisions.id',
-          'decisions.topic',
-          'decisions.status',
-          'decisions.value',
-          'decisions.reasoning',
-          'decisions.alternatives',
-          'decisions.decided_at',
-          'decisions.reopen_reason',
-          'users.name as decided_by',
-        ])
-        .where('decisions.project_id', '=', projectId)
-        .orderBy('decisions.created_at')
-        .orderBy('decisions.id')
-        .execute(),
+      value: await loadDecisions(trx, projectId),
     }));
     if (!outcome.ok) return apiError(c, outcome.code);
-    return c.json<Decision[]>(
-      outcome.value.flatMap((row) => {
-        const comparison = comparisonSchema.safeParse(row.comparison_data);
-        const tally = voteTallySchema.safeParse(row.vote_tally);
-        return isStatus(row.status)
-          ? [
-              {
-                id: row.id,
-                topic: row.topic,
-                status: row.status,
-                value: row.value,
-                reasoning: row.reasoning,
-                alternatives: readAlternatives(row.alternatives),
-                decidedBy: row.decided_by,
-                decidedAt: row.decided_at?.toISOString() ?? null,
-                reopenReason: row.reopen_reason,
-                comparison: comparison.success ? comparison.data : null,
-                tally: tally.success ? tally.data : null,
-                variants: readVariants(row.variants_operations, row.variants_chosen),
-              },
-            ]
-          : [];
-      }),
-    );
+    return c.json<Decision[]>(outcome.value);
   });
 
   routes.get('/log', async (c) => {

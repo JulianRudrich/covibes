@@ -117,6 +117,18 @@
       "remove": "Remove {{name}}",
       "removeConfirm": "Remove"
     },
+    "readOnly": {
+      "title": "Read-only link",
+      "what": "Shows the canvas, the decisions and the criteria without an account. The chat and all names stay inside the team.",
+      "inactive": "This project has no read-only link.",
+      "active": "Active since {{date}}: whoever has the link sees the project.",
+      "create": "Create link",
+      "replace": "Create a new one",
+      "replaceHint": "A new link replaces the current one, which then shows nothing.",
+      "disable": "Switch off",
+      "link": "Read-only link to copy",
+      "linkHint": "Whoever has this link sees the project without an account. It is only shown now, so copy it right away."
+    },
     "leave": {
       "action": "Leave project",
       "confirm": "Really leave",
@@ -171,6 +183,21 @@
         "title": "This invitation does not exist",
         "text": "The link is incomplete or wrong. Ask for a new invitation."
       }
+    }
+  },
+  "shareView": {
+    "loading": "Loading the project …",
+    "loadError": "The view could not be loaded.",
+    "readOnly": "Read only",
+    "updated": "As of {{time}}",
+    "boards": "Boards",
+    "teamMember": "Team member",
+    "emptyBoard": "This board is still empty.",
+    "boardError": "The board could not be loaded.",
+    "toCovibes": "To Covibes",
+    "dead": {
+      "title": "This link shows nothing any more",
+      "text": "The read-only link was switched off or replaced, or it is incomplete. Ask for a new link."
     }
   },
   "devMails": {

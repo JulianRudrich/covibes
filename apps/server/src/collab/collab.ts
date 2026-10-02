@@ -6,13 +6,17 @@ import {
   boardDocumentName,
   boardIdFromDocumentName,
   nodeLocks,
+  readEdges,
+  readNodes,
+  type CanvasEdge,
+  type CanvasNode,
   type NodeLock,
   type ProjectRole,
 } from '@covibes/shared';
 import { Database } from '@hocuspocus/extension-database';
 import { Hocuspocus } from '@hocuspocus/server';
 import { WebSocketServer, type RawData } from 'ws';
-import type * as Y from 'yjs';
+import * as Y from 'yjs';
 
 import type { Auth } from '@server/auth/auth';
 import { withUser, type Database as AppDatabase } from '@server/db/database';
@@ -210,6 +214,28 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
     }
   }
 
+  /**
+   * What is on a board right now, without connecting to it (spec 21b: the read-only view). The
+   * live document if people have it open, else the stored one; nothing is loaded into the server
+   * and nothing is written.
+   */
+  async function readBoard(boardId: string): Promise<{ nodes: CanvasNode[]; edges: CanvasEdge[] }> {
+    const documentName = boardDocumentName(boardId);
+    const live = hocuspocus.documents.get(documentName);
+    if (live && !live.isLoading) return { nodes: readNodes(live), edges: readEdges(live) };
+    const { rows } = await db.adminPool.query<{ state: Buffer }>(
+      'select state from yjs_documents where name = $1',
+      [documentName],
+    );
+    const stored = new Y.Doc();
+    try {
+      if (rows[0]) Y.applyUpdate(stored, new Uint8Array(rows[0].state));
+      return { nodes: readNodes(stored), edges: readEdges(stored) };
+    } finally {
+      stored.destroy();
+    }
+  }
+
   /** Closes all connections and waits until every document is stored. */
   async function close() {
     hocuspocus.closeConnections();
@@ -226,10 +252,10 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
     webSockets.close();
   }
 
-  return { hocuspocus, handleUpgrade, deleteBoard, changeBoard, closeUser, close };
+  return { hocuspocus, handleUpgrade, deleteBoard, changeBoard, readBoard, closeUser, close };
 }
 
 export type Collab = ReturnType<typeof createCollab>;
 
 /** What the API needs from the collaboration server. */
-export type BoardDocuments = Pick<Collab, 'deleteBoard' | 'changeBoard'>;
+export type BoardDocuments = Pick<Collab, 'deleteBoard' | 'changeBoard' | 'readBoard'>;

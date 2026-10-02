@@ -16,6 +16,7 @@ import { DevMailsPage } from '@web/features/dev/dev-mails-page';
 import { ErrorPage, NotFoundPage } from '@web/features/errors/error-pages';
 import { ProjectListPage } from '@web/features/projects/project-list-page';
 import { InvitePage } from '@web/features/share/invite-page';
+import { ShareViewPage } from '@web/features/share/share-view-page';
 import { WorkspacePage } from '@web/features/workspace/workspace-page';
 
 export type RouterContext = { queryClient: QueryClient };
@@ -75,6 +76,13 @@ const inviteRoute = createRoute({
   component: InvitePage,
 });
 
+/** A read-only link (spec 21b): open to everyone who has it, without a session. */
+const shareRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/share/$token',
+  component: ShareViewPage,
+});
+
 // The development mailbox is not part of production builds.
 const devMailsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -84,6 +92,7 @@ const devMailsRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
+  shareRoute,
   authedRoute.addChildren([projectListRoute, projectRoute, inviteRoute]),
   ...(import.meta.env.DEV ? [devMailsRoute] : []),
 ]);

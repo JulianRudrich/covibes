@@ -23,7 +23,8 @@ type DecisionsSectionProps = {
   comparing?: readonly string[];
   /** The decision log, loaded once the dialog opens; undefined while it loads. */
   log: readonly DecisionLogEntry[] | undefined;
-  onOpenLog: () => void;
+  /** Opens the log; without it there is no "Protokoll" (the read-only view, spec 21b). */
+  onOpenLog?: () => void;
   /** Owners and editors reopen a decision with a reason; viewers only read. */
   onReopen?: (decision: Decision, reason: string) => void;
 };
@@ -107,16 +108,18 @@ export function DecisionsSection({
         <h3 id={titleId} className="m-0 text-ui font-semibold text-text">
           {t('decisions.title')}
         </h3>
-        <button
-          type="button"
-          className="cursor-pointer rounded-xs text-meta text-text-3 underline-offset-2 hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-ink"
-          onClick={() => {
-            setLogOpen(true);
-            onOpenLog();
-          }}
-        >
-          {t('decisions.log')}
-        </button>
+        {onOpenLog ? (
+          <button
+            type="button"
+            className="cursor-pointer rounded-xs text-meta text-text-3 underline-offset-2 hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-ink"
+            onClick={() => {
+              setLogOpen(true);
+              onOpenLog();
+            }}
+          >
+            {t('decisions.log')}
+          </button>
+        ) : null}
       </div>
 
       {decisions.length === 0 ? (

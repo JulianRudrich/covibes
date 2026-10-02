@@ -7,7 +7,7 @@
 Build collaboration (M4, specs 21 to 24): invitations, roles and the read-only link, "Waiting for you" and notifications, "Since you were away", and the phase indicator with the next step. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Nothing. Next is spec 21 (invitations, roles and read-only link), the first spec of M4.
+- Spec 21a: invitations, roles and members (branch `spec/21a-invitations-and-members`)
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -172,7 +172,7 @@ Build collaboration (M4, specs 21 to 24): invitations, roles and the read-only l
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M4 (collaboration):** M3 (AI core) is complete with spec 20b. Next is spec 21 (invitations, roles and read-only link); it is worked out before it is built. Its share dialog and read-only view are derived from the prototype design until the design pass (spec 36).
+1. **M4 (collaboration):** M3 (AI core) is complete with spec 20b. Spec 21 (invitations, roles and read-only link) is built in two parts: 21a (invitations, roles and members) is worked out and in progress, 21b (read-only link) follows. The share dialog and the read-only view are derived from the prototype design until the design pass (spec 36).
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally

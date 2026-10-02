@@ -183,10 +183,18 @@ Built in two parts (2026-10-01), because the unit is large. External content is 
 ## M4: Collaboration
 
 ### 21 Invitations, roles and read-only link
-- **Goal:** invitations by link or email (locally in the development mailbox), the roles owner, editor and viewer, the Git approval right and a read-only link.
+Built in two parts (2026-10-02), because the unit is large.
+
+#### 21a Invitations, roles and members
+- **Goal:** invitations by link or email (locally in the development mailbox), the roles owner, editor and viewer, the Git approval right, and managing the members.
 - **Note from spec 06:** live channel and canvas check access only on connect; removing a member or changing a role must close their open connections. Messages of former members should keep their author's name.
 - **Needs:** 04
-- **Design:** **required:** share dialog and read-only view
+- **Design:** **required:** share dialog
+
+#### 21b Read-only link
+- **Goal:** a link that shows a project without an account and without write access.
+- **Needs:** 21a
+- **Design:** **required:** read-only view
 
 ### 22 "Waiting for you" and notifications
 - **Goal:** the "Waiting for you" section with a live counter, plus notifications in the app and by email for mentions and open approvals. The section with its cards for proposals came with spec 13; this spec adds approvals, raised hands and the notifications.

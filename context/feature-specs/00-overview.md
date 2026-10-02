@@ -197,6 +197,7 @@ Built in two parts (2026-10-02), because the unit is large.
 - **Design:** **required:** read-only view
 
 ### 22 "Waiting for you" and notifications
+Built in two parts (2026-10-02), because the unit is large: 22a brings mentions of people, the notifications in the app and the complete "Waiting for you", 22b the notifications by email.
 - **Goal:** the "Waiting for you" section with a live counter, plus notifications in the app and by email for mentions and open approvals. The section with its cards for proposals came with spec 13; this spec adds approvals, raised hands and the notifications.
 - **Needs:** 13, 21
 - **Design:** partly available. **Required:** the notification list

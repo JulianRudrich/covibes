@@ -303,6 +303,7 @@ describe('agent turn', () => {
       'add_frame',
       'arrange_frame',
       'add_agents',
+      'set_phase',
       'start_debate',
       'update_criteria',
       'record_decision',
@@ -310,6 +311,13 @@ describe('agent turn', () => {
       'start_vote',
       'propose_variants',
     ]);
+    // A new project is in the first phase (spec 24).
+    expect(call?.prompt).toContain(
+      '<phase>\nThe project is in the phase "Brainstorming", key brainstorming, number 1 of 4: collect ideas',
+    );
+    expect(call?.prompt).toContain(
+      'The phase after it is "Decide" (in German "Entscheiden"), key decide: weigh the options',
+    );
     expect(call?.prompt).toContain("<moderation>\nYour stance: neutral by the team's criteria.");
     expect(call?.prompt).toContain('How this project decides: consensus with confirmation.');
     expect(call?.prompt).toContain(
@@ -2022,5 +2030,91 @@ describe('splitText', () => {
     const pieces = splitText(`${'a'.repeat(3)}😀b`, 4);
 
     expect(pieces).toEqual(['aaa', '😀b']);
+  });
+});
+
+describe('the phase of the project (spec 24)', () => {
+  const phaseOf = (projectId: string) =>
+    test.db.admin
+      .selectFrom('projects')
+      .select('phase')
+      .where('id', '=', projectId)
+      .executeTakeFirstOrThrow()
+      .then((project) => project.phase);
+
+  /** The moderator moves the project on with set_phase, like Claude would. */
+  const movesTo =
+    (phase: string): Model =>
+    async (request) => {
+      const tool = request.tools.find((entry) => entry.name === 'set_phase');
+      if (!tool) throw new Error('set_phase is missing');
+      return result(await tool.run({ phase }));
+    };
+
+  it('changes when someone tells the moderator, and everyone is told', async () => {
+    const { projectId, request } = await createProject();
+    const { runId } = await request('@Moderator weiter zur Architektur');
+    const { boards } = memoryBoards();
+    const { deps } = turnDeps(movesTo('architecture'), boards, 'instruction');
+
+    await runAgentTurn(deps, { runId }, FIRST_ATTEMPT);
+
+    expect(await phaseOf(projectId)).toBe('architecture');
+    expect((await reply(runId)).content).toContain(
+      'The project is now in the phase "Architecture".',
+    );
+    await until(() => eventsFor(projectId).some((event) => event.type === 'project'));
+  });
+
+  it('stays when the moderator was only asked, and the context names it', async () => {
+    const { projectId, request } = await createProject();
+    await test.db.admin
+      .updateTable('projects')
+      .set({ phase: 'architecture' })
+      .where('id', '=', projectId)
+      .execute();
+    const { runId } = await request('@Moderator wo stehen wir?');
+    const { boards } = memoryBoards();
+    const { deps, reply: model } = turnDeps(movesTo('plan'), boards, 'question');
+
+    await runAgentTurn(deps, { runId }, FIRST_ATTEMPT);
+
+    expect(await phaseOf(projectId)).toBe('architecture');
+    expect((await reply(runId)).content).toContain(
+      'Nothing changed: nobody told you to change the phase.',
+    );
+    const prompt = model.mock.calls[0]?.[0].prompt ?? '';
+    expect(prompt).toContain(
+      'The project is in the phase "Architecture" (in German "Architektur"), key architecture, number 3 of 4',
+    );
+    expect(prompt).toContain(
+      'The phase after it is "Project plan" (in German "Projektplan"), key plan',
+    );
+  });
+
+  it('is named to a specialist too, who cannot change it', async () => {
+    const { projectId, request } = await createProject();
+    await test.db.admin
+      .insertInto('project_agents')
+      .values({ project_id: projectId, agent_key: 'critic' })
+      .execute();
+    await test.db.admin
+      .updateTable('projects')
+      .set({ phase: 'plan' })
+      .where('id', '=', projectId)
+      .execute();
+    const { runId } = await request('@Kritiker was fehlt im Plan?');
+    const { boards } = memoryBoards();
+    const { deps, reply: model } = turnDeps(() => Promise.resolve(result('Die Risiken.')), boards);
+
+    await runAgentTurn(deps, { runId }, FIRST_ATTEMPT);
+
+    const call = model.mock.calls[0]?.[0];
+    expect(call?.tools.map((tool) => tool.name)).not.toContain('set_phase');
+    expect(call?.prompt).toContain(
+      '<phase>\nThe project is in the phase "Project plan" (in German "Projektplan"), key plan, number 4 of 4',
+    );
+    expect(call?.prompt).toContain('It is the last phase.\n</phase>');
+    expect(call?.system).toContain('The phase is orientation, not a rule');
   });
 });

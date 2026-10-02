@@ -222,7 +222,25 @@
     "brainstorming": "Brainstorming",
     "decide": "Decide",
     "architecture": "Architecture",
-    "plan": "Project plan"
+    "plan": "Project plan",
+    "status": {
+      "done": "Done",
+      "active": "Current phase",
+      "upcoming": "Still to come"
+    },
+    "about": {
+      "brainstorming": "Collect ideas, goals and criteria and put them in order. Nothing has to be decided yet.",
+      "decide": "Weigh the options by your criteria and record the decisions the project needs.",
+      "architecture": "Work out how the product is built: components, data and flows, based on the decisions.",
+      "plan": "Turn the result into the project plan: scope, milestones, tasks, risks, costs and time."
+    },
+    "change": "Change to this phase",
+    "askHint": "How to go on? The moderator says where you stand and what comes next.",
+    "ask": "Ask the moderator",
+    "askMessage": "@Moderator Where do we stand, and what is the next step?",
+    "askFailed": "The question could not be sent. Please try again.",
+    "changed": "The project is now in the phase \"{{phase}}\".",
+    "changeFailed": "The phase could not be changed."
   },
   "agents": {
     "moderator": "Moderator",

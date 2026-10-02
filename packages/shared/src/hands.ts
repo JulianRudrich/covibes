@@ -22,7 +22,11 @@ export type HandRaise = z.infer<typeof handRaiseSchema>;
 /** At most this many raised hands are open per project at the same time. */
 export const MAX_OPEN_HANDS = 2;
 
-export const OFFER_KINDS = ['consensus', 'stuck'] as const;
+/**
+ * Why the moderator offers help: the team agrees, it is stuck, or the current phase has done its
+ * work and the next one can start (spec 24).
+ */
+export const OFFER_KINDS = ['consensus', 'stuck', 'next_step'] as const;
 export type OfferKind = (typeof OFFER_KINDS)[number];
 
 export const OFFER_STATUSES = ['open', 'accepted', 'declined'] as const;

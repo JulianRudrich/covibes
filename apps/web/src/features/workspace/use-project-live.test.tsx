@@ -42,6 +42,7 @@ const DETAILS: ProjectDetails = {
   webAccess: true,
   stance: 'criteria',
   decisionProcess: 'consensus',
+  phase: 'brainstorming',
   agents: [{ key: 'moderator', model: null }],
   customAgents: [],
 };

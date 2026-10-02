@@ -4,8 +4,10 @@ import {
   MAX_OPEN_HANDS,
   OFFER_KINDS,
   projectSettingsSchema,
+  toPhase,
   type DecisionProcess,
   type ChatMessage,
+  type Phase,
 } from '@covibes/shared';
 import type { Task } from 'graphile-worker';
 import { sql, type Kysely } from 'kysely';
@@ -18,6 +20,7 @@ import {
   type AgentDefinition,
 } from '@server/agents/catalog';
 import { loadCustomAgentNames } from '@server/agents/custom';
+import { describePhase } from '@server/agents/phases';
 import { loadPrompt } from '@server/agents/prompts';
 import type { AgentReplyResult } from '@server/ai-gateway';
 import { selectMessages, toMessage } from '@server/chat/rows';
@@ -128,6 +131,8 @@ type History = {
 /** The observer's context as one text; its instructions come separately as the system prompt. */
 export function buildObserverPrompt(context: {
   projectName: string;
+  /** Where the project stands (spec 24): the moderator may offer to move on to the next phase. */
+  phase?: Phase;
   /** Catalog agents by key or definition, custom agents (spec 19) by definition. */
   team: readonly (string | AgentDefinition)[];
   /** The names of custom agents by key, for the authors of the chat. */
@@ -190,6 +195,7 @@ export function buildObserverPrompt(context: {
     : [];
   return [
     `Project: ${asData(context.projectName)}`,
+    ...(context.phase ? [`<phase>\n${describePhase(context.phase)}\n</phase>`] : []),
     `<team>\n${team}\n</team>`,
     `<decisions>\n${decisions.length > 0 ? asData(decisions.join('\n')) : '- none'}\n</decisions>`,
     `<earlier>\nOffers of the moderator, newest first:\n${asData(offers)}\nRaised hands, newest first:\n${asData(hands)}\n</earlier>`,
@@ -214,7 +220,7 @@ export async function runObserver(deps: ObserverDeps, payload: unknown): Promise
 
   const project = await admin
     .selectFrom('projects')
-    .select(['name', 'settings'])
+    .select(['name', 'settings', 'phase'])
     .where('id', '=', projectId)
     .executeTakeFirst();
   if (!project) return 'gone';
@@ -319,6 +325,7 @@ export async function runObserver(deps: ObserverDeps, payload: unknown): Promise
       system: OBSERVER_PROMPT,
       prompt: buildObserverPrompt({
         projectName: project.name,
+        phase: toPhase(project.phase),
         team: team.members.map((member) => member.definition),
         agentNames: await loadCustomAgentNames(
           admin,

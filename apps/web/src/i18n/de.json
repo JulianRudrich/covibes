@@ -222,7 +222,25 @@
     "brainstorming": "Brainstorming",
     "decide": "Entscheiden",
     "architecture": "Architektur",
-    "plan": "Projektplan"
+    "plan": "Projektplan",
+    "status": {
+      "done": "Abgeschlossen",
+      "active": "Aktuelle Phase",
+      "upcoming": "Kommt noch"
+    },
+    "about": {
+      "brainstorming": "Ideen, Ziele und Kriterien sammeln und ordnen. Entschieden werden muss hier noch nichts.",
+      "decide": "Optionen nach euren Kriterien abwägen und die Entscheidungen festhalten, die das Projekt braucht.",
+      "architecture": "Ausarbeiten, wie das Produkt gebaut wird: Bausteine, Daten und Abläufe, auf Basis der Entscheidungen.",
+      "plan": "Aus dem Ergebnis den Projektplan machen: Umfang, Meilensteine, Aufgaben, Risiken, Kosten und Zeit."
+    },
+    "change": "Zu dieser Phase wechseln",
+    "askHint": "Wie geht es weiter? Der Moderator sagt, wo ihr steht und was als Nächstes kommt.",
+    "ask": "Moderator fragen",
+    "askMessage": "@Moderator Wo stehen wir, und was ist der nächste Schritt?",
+    "askFailed": "Die Frage konnte nicht gesendet werden. Bitte versuche es noch einmal.",
+    "changed": "Das Projekt ist jetzt in der Phase „{{phase}}“.",
+    "changeFailed": "Die Phase konnte nicht gewechselt werden."
   },
   "agents": {
     "moderator": "Moderator",

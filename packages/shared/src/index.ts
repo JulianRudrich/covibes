@@ -346,7 +346,18 @@ export {
   type NotificationSettings,
   type OpenVote,
 } from './notifications';
-export { PHASES, phaseStatuses, type Phase, type PhaseStatus } from './phases';
+export {
+  FIRST_PHASE,
+  nextPhase,
+  PHASES,
+  phaseSchema,
+  phaseStatuses,
+  setPhaseInputSchema,
+  toPhase,
+  type Phase,
+  type PhaseStatus,
+  type SetPhaseInput,
+} from './phases';
 export {
   addProjectAgentInputSchema,
   BOARD_TITLE_MAX_LENGTH,

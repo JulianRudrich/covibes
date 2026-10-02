@@ -380,6 +380,7 @@ export interface Projects {
   language: Generated<string>;
   name: string;
   owner_id: string;
+  phase: Generated<string>;
   settings: Generated<Json>;
   updated_at: Generated<Timestamp>;
 }

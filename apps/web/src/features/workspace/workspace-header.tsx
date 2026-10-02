@@ -29,6 +29,9 @@ type WorkspaceHeaderProps = {
   projectName: string;
   settings: ProjectSettings;
   activePhase: Phase;
+  /** Jumping to a phase and asking for the next step (spec 24); missing for viewers. */
+  onSelectPhase?: (phase: Phase) => void;
+  onAskNextStep?: () => void;
   members: WorkspaceMember[];
   user: SessionUser | null;
   /** The agents of the project (spec 14): their avatars and the team popover. */
@@ -41,6 +44,8 @@ export function WorkspaceHeader({
   projectName,
   settings,
   activePhase,
+  onSelectPhase,
+  onAskNextStep,
   members,
   user,
   team,
@@ -62,7 +67,7 @@ export function WorkspaceHeader({
       </div>
 
       <div className="justify-self-center">
-        <PhaseIndicator active={activePhase} />
+        <PhaseIndicator active={activePhase} onSelect={onSelectPhase} onAsk={onAskNextStep} />
       </div>
 
       <div className="flex items-center justify-end gap-2.5 pr-1">

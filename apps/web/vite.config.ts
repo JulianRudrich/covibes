@@ -24,5 +24,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
+    // `pnpm test` runs all packages at once, often next to `pnpm dev`; a test that renders a
+    // dialog with many fields can then take longer than Vitest's five seconds.
+    testTimeout: 15_000,
   },
 });

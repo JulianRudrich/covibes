@@ -4,6 +4,7 @@ import {
   projectSettingsSchema,
   readEdges,
   readNodes,
+  toPhase,
   type CanvasEdge,
   type CanvasNode,
   type CanvasOperation,
@@ -11,6 +12,7 @@ import {
   type DecisionProcess,
   type ModeratorStance,
   type NodeLock,
+  type Phase,
 } from '@covibes/shared';
 import type { Task } from 'graphile-worker';
 import { sql, type Kysely } from 'kysely';
@@ -24,6 +26,7 @@ import {
   type AgentDefinition,
 } from '@server/agents/catalog';
 import { loadCustomAgentNames, resolveAgent } from '@server/agents/custom';
+import { describePhase } from '@server/agents/phases';
 import {
   describeKnowledge,
   loadAgentKnowledge,
@@ -49,6 +52,7 @@ import {
   loadDecisionContext,
   type DecisionContext,
 } from '@server/tasks/run-decisions';
+import { phaseWriter } from '@server/tasks/run-phase';
 import { loadTeam, teamWriter, type TeamContext } from '@server/tasks/run-team';
 import { addAgentsTool } from '@server/tools/add-agents';
 import { addBlockTool } from '@server/tools/add-block';
@@ -66,6 +70,7 @@ import { describePosition, type CanvasToolOptions } from '@server/tools/placemen
 import { proposeVariantsTool } from '@server/tools/propose-variants';
 import { describeFile, fileReader, readFileTool, type ProjectFile } from '@server/tools/read-file';
 import { readLinkTool, type PageReader } from '@server/tools/read-link';
+import { setPhaseTool } from '@server/tools/set-phase';
 import { startDebateTool } from '@server/tools/start-debate';
 import { updateBlockTool } from '@server/tools/update-block';
 
@@ -413,7 +418,7 @@ export async function runAgentTurn(
 
   const project = await deps.admin
     .selectFrom('projects')
-    .select(['name', 'language', 'settings'])
+    .select(['name', 'language', 'settings', 'phase'])
     .where('id', '=', run.projectId)
     .executeTakeFirstOrThrow();
   const language: Language = project.language === 'en' ? 'en' : 'de';
@@ -451,6 +456,7 @@ export async function runAgentTurn(
         moderation,
         askForCriteria,
         projectName: project.name,
+        phase: toPhase(project.phase),
         messageId,
         proposalsOnly,
         webAccess,
@@ -551,6 +557,8 @@ async function converse(
     moderation: Moderation;
     askForCriteria: boolean;
     projectName: string;
+    /** Where the project stands (spec 24); every agent's context names it. */
+    phase: Phase;
     messageId: string;
     proposalsOnly: boolean;
     webAccess: boolean;
@@ -639,6 +647,10 @@ async function converse(
     });
     tools.push(addAgentsTool({ team, rules }));
   }
+  // The moderator changes the phase when someone tells it to (spec 24).
+  if (!debating && agent.tools.includes('set_phase')) {
+    tools.push(setPhaseTool({ phases: phaseWriter(deps.admin, run.projectId), rules }));
+  }
   const moderates = agent.tools.includes('record_decision');
   if (!debating && agent.tools.includes('start_debate')) {
     tools.push(
@@ -721,6 +733,7 @@ async function converse(
       system: agent.prompt,
       prompt: buildPrompt({
         projectName: turn.projectName,
+        phase: turn.phase,
         team: {
           self: agent.key,
           members: turn.team.members.map((entry) => entry.definition),
@@ -1015,6 +1028,8 @@ function describeDebateSummary(
  */
 export function buildPrompt(context: {
   projectName: string;
+  /** The current phase of the project (spec 24). */
+  phase?: Phase;
   /** The team (spec 14); `self` is the agent that answers. */
   team?: Parameters<typeof describeTeam>[0];
   /** The names of custom agents by key (spec 19), for the chat and for debates. */
@@ -1076,6 +1091,7 @@ export function buildPrompt(context: {
                 : 'The message addressed to you was removed. Answer the latest message in the chat.';
   return [
     `Project: ${asData(context.projectName)}`,
+    ...(context.phase ? [`<phase>\n${describePhase(context.phase)}\n</phase>`] : []),
     ...(context.team ? [`<team>\n${describeTeam(context.team)}\n</team>`] : []),
     ...(context.moderation ? [describeModeration(context.moderation)] : []),
     ...(context.decisions ? describeDecisions(context.decisions) : []),

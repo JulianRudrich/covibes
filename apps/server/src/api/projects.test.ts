@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createTestServer } from '@server/testing';
 
-const { app, signIn } = createTestServer();
+const { app, signIn, auth, db } = createTestServer();
 
 function request(path: string, cookie?: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
@@ -79,7 +79,13 @@ describe('projects', () => {
     const details = await request(`/api/projects/${project.id}`, cookie);
     expect(details.status).toBe(200);
     const body = (await details.json()) as ProjectDetails;
-    expect(body).toMatchObject({ id: project.id, name: 'Covibes V1', role: 'owner' });
+    expect(body).toMatchObject({
+      id: project.id,
+      name: 'Covibes V1',
+      role: 'owner',
+      // A new project starts with brainstorming (spec 24).
+      phase: 'brainstorming',
+    });
     // New users get the start of their address as name until profiles exist.
     expect(body.members).toHaveLength(1);
     expect(body.members[0]).toMatchObject({ name: 'olga', role: 'owner' });
@@ -104,6 +110,77 @@ describe('projects', () => {
       const response = await request(`/api/projects/${id}`, cookie);
       expect(response.status).toBe(404);
       expect(await errorCode(response)).toBe('not_found');
+    }
+  });
+});
+
+describe('the phase of a project (spec 24)', () => {
+  const setPhase = (cookie: string | undefined, projectId: string, body: unknown) =>
+    request(`/api/projects/${projectId}/phase`, cookie, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  async function phaseOf(cookie: string, projectId: string) {
+    const details = await request(`/api/projects/${projectId}`, cookie);
+    return ((await details.json()) as ProjectDetails).phase;
+  }
+
+  /** Signs someone in and adds them to the project. */
+  async function member(projectId: string, role: 'editor' | 'viewer') {
+    const cookie = await signIn();
+    const session = await auth.api.getSession({ headers: new Headers({ cookie }) });
+    await db.adminPool.query(
+      'insert into project_members (project_id, user_id, role) values ($1, $2, $3)',
+      [projectId, session?.user.id, role],
+    );
+    return cookie;
+  }
+
+  it('is changed by owners and editors, forward and back', async () => {
+    const owner = await signIn();
+    const { id } = (await (await create(owner, { name: 'Phasen' })).json()) as ProjectSummary;
+    const editor = await member(id, 'editor');
+
+    expect((await setPhase(editor, id, { phase: 'architecture' })).status).toBe(204);
+    expect(await phaseOf(owner, id)).toBe('architecture');
+    expect((await setPhase(owner, id, { phase: 'decide' })).status).toBe(204);
+    expect(await phaseOf(editor, id)).toBe('decide');
+    // The same phase again is fine and changes nothing.
+    expect((await setPhase(owner, id, { phase: 'decide' })).status).toBe(204);
+  });
+
+  it('is read but not changed by viewers', async () => {
+    const owner = await signIn();
+    const { id } = (await (await create(owner, { name: 'Phasen' })).json()) as ProjectSummary;
+    const viewer = await member(id, 'viewer');
+
+    const refused = await setPhase(viewer, id, { phase: 'plan' });
+    expect(refused.status).toBe(403);
+    expect(await errorCode(refused)).toBe('forbidden');
+    expect(await phaseOf(viewer, id)).toBe('brainstorming');
+  });
+
+  it('is nothing a stranger or someone without a session can touch', async () => {
+    const owner = await signIn();
+    const { id } = (await (await create(owner, { name: 'Phasen' })).json()) as ProjectSummary;
+
+    const stranger = await setPhase(await signIn(), id, { phase: 'plan' });
+    expect(stranger.status).toBe(404);
+    expect((await setPhase(undefined, id, { phase: 'plan' })).status).toBe(401);
+    expect((await setPhase(owner, 'demo', { phase: 'plan' })).status).toBe(404);
+    expect(await phaseOf(owner, id)).toBe('brainstorming');
+  });
+
+  it('is one of the four phases', async () => {
+    const owner = await signIn();
+    const { id } = (await (await create(owner, { name: 'Phasen' })).json()) as ProjectSummary;
+
+    for (const body of [{ phase: 'launch' }, {}, null]) {
+      const response = await setPhase(owner, id, body);
+      expect(response.status).toBe(400);
+      expect(await errorCode(response)).toBe('invalid_input');
     }
   });
 });

@@ -61,6 +61,7 @@ const ROLES: Readonly<
       'start_vote',
       'propose_variants',
       'start_debate',
+      'set_phase',
     ],
   },
   critic: {

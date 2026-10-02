@@ -105,6 +105,7 @@ const DETAILS: ProjectDetails = {
   webAccess: true,
   stance: 'criteria',
   decisionProcess: 'consensus',
+  phase: 'architecture',
   agents: [{ key: 'moderator', model: null }],
   customAgents: [],
 };
@@ -618,6 +619,135 @@ describe('with a session', () => {
 
     expect(await screen.findByTestId('canvas-panel')).toHaveAttribute('data-readonly', 'true');
     expect(screen.getByTestId('chat-panel')).toHaveAttribute('data-readonly', 'true');
+  });
+
+  it('shows the phase of the project and jumps to another one from its card (spec 24)', async () => {
+    let phase: ProjectDetails['phase'] = 'decide';
+    const api = stubApi({
+      [`GET /api/projects/${PROJECT.id}`]: () => ({ body: { ...DETAILS, phase } }),
+      [`PUT /api/projects/${PROJECT.id}/phase`]: (init) => {
+        ({ phase } = JSON.parse(typeof init?.body === 'string' ? init.body : '{}') as {
+          phase: ProjectDetails['phase'];
+        });
+        return { status: 204, body: null };
+      },
+    });
+    renderApp(`/p/${PROJECT.id}`);
+
+    const phases = await screen.findByRole('navigation', { name: 'Phasen' });
+    expect(phases.querySelector('[aria-current="step"]')).toHaveTextContent('Entscheiden');
+
+    fireEvent.click(within(phases).getByRole('button', { name: /Architektur/ }));
+    const card = await screen.findByRole('dialog', { name: 'Architektur' });
+    fireEvent.click(within(card).getByRole('button', { name: 'Zu dieser Phase wechseln' }));
+
+    await waitFor(() => {
+      expect(phases.querySelector('[aria-current="step"]')).toHaveTextContent('Architektur');
+    });
+    expect(api).toHaveBeenCalledWith(
+      `/api/projects/${PROJECT.id}/phase`,
+      expect.objectContaining({ method: 'PUT', body: JSON.stringify({ phase: 'architecture' }) }),
+    );
+    expect(screen.getByTestId('canvas-panel')).toHaveTextContent(
+      'Das Projekt ist jetzt in der Phase „Architektur“.',
+    );
+  });
+
+  it('takes the phase back with a note when the server refuses the change', async () => {
+    stubApi({
+      [`GET /api/projects/${PROJECT.id}`]: () => ({ body: { ...DETAILS, phase: 'decide' } }),
+      [`PUT /api/projects/${PROJECT.id}/phase`]: () => ({
+        status: 403,
+        body: { error: { code: 'forbidden', message: 'No.' } },
+      }),
+    });
+    renderApp(`/p/${PROJECT.id}`);
+    const phases = await screen.findByRole('navigation', { name: 'Phasen' });
+
+    fireEvent.click(within(phases).getByRole('button', { name: /Projektplan/ }));
+    const card = await screen.findByRole('dialog', { name: 'Projektplan' });
+    fireEvent.click(within(card).getByRole('button', { name: 'Zu dieser Phase wechseln' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('canvas-panel')).toHaveTextContent(
+        'Die Phase konnte nicht gewechselt werden.',
+      );
+    });
+    expect(phases.querySelector('[aria-current="step"]')).toHaveTextContent('Entscheiden');
+  });
+
+  it('tells everyone when someone else or the moderator changes the phase', async () => {
+    let phase: ProjectDetails['phase'] = 'brainstorming';
+    stubApi({ [`GET /api/projects/${PROJECT.id}`]: () => ({ body: { ...DETAILS, phase } }) });
+    renderApp(`/p/${PROJECT.id}`);
+    const phases = await screen.findByRole('navigation', { name: 'Phasen' });
+    expect(phases.querySelector('[aria-current="step"]')).toHaveTextContent('Brainstorming');
+    // Opening a project is no change of its phase.
+    expect(screen.getByTestId('canvas-panel')).not.toHaveTextContent('Phase');
+
+    phase = 'decide';
+    act(() => {
+      live.handlers?.onEvent({ type: 'project' });
+    });
+
+    await waitFor(() => {
+      expect(phases.querySelector('[aria-current="step"]')).toHaveTextContent('Entscheiden');
+    });
+    expect(screen.getByTestId('canvas-panel')).toHaveTextContent(
+      'Das Projekt ist jetzt in der Phase „Entscheiden“.',
+    );
+  });
+
+  it('asks the moderator for the next step from the current phase', async () => {
+    const api = stubApi({
+      [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+      [`POST /api/projects/${PROJECT.id}/messages`]: (init) => ({
+        status: 201,
+        body: {
+          ...(JSON.parse(typeof init?.body === 'string' ? init.body : '{}') as object),
+          projectId: PROJECT.id,
+          author: { kind: 'human', userId: OLGA.id, name: OLGA.name },
+          mentions: ['moderator'],
+          replyTo: null,
+          status: 'complete',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      }),
+    });
+    renderApp(`/p/${PROJECT.id}`);
+    const phases = await screen.findByRole('navigation', { name: 'Phasen' });
+
+    fireEvent.click(within(phases).getByRole('button', { name: /Architektur/ }));
+    const card = await screen.findByRole('dialog', { name: 'Architektur' });
+    fireEvent.click(within(card).getByRole('button', { name: 'Moderator fragen' }));
+
+    await waitFor(() => {
+      expect(api).toHaveBeenCalledWith(
+        `/api/projects/${PROJECT.id}/messages`,
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+    const sent = api.mock.calls.find(
+      ([url, init]) =>
+        typeof url === 'string' && url.endsWith('/messages') && init?.method === 'POST',
+    )?.[1]?.body;
+    expect(JSON.parse(typeof sent === 'string' ? sent : '{}')).toMatchObject({
+      content: '@Moderator Wo stehen wir, und was ist der nächste Schritt?',
+    });
+  });
+
+  it('lets viewers read what the phases are for, without changing or asking', async () => {
+    stubApi({
+      [`GET /api/projects/${PROJECT.id}`]: () => ({ body: { ...DETAILS, role: 'viewer' } }),
+    });
+    renderApp(`/p/${PROJECT.id}`);
+    const phases = await screen.findByRole('navigation', { name: 'Phasen' });
+
+    fireEvent.click(within(phases).getByRole('button', { name: /Projektplan/ }));
+    const card = await screen.findByRole('dialog', { name: 'Projektplan' });
+    expect(card).toHaveTextContent('Aus dem Ergebnis den Projektplan machen');
+    expect(within(card).queryByRole('button')).toBeNull();
   });
 
   it('opens the board named in the address and falls back to the main canvas', async () => {

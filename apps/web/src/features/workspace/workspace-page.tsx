@@ -17,7 +17,7 @@ import { DecisionsOverview } from '@web/features/decisions/decisions-overview';
 import { openVotesQuery, useVoteActions } from '@web/features/decisions/queries';
 import { handsQuery, useHandDecisions } from '@web/features/hands/queries';
 import { notificationsQuery, useMarkNotificationsRead } from '@web/features/notifications/queries';
-import { projectQuery, useUpdateProject } from '@web/features/projects/queries';
+import { projectQuery, useSetPhase, useUpdateProject } from '@web/features/projects/queries';
 import {
   decidedQueryKey,
   proposalsQuery,
@@ -28,7 +28,7 @@ import { waitingCount } from '@web/features/proposals/waiting-count';
 import { WaitingForYou } from '@web/features/proposals/waiting-for-you';
 import { ProjectShare } from '@web/features/share/project-share';
 import { ProjectTeam } from '@web/features/team/project-team';
-import { DEMO_ACTIVE_PHASE } from '@web/features/workspace/demo-workspace';
+import { useAskNextStep } from '@web/features/workspace/use-ask-next-step';
 import { useProjectLive } from '@web/features/workspace/use-project-live';
 import { useProjectSeen } from '@web/features/workspace/use-project-seen';
 import { WorkspaceShell, type WorkspaceMember } from '@web/features/workspace/workspace-shell';
@@ -228,6 +228,22 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
   const { mutate: dismissAway } = useDismissAway(project.id);
   const [openDecisionId, setOpenDecisionId] = useState<string | null>(null);
 
+  // The phase of the project (spec 24): owners and editors jump from the phase bar, and everyone
+  // gets a note when it changes, whoever changed it.
+  const { mutate: setPhase } = useSetPhase(project.id);
+  const askFailed = useCallback(() => {
+    showNotice(t('phases.askFailed'));
+  }, [showNotice, t]);
+  const askNextStep = useAskNextStep(project.id, askFailed);
+  const shownPhase = useRef({ projectId: project.id, phase: project.phase });
+  useEffect(() => {
+    const shown = shownPhase.current;
+    shownPhase.current = { projectId: project.id, phase: project.phase };
+    if (shown.projectId === project.id && shown.phase !== project.phase) {
+      showNotice(t('phases.changed', { phase: t(`phases.${project.phase}`) }));
+    }
+  }, [project.id, project.phase, showNotice, t]);
+
   return (
     <AgentDirectoryProvider agents={project.customAgents}>
       <WorkspaceShell
@@ -243,7 +259,19 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
             updateProject.mutate(change);
           },
         }}
-        activePhase={DEMO_ACTIVE_PHASE}
+        activePhase={project.phase}
+        onSelectPhase={
+          readOnly
+            ? undefined
+            : (phase) => {
+                setPhase(phase, {
+                  onError: () => {
+                    showNotice(t('phases.changeFailed'));
+                  },
+                });
+              }
+        }
+        onAskNextStep={readOnly ? undefined : askNextStep}
         members={members}
         user={user}
         team={<ProjectTeam project={project} userId={user?.id ?? ''} onNotice={showNotice} />}

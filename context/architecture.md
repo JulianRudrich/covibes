@@ -167,7 +167,7 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - The decision and its log entry refer to the proposal, which keeps all variants as the snapshot.
 - **Intent:** at the start of every run the agent runner determines the intent of the triggering message: instruction or question. A small model with fixed instructions classifies it next to the agent's reply; if it fails, the message counts as a question. It passes the intent to the rule engine. Observer runs always count as own initiative.
 - **Observer job:** it reads the new messages since its last run and decides to:
-  - offer help, on consensus or when the team is stuck
+  - offer help: on consensus, when the team is stuck, or to move on when the current phase has done its work (spec 24)
   - create a raised hand (at most two open)
   - do nothing
 
@@ -187,6 +187,9 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - Every turn is an ordinary agent run with its own message. A trigger on `ai_runs` advances the debate when one of its runs ends: the next participant, after the last turn the moderator's summary, and the end. A run that failed for good aborts the debate.
   - Runs of a debate only talk: they get no tools and record nothing.
   - Owners and editors end a debate early through the database function `stop_debate`; the turn in progress is finished, then the moderator sums up.
+- **Phases (spec 24):** a project has one current phase (brainstorming, decide, architecture, plan); the others show as done or upcoming. It is orientation and gates nothing.
+  - Owners and editors jump to any phase through a database function; a trigger announces every change on the live channel.
+  - Every agent's context names the phase and what it is for. Only the moderator changes it, with `set_phase` through the rule engine: on an instruction or an accepted offer. Otherwise nothing changes and it suggests the change in words; a phase gets no proposal.
 - **Summary for a return (spec 23):** a member who did not have a project open in a visible tab for an hour is back when they open it again; the database notes that absence (`away_summaries`).
   - The server fills it on request from what the project records anyway: the decision log, the last change of every board element, the messages.
   - With five or more messages by others, a job lets the moderator sum up the conversation for that person: Claude Sonnet 5.5 with fixed instructions and no tools, metered in `ai_runs` with the kind `summary`. Only that person reads the text; it is no message in the chat.
@@ -242,7 +245,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | Table | Purpose |
 |---|---|
 | `users`, `sessions`, `accounts`, `verifications` | accounts and sessions (Better Auth); `users` holds name, image and language |
-| `projects` | name, owner, language, settings: stance, decision process, proposals-only mode, observer, web access |
+| `projects` | name, owner, language, the current phase, settings: stance, decision process, proposals-only mode, observer, web access |
 | `project_members` | role (owner, editor, viewer), `can_approve_git` |
 | `invitations`, `share_links` | invitations by link or email with role, expiry, uses and the hash of the token; the read-only link of a project (one row, the hash of its token) |
 | `project_people` | everyone who is or was a member of a project, so former members keep their name |

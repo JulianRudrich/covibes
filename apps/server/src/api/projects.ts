@@ -3,6 +3,8 @@ import {
   createProjectInputSchema,
   projectIdSchema,
   projectSettingsSchema,
+  setPhaseInputSchema,
+  toPhase,
   updateProjectInputSchema,
   type ProjectDetails,
   type ProjectSeen,
@@ -93,7 +95,7 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
     const details = await withUser(db, user.id, async (trx) => {
       const project = await summaries(trx, user.id)
         .where('projects.id', '=', projectId.data)
-        .select('projects.settings')
+        .select(['projects.settings', 'projects.phase'])
         .executeTakeFirst();
       if (!project) return undefined;
       const settings = projectSettingsSchema.safeParse(project.settings);
@@ -141,6 +143,7 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
         stance: (settings.success ? settings.data.stance : undefined) ?? ('criteria' as const),
         decisionProcess:
           (settings.success ? settings.data.decisionProcess : undefined) ?? ('consensus' as const),
+        phase: toPhase(project.phase),
         agents,
         customAgents,
       };
@@ -163,6 +166,32 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
       }>`select public.touch_project_seen(${projectId.data}) as returned`.execute(trx),
     );
     return c.json<ProjectSeen>({ returned: seen.rows[0]?.returned === true });
+  });
+
+  // The phase of the project (spec 24): owners and editors jump to any phase, forward or back.
+  // The database announces the change on the live channel.
+  routes.put('/:projectId/phase', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    const projectId = projectIdSchema.safeParse(c.req.param('projectId'));
+    if (!projectId.success) return apiError(c, 'not_found');
+    const body: unknown = await c.req.json().catch(() => undefined);
+    const input = setPhaseInputSchema.safeParse(body);
+    if (!input.success) return apiError(c, 'invalid_input');
+
+    const result = await withUser(db, user.id, async (trx) => {
+      const project = await summaries(trx, user.id)
+        .where('projects.id', '=', projectId.data)
+        .executeTakeFirst();
+      if (!project) return 'not_found' as const;
+      if (project.role === 'viewer') return 'forbidden' as const;
+      await sql`select public.set_project_phase(${projectId.data}, ${input.data.phase})`.execute(
+        trx,
+      );
+      return 'updated' as const;
+    });
+    if (result !== 'updated') return apiError(c, result);
+    return c.body(null, 204);
   });
 
   // The project's settings (spec 13: the proposals-only mode, spec 15: the observer, spec 16b: the

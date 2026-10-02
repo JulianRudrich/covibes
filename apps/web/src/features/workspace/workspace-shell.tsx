@@ -13,6 +13,9 @@ type WorkspaceShellProps = {
   projectName: string;
   settings: ProjectSettings;
   activePhase: Phase;
+  /** Jumping to a phase and asking for the next step (spec 24); missing for viewers. */
+  onSelectPhase?: (phase: Phase) => void;
+  onAskNextStep?: () => void;
   members: WorkspaceMember[];
   user: SessionUser | null;
   /** The agents of the project in the header (spec 14). */
@@ -32,6 +35,8 @@ export function WorkspaceShell({
   projectName,
   settings,
   activePhase,
+  onSelectPhase,
+  onAskNextStep,
   members,
   user,
   team,
@@ -48,6 +53,8 @@ export function WorkspaceShell({
         projectName={projectName}
         settings={settings}
         activePhase={activePhase}
+        onSelectPhase={onSelectPhase}
+        onAskNextStep={onAskNextStep}
         members={members}
         user={user}
         team={team}

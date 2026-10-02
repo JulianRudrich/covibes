@@ -70,6 +70,8 @@ describe('classifyIntent', () => {
       expect.objectContaining({
         model: INTENT_MODEL,
         prompt: '@Moderator zeichne die Architektur',
+        // Telling the moderator to move on to another phase is an instruction too (spec 24).
+        system: expect.stringContaining('move the project to another phase') as unknown,
       }),
     );
   });

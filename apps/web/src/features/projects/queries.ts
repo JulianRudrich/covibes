@@ -1,5 +1,6 @@
 import type {
   CreateProjectInput,
+  Phase,
   ProjectBoard,
   ProjectDetails,
   ProjectSummary,
@@ -120,6 +121,32 @@ export function useUpdateProject(projectId: string) {
       return { previous };
     },
     onError: (_error, _input, context) => {
+      if (context?.previous) queryClient.setQueryData(queryKey, context.previous);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey, exact: true }),
+  });
+}
+
+/**
+ * Jumps to another phase (spec 24): shown at once, taken back if the server refuses. Everyone
+ * else learns of it through the live channel.
+ */
+export function useSetPhase(projectId: string) {
+  const queryClient = useQueryClient();
+  const { queryKey } = projectQuery(projectId);
+  return useMutation({
+    mutationFn: (phase: Phase) =>
+      api<undefined>(`/projects/${encodeURIComponent(projectId)}/phase`, {
+        method: 'PUT',
+        body: JSON.stringify({ phase }),
+      }),
+    onMutate: async (phase) => {
+      await queryClient.cancelQueries({ queryKey, exact: true });
+      const previous = queryClient.getQueryData(queryKey);
+      queryClient.setQueryData(queryKey, (project) => project && { ...project, phase });
+      return { previous };
+    },
+    onError: (_error, _phase, context) => {
       if (context?.previous) queryClient.setQueryData(queryKey, context.previous);
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey, exact: true }),

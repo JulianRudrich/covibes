@@ -320,6 +320,58 @@ describe('the observer', () => {
   });
 });
 
+describe('the next phase (spec 24)', () => {
+  const NEXT = {
+    kind: 'next_step',
+    message: 'Die wichtigen Entscheidungen stehen. Sollen wir zur Architektur übergehen?',
+    action: 'Ja, weiter',
+    task: 'Move the project to the phase architecture with set_phase and suggest how to start there.',
+  };
+
+  it('is offered by the moderator, who is told where the project stands', async () => {
+    const { projectId, send } = await createProject();
+    await test.db.admin
+      .updateTable('projects')
+      .set({ phase: 'decide' })
+      .where('id', '=', projectId)
+      .execute();
+    await send('Dann nehmen wir React Flow und PostgreSQL.');
+    await send('Einverstanden, damit ist alles Wichtige entschieden.');
+    const { deps, complete } = observerDeps(JSON.stringify({ offer: NEXT, hands: [] }));
+
+    expect(await runObserver(deps, { projectId })).toBe('looked');
+
+    const asked = complete.mock.calls[0]?.[0];
+    expect(asked?.prompt).toContain(
+      '<phase>\nThe project is in the phase "Decide" (in German "Entscheiden"), key decide, number 2 of 4',
+    );
+    expect(asked?.prompt).toContain(
+      'The phase after it is "Architecture" (in German "Architektur"), key architecture',
+    );
+    expect(asked?.system).toContain(
+      'next step: the current phase of the project has done its work',
+    );
+    const [offer] = await offersOf(projectId);
+    expect(offer).toMatchObject({
+      kind: 'next_step',
+      action: 'Ja, weiter',
+      task: NEXT.task,
+      status: 'open',
+    });
+    expect(await loadMessage(test.db.admin, offer?.message_id ?? '')).toMatchObject({
+      content: NEXT.message,
+      offer: { kind: 'next_step', action: 'Ja, weiter', status: 'open' },
+    });
+  });
+
+  it('is a kind of offer the answer may name', () => {
+    expect(parseAnswer(JSON.stringify({ offer: NEXT, hands: [] }))).toEqual({
+      offer: NEXT,
+      hands: [],
+    });
+  });
+});
+
 describe('parseAnswer', () => {
   it('reads the JSON object and drops what does not fit', () => {
     expect(parseAnswer(NOTHING)).toEqual({ offer: null, hands: [] });

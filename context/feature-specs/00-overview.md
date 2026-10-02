@@ -215,6 +215,11 @@ Built in two parts (2026-10-02), because the unit is large: 22a brings mentions 
 ## M5: Result
 
 ### 25 Project plan
+Built in three parts (2026-10-02), because the unit is large:
+- **25a** the plan as a shared document: its tab next to the boards, the editor, the five sections
+- **25b** generating the plan: the moderator writes it from criteria, decisions and canvas; the result arrives as suggestions per section
+- **25c** "plan outdated", updating with manual edits preserved, and versions that can be compared
+
 - **Goal:** generate the plan: MVP scope, milestones and tasks, the tech recommendation as well as risks, costs and time.
   - Tiptap editor on Yjs
   - suggestions per section

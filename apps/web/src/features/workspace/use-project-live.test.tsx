@@ -43,6 +43,7 @@ const DETAILS: ProjectDetails = {
   stance: 'criteria',
   decisionProcess: 'consensus',
   phase: 'brainstorming',
+  language: 'de',
   agents: [{ key: 'moderator', model: null }],
   customAgents: [],
 };

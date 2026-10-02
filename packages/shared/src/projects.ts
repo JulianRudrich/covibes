@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { agentKeySchema, type CustomAgentSummary } from './agents/custom';
 import { AGENT_MODELS, type AgentModel } from './agents/keys';
 import type { Phase } from './phases';
+import type { PlanLanguage } from './plan';
 
 /** Same limits as the check constraint on `projects.name` (packages/db/migrations). */
 export const PROJECT_NAME_MAX_LENGTH = 120;
@@ -145,6 +146,8 @@ export type ProjectDetails = {
   decisionProcess: DecisionProcess;
   /** Where the project stands on the way from brainstorming to the plan (spec 24). */
   phase: Phase;
+  /** The project's language: the plan and the exports are written in it (spec 25a). */
+  language: PlanLanguage;
   /** The project's team: catalog agents in catalog order, then custom agents by name. */
   agents: ProjectAgent[];
   /** The custom agents the project refers to: its team, its shared agents, earlier authors. */

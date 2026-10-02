@@ -6,6 +6,8 @@ import {
   addBlock,
   boardDocumentName,
   nodeLocks,
+  PLAN_FIELD,
+  planDocumentName,
   readNodes,
   type Author,
   type ProjectBoard,
@@ -70,8 +72,17 @@ afterEach(() => {
 
 type Connected = { doc: Y.Doc; provider: HocuspocusProvider; result: Promise<'ok' | 'denied'> };
 
-/** Connects like a browser: session cookie and origin in the handshake. */
+/** Connects to a board like a browser: session cookie and origin in the handshake. */
 function connect(boardId: string, cookie: string | null, origin = APP_URL): Connected {
+  return connectTo(boardDocumentName(boardId), cookie, { origin });
+}
+
+/** Connects to a document by its name; the worker sends its token instead of a cookie. */
+function connectTo(
+  name: string,
+  cookie: string | null,
+  { origin = APP_URL, token }: { origin?: string; token?: string } = {},
+): Connected {
   class BrowserLikeWebSocket extends WebSocket {
     constructor(url: string, protocols?: string | string[]) {
       super(url, protocols, { origin, headers: cookie ? { cookie } : {} });
@@ -89,8 +100,9 @@ function connect(boardId: string, cookie: string | null, origin = APP_URL): Conn
   });
   const provider = new HocuspocusProvider({
     websocketProvider,
-    name: boardDocumentName(boardId),
+    name,
     document: doc,
+    ...(token ? { token } : {}),
     onSynced: () => {
       settle('ok');
     },
@@ -442,5 +454,109 @@ describe('losing access (spec 21a)', () => {
 
     await disconnected(working);
     expect(await connect(boardId, editor).result).toBe('denied');
+  });
+});
+
+describe('the plan of a project (spec 25a)', () => {
+  const plan = (projectId: string, cookie: string | null) =>
+    connectTo(planDocumentName(projectId), cookie);
+
+  /** Writes a paragraph the way the editor stores it. */
+  function write(doc: Y.Doc, text: string) {
+    const paragraph = new Y.XmlElement('paragraph');
+    paragraph.insert(0, [new Y.XmlText(text)]);
+    doc.getXmlFragment(PLAN_FIELD).push([paragraph]);
+  }
+
+  /** The plan as the XML the shared document holds. */
+  const textOf = (doc: Y.Doc) => doc.getXmlFragment(PLAN_FIELD).toJSON();
+
+  it('is written together by the members and kept across a restart', async () => {
+    const owner = await test.signIn();
+    const { projectId } = await projectWithBoard(owner);
+    const editor = await test.signIn();
+    await addMember(projectId, editor, 'editor');
+    const a = plan(projectId, owner);
+    const b = plan(projectId, editor);
+    expect(await Promise.all([a.result, b.result])).toEqual(['ok', 'ok']);
+
+    write(b.doc, 'Erste Version: Mitgliederliste');
+    await until(() => textOf(a.doc).includes('Mitgliederliste'));
+    await until(() => b.provider.unsyncedChanges === 0);
+
+    await stopServer();
+    await startServer();
+
+    const again = plan(projectId, owner);
+    expect(await again.result).toBe('ok');
+    expect(textOf(again.doc)).toBe('<paragraph>Erste Version: Mitgliederliste</paragraph>');
+  });
+
+  it('is read but not changed by viewers', async () => {
+    const owner = await test.signIn();
+    const { projectId } = await projectWithBoard(owner);
+    const viewer = await test.signIn();
+    await addMember(projectId, viewer, 'viewer');
+    const writing = plan(projectId, owner);
+    const reading = plan(projectId, viewer);
+    expect(await Promise.all([writing.result, reading.result])).toEqual(['ok', 'ok']);
+    expect(reading.provider.authorizedScope).toBe('readonly');
+
+    write(writing.doc, 'Vom Owner');
+    await until(() => textOf(reading.doc).includes('Vom Owner'));
+    write(reading.doc, 'Vom Leser');
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(textOf(writing.doc)).toBe('<paragraph>Vom Owner</paragraph>');
+  });
+
+  it('is closed to everyone outside the project', async () => {
+    const owner = await test.signIn();
+    const stranger = await test.signIn();
+    const { projectId } = await projectWithBoard(owner);
+
+    expect(await plan(projectId, null).result).toBe('denied');
+    expect(await plan(projectId, stranger).result).toBe('denied');
+    expect(await plan('0b6a0b52-8f55-4c4e-9f6b-4ad2b3b3c0de', owner).result).toBe('denied');
+    expect(await connectTo(`plan:${projectId}:x`, owner).result).toBe('denied');
+    expect(await connectTo(`notes:${projectId}`, owner).result).toBe('denied');
+  });
+
+  it('opens for the worker with the internal token, for projects that exist', async () => {
+    const owner = await test.signIn();
+    const { projectId } = await projectWithBoard(owner);
+    const member = plan(projectId, owner);
+    const worker = connectTo(planDocumentName(projectId), null, { token: INTERNAL_TOKEN });
+    expect(await Promise.all([member.result, worker.result])).toEqual(['ok', 'ok']);
+
+    write(worker.doc, 'Vom Moderator');
+    await until(() => textOf(member.doc).includes('Vom Moderator'));
+
+    expect(
+      await connectTo(planDocumentName(randomUUID()), null, { token: INTERNAL_TOKEN }).result,
+    ).toBe('denied');
+    expect(
+      await connectTo(planDocumentName(projectId), null, { token: 'wrong-token' }).result,
+    ).toBe('denied');
+  });
+
+  it('closes for a member who is removed, like the boards', async () => {
+    const owner = await test.signIn();
+    const { projectId } = await projectWithBoard(owner);
+    const editor = await test.signIn();
+    const { userId } = await addMember(projectId, editor, 'editor');
+    const working = plan(projectId, editor);
+    expect(await working.result).toBe('ok');
+
+    const removed = await api.request(`/api/projects/${projectId}/members/${userId}`, {
+      method: 'DELETE',
+      headers: { cookie: owner, origin: APP_URL },
+    });
+    expect(removed.status).toBe(204);
+
+    await until(
+      () =>
+        working.provider.configuration.websocketProvider.status === WebSocketStatus.Disconnected,
+    );
+    expect(await plan(projectId, editor).result).toBe('denied');
   });
 });

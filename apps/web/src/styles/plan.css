@@ -1,0 +1,109 @@
+/*
+ * The project plan (spec 25a; derived looks): the document Tiptap renders, and the carets of the
+ * other people in it. Tiptap owns the markup, so it is styled here instead of with classes.
+ */
+.plan-doc {
+  min-height: 240px;
+  color: var(--color-text-body);
+  font-size: var(--text-title);
+  line-height: 1.6;
+  outline: none;
+}
+
+.plan-doc > * {
+  margin: 0;
+}
+
+.plan-doc > * + * {
+  margin-top: 0.65em;
+}
+
+.plan-doc h2 {
+  color: var(--color-text);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.plan-doc > * + h2 {
+  margin-top: 1.7em;
+}
+
+.plan-doc h3 {
+  color: var(--color-text);
+  font-size: var(--text-display);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.plan-doc > * + h3 {
+  margin-top: 1.3em;
+}
+
+.plan-doc ul,
+.plan-doc ol {
+  padding-left: 1.5em;
+}
+
+.plan-doc ul {
+  list-style: disc;
+}
+
+.plan-doc ol {
+  list-style: decimal;
+}
+
+.plan-doc li p {
+  margin: 0;
+}
+
+.plan-doc li + li,
+.plan-doc li > ul,
+.plan-doc li > ol {
+  margin-top: 0.25em;
+}
+
+.plan-doc strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* What belongs in a section, while it is empty: no text of the document. */
+.plan-doc p.plan-hint::before {
+  float: left;
+  height: 0;
+  color: var(--color-text-4);
+  content: attr(data-hint);
+  pointer-events: none;
+}
+
+/* Another person's caret: a line in the human color with their name above it. */
+.plan-caret {
+  position: relative;
+  margin-right: -1px;
+  margin-left: -1px;
+  border-left: 2px solid var(--color-human);
+  pointer-events: none;
+  word-break: normal;
+}
+
+.plan-caret-label {
+  position: absolute;
+  top: -1.5em;
+  left: -2px;
+  border-radius: var(--radius-sm);
+  background: var(--color-human);
+  padding: 1px 6px;
+  color: var(--color-on-ink);
+  font-size: var(--text-meta);
+  font-style: normal;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.plan-selection {
+  background: color-mix(in srgb, var(--color-human) 16%, transparent);
+}

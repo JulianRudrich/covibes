@@ -745,5 +745,28 @@
     "others_one": "{{count}} weiteren",
     "others_other": "{{count}} weiteren",
     "dismiss": "Verstanden"
+  },
+  "plan": {
+    "tab": "Projektplan",
+    "label": "Projektplan",
+    "loading": "Plan wird geladen …",
+    "denied": "Du hast keinen Zugriff mehr auf diesen Plan.",
+    "empty": {
+      "title": "Der Plan ist noch leer",
+      "text": "Schreibt ihn gemeinsam. Die Vorlage legt die fünf Abschnitte an, die ein Projektplan braucht.",
+      "readOnly": "Sobald das Team schreibt, erscheint der Plan hier.",
+      "template": "Mit Vorlage beginnen"
+    },
+    "toolbar": {
+      "label": "Formatierung",
+      "heading": "Überschrift",
+      "subheading": "Zwischenüberschrift",
+      "bold": "Fett",
+      "italic": "Kursiv",
+      "bulletList": "Aufzählung",
+      "orderedList": "Nummerierte Liste",
+      "undo": "Rückgängig",
+      "redo": "Wiederholen"
+    }
   }
 }

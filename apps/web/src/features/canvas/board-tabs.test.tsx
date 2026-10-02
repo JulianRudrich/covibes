@@ -39,6 +39,7 @@ function details(boards: ProjectBoard[], role: ProjectDetails['role'] = 'owner')
     stance: 'criteria',
     decisionProcess: 'consensus',
     phase: 'brainstorming',
+    language: 'de',
     agents: [{ key: 'moderator', model: null }],
     customAgents: [],
   };
@@ -264,5 +265,65 @@ describe('BoardTabs', () => {
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.queryByRole('menu')).toBeNull();
     expect(screen.getAllByRole('tab')).toHaveLength(3);
+  });
+});
+
+describe('the plan next to the boards (spec 25a)', () => {
+  function renderWithPlan(planOpen: boolean) {
+    const onSelect = vi.fn(() => Promise.resolve());
+    const onOpenPlan = vi.fn();
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <BoardTabs
+          projectId={PROJECT_ID}
+          boards={[MAIN, FLOW]}
+          activeBoardId={MAIN.id}
+          readOnly={false}
+          onSelect={onSelect}
+          onNotice={vi.fn()}
+          planOpen={planOpen}
+          onOpenPlan={onOpenPlan}
+        />
+      </QueryClientProvider>,
+    );
+    return { onSelect, onOpenPlan, plan: screen.getByRole('button', { name: 'Projektplan' }) };
+  }
+
+  it('opens from its button at the end of the row', () => {
+    const { onOpenPlan, plan } = renderWithPlan(false);
+
+    expect(plan).toHaveAttribute('aria-pressed', 'false');
+    expect(tab('Haupt-Canvas')).toHaveAttribute('aria-selected', 'true');
+    // It is no board: the tabs stay the boards.
+    expect(screen.getAllByRole('tab').map((entry) => entry.textContent)).toEqual([
+      'Haupt-Canvas',
+      'Ablauf',
+    ]);
+
+    fireEvent.click(plan);
+    expect(onOpenPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves no board selected while it is open; a tab opens its board again', () => {
+    const { onSelect, onOpenPlan, plan } = renderWithPlan(true);
+
+    expect(plan).toHaveAttribute('aria-pressed', 'true');
+    expect(plan).toHaveAttribute('aria-controls', 'plan-panel');
+    expect(tab('Haupt-Canvas')).toHaveAttribute('aria-selected', 'false');
+    expect(tab('Ablauf')).toHaveAttribute('aria-selected', 'false');
+    // The keyboard still reaches the tabs.
+    expect(tab('Haupt-Canvas')).toHaveAttribute('tabindex', '0');
+
+    fireEvent.click(plan);
+    expect(onOpenPlan).not.toHaveBeenCalled();
+    // Also the board that was open before: it is not shown right now.
+    fireEvent.click(tab('Haupt-Canvas'));
+    expect(onSelect).toHaveBeenCalledExactlyOnceWith(MAIN.id);
+  });
+
+  it('has no button where the plan cannot be opened', () => {
+    renderTabs();
+
+    expect(screen.queryByRole('button', { name: 'Projektplan' })).not.toBeInTheDocument();
   });
 });

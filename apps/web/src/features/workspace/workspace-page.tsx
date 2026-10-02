@@ -15,6 +15,7 @@ import { CanvasPanel } from '@web/features/canvas/canvas-panel';
 import { ChatPanel } from '@web/features/chat/chat-panel';
 import { DecisionsOverview } from '@web/features/decisions/decisions-overview';
 import { openVotesQuery, useVoteActions } from '@web/features/decisions/queries';
+import { PlanPanel } from '@web/features/plan/plan-panel';
 import { handsQuery, useHandDecisions } from '@web/features/hands/queries';
 import { notificationsQuery, useMarkNotificationsRead } from '@web/features/notifications/queries';
 import { projectQuery, useSetPhase, useUpdateProject } from '@web/features/projects/queries';
@@ -105,7 +106,9 @@ function useNotice() {
 function Workspace({ project, user }: { project: ProjectDetails; user: SessionUser | null }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { board: requested } = route.useSearch();
+  const { board: requested, view } = route.useSearch();
+  // The project plan takes the place of the canvas while it is open (spec 25a).
+  const planOpen = view === 'plan';
   const { notice, show: showNotice } = useNotice();
   useProjectLive(project.id, user?.id);
   useProjectSeen(project.id);
@@ -124,6 +127,16 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
         replace,
       }),
     [navigate, project],
+  );
+
+  const openPlan = useCallback(
+    () =>
+      navigate({
+        to: '/p/$projectId',
+        params: { projectId: project.id },
+        search: { view: 'plan' },
+      }),
+    [navigate, project.id],
   );
 
   // A board that disappears while it is open was deleted by someone else; unknown boards in the
@@ -244,6 +257,20 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
     }
   }, [project.id, project.phase, showNotice, t]);
 
+  // The tabs head the canvas and the plan alike.
+  const boardTabs = (activeBoardId: string) => (
+    <BoardTabs
+      projectId={project.id}
+      boards={project.boards}
+      activeBoardId={activeBoardId}
+      readOnly={readOnly}
+      onSelect={(boardId) => selectBoard(boardId)}
+      onNotice={showNotice}
+      planOpen={planOpen}
+      onOpenPlan={() => void openPlan()}
+    />
+  );
+
   return (
     <AgentDirectoryProvider agents={project.customAgents}>
       <WorkspaceShell
@@ -293,26 +320,28 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
         }
         canvas={
           activeBoard && user ? (
-            <CanvasPanel
-              boardId={activeBoard.id}
-              tabs={
-                <BoardTabs
-                  projectId={project.id}
-                  boards={project.boards}
-                  activeBoardId={activeBoard.id}
-                  readOnly={readOnly}
-                  onSelect={(boardId) => selectBoard(boardId)}
-                  onNotice={showNotice}
-                />
-              }
-              notice={notice}
-              user={{ id: user.id, name: user.name }}
-              members={project.members}
-              readOnly={readOnly}
-              proposals={proposals}
-              onDecide={decide}
-              canAdoptVariants={canConfirmDecisions}
-            />
+            planOpen ? (
+              <PlanPanel
+                projectId={project.id}
+                tabs={boardTabs(activeBoard.id)}
+                notice={notice}
+                user={{ id: user.id, name: user.name }}
+                readOnly={readOnly}
+                language={project.language}
+              />
+            ) : (
+              <CanvasPanel
+                boardId={activeBoard.id}
+                tabs={boardTabs(activeBoard.id)}
+                notice={notice}
+                user={{ id: user.id, name: user.name }}
+                members={project.members}
+                readOnly={readOnly}
+                proposals={proposals}
+                onDecide={decide}
+                canAdoptVariants={canConfirmDecisions}
+              />
+            )
           ) : null
         }
         overview={

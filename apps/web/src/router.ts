@@ -65,7 +65,11 @@ const projectRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: '/p/$projectId',
   // The open board (spec 11); without one, or with one that does not exist, the main canvas.
-  validateSearch: z.object({ board: z.string().optional().catch(undefined) }),
+  // `view=plan` shows the project plan in its place (spec 25a).
+  validateSearch: z.object({
+    board: z.string().optional().catch(undefined),
+    view: z.enum(['plan']).optional().catch(undefined),
+  }),
   component: WorkspacePage,
 });
 

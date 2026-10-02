@@ -9,6 +9,7 @@ import type {
   SharedProject,
 } from '@covibes/shared';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { authClient } from '@web/lib/auth-client';
@@ -45,6 +46,30 @@ vi.mock('@web/features/canvas/canvas-panel', async () => {
           'data-board': props.boardId,
           'data-readonly': String(props.readOnly),
         },
+        props.notice,
+      ),
+  };
+});
+// The plan needs the collaboration server; its editor has its own tests. The tabs stay real.
+vi.mock('@web/features/plan/plan-panel', async () => {
+  const { createElement } = await import('react');
+  return {
+    PlanPanel: (props: {
+      projectId: string;
+      readOnly: boolean;
+      language: string;
+      tabs: ReactNode;
+      notice: string | null;
+    }) =>
+      createElement(
+        'div',
+        {
+          'data-testid': 'plan-panel',
+          'data-project': props.projectId,
+          'data-readonly': String(props.readOnly),
+          'data-language': props.language,
+        },
+        props.tabs,
         props.notice,
       ),
   };
@@ -106,6 +131,7 @@ const DETAILS: ProjectDetails = {
   stance: 'criteria',
   decisionProcess: 'consensus',
   phase: 'architecture',
+  language: 'de',
   agents: [{ key: 'moderator', model: null }],
   customAgents: [],
 };
@@ -748,6 +774,45 @@ describe('with a session', () => {
     const card = await screen.findByRole('dialog', { name: 'Projektplan' });
     expect(card).toHaveTextContent('Aus dem Ergebnis den Projektplan machen');
     expect(within(card).queryByRole('button')).toBeNull();
+  });
+
+  it('opens the project plan named in the address, in place of the canvas (spec 25a)', async () => {
+    stubApi({ [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }) });
+    const router = renderApp(`/p/${PROJECT.id}?view=plan`);
+
+    const plan = await screen.findByTestId('plan-panel');
+    expect(plan).toHaveAttribute('data-project', PROJECT.id);
+    expect(plan).toHaveAttribute('data-readonly', 'false');
+    expect(plan).toHaveAttribute('data-language', 'de');
+    expect(screen.queryByTestId('canvas-panel')).not.toBeInTheDocument();
+    expect(within(plan).getByRole('button', { name: 'Projektplan' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // Chat and overview stay next to it.
+    expect(screen.getByTestId('chat-panel')).toBeInTheDocument();
+
+    // A board tab brings the canvas back, and the address follows.
+    fireEvent.click(within(plan).getByRole('tab', { name: 'Haupt-Canvas' }));
+    expect(await screen.findByTestId('canvas-panel')).toHaveAttribute(
+      'data-board',
+      DETAILS.boards[0]?.id,
+    );
+    expect(screen.queryByTestId('plan-panel')).not.toBeInTheDocument();
+    expect(router.state.location.search).toEqual({});
+  });
+
+  it('opens the plan read-only for viewers', async () => {
+    stubApi({
+      [`GET /api/projects/${PROJECT.id}`]: () => ({
+        body: { ...DETAILS, role: 'viewer', language: 'en' },
+      }),
+    });
+    renderApp(`/p/${PROJECT.id}?view=plan`);
+
+    const plan = await screen.findByTestId('plan-panel');
+    expect(plan).toHaveAttribute('data-readonly', 'true');
+    expect(plan).toHaveAttribute('data-language', 'en');
   });
 
   it('opens the board named in the address and falls back to the main canvas', async () => {

@@ -745,5 +745,28 @@
     "others_one": "{{count}} other",
     "others_other": "{{count}} others",
     "dismiss": "Got it"
+  },
+  "plan": {
+    "tab": "Project plan",
+    "label": "Project plan",
+    "loading": "Loading the plan …",
+    "denied": "You no longer have access to this plan.",
+    "empty": {
+      "title": "The plan is still empty",
+      "text": "Write it together. The template creates the five sections a project plan needs.",
+      "readOnly": "Once the team writes, the plan appears here.",
+      "template": "Start with the template"
+    },
+    "toolbar": {
+      "label": "Formatting",
+      "heading": "Heading",
+      "subheading": "Subheading",
+      "bold": "Bold",
+      "italic": "Italic",
+      "bulletList": "Bullet list",
+      "orderedList": "Numbered list",
+      "undo": "Undo",
+      "redo": "Redo"
+    }
   }
 }

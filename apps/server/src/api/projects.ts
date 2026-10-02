@@ -95,7 +95,7 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
     const details = await withUser(db, user.id, async (trx) => {
       const project = await summaries(trx, user.id)
         .where('projects.id', '=', projectId.data)
-        .select(['projects.settings', 'projects.phase'])
+        .select(['projects.settings', 'projects.phase', 'projects.language'])
         .executeTakeFirst();
       if (!project) return undefined;
       const settings = projectSettingsSchema.safeParse(project.settings);
@@ -144,6 +144,7 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
         decisionProcess:
           (settings.success ? settings.data.decisionProcess : undefined) ?? ('consensus' as const),
         phase: toPhase(project.phase),
+        language: project.language === 'en' ? ('en' as const) : ('de' as const),
         agents,
         customAgents,
       };

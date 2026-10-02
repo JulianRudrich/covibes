@@ -347,6 +347,20 @@ export {
   type OpenVote,
 } from './notifications';
 export {
+  PLAN_FIELD,
+  PLAN_SECTION_ATTRIBUTE,
+  PLAN_SECTION_LEVEL,
+  PLAN_SECTIONS,
+  planDocumentName,
+  planSectionHint,
+  planSectionTitle,
+  planTemplate,
+  projectIdFromPlanDocumentName,
+  type PlanLanguage,
+  type PlanNode,
+  type PlanSection,
+} from './plan';
+export {
   FIRST_PHASE,
   nextPhase,
   PHASES,

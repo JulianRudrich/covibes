@@ -4,7 +4,7 @@ import {
   MAX_BOARDS_PER_PROJECT,
   type ProjectBoard,
 } from '@covibes/shared';
-import { ChevronDown, Plus } from 'lucide-react';
+import { ChevronDown, FileText, Plus } from 'lucide-react';
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -18,6 +18,7 @@ import {
 } from '@web/components/ui/dropdown-menu';
 import { BOARD_PANEL_ID, boardTabId } from '@web/features/canvas/board-ids';
 import { useFocusOnMount } from '@web/features/canvas/in-place-editing';
+import { PLAN_PANEL_ID } from '@web/features/plan/plan-ids';
 import { useBoardMutations } from '@web/features/projects/queries';
 import { ApiError } from '@web/lib/api';
 import { cn } from '@web/lib/cn';
@@ -33,6 +34,10 @@ type BoardTabsProps = {
   onSelect: (boardId: string) => Promise<void>;
   /** A short note over the canvas, e.g. why something did not work. */
   onNotice: (text: string) => void;
+  /** The project plan is open in place of a board (spec 25a). */
+  planOpen?: boolean;
+  /** Opens the project plan; without it there is no button for it. */
+  onOpenPlan?: () => void;
 };
 
 const FOCUS_RING =
@@ -42,6 +47,7 @@ const FOCUS_RING =
  * The board tabs in the canvas header (spec 11; handoff "Canvas", header). The main canvas comes
  * first and stays as it is. Editors add boards with "+ Board", rename them by double-click and
  * open a menu with "Umbenennen" and "Löschen" by right-click or the chevron of the open board.
+ * At the end of the row, "Projektplan" opens the plan in place of the canvas (spec 25a).
  */
 export function BoardTabs({
   projectId,
@@ -50,6 +56,8 @@ export function BoardTabs({
   readOnly,
   onSelect,
   onNotice,
+  planOpen = false,
+  onOpenPlan,
 }: BoardTabsProps) {
   const { t } = useTranslation();
   const { create, rename, remove } = useBoardMutations(projectId);
@@ -92,7 +100,7 @@ export function BoardTabs({
     setDeleting(null);
     // The main canvas opens first, so the board does not vanish under the person deleting it.
     const main = boards.find((entry) => entry.kind === 'main');
-    if (board.id === activeBoardId && main) await onSelect(main.id);
+    if (!planOpen && board.id === activeBoardId && main) await onSelect(main.id);
     remove.mutate(board.id, { onError: failed });
   }
 
@@ -126,8 +134,9 @@ export function BoardTabs({
         className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]"
         onKeyDown={onKeyDown}
       >
-        {boards.map((board) => {
-          const active = board.id === activeBoardId;
+        {boards.map((board, index) => {
+          // While the plan is open no board is: its tab opens the board again.
+          const active = !planOpen && board.id === activeBoardId;
           const editable = !readOnly && board.kind === 'extra';
           const title = board.kind === 'main' ? t('workspace.mainCanvas') : board.title;
           if (editable && renamingId === board.id) {
@@ -162,7 +171,7 @@ export function BoardTabs({
                 id={boardTabId(board.id)}
                 aria-selected={active}
                 aria-controls={active ? BOARD_PANEL_ID : undefined}
-                tabIndex={active ? 0 : -1}
+                tabIndex={active || (planOpen && index === 0) ? 0 : -1}
                 className={cn(
                   'flex h-full max-w-[200px] cursor-pointer items-center rounded-md px-3 font-medium whitespace-nowrap',
                   FOCUS_RING,
@@ -263,6 +272,25 @@ export function BoardTabs({
           {t('canvas.boards.add')}
         </button>
       )}
+
+      {onOpenPlan ? (
+        <button
+          type="button"
+          aria-pressed={planOpen}
+          aria-controls={planOpen ? PLAN_PANEL_ID : undefined}
+          className={cn(
+            'ml-auto flex h-[30px] shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium whitespace-nowrap',
+            FOCUS_RING,
+            planOpen ? 'bg-bg-subtle text-text' : 'text-text-2b hover:bg-bg-subtle hover:text-text',
+          )}
+          onClick={() => {
+            if (!planOpen) onOpenPlan();
+          }}
+        >
+          <FileText size={14} strokeWidth={2} aria-hidden="true" />
+          {t('plan.tab')}
+        </button>
+      ) : null}
 
       <Dialog
         open={deleting !== null}

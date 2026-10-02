@@ -1,4 +1,4 @@
-import { boardDocumentName, COLLAB_PATH } from '@covibes/shared';
+import { COLLAB_PATH } from '@covibes/shared';
 import { HocuspocusProvider, WebSocketStatus } from '@hocuspocus/provider';
 import * as Y from 'yjs';
 
@@ -31,7 +31,8 @@ export function collabUrl(location: Pick<Location, 'protocol' | 'host'>): string
 }
 
 /**
- * The Y.Doc of one board and its live connection (spec 05). The browser sends the session cookie
+ * The Y.Doc of one document of the collaboration server and its live connection: the canvas of a
+ * board (spec 05) or the plan of a project (spec 25a). The browser sends the session cookie
  * with the WebSocket handshake; the server checks it, so no token is involved. The provider
  * reconnects on its own after an interruption and then syncs what changed in between.
  */
@@ -41,10 +42,10 @@ export class BoardConnection {
   private state: BoardConnectionState = { status: 'connecting', loaded: false, denied: false };
   private readonly listeners = new Set<() => void>();
 
-  constructor(options: { boardId: string; url: string; onDenied: () => void }) {
+  constructor(options: { documentName: string; url: string; onDenied: () => void }) {
     this.provider = new HocuspocusProvider({
       url: options.url,
-      name: boardDocumentName(options.boardId),
+      name: options.documentName,
       document: this.doc,
       onStatus: ({ status }) => {
         this.update({ status: toConnectionStatus(status) });

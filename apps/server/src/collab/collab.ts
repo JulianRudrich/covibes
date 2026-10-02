@@ -5,6 +5,7 @@ import {
   boardDocumentName,
   boardIdFromDocumentName,
   nodeLocks,
+  projectIdFromPlanDocumentName,
   readEdges,
   readNodes,
   type CanvasEdge,
@@ -24,8 +25,9 @@ import { acceptUpgrade, fetchHeaders } from '@server/websockets';
 
 export type CollabContext = {
   user: { id: string; name: string; role: ProjectRole };
-  boardId: string;
   projectId: string;
+  /** The board of a board's document; the document of a plan (spec 25a) has none. */
+  boardId?: string;
 };
 
 type CollabDeps = {
@@ -54,9 +56,10 @@ function toUint8Array(data: RawData): Uint8Array {
 }
 
 /**
- * Hocuspocus for the Y.Docs of the boards, on the same HTTP server as the API (spec 05).
- * Access is checked per document: signed in via the session cookie, member of the board's project;
- * viewers only read. The worker connects with the internal token to draw for agents.
+ * Hocuspocus for the Y.Docs of the boards and of the plans (spec 25a), on the same HTTP server as
+ * the API (spec 05). Access is checked per document: signed in via the session cookie, member of
+ * the document's project; viewers only read. The worker connects with the internal token to draw
+ * for agents.
  */
 export function createCollab({ db, auth, internalToken }: CollabDeps) {
   const pendingStores = new Set<Promise<unknown>>();
@@ -72,18 +75,26 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
     maxDebounce: 10_000,
 
     async onAuthenticate({ documentName, requestHeaders, connectionConfig, token }) {
+      // A document is the canvas of a board or the plan of a project (spec 25a).
       const boardId = boardIdFromDocumentName(documentName);
-      if (!boardId) throw new AccessDenied();
+      const planOf = boardId ? undefined : projectIdFromPlanDocumentName(documentName);
+      if (!boardId && !planOf) throw new AccessDenied();
 
       // Browsers send no token; a wrong one falls through to the normal session check.
       if (internalToken && token && sameSecret(token, internalToken)) {
-        const board = await db.admin
-          .selectFrom('boards')
-          .where('id', '=', boardId)
-          .select('project_id')
-          .executeTakeFirst();
-        if (!board) throw new AccessDenied();
-        const context: CollabContext = { user: SERVICE_USER, boardId, projectId: board.project_id };
+        const found = boardId
+          ? await db.admin
+              .selectFrom('boards')
+              .where('id', '=', boardId)
+              .select('project_id')
+              .executeTakeFirst()
+          : await db.admin
+              .selectFrom('projects')
+              .where('id', '=', planOf ?? '')
+              .select('id as project_id')
+              .executeTakeFirst();
+        if (!found) throw new AccessDenied();
+        const context: CollabContext = { user: SERVICE_USER, boardId, projectId: found.project_id };
         return context;
       }
 
@@ -92,13 +103,20 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
 
       const userId = session.user.id;
       const access = await withUser(db.app, userId, (trx) =>
-        trx
-          .selectFrom('boards')
-          .innerJoin('project_members', 'project_members.project_id', 'boards.project_id')
-          .where('boards.id', '=', boardId)
-          .where('project_members.user_id', '=', userId)
-          .select(['boards.project_id', 'project_members.role'])
-          .executeTakeFirst(),
+        boardId
+          ? trx
+              .selectFrom('boards')
+              .innerJoin('project_members', 'project_members.project_id', 'boards.project_id')
+              .where('boards.id', '=', boardId)
+              .where('project_members.user_id', '=', userId)
+              .select(['boards.project_id', 'project_members.role'])
+              .executeTakeFirst()
+          : trx
+              .selectFrom('project_members')
+              .where('project_id', '=', planOf ?? '')
+              .where('user_id', '=', userId)
+              .select(['project_id', 'role'])
+              .executeTakeFirst(),
       );
       if (!access) throw new AccessDenied();
 

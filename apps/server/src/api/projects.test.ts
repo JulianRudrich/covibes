@@ -85,6 +85,8 @@ describe('projects', () => {
       role: 'owner',
       // A new project starts with brainstorming (spec 24).
       phase: 'brainstorming',
+      // Its plan is written in German unless the project says otherwise (spec 25a).
+      language: 'de',
     });
     // New users get the start of their address as name until profiles exist.
     expect(body.members).toHaveLength(1);

@@ -129,8 +129,9 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - Variants (spec 17) are one proposal of the kind `variants` with two or three diagrams, each with its own operations. Adopting one names its position; the server applies only that diagram.
 
 ### Plan
-- The plan is a Y.Doc of its own (`plan:{projectId}`) and is edited with Tiptap.
-- "Generate plan" and "Update" are jobs.
+- The plan is a Y.Doc of its own (`plan:{projectId}`) and is edited with Tiptap (spec 25a). It lives on the collaboration server like a board: members connect, viewers read only, the worker connects with its token.
+- A plan has five sections. A section starts at a heading that carries the section's key as an attribute, so the server finds it whatever the heading says.
+- "Generate plan" and "Update" are jobs (specs 25b and 25c).
   - The result arrives per section as `plan_suggestions`.
   - Humans accept or reject the suggestions.
   - The server writes accepted suggestions into the Y.Doc.
@@ -249,7 +250,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `project_members` | role (owner, editor, viewer), `can_approve_git` |
 | `invitations`, `share_links` | invitations by link or email with role, expiry, uses and the hash of the token; the read-only link of a project (one row, the hash of its token) |
 | `project_people` | everyone who is or was a member of a project, so former members keep their name |
-| `boards`, `yjs_documents` | boards and storage of the Y.Docs |
+| `boards`, `yjs_documents` | boards and storage of the Y.Docs: the canvas of every board and the plan of every project |
 | `plans`, `plan_versions`, `plan_suggestions` | plan, versions, AI suggestions per section |
 | `messages` | chat: author (human or agent), mentioned agents and people, block references |
 | `custom_agents`, `project_agents` | custom agents (personal or shared in a project); team per project. Catalog agents are defined in code |

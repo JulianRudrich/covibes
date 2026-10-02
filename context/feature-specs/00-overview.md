@@ -229,6 +229,10 @@ Built in three parts (2026-10-02), because the unit is large:
 - **Design:** **required:** phase "Project plan"
 
 ### 26 Roadmap, milestones and tasks
+Built in two parts (2026-10-03), because the unit is large:
+- **26a** the roadmap on the canvas: a frame that shows the plan's milestones with their times, goals and tasks on a timeline and stays in sync with the plan
+- **26b** assigning tasks to members: tasks keep their identity in the plan, and owners and editors assign them in the plan and on the roadmap
+
 - **Goal:** the roadmap on the canvas is generated from the plan's milestones. Tasks can be assigned to members.
 - **Needs:** 25
 - **Design:** **required:** roadmap diagram

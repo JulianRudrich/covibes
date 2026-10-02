@@ -7,7 +7,7 @@
 Build the result (M5, specs 25 to 27): the project plan with suggestions and versions, the roadmap with milestones and tasks, and the exports. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing. Next is spec 26 (roadmap, milestones and tasks), which is worked out first.
+- Spec 26a: the roadmap on the canvas (branch `spec/26a-roadmap-on-the-canvas`)
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -226,7 +226,7 @@ Nothing. Next is spec 26 (roadmap, milestones and tasks), which is worked out fi
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M5 (result):** M4 (collaboration) is complete with spec 24. Spec 25 (project plan) is split into three parts: 25a (the plan as a shared document with its editor) is done; 25b (generating the plan as suggestions per section) is done; 25c ("plan outdated", updates and versions) is done. Next is spec 26 (roadmap, milestones and tasks), then spec 27 (exports). Their looks are derived from the prototype design until the design pass (spec 36).
+1. **M5 (result):** M4 (collaboration) is complete with spec 24. Spec 25 (project plan) is split into three parts: 25a (the plan as a shared document with its editor) is done; 25b (generating the plan as suggestions per section) is done; 25c ("plan outdated", updates and versions) is done. Spec 26 (roadmap, milestones and tasks) is split into two parts: 26a (the roadmap on the canvas) is worked out and in progress; 26b (assigning tasks to members) follows. Then spec 27 (exports). Their looks are derived from the prototype design until the design pass (spec 36).
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally

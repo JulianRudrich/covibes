@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@web/components/logo';
 import { Avatar } from '@web/components/ui/avatar';
-import { Button } from '@web/components/ui/button';
 import { Dialog } from '@web/components/ui/dialog';
 import {
   DropdownMenu,
@@ -33,6 +32,8 @@ type WorkspaceHeaderProps = {
   user: SessionUser | null;
   /** The agents of the project (spec 14): their avatars and the team popover. */
   team: ReactNode;
+  /** "Teilen" with the share dialog (spec 21a). */
+  share: ReactNode;
 };
 
 export function WorkspaceHeader({
@@ -42,6 +43,7 @@ export function WorkspaceHeader({
   members,
   user,
   team,
+  share,
 }: WorkspaceHeaderProps) {
   const { t } = useTranslation();
 
@@ -93,9 +95,7 @@ export function WorkspaceHeader({
         <div role="group" aria-label={t('workspace.agentsLabel')} className="flex items-center">
           {team}
         </div>
-        <Button variant="primary" className="px-3.5">
-          {t('common.share')}
-        </Button>
+        {share}
       </div>
     </header>
   );

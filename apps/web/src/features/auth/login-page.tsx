@@ -78,6 +78,10 @@ export function LoginPage() {
           <h1 className="m-0 text-display font-semibold">{t('auth.title')}</h1>
           <p className="mt-1 mb-5 text-ui text-text-3">{t('auth.subtitle')}</p>
 
+          {target.startsWith('/invite/') ? (
+            <Notice className="mb-4">{t('auth.invited')}</Notice>
+          ) : null}
+
           {error ? (
             <Notice id="login-error" tone="danger" className="mb-4">
               {t(error)}

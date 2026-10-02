@@ -81,7 +81,7 @@ function renderPanel(readOnly = false) {
           user={OLGA}
           readOnly={readOnly}
           team={['moderator', 'backend', 'critic', 'data']}
-          members={[{ userId: OLGA.id, name: OLGA.name, role: 'owner' }]}
+          members={[{ userId: OLGA.id, name: OLGA.name, role: 'owner', canApproveGit: true }]}
           role={readOnly ? 'viewer' : 'owner'}
           moderatorNeutral
           onNotice={vi.fn()}

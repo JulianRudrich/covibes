@@ -268,3 +268,73 @@ describe('robustness', () => {
     expect(await healthy()).toBe(true);
   });
 });
+
+describe('losing access (spec 21a)', () => {
+  async function userIdOf(cookie: string) {
+    const session = await test.auth.api.getSession({ headers: new Headers({ cookie }) });
+    if (!session) throw new Error('No session');
+    return session.user.id;
+  }
+
+  it('closes the connections of a removed member, after telling them to load the project again', async () => {
+    const owner = await test.signIn();
+    const editor = await test.signIn();
+    const projectId = await createProject(owner);
+    await addMember(projectId, editor, 'editor');
+    const ownerLive = await open(projectId, owner);
+    const editorLive = await open(projectId, editor);
+    const secondTab = await open(projectId, editor);
+    if (
+      typeof ownerLive === 'number' ||
+      typeof editorLive === 'number' ||
+      typeof secondTab === 'number'
+    ) {
+      throw new Error('not opened');
+    }
+    const closed = (socket: WebSocket) =>
+      new Promise<number>((resolve) => {
+        socket.on('close', (code: number) => {
+          resolve(code);
+        });
+      });
+    const codes = Promise.all([closed(editorLive.socket), closed(secondTab.socket)]);
+
+    const removed = await test.app.request(
+      `/api/projects/${projectId}/members/${await userIdOf(editor)}`,
+      { method: 'DELETE', headers: { cookie: owner, origin: APP_URL } },
+    );
+    expect(removed.status).toBe(204);
+
+    expect(await codes).toEqual([4403, 4403]);
+    expect(editorLive.events).toContainEqual({ type: 'project' });
+    expect(secondTab.events).toContainEqual({ type: 'project' });
+    // The others stay connected, and the removed member does not get back in.
+    expect(ownerLive.socket.readyState).toBe(WebSocket.OPEN);
+    expect(test.realtime.connectionCount(projectId)).toBe(1);
+    expect(await open(projectId, editor)).toBe(404);
+    ownerLive.socket.close();
+  });
+
+  it('keeps the live connection of a member whose role changed', async () => {
+    const owner = await test.signIn();
+    const editor = await test.signIn();
+    const projectId = await createProject(owner);
+    await addMember(projectId, editor, 'editor');
+    const editorLive = await open(projectId, editor);
+    if (typeof editorLive === 'number') throw new Error('not opened');
+
+    const changed = await test.app.request(
+      `/api/projects/${projectId}/members/${await userIdOf(editor)}`,
+      {
+        method: 'PATCH',
+        headers: { cookie: owner, origin: APP_URL, 'content-type': 'application/json' },
+        body: JSON.stringify({ role: 'viewer' }),
+      },
+    );
+    expect(changed.status).toBe(204);
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(editorLive.socket.readyState).toBe(WebSocket.OPEN);
+    editorLive.socket.close();
+  });
+});

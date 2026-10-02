@@ -241,7 +241,8 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `users`, `sessions`, `accounts`, `verifications` | accounts and sessions (Better Auth); `users` holds name, image and language |
 | `projects` | name, owner, language, settings: stance, decision process, proposals-only mode, observer, web access |
 | `project_members` | role (owner, editor, viewer), `can_approve_git` |
-| `invitations`, `share_links` | invitations, read-only links |
+| `invitations`, `share_links` | invitations by link or email with role, expiry, uses and the hash of the token; read-only links (spec 21b) |
+| `project_people` | everyone who is or was a member of a project, so former members keep their name |
 | `boards`, `yjs_documents` | boards and storage of the Y.Docs |
 | `plans`, `plan_versions`, `plan_suggestions` | plan, versions, AI suggestions per section |
 | `messages` | chat: author (human or agent), mentions, block references |
@@ -269,6 +270,11 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
   - `editor` may read and write.
   - `viewer` may only read.
   - By default only owners approve Git actions; `can_approve_git` extends this to individual editors.
+- **Invitations and members (spec 21a):**
+  - Owners invite by link (several people) or by email (once), as editor or viewer, for seven days. The token of a link is random and only its hash is stored; database functions check it for the preview and for joining, so the app role never reads it.
+  - Owners change roles and remove members; everyone can leave, and a project keeps at least one owner. A trigger announces every change of the members on the live channel.
+  - Access is checked when a connection opens. So a role change closes that person's board connections (they reconnect with the current rights), and removing a member also closes their live channel.
+  - Everyone who ever was a member stays in `project_people`, which lets the members read the names of former members and nobody else.
 - **Two database roles:**
   - `covibes_app`: for every request on behalf of a user. It is subject to RLS. The server opens a transaction for it and sets `app.user_id` (`withUser`).
   - `covibes_admin`: for migrations, Better Auth and the worker. It bypasses RLS and is never used for user requests.

@@ -26,7 +26,8 @@
       "invalidEmail": "Please enter a valid email address.",
       "invalidLink": "The login link has expired or was already used. Just request a new one.",
       "generic": "That did not work. Please try again."
-    }
+    },
+    "invited": "You were invited to a project. Sign in, then you continue to the invitation."
   },
   "account": {
     "menu": "Account",
@@ -69,7 +70,108 @@
       "back": "To the project list"
     },
     "toProjects": "To the project list",
-    "settings": "Settings"
+    "settings": "Settings",
+    "accessLost": {
+      "title": "You are no longer in this project",
+      "text": "An owner removed you from \"{{project}}\". If that was a mistake, ask for a new invitation."
+    }
+  },
+  "share": {
+    "title": "Share \"{{project}}\"",
+    "hintOwner": "Invite people and decide who may do what.",
+    "hintMember": "Who is in this project. Owners invite and change roles.",
+    "invite": {
+      "title": "Invite",
+      "email": "Email address of the invited person",
+      "role": "Role of the invitation",
+      "as": {
+        "editor": "as editor",
+        "viewer": "as viewer"
+      },
+      "send": "Invite",
+      "createLink": "Create link",
+      "sent": "Invitation sent to {{email}}. The link is valid for {{days}} days and works once.",
+      "link": "Invitation link",
+      "copy": "Copy",
+      "copied": "Copied",
+      "linkHint": "Whoever has this link joins as {{role}} for {{days}} days. It is only shown now, so copy it right away."
+    },
+    "open": {
+      "title": "Open invitations",
+      "link": "Invitation link",
+      "meta": "{{role}} · valid until {{date}}",
+      "uses_one": "used {{count}}×",
+      "uses_other": "used {{count}}×",
+      "resend": "Send again",
+      "resendTo": "Send the invitation to {{name}} again",
+      "revoke": "Revoke",
+      "revokeFor": "Revoke the invitation: {{name}}"
+    },
+    "members": {
+      "title": "Members",
+      "count_one": "{{count}} member",
+      "count_other": "{{count}} members",
+      "roleOf": "Role of {{name}}",
+      "lastOwner": "A project needs at least one owner.",
+      "approvesGit": "may approve Git actions",
+      "remove": "Remove {{name}}",
+      "removeConfirm": "Remove"
+    },
+    "leave": {
+      "action": "Leave project",
+      "confirm": "Really leave",
+      "hint": "You lose access. Your messages stay.",
+      "lastOwner": "As the only owner you cannot leave. Make someone an owner first."
+    },
+    "problems": {
+      "invalidEmail": "Please enter a valid email address.",
+      "alreadyMember": "This person is in the project already.",
+      "tooManyMails": "That were many invitations. Please wait a while or use a link.",
+      "tooManyInvitations": "20 invitations are open already. Revoke one to create a new one.",
+      "lastOwner": "A project needs at least one owner.",
+      "failed": "That did not work. Please try again."
+    }
+  },
+  "invite": {
+    "loading": "Loading the invitation …",
+    "loadError": "The invitation could not be loaded.",
+    "title": "Invitation to \"{{project}}\"",
+    "text": "{{name}} invites you to join as {{role}}.",
+    "someone": "Someone",
+    "roles": {
+      "editor": "As an editor you write in the chat, call agents and work on the canvas.",
+      "viewer": "As a viewer you see chat and canvas but change nothing."
+    },
+    "join": "Join",
+    "decline": "Not now",
+    "failed": "Joining did not work. Please try again.",
+    "member": {
+      "title": "You are in already",
+      "text": "You are a member of \"{{project}}\" already.",
+      "open": "Open the project"
+    },
+    "dead": {
+      "expired": {
+        "title": "This invitation has expired",
+        "text": "Ask for a new invitation."
+      },
+      "revoked": {
+        "title": "This invitation is no longer valid",
+        "text": "It was withdrawn. Ask for a new invitation."
+      },
+      "used": {
+        "title": "This invitation was used already",
+        "text": "A link sent by email works once. Ask for a new invitation."
+      },
+      "full": {
+        "title": "The project is full",
+        "text": "It has 50 members already. Tell the person who invited you."
+      },
+      "unknown": {
+        "title": "This invitation does not exist",
+        "text": "The link is incomplete or wrong. Ask for a new invitation."
+      }
+    }
   },
   "devMails": {
     "title": "Development mailbox",

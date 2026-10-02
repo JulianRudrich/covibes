@@ -35,8 +35,12 @@ async function until(check: () => boolean, timeoutMs = 3_000) {
   }
 }
 
+/** The events of a project after the one its first member causes (spec 21a). */
 function eventsFor(projectId: string) {
-  return published.filter((entry) => entry.projectId === projectId).map((entry) => entry.event);
+  return published
+    .filter((entry) => entry.projectId === projectId)
+    .map((entry) => entry.event)
+    .filter((event) => event.type !== 'project');
 }
 
 async function projectWithMessage(content: string) {
@@ -114,6 +118,34 @@ describe('live bridge', () => {
 
     await until(() => eventsFor(projectId).length === 1);
     expect(eventsFor(projectId)[0]?.type).toBe('message_delta');
+  });
+
+  it('announces every change of the members from the database trigger (spec 21a)', async () => {
+    const { projectId } = await projectWithMessage('Plain text');
+    const changes = () =>
+      published.filter((entry) => entry.projectId === projectId && entry.event.type === 'project')
+        .length;
+    // Creating the project added its owner.
+    await until(() => changes() === 1);
+
+    const other = await test.signIn();
+    const session = await test.auth.api.getSession({ headers: new Headers({ cookie: other }) });
+    const member = [projectId, session?.user.id];
+    await test.db.adminPool.query(
+      `insert into project_members (project_id, user_id, role) values ($1, $2, 'viewer')`,
+      member,
+    );
+    await until(() => changes() === 2);
+    await test.db.adminPool.query(
+      `update project_members set role = 'editor' where project_id = $1 and user_id = $2`,
+      member,
+    );
+    await until(() => changes() === 3);
+    await test.db.adminPool.query(
+      'delete from project_members where project_id = $1 and user_id = $2',
+      member,
+    );
+    await until(() => changes() === 4);
   });
 
   it('refuses to send a notification that does not match the format', async () => {

@@ -31,6 +31,11 @@ type CollabDeps = {
   internalToken?: string;
 };
 
+/**
+ * Hocuspocus' close code "reset connection": the browser connects again and authenticates anew.
+ */
+const RESET_CONNECTION = { code: 4205, reason: 'Reset Connection' } as const;
+
 /** The worker, drawing on a board for an agent (spec 07). */
 const SERVICE_USER = { id: 'service', name: 'Covibes', role: 'editor' } as const;
 
@@ -168,6 +173,22 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
   }
 
   /**
+   * Closes the board connections of one person in a project (spec 21a: their role changed, or
+   * they are no longer a member). What a connection may do is decided when it authenticates, so
+   * the sockets are closed; the browser connects again and gets its current rights, or is refused.
+   */
+  function closeUser(projectId: string, userId: string) {
+    for (const document of hocuspocus.documents.values()) {
+      for (const connection of document.getConnections()) {
+        const context = connection.context as CollabContext | undefined;
+        if (context?.projectId === projectId && context.user.id === userId) {
+          connection.webSocket.close(RESET_CONNECTION.code, RESET_CONNECTION.reason);
+        }
+      }
+    }
+  }
+
+  /**
    * Changes a board from the server (spec 13: applying a proposal). `fn` gets the live document
    * and who edits which node, read from the awareness of everyone on the board; its changes reach
    * them at once and are stored like theirs.
@@ -205,7 +226,7 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
     webSockets.close();
   }
 
-  return { hocuspocus, handleUpgrade, deleteBoard, changeBoard, close };
+  return { hocuspocus, handleUpgrade, deleteBoard, changeBoard, closeUser, close };
 }
 
 export type Collab = ReturnType<typeof createCollab>;

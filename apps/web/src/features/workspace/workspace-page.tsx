@@ -20,6 +20,7 @@ import {
   type DecidedProposal,
 } from '@web/features/proposals/queries';
 import { WaitingForYou } from '@web/features/proposals/waiting-for-you';
+import { ProjectShare } from '@web/features/share/project-share';
 import { ProjectTeam } from '@web/features/team/project-team';
 import { DEMO_ACTIVE_PHASE } from '@web/features/workspace/demo-workspace';
 import { useProjectLive } from '@web/features/workspace/use-project-live';
@@ -44,10 +45,24 @@ export function WorkspacePage() {
   }
   if (project.isError) {
     const notFound = project.error instanceof ApiError && project.error.code === 'not_found';
+    // The project was open and is gone now: someone took the access away (spec 21a).
+    const lost = notFound && project.data !== undefined;
     return (
-      <PageMessage title={notFound ? t('workspace.notFound.title') : t('workspace.loadError')}>
+      <PageMessage
+        title={
+          lost
+            ? t('workspace.accessLost.title')
+            : notFound
+              ? t('workspace.notFound.title')
+              : t('workspace.loadError')
+        }
+      >
         {notFound ? (
-          <p className="m-0 text-ui text-text-3">{t('workspace.notFound.text')}</p>
+          <p className="m-0 text-ui text-text-3">
+            {lost
+              ? t('workspace.accessLost.text', { project: project.data.name })
+              : t('workspace.notFound.text')}
+          </p>
         ) : null}
         <Link to="/" className="mt-2 text-ui">
           {t('workspace.notFound.back')}
@@ -176,6 +191,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
         members={members}
         user={user}
         team={<ProjectTeam project={project} userId={user?.id ?? ''} onNotice={showNotice} />}
+        share={<ProjectShare project={project} userId={user?.id ?? ''} />}
         chat={
           user ? (
             <ChatPanel

@@ -9,6 +9,7 @@ import { createCollab } from '@server/collab/collab';
 import { createDatabase } from '@server/db/database';
 import { loadServerEnv, type ServerEnv } from '@server/env';
 import { createMailSetup } from '@server/integrations/mail/mailer';
+import { projectConnections } from '@server/realtime/connections';
 import { startLiveBridge } from '@server/realtime/notifications';
 import { createRealtime } from '@server/realtime/realtime';
 import { defaultFilesDir, localStorage } from '@server/storage/storage';
@@ -45,6 +46,7 @@ const server = serve(
       mail,
       live: realtime,
       documents: collab,
+      connections: projectConnections(realtime, collab),
       files: localStorage(env.FILES_DIR ?? defaultFilesDir()),
     }).fetch,
     port: env.PORT,

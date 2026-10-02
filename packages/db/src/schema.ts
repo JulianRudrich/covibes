@@ -269,6 +269,21 @@ export interface HandRaises {
   status: Generated<string>;
 }
 
+export interface Invitations {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  email: string | null;
+  expires_at: Generated<Timestamp>;
+  id: Generated<string>;
+  kind: string;
+  last_used_at: Timestamp | null;
+  project_id: string;
+  revoked_at: Timestamp | null;
+  role: ProjectRole;
+  token_hash: string;
+  uses: Generated<number>;
+}
+
 export interface Messages {
   author_agent_key: string | null;
   author_kind: string;
@@ -311,6 +326,11 @@ export interface ProjectMembers {
   created_at: Generated<Timestamp>;
   project_id: string;
   role: ProjectRole;
+  user_id: string;
+}
+
+export interface ProjectPeople {
+  project_id: string;
   user_id: string;
 }
 
@@ -419,10 +439,12 @@ export interface DB {
   'graphile_worker.jobs': GraphileWorkerJobs;
   'graphile_worker.migrations': GraphileWorkerMigrations;
   hand_raises: HandRaises;
+  invitations: Invitations;
   messages: Messages;
   offers: Offers;
   project_agents: ProjectAgents;
   project_members: ProjectMembers;
+  project_people: ProjectPeople;
   projects: Projects;
   proposals: Proposals;
   sessions: Sessions;

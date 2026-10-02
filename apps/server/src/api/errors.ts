@@ -14,6 +14,8 @@ const ERRORS = {
   being_edited: { status: 409, message: 'Someone is editing this right now.' },
   name_taken: { status: 409, message: 'This name is taken.' },
   unsupported_file: { status: 415, message: 'This kind of file is not supported.' },
+  already_member: { status: 409, message: 'This person is a member already.' },
+  last_owner: { status: 409, message: 'A project needs at least one owner.' },
   internal: { status: 500, message: 'Something went wrong.' },
 } as const satisfies Record<ApiErrorCode, { status: number; message: string }>;
 

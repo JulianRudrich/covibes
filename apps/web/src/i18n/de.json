@@ -26,7 +26,8 @@
       "invalidEmail": "Bitte gib eine gültige E-Mail-Adresse ein.",
       "invalidLink": "Der Login-Link ist abgelaufen oder wurde schon benutzt. Fordere einfach einen neuen an.",
       "generic": "Das hat nicht geklappt. Bitte versuch es noch einmal."
-    }
+    },
+    "invited": "Du wurdest zu einem Projekt eingeladen. Melde dich an, dann geht es weiter zur Einladung."
   },
   "account": {
     "menu": "Konto",
@@ -69,7 +70,108 @@
       "back": "Zur Projektliste"
     },
     "toProjects": "Zur Projektliste",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "accessLost": {
+      "title": "Du bist nicht mehr in diesem Projekt",
+      "text": "Ein Owner hat dich aus „{{project}}“ entfernt. Wenn das ein Versehen war, bitte um eine neue Einladung."
+    }
+  },
+  "share": {
+    "title": "„{{project}}“ teilen",
+    "hintOwner": "Lade Menschen ein und lege fest, wer was darf.",
+    "hintMember": "Wer in diesem Projekt dabei ist. Einladen und Rollen ändern können Owner.",
+    "invite": {
+      "title": "Einladen",
+      "email": "E-Mail-Adresse der eingeladenen Person",
+      "role": "Rolle der Einladung",
+      "as": {
+        "editor": "als Bearbeiter",
+        "viewer": "als Leser"
+      },
+      "send": "Einladen",
+      "createLink": "Link erstellen",
+      "sent": "Einladung an {{email}} gesendet. Der Link gilt {{days}} Tage und nur einmal.",
+      "link": "Einladungslink",
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "linkHint": "Wer diesen Link hat, tritt {{days}} Tage lang als {{role}} bei. Er wird nur jetzt angezeigt, also kopiere ihn gleich."
+    },
+    "open": {
+      "title": "Offene Einladungen",
+      "link": "Einladungslink",
+      "meta": "{{role}} · gültig bis {{date}}",
+      "uses_one": "{{count}}× genutzt",
+      "uses_other": "{{count}}× genutzt",
+      "resend": "Erneut senden",
+      "resendTo": "Einladung an {{name}} erneut senden",
+      "revoke": "Widerrufen",
+      "revokeFor": "Einladung widerrufen: {{name}}"
+    },
+    "members": {
+      "title": "Mitglieder",
+      "count_one": "{{count}} Mitglied",
+      "count_other": "{{count}} Mitglieder",
+      "roleOf": "Rolle von {{name}}",
+      "lastOwner": "Ein Projekt braucht mindestens einen Owner.",
+      "approvesGit": "darf Git-Aktionen freigeben",
+      "remove": "{{name}} entfernen",
+      "removeConfirm": "Entfernen"
+    },
+    "leave": {
+      "action": "Projekt verlassen",
+      "confirm": "Wirklich verlassen",
+      "hint": "Du verlierst den Zugriff. Deine Nachrichten bleiben.",
+      "lastOwner": "Als einziger Owner kannst du nicht gehen. Mach erst jemanden zum Owner."
+    },
+    "problems": {
+      "invalidEmail": "Bitte gib eine gültige E-Mail-Adresse ein.",
+      "alreadyMember": "Diese Person ist schon im Projekt.",
+      "tooManyMails": "Das waren viele Einladungen. Bitte warte eine Weile oder nutze einen Link.",
+      "tooManyInvitations": "Es sind schon 20 Einladungen offen. Widerrufe eine, um eine neue zu erstellen.",
+      "lastOwner": "Ein Projekt braucht mindestens einen Owner.",
+      "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+    }
+  },
+  "invite": {
+    "loading": "Einladung wird geladen …",
+    "loadError": "Die Einladung konnte nicht geladen werden.",
+    "title": "Einladung zu „{{project}}“",
+    "text": "{{name}} lädt dich ein, als {{role}} mitzumachen.",
+    "someone": "Jemand",
+    "roles": {
+      "editor": "Als Bearbeiter schreibst du im Chat, rufst Agents und arbeitest am Canvas.",
+      "viewer": "Als Leser siehst du Chat und Canvas, änderst aber nichts."
+    },
+    "join": "Beitreten",
+    "decline": "Nicht jetzt",
+    "failed": "Der Beitritt hat nicht geklappt. Bitte versuche es noch einmal.",
+    "member": {
+      "title": "Du bist schon dabei",
+      "text": "Du bist bereits Mitglied von „{{project}}“.",
+      "open": "Zum Projekt"
+    },
+    "dead": {
+      "expired": {
+        "title": "Diese Einladung ist abgelaufen",
+        "text": "Bitte um eine neue Einladung."
+      },
+      "revoked": {
+        "title": "Diese Einladung gilt nicht mehr",
+        "text": "Sie wurde zurückgezogen. Bitte um eine neue Einladung."
+      },
+      "used": {
+        "title": "Diese Einladung wurde schon genutzt",
+        "text": "Ein Link per E-Mail gilt nur einmal. Bitte um eine neue Einladung."
+      },
+      "full": {
+        "title": "Das Projekt ist voll",
+        "text": "Es hat schon 50 Mitglieder. Sag der Person Bescheid, die dich eingeladen hat."
+      },
+      "unknown": {
+        "title": "Diese Einladung gibt es nicht",
+        "text": "Der Link ist unvollständig oder falsch. Bitte um eine neue Einladung."
+      }
+    }
   },
   "devMails": {
     "title": "Entwicklungs-Postfach",

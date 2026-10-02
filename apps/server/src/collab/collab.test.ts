@@ -13,7 +13,11 @@ import {
   type ProjectSummary,
 } from '@covibes/shared';
 import { getRequestListener } from '@hono/node-server';
-import { HocuspocusProvider, HocuspocusProviderWebsocket } from '@hocuspocus/provider';
+import {
+  HocuspocusProvider,
+  HocuspocusProviderWebsocket,
+  WebSocketStatus,
+} from '@hocuspocus/provider';
 import type { Hono } from 'hono';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
@@ -384,5 +388,59 @@ describe('the worker', () => {
       plainServer.closeAllConnections();
       await new Promise((resolve) => plainServer.close(resolve));
     }
+  });
+});
+
+describe('losing access (spec 21a)', () => {
+  const member = (projectId: string, userId: string, cookie: string, init: RequestInit) =>
+    api.request(`/api/projects/${projectId}/members/${userId}`, {
+      ...init,
+      headers: { cookie, origin: APP_URL, 'content-type': 'application/json' },
+    });
+  const disconnected = (connection: Connected) =>
+    until(
+      () =>
+        connection.provider.configuration.websocketProvider.status === WebSocketStatus.Disconnected,
+    );
+
+  it('reconnects a board with the new rights after a role change', async () => {
+    const owner = await test.signIn();
+    const { projectId, boardId } = await projectWithBoard(owner);
+    const viewer = await test.signIn();
+    const { userId } = await addMember(projectId, viewer, 'viewer');
+    const reading = connect(boardId, viewer);
+    const ownerConnection = connect(boardId, owner);
+    expect(await Promise.all([reading.result, ownerConnection.result])).toEqual(['ok', 'ok']);
+    expect(reading.provider.authorizedScope).toBe('readonly');
+
+    const changed = await member(projectId, userId, owner, {
+      method: 'PATCH',
+      body: JSON.stringify({ role: 'editor' }),
+    });
+    expect(changed.status).toBe(204);
+
+    // The server closes the connection; the browser connects again and may write now.
+    await disconnected(reading);
+    expect(ownerConnection.provider.configuration.websocketProvider.status).toBe(
+      WebSocketStatus.Connected,
+    );
+    const writing = connect(boardId, viewer);
+    expect(await writing.result).toBe('ok');
+    expect(writing.provider.authorizedScope).toBe('read-write');
+  });
+
+  it('closes the boards of a removed member and refuses them afterwards', async () => {
+    const owner = await test.signIn();
+    const { projectId, boardId } = await projectWithBoard(owner);
+    const editor = await test.signIn();
+    const { userId } = await addMember(projectId, editor, 'editor');
+    const working = connect(boardId, editor);
+    expect(await working.result).toBe('ok');
+
+    const removed = await member(projectId, userId, owner, { method: 'DELETE' });
+    expect(removed.status).toBe(204);
+
+    await disconnected(working);
+    expect(await connect(boardId, editor).result).toBe('denied');
   });
 });

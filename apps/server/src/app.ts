@@ -11,6 +11,12 @@ import { boardRoutes } from '@server/api/boards';
 import { criteriaRoutes, decisionRoutes } from '@server/api/decisions';
 import { apiError } from '@server/api/errors';
 import { fileRoutes, UPLOADS_PER_MINUTE } from '@server/api/files';
+import {
+  INVITATION_MAILS_PER_HOUR,
+  invitationRoutes,
+  memberRoutes,
+  projectInvitationRoutes,
+} from '@server/api/invitations';
 import { debateRoutes, handRoutes, offerRoutes, voteRoutes } from '@server/api/hands';
 import { messageRoutes } from '@server/api/messages';
 import { projectRoutes } from '@server/api/projects';
@@ -21,6 +27,7 @@ import type { BoardDocuments } from '@server/collab/collab';
 import type { Database } from '@server/db/database';
 import type { ServerEnv } from '@server/env';
 import type { MailSetup } from '@server/integrations/mail/mailer';
+import type { ProjectConnections } from '@server/realtime/connections';
 import type { LivePublisher } from '@server/realtime/realtime';
 import { createRateLimiter } from '@server/rate-limit';
 import type { FileStorage } from '@server/storage/storage';
@@ -48,9 +55,20 @@ export type AppDeps = {
   documents: BoardDocuments;
   /** Where the content of uploaded files lies (spec 20a). */
   files: FileStorage;
+  /** Closes what someone has open in a project when their access changes (spec 21a). */
+  connections: ProjectConnections;
 };
 
-export function createApp({ env, db, auth, mail, live, documents, files }: AppDeps): Hono {
+export function createApp({
+  env,
+  db,
+  auth,
+  mail,
+  live,
+  documents,
+  files,
+  connections,
+}: AppDeps): Hono {
   const app = new Hono();
 
   if (env.NODE_ENV === 'production') app.use('*', securityHeaders(env.APP_URL));
@@ -106,6 +124,20 @@ export function createApp({ env, db, auth, mail, live, documents, files }: AppDe
   app.route('/api/projects/:projectId/debates', debateRoutes(db.app, auth));
   app.route('/api/projects/:projectId/criteria', criteriaRoutes(db.app, auth));
   app.route('/api/projects/:projectId/decisions', decisionRoutes(db.app, auth));
+  const invitationMailLimiter = createRateLimiter({
+    limit: INVITATION_MAILS_PER_HOUR,
+    windowMs: 60 * 60_000,
+  });
+  app.route(
+    '/api/projects/:projectId/invitations',
+    projectInvitationRoutes(db.app, auth, {
+      appUrl: env.APP_URL,
+      mailer: mail.mailer,
+      limiter: invitationMailLimiter,
+    }),
+  );
+  app.route('/api/projects/:projectId/members', memberRoutes(db.app, auth, connections));
+  app.route('/api/invitations', invitationRoutes(db.app, auth));
   app.route('/api/projects', projectRoutes(db.app, auth, live));
   app.route(
     '/api/agents/:agentId/knowledge',

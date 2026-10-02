@@ -15,6 +15,7 @@ import { sessionQuery } from '@web/features/auth/session';
 import { DevMailsPage } from '@web/features/dev/dev-mails-page';
 import { ErrorPage, NotFoundPage } from '@web/features/errors/error-pages';
 import { ProjectListPage } from '@web/features/projects/project-list-page';
+import { InvitePage } from '@web/features/share/invite-page';
 import { WorkspacePage } from '@web/features/workspace/workspace-page';
 
 export type RouterContext = { queryClient: QueryClient };
@@ -67,6 +68,13 @@ const projectRoute = createRoute({
   component: WorkspacePage,
 });
 
+/** An invitation link (spec 21a); whoever opens it signs in first and comes back here. */
+const inviteRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: '/invite/$token',
+  component: InvitePage,
+});
+
 // The development mailbox is not part of production builds.
 const devMailsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -76,7 +84,7 @@ const devMailsRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
-  authedRoute.addChildren([projectListRoute, projectRoute]),
+  authedRoute.addChildren([projectListRoute, projectRoute, inviteRoute]),
   ...(import.meta.env.DEV ? [devMailsRoute] : []),
 ]);
 

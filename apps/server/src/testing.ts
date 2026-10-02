@@ -4,10 +4,11 @@ import { afterAll, expect, inject } from 'vitest';
 
 import { createApp } from '@server/app';
 import { createAuth } from '@server/auth/auth';
-import { createCollab, type BoardDocuments } from '@server/collab/collab';
+import { createCollab, type BoardDocuments, type Collab } from '@server/collab/collab';
 import { createDatabase } from '@server/db/database';
 import { loadServerEnv, type ServerEnv } from '@server/env';
 import { createMailSetup } from '@server/integrations/mail/mailer';
+import { projectConnections } from '@server/realtime/connections';
 import { createRealtime } from '@server/realtime/realtime';
 import { memoryStorage } from '@server/storage/storage';
 
@@ -32,8 +33,17 @@ export function createTestServer(overrides: Partial<Record<keyof ServerEnv, stri
   /** Uploaded files stay in memory. */
   const files = memoryStorage();
   /** The app with another collaboration server, e.g. one a test starts and stops itself. */
-  const appWith = (documents: BoardDocuments) =>
-    createApp({ env, db, auth, mail, live: realtime, documents, files });
+  const appWith = (documents: BoardDocuments & Pick<Collab, 'closeUser'>) =>
+    createApp({
+      env,
+      db,
+      auth,
+      mail,
+      live: realtime,
+      documents,
+      files,
+      connections: projectConnections(realtime, documents),
+    });
   const app = appWith(collab);
   const { outbox } = mail;
   afterAll(async () => {

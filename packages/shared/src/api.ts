@@ -16,6 +16,8 @@ export type ApiErrorCode =
   | 'being_edited'
   | 'name_taken'
   | 'unsupported_file'
+  | 'already_member'
+  | 'last_owner'
   | 'internal';
 
 /** `GET /api/config`: settings the web app may know before login. */

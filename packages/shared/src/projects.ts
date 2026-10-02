@@ -61,7 +61,13 @@ export type CreateProjectInput = z.infer<typeof createProjectInputSchema>;
 /** One entry of `GET /api/projects`. */
 export type ProjectSummary = { id: string; name: string; role: ProjectRole; updatedAt: string };
 
-export type ProjectMember = { userId: string; name: string; role: ProjectRole };
+export type ProjectMember = {
+  userId: string;
+  name: string;
+  role: ProjectRole;
+  /** May approve Git actions (spec 21a): owners always, editors when an owner granted it. */
+  canApproveGit: boolean;
+};
 
 /** Every project has exactly one `main` board, which cannot be renamed or deleted (spec 11). */
 export type ProjectBoard = { id: string; title: string; kind: 'main' | 'extra' };

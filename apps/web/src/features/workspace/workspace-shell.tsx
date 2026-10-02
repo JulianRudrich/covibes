@@ -17,6 +17,8 @@ type WorkspaceShellProps = {
   user: SessionUser | null;
   /** The agents of the project in the header (spec 14). */
   team: ReactNode;
+  /** "Teilen" in the header (spec 21a). */
+  share: ReactNode;
   /** Content of the chat panel: its header row and the chat. */
   chat: ReactNode;
   /** Content of the canvas panel: its header row and the canvas. */
@@ -33,6 +35,7 @@ export function WorkspaceShell({
   members,
   user,
   team,
+  share,
   chat,
   canvas,
   overview,
@@ -48,6 +51,7 @@ export function WorkspaceShell({
         members={members}
         user={user}
         team={team}
+        share={share}
       />
 
       <main className="grid min-h-0 grid-cols-[380px_minmax(0,1fr)_300px] gap-2 px-2 pb-2">

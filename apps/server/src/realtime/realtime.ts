@@ -11,6 +11,9 @@ import { acceptUpgrade, fetchHeaders, rejectUpgrade } from '@server/websockets';
 /** Enough for many tabs and devices of one person, but not for a flood of sockets. */
 export const MAX_CONNECTIONS_PER_USER = 20;
 
+/** Close code for a connection whose owner lost access to the project (spec 21a). */
+export const ACCESS_REVOKED_CODE = 4403;
+
 /** Dead connections (e.g. a laptop that went to sleep) are dropped after at most two intervals. */
 const HEARTBEAT_MS = 30_000;
 
@@ -25,6 +28,8 @@ export type LivePublisher = { publish: (projectId: string, event: LiveEvent) => 
  */
 export function createRealtime({ db, auth }: RealtimeDeps) {
   const channels = new Map<string, Set<WebSocket>>();
+  /** Whose connection it is, to close those of one person (spec 21a). */
+  const owners = new WeakMap<WebSocket, string>();
   const connectionsPerUser = new Map<string, number>();
   const alive = new WeakSet<WebSocket>();
   const webSockets = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
@@ -59,6 +64,7 @@ export function createRealtime({ db, auth }: RealtimeDeps) {
       channels.set(projectId, channel);
     }
     channel.add(webSocket);
+    owners.set(webSocket, userId);
     alive.add(webSocket);
     webSocket.on('pong', () => alive.add(webSocket));
     webSocket.on('close', () => {
@@ -97,6 +103,23 @@ export function createRealtime({ db, auth }: RealtimeDeps) {
     }
   }
 
+  /**
+   * Closes the connections of one person to a project (spec 21a: they were removed or left).
+   * Access is only checked on connect, so without this an open tab would keep receiving. The tab
+   * is told to load the project again first, which is how it learns that it is no longer in it.
+   */
+  function closeUser(projectId: string, userId: string) {
+    const channel = channels.get(projectId);
+    if (!channel) return;
+    for (const webSocket of channel) {
+      if (owners.get(webSocket) !== userId) continue;
+      if (webSocket.readyState === WebSocket.OPEN) {
+        webSocket.send(JSON.stringify({ type: 'project' } satisfies LiveEvent));
+      }
+      webSocket.close(ACCESS_REVOKED_CODE, 'access revoked');
+    }
+  }
+
   const heartbeat = setInterval(() => {
     for (const webSocket of webSockets.clients) {
       if (!alive.has(webSocket)) {
@@ -123,7 +146,7 @@ export function createRealtime({ db, auth }: RealtimeDeps) {
     return channels.get(projectId)?.size ?? 0;
   }
 
-  return { handleUpgrade, publish, close, connectionCount };
+  return { handleUpgrade, publish, closeUser, close, connectionCount };
 }
 
 export type Realtime = ReturnType<typeof createRealtime>;

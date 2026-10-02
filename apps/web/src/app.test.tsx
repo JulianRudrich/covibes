@@ -75,8 +75,13 @@ const DETAILS: ProjectDetails = {
   name: PROJECT.name,
   role: 'owner',
   members: [
-    { userId: '22222222-2222-4222-8222-222222222222', name: 'Alex Berg', role: 'editor' },
-    { userId: OLGA.id, name: OLGA.name, role: 'owner' },
+    {
+      userId: '22222222-2222-4222-8222-222222222222',
+      name: 'Alex Berg',
+      role: 'editor',
+      canApproveGit: false,
+    },
+    { userId: OLGA.id, name: OLGA.name, role: 'owner', canApproveGit: true },
   ],
   boards: [{ id: '33333333-3333-4333-8333-333333333333', title: 'Haupt-Canvas', kind: 'main' }],
   proposalsOnly: false,
@@ -150,6 +155,18 @@ describe('without a session', () => {
       errorCallbackURL: `/login?redirect=${encodeURIComponent(`/p/${PROJECT.id}`)}`,
     });
     expect(screen.getByRole('link', { name: 'Entwicklungs-Postfach öffnen' })).toBeInTheDocument();
+  });
+
+  it('tells someone who came through an invitation link that it waits behind the login', async () => {
+    const invitation = `/invite/${'T'.repeat(43)}`;
+    const router = renderApp(invitation);
+
+    expect(
+      await screen.findByText(
+        'Du wurdest zu einem Projekt eingeladen. Melde dich an, dann geht es weiter zur Einladung.',
+      ),
+    ).toBeInTheDocument();
+    expect(router.state.location.search).toEqual({ redirect: invitation });
   });
 
   it('ignores redirect targets outside the app', async () => {
@@ -398,6 +415,139 @@ describe('with a session', () => {
     });
     expect(canvas).toHaveTextContent('Dieses Board wurde gelöscht.');
     expect(router.state.location.search).toEqual({});
+  });
+
+  it('opens the share dialog from the header', async () => {
+    stubApi({
+      [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+      [`GET /api/projects/${PROJECT.id}/invitations`]: () => ({ body: [] }),
+      'GET /api/config': () => ({ body: CONFIG }),
+    });
+    renderApp(`/p/${PROJECT.id}`);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Teilen' }));
+
+    const dialog = await screen.findByRole('dialog', { name: '„Covibes V1“ teilen' });
+    expect(within(dialog).getByRole('region', { name: 'Mitglieder' })).toHaveTextContent(
+      '2 Mitglieder',
+    );
+    expect(within(dialog).getByRole('button', { name: 'Link erstellen' })).toBeInTheDocument();
+  });
+
+  it('says so when the access to the open project was taken away', async () => {
+    let member = true;
+    stubApi({
+      [`GET /api/projects/${PROJECT.id}`]: () =>
+        member
+          ? { body: DETAILS }
+          : { status: 404, body: { error: { code: 'not_found', message: 'Not found.' } } },
+    });
+    renderApp(`/p/${PROJECT.id}`);
+    expect(await screen.findByTestId('chat-panel')).toBeInTheDocument();
+
+    // The server tells the tab to load the project again before it closes the connection.
+    member = false;
+    act(() => {
+      live.handlers?.onEvent({ type: 'project' });
+    });
+
+    expect(
+      await screen.findByRole('heading', { name: 'Du bist nicht mehr in diesem Projekt' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Ein Owner hat dich aus „Covibes V1“ entfernt/)).toBeInTheDocument();
+    expect(screen.queryByTestId('chat-panel')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Zur Projektliste' })).toHaveAttribute('href', '/');
+  });
+
+  describe('an invitation link', () => {
+    const TOKEN = 'T'.repeat(43);
+    const preview = (body: Record<string, unknown>) => ({
+      body: { projectId: null, projectName: null, role: null, invitedBy: null, ...body },
+    });
+
+    it('says who invites to what and joins on request', async () => {
+      const api = stubApi({
+        'POST /api/invitations/preview': () =>
+          preview({ status: 'open', projectName: 'Vereins-App', role: 'viewer', invitedBy: 'Sam' }),
+        'POST /api/invitations/accept': () => ({
+          body: { status: 'joined', projectId: PROJECT.id },
+        }),
+        [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+      });
+      const router = renderApp(`/invite/${TOKEN}`);
+
+      expect(
+        await screen.findByRole('heading', { name: 'Einladung zu „Vereins-App“' }),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Sam lädt dich ein, als Leser mitzumachen.')).toBeInTheDocument();
+      expect(
+        screen.getByText('Als Leser siehst du Chat und Canvas, änderst aber nichts.'),
+      ).toBeInTheDocument();
+      // Opening the link alone joins nothing.
+      expect(api).not.toHaveBeenCalledWith('/api/invitations/accept', expect.anything());
+
+      fireEvent.click(screen.getByRole('button', { name: 'Beitreten' }));
+
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe(`/p/${PROJECT.id}`);
+      });
+      // The token travels in the body, never in an address of the API.
+      expect(api).toHaveBeenCalledWith(
+        '/api/invitations/accept',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ token: TOKEN }) }),
+      );
+    });
+
+    it('leads a member straight to the project', async () => {
+      stubApi({
+        'POST /api/invitations/preview': () =>
+          preview({ status: 'member', projectId: PROJECT.id, projectName: 'Vereins-App' }),
+        [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+      });
+      const router = renderApp(`/invite/${TOKEN}`);
+
+      expect(await screen.findByRole('heading', { name: 'Du bist schon dabei' })).toBeVisible();
+      fireEvent.click(screen.getByRole('button', { name: 'Zum Projekt' }));
+
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe(`/p/${PROJECT.id}`);
+      });
+    });
+
+    it.each([
+      ['expired', 'Diese Einladung ist abgelaufen'],
+      ['revoked', 'Diese Einladung gilt nicht mehr'],
+      ['used', 'Diese Einladung wurde schon genutzt'],
+    ])('says so when the invitation is %s', async (status, title) => {
+      stubApi({ 'POST /api/invitations/preview': () => preview({ status }) });
+      renderApp(`/invite/${TOKEN}`);
+
+      expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Beitreten' })).not.toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Zur Projektliste' })).toHaveAttribute('href', '/');
+    });
+
+    it('says so for a link nobody issued', async () => {
+      stubApi({});
+      renderApp(`/invite/kaputt`);
+      expect(
+        await screen.findByRole('heading', { name: 'Diese Einladung gibt es nicht' }),
+      ).toBeInTheDocument();
+    });
+
+    it('explains when joining does not work out', async () => {
+      stubApi({
+        'POST /api/invitations/preview': () =>
+          preview({ status: 'open', projectName: 'Vereins-App', role: 'editor', invitedBy: 'Sam' }),
+        'POST /api/invitations/accept': () => ({ body: { status: 'full', projectId: null } }),
+      });
+      const router = renderApp(`/invite/${TOKEN}`);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Beitreten' }));
+
+      expect(await screen.findByRole('heading', { name: 'Das Projekt ist voll' })).toBeVisible();
+      expect(router.state.location.pathname).toBe(`/invite/${TOKEN}`);
+    });
   });
 
   it('shows "Projekt nicht gefunden" for projects without access', async () => {

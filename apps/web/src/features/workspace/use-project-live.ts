@@ -12,6 +12,7 @@ import {
 import { handsQueryKey } from '@web/features/hands/queries';
 import { projectQuery } from '@web/features/projects/queries';
 import { proposalsQueryKey } from '@web/features/proposals/queries';
+import { invitationsQuery } from '@web/features/share/queries';
 import { useLiveChannel } from '@web/features/realtime/live-channel';
 
 /**
@@ -51,6 +52,12 @@ export function useProjectLive(projectId: string) {
           queryClient.getQueryState(customAgentsQueryKey(projectId))
         ) {
           reload(customAgentsQueryKey(projectId));
+        }
+        // Someone joined through an invitation (spec 21a); the list is only loaded for owners
+        // with the share dialog open.
+        const invitations = invitationsQuery(projectId).queryKey;
+        if (event.type === 'project' && queryClient.getQueryState(invitations)) {
+          reload(invitations);
         }
       } else if (event.type === 'proposals') {
         reload(proposalsQueryKey(projectId));

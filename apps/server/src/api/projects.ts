@@ -86,7 +86,12 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
         .selectFrom('project_members')
         .innerJoin('users', 'users.id', 'project_members.user_id')
         .where('project_members.project_id', '=', projectId.data)
-        .select(['users.id as userId', 'users.name', 'project_members.role'])
+        .select([
+          'users.id as userId',
+          'users.name',
+          'project_members.role',
+          'project_members.can_approve_git',
+        ])
         .orderBy('project_members.created_at')
         .execute();
       const boards = await trx
@@ -103,7 +108,13 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
         id: project.id,
         name: project.name,
         role: project.role,
-        members,
+        members: members.map((member) => ({
+          userId: member.userId,
+          name: member.name,
+          role: member.role,
+          // Owners approve by their role; for editors it is a right an owner grants.
+          canApproveGit: member.role === 'owner' || member.can_approve_git,
+        })),
         boards: boards.map((board) => ({
           id: board.id,
           title: board.title,

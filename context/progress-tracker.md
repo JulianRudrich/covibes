@@ -7,7 +7,7 @@
 Build collaboration (M4, specs 21 to 24): invitations, roles and the read-only link, "Waiting for you" and notifications, "Since you were away", and the phase indicator with the next step. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Nothing. Next is spec 24 (phase indicator and next step).
+- Spec 24: phase indicator and next step (branch `spec/24-phases-and-next-step`)
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -202,7 +202,7 @@ Build collaboration (M4, specs 21 to 24): invitations, roles and the read-only l
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M4 (collaboration):** M3 (AI core) is complete with spec 20b. Spec 21 (invitations, roles and read-only link) is done in two parts. Spec 22 ("Waiting for you" and notifications) is done in two parts. Spec 23 ("Since you were away") is done. Next is spec 24 (phase indicator and next step), the last one of M4; it is worked out before it is built. The share dialog and the read-only view are derived from the prototype design until the design pass (spec 36).
+1. **M4 (collaboration):** M3 (AI core) is complete with spec 20b. Spec 21 (invitations, roles and read-only link) is done in two parts. Spec 22 ("Waiting for you" and notifications) is done in two parts. Spec 23 ("Since you were away") is done. Spec 24 (phase indicator and next step), the last one of M4, is worked out and in progress. The share dialog and the read-only view are derived from the prototype design until the design pass (spec 36).
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally

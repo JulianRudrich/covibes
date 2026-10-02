@@ -44,6 +44,9 @@ type WaitingForYouProps = {
   onVote?: (vote: OpenVote, option: number) => void;
   /** How many people vote, for "1 von 3 haben abgestimmt". */
   voters?: number;
+  /** The moderator's open suggestions for the plan (spec 25b), decided in the plan itself. */
+  planSuggestions?: number;
+  onOpenPlan?: () => void;
 };
 
 const NO_HANDS: readonly HandRaise[] = [];
@@ -81,12 +84,22 @@ export function WaitingForYou({
   votes = NO_VOTES,
   onVote,
   voters,
+  planSuggestions = 0,
+  onOpenPlan,
 }: WaitingForYouProps) {
   const { t, i18n } = useTranslation();
   const agents = useAgents();
   const agentList = useAgentList();
   // What the user can act on: nothing for viewers, no decisions while only the owner decides.
-  const waiting = waitingCount({ proposals, hands, votes, canDecide, canConfirmDecisions });
+  const waiting = waitingCount({
+    proposals,
+    hands,
+    votes,
+    planSuggestions,
+    canDecide,
+    canConfirmDecisions,
+  });
+  const moderator = agents('moderator');
 
   return (
     <section
@@ -105,8 +118,29 @@ export function WaitingForYou({
         </span>
       </div>
 
-      {proposals.length + hands.length + votes.length > 0 ? (
+      {proposals.length + hands.length + votes.length + planSuggestions > 0 ? (
         <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+          {planSuggestions > 0 ? (
+            <li className={CARD}>
+              <div className="flex items-center gap-1.5 text-meta text-text-3">
+                <AgentAvatar agent={moderator} size={16} />
+                <span className={cn('font-medium', agentClass(AGENT_DARK_TEXT, moderator))}>
+                  {moderator.name}
+                </span>
+                <span>· {t('plan.tab')}</span>
+              </div>
+              <div className="text-body leading-snug text-text-body">
+                {t('plan.waiting', { count: planSuggestions })}
+              </div>
+              {onOpenPlan ? (
+                <div>
+                  <Button size="s" onClick={onOpenPlan}>
+                    {t('plan.open')}
+                  </Button>
+                </div>
+              ) : null}
+            </li>
+          ) : null}
           {proposals.map((proposal) => {
             const agent = agents(proposal.agentKey);
             return (

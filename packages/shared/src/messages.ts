@@ -104,5 +104,7 @@ export const liveEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('project') }),
   z.object({ type: z.literal('hands') }),
   z.object({ type: z.literal('decisions') }),
+  // The plan's suggestions changed, or a generation started or ended (spec 25b).
+  z.object({ type: z.literal('plan') }),
 ]);
 export type LiveEvent = z.infer<typeof liveEventSchema>;

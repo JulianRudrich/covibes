@@ -33,6 +33,8 @@ export const liveNotificationSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('hands'), projectId: z.uuid() }),
   // A decision or the criteria changed (spec 16a); the trigger of the decision log sends it.
   z.object({ kind: z.literal('decisions'), projectId: z.uuid() }),
+  // The plan's suggestions changed, or a generation started or ended (spec 25b).
+  z.object({ kind: z.literal('plan'), projectId: z.uuid() }),
 ]);
 export type LiveNotification = z.infer<typeof liveNotificationSchema>;
 
@@ -67,6 +69,8 @@ export async function toLiveEvent(admin: Kysely<DB>, notification: LiveNotificat
       return { type: 'hands' as const };
     case 'decisions':
       return { type: 'decisions' as const };
+    case 'plan':
+      return { type: 'plan' as const };
   }
 }
 

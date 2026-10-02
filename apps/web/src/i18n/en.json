@@ -751,9 +751,31 @@
     "label": "Project plan",
     "loading": "Loading the plan …",
     "denied": "You no longer have access to this plan.",
+    "generate": "Generate plan",
+    "generating": "The moderator is writing the plan … This takes about a minute.",
+    "failure": {
+      "failed": "The plan could not be generated. Nothing in the plan changed. Please try again.",
+      "quota": "The AI quota is used up right now. Nothing in the plan changed. Please try again later.",
+      "quotaUntil": "The AI quota is used up right now and free again at {{time}}. Nothing in the plan changed."
+    },
+    "suggestions": {
+      "title": "Suggestions of the moderator",
+      "count_one": "{{count}} suggestion for the plan",
+      "count_other": "{{count}} suggestions for the plan",
+      "kind": "Suggestion",
+      "for": "Suggestion for \"{{section}}\"",
+      "acceptFor": "Accept \"{{section}}\"",
+      "rejectFor": "Reject \"{{section}}\"",
+      "acceptAll": "Accept all"
+    },
+    "waiting_one": "{{count}} section for the project plan waits for you.",
+    "waiting_other": "{{count}} sections for the project plan wait for you.",
+    "open": "Open the plan",
+    "actionFailed": "That did not work. Please try again.",
     "empty": {
       "title": "The plan is still empty",
       "text": "Write it together. The template creates the five sections a project plan needs.",
+      "textGenerate": "Write it together with the template, or let the moderator write a first draft from your criteria, decisions and the canvas.",
       "readOnly": "Once the team writes, the plan appears here.",
       "template": "Start with the template"
     },

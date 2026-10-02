@@ -16,6 +16,7 @@ import { ChatPanel } from '@web/features/chat/chat-panel';
 import { DecisionsOverview } from '@web/features/decisions/decisions-overview';
 import { openVotesQuery, useVoteActions } from '@web/features/decisions/queries';
 import { PlanPanel } from '@web/features/plan/plan-panel';
+import { planStateQuery, usePlanActions } from '@web/features/plan/queries';
 import { handsQuery, useHandDecisions } from '@web/features/hands/queries';
 import { notificationsQuery, useMarkNotificationsRead } from '@web/features/notifications/queries';
 import { projectQuery, useSetPhase, useUpdateProject } from '@web/features/projects/queries';
@@ -129,6 +130,13 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
     [navigate, project],
   );
 
+  // What the moderator has for the plan (spec 25b): its suggestions wait in the plan and count
+  // under "Wartet auf dich".
+  const planState = useQuery(planStateQuery(project.id)).data;
+  const planFailed = useCallback(() => {
+    showNotice(t('plan.actionFailed'));
+  }, [showNotice, t]);
+  const planActions = usePlanActions(project.id, planFailed);
   const openPlan = useCallback(
     () =>
       navigate({
@@ -211,6 +219,8 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
     showNotice(t(reason === 'already_decided' ? 'votes.alreadyClosed' : 'votes.failed'));
   });
   const waitingHands = readOnly ? NO_HANDS : hands;
+  // Suggestions for the plan wait for owners and editors, like proposals.
+  const planSuggestions = readOnly ? 0 : (planState?.suggestions.length ?? 0);
 
   // A mention in the project that is open and visible is read: the person is looking at it.
   const notifications = useQuery(notificationsQuery).data;
@@ -328,6 +338,9 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                 user={{ id: user.id, name: user.name }}
                 readOnly={readOnly}
                 language={project.language}
+                plan={planState}
+                onGenerate={readOnly ? undefined : planActions.generate}
+                onDecide={readOnly ? undefined : planActions.decide}
               />
             ) : (
               <CanvasPanel
@@ -353,6 +366,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                   proposals,
                   hands: waitingHands,
                   votes: votesToCast,
+                  planSuggestions,
                   canDecide: !readOnly,
                   canConfirmDecisions,
                 })}
@@ -366,8 +380,11 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
             {proposals.length > 0 ||
             decided.length > 0 ||
             waitingHands.length > 0 ||
-            votesToCast.length > 0 ? (
+            votesToCast.length > 0 ||
+            planSuggestions > 0 ? (
               <WaitingForYou
+                planSuggestions={planSuggestions}
+                onOpenPlan={planOpen ? undefined : () => void openPlan()}
                 proposals={proposals}
                 decided={decided}
                 hands={waitingHands}

@@ -347,18 +347,34 @@ export {
   type OpenVote,
 } from './notifications';
 export {
+  isPlanEmpty,
+  planToMarkdown,
+  readPlan,
+  readPlanSections,
+  writePlanSection,
+} from './plan-doc';
+export {
+  planInlineFromMarkdown,
+  planNodesFromMarkdown,
+  planNodesToMarkdown,
+} from './plan-markdown';
+export {
   PLAN_FIELD,
   PLAN_SECTION_ATTRIBUTE,
   PLAN_SECTION_LEVEL,
   PLAN_SECTIONS,
   planDocumentName,
+  planNodeSchema,
   planSectionHint,
   planSectionTitle,
+  planSuggestionSchema,
   planTemplate,
   projectIdFromPlanDocumentName,
   type PlanLanguage,
   type PlanNode,
   type PlanSection,
+  type PlanState,
+  type PlanSuggestion,
 } from './plan';
 export {
   FIRST_PHASE,

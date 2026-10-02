@@ -2,6 +2,7 @@ import type {
   AwaySummary,
   Decision,
   LiveEvent,
+  PlanState,
   ProjectBoard,
   ProjectDetails,
   ProjectSummary,
@@ -50,7 +51,8 @@ vi.mock('@web/features/canvas/canvas-panel', async () => {
       ),
   };
 });
-// The plan needs the collaboration server; its editor has its own tests. The tabs stay real.
+// The plan needs the collaboration server; its editor and its suggestions have their own tests.
+// The tabs stay real, and the plan's actions are two plain buttons.
 vi.mock('@web/features/plan/plan-panel', async () => {
   const { createElement } = await import('react');
   return {
@@ -60,6 +62,9 @@ vi.mock('@web/features/plan/plan-panel', async () => {
       language: string;
       tabs: ReactNode;
       notice: string | null;
+      plan?: PlanState;
+      onGenerate?: () => void;
+      onDecide?: (decision: { suggestionId: string | null; decision: 'accept' }) => void;
     }) =>
       createElement(
         'div',
@@ -68,9 +73,25 @@ vi.mock('@web/features/plan/plan-panel', async () => {
           'data-project': props.projectId,
           'data-readonly': String(props.readOnly),
           'data-language': props.language,
+          'data-suggestions': String(props.plan?.suggestions.length ?? 'loading'),
+          'data-generating': String(props.plan?.generating ?? 'loading'),
         },
         props.tabs,
         props.notice,
+        props.onGenerate
+          ? createElement('button', { onClick: props.onGenerate }, 'Plan erzeugen')
+          : null,
+        props.onDecide
+          ? createElement(
+              'button',
+              {
+                onClick: () => {
+                  props.onDecide?.({ suggestionId: null, decision: 'accept' });
+                },
+              },
+              'Alle übernehmen',
+            )
+          : null,
       ),
   };
 });
@@ -813,6 +834,132 @@ describe('with a session', () => {
     const plan = await screen.findByTestId('plan-panel');
     expect(plan).toHaveAttribute('data-readonly', 'true');
     expect(plan).toHaveAttribute('data-language', 'en');
+  });
+
+  describe('generating the plan (spec 25b)', () => {
+    const PLAN_URL = `/api/projects/${PROJECT.id}/plan`;
+    const QUIET: PlanState = { suggestions: [], generating: false, failure: null };
+    const suggestions = (count: number): PlanState['suggestions'] =>
+      (['scope', 'milestones', 'tech'] as const).slice(0, count).map((section, index) => ({
+        id: `7777777${String(index)}-7777-4777-8777-777777777777`,
+        section,
+        content: [],
+        createdAt: new Date().toISOString(),
+      }));
+
+    it('starts a generation, shows what arrives and accepts it', async () => {
+      let state = QUIET;
+      const api = stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+        [`GET ${PLAN_URL}`]: () => ({ body: state }),
+        [`POST ${PLAN_URL}/generate`]: () => {
+          state = { ...QUIET, generating: true };
+          return { status: 202, body: null };
+        },
+        [`POST ${PLAN_URL}/suggestions/accept`]: () => {
+          state = QUIET;
+          return { status: 204, body: null };
+        },
+      });
+      renderApp(`/p/${PROJECT.id}?view=plan`);
+      const plan = await screen.findByTestId('plan-panel');
+      await waitFor(() => {
+        expect(plan).toHaveAttribute('data-generating', 'false');
+      });
+
+      fireEvent.click(within(plan).getByRole('button', { name: 'Plan erzeugen' }));
+      // The plan says at once that the moderator writes.
+      await waitFor(() => {
+        expect(plan).toHaveAttribute('data-generating', 'true');
+      });
+      expect(api).toHaveBeenCalledWith(
+        `${PLAN_URL}/generate`,
+        expect.objectContaining({ method: 'POST' }),
+      );
+
+      // The worker is done: its suggestions arrive with the live channel.
+      state = { ...QUIET, suggestions: suggestions(3) };
+      act(() => {
+        live.handlers?.onEvent({ type: 'plan' });
+      });
+      await waitFor(() => {
+        expect(plan).toHaveAttribute('data-suggestions', '3');
+      });
+      expect(plan).toHaveAttribute('data-generating', 'false');
+      // They wait for the user, who is looking at the plan already.
+      const waiting = screen.getByRole('region', { name: 'Wartet auf dich' });
+      expect(waiting).toHaveTextContent('3 Abschnitte für den Projektplan warten auf dich.');
+      expect(within(waiting).queryByRole('button', { name: 'Plan öffnen' })).toBeNull();
+
+      fireEvent.click(within(plan).getByRole('button', { name: 'Alle übernehmen' }));
+      await waitFor(() => {
+        expect(plan).toHaveAttribute('data-suggestions', '0');
+      });
+      expect(api).toHaveBeenCalledWith(
+        `${PLAN_URL}/suggestions/accept`,
+        expect.objectContaining({ method: 'POST' }),
+      );
+      await waitFor(() => {
+        expect(screen.queryByRole('region', { name: 'Wartet auf dich' })).not.toBeInTheDocument();
+      });
+    });
+
+    it('opens the plan from "Wartet auf dich" while the canvas is open', async () => {
+      stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+        [`GET ${PLAN_URL}`]: () => ({ body: { ...QUIET, suggestions: suggestions(2) } }),
+      });
+      const router = renderApp(`/p/${PROJECT.id}`);
+
+      const waiting = await screen.findByRole('region', { name: 'Wartet auf dich' });
+      expect(within(waiting).getByLabelText('2 offen')).toBeInTheDocument();
+      fireEvent.click(within(waiting).getByRole('button', { name: 'Plan öffnen' }));
+
+      expect(await screen.findByTestId('plan-panel')).toHaveAttribute('data-suggestions', '2');
+      expect(router.state.location.search).toEqual({ view: 'plan' });
+    });
+
+    it('says so when starting did not work, and shows the state of the server again', async () => {
+      stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+        [`GET ${PLAN_URL}`]: () => ({ body: QUIET }),
+        [`POST ${PLAN_URL}/generate`]: () => ({
+          status: 409,
+          body: { error: { code: 'already_running', message: 'Running.' } },
+        }),
+      });
+      renderApp(`/p/${PROJECT.id}?view=plan`);
+      const plan = await screen.findByTestId('plan-panel');
+      await waitFor(() => {
+        expect(plan).toHaveAttribute('data-generating', 'false');
+      });
+
+      fireEvent.click(within(plan).getByRole('button', { name: 'Plan erzeugen' }));
+
+      await waitFor(() => {
+        expect(plan).toHaveTextContent('Das hat nicht geklappt. Bitte versuche es noch einmal.');
+      });
+      await waitFor(() => {
+        expect(plan).toHaveAttribute('data-generating', 'false');
+      });
+    });
+
+    it('shows viewers the suggestions without letting them start or decide anything', async () => {
+      stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({ body: { ...DETAILS, role: 'viewer' } }),
+        [`GET ${PLAN_URL}`]: () => ({ body: { ...QUIET, suggestions: suggestions(2) } }),
+      });
+      renderApp(`/p/${PROJECT.id}?view=plan`);
+
+      const plan = await screen.findByTestId('plan-panel');
+      await waitFor(() => {
+        expect(plan).toHaveAttribute('data-suggestions', '2');
+      });
+      expect(within(plan).queryByRole('button', { name: 'Plan erzeugen' })).toBeNull();
+      expect(within(plan).queryByRole('button', { name: 'Alle übernehmen' })).toBeNull();
+      // Nothing waits for someone who only reads.
+      expect(screen.queryByRole('region', { name: 'Wartet auf dich' })).not.toBeInTheDocument();
+    });
   });
 
   it('opens the board named in the address and falls back to the main canvas', async () => {

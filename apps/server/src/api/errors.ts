@@ -11,6 +11,7 @@ const ERRORS = {
   too_many_requests: { status: 429, message: 'Too many requests, please wait a moment.' },
   limit_reached: { status: 409, message: 'The limit is reached.' },
   already_decided: { status: 409, message: 'This was decided already.' },
+  already_running: { status: 409, message: 'This is running already.' },
   being_edited: { status: 409, message: 'Someone is editing this right now.' },
   name_taken: { status: 409, message: 'This name is taken.' },
   unsupported_file: { status: 415, message: 'This kind of file is not supported.' },

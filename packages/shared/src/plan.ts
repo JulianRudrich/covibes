@@ -97,6 +97,41 @@ export type PlanNode = {
   marks?: { type: string }[];
 };
 
+export const planNodeSchema: z.ZodType<PlanNode> = z.lazy(() =>
+  z.object({
+    type: z.string().min(1).max(40),
+    attrs: z.record(z.string(), z.unknown()).optional(),
+    content: z.array(planNodeSchema).optional(),
+    text: z.string().optional(),
+    marks: z.array(z.object({ type: z.string().min(1).max(40) })).optional(),
+  }),
+);
+
+/**
+ * The moderator's suggestion for one section of the plan (spec 25b): the text that replaces what
+ * the section holds once someone accepts it.
+ */
+export const planSuggestionSchema = z.object({
+  id: z.uuid(),
+  section: z.enum(PLAN_SECTIONS),
+  content: z.array(planNodeSchema),
+  createdAt: z.string(),
+});
+export type PlanSuggestion = z.infer<typeof planSuggestionSchema>;
+
+/**
+ * `GET /api/projects/:projectId/plan`: what waits around the plan. `failure` says that the latest
+ * generation gave nothing: `quota` when the provider's quota was used up (with the time it is
+ * free again, if known), `failed` for anything else.
+ */
+export type PlanState = {
+  /** The open suggestions, in the order of the sections. */
+  suggestions: PlanSuggestion[];
+  /** The moderator is writing the plan right now. */
+  generating: boolean;
+  failure: { kind: 'quota' | 'failed'; resetsAt: string | null } | null;
+};
+
 /** What belongs in a section, in the project's language; the editor shows it while it is empty. */
 export function planSectionHint(section: PlanSection, language: PlanLanguage): string {
   return SECTION_TEXTS[language][section].hint;

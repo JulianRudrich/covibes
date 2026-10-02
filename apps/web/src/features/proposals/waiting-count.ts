@@ -8,12 +8,15 @@ export function waitingCount({
   proposals,
   hands,
   votes,
+  planSuggestions = 0,
   canDecide,
   canConfirmDecisions,
 }: {
   proposals: readonly Proposal[];
   hands: readonly HandRaise[];
   votes: readonly OpenVote[];
+  /** The moderator's open suggestions for the plan (spec 25b). */
+  planSuggestions?: number;
   canDecide: boolean;
   canConfirmDecisions: boolean;
 }): number {
@@ -24,6 +27,7 @@ export function waitingCount({
         canConfirmDecisions || (proposal.kind !== 'decision' && proposal.kind !== 'variants'),
     ).length +
     hands.length +
-    votes.length
+    votes.length +
+    planSuggestions
   );
 }

@@ -5,6 +5,7 @@ import {
   boardDocumentName,
   boardIdFromDocumentName,
   nodeLocks,
+  planDocumentName,
   projectIdFromPlanDocumentName,
   readEdges,
   readNodes,
@@ -227,6 +228,25 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
   }
 
   /**
+   * Changes the plan of a project from the server (spec 25b: an accepted suggestion). Like a
+   * board: `fn` gets the live document, and its changes reach everyone who has the plan open at
+   * once and are stored like theirs.
+   */
+  async function changePlan<T>(projectId: string, fn: (doc: Y.Doc) => T | Promise<T>): Promise<T> {
+    const connection = await hocuspocus.openDirectConnection(planDocumentName(projectId), {
+      user: SERVICE_USER,
+      projectId,
+    });
+    try {
+      const { document } = connection;
+      if (!document) throw new Error(`The plan of project ${projectId} could not be opened`);
+      return await fn(document);
+    } finally {
+      await connection.disconnect();
+    }
+  }
+
+  /**
    * What is on a board right now, without connecting to it (spec 21b: the read-only view). The
    * live document if people have it open, else the stored one; nothing is loaded into the server
    * and nothing is written.
@@ -264,10 +284,22 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
     webSockets.close();
   }
 
-  return { hocuspocus, handleUpgrade, deleteBoard, changeBoard, readBoard, closeUser, close };
+  return {
+    hocuspocus,
+    handleUpgrade,
+    deleteBoard,
+    changeBoard,
+    changePlan,
+    readBoard,
+    closeUser,
+    close,
+  };
 }
 
 export type Collab = ReturnType<typeof createCollab>;
 
 /** What the API needs from the collaboration server. */
-export type BoardDocuments = Pick<Collab, 'deleteBoard' | 'changeBoard' | 'readBoard'>;
+export type BoardDocuments = Pick<
+  Collab,
+  'deleteBoard' | 'changeBoard' | 'changePlan' | 'readBoard'
+>;

@@ -13,6 +13,7 @@ export type ApiErrorCode =
   | 'too_many_requests'
   | 'limit_reached'
   | 'already_decided'
+  | 'already_running'
   | 'being_edited'
   | 'name_taken'
   | 'unsupported_file'

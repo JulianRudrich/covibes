@@ -566,3 +566,40 @@ describe('variants (spec 17)', () => {
     expect(onOpenBoard).toHaveBeenCalledWith(BOARD);
   });
 });
+
+describe('suggestions for the plan under "Wartet auf dich" (spec 25b)', () => {
+  function renderWaiting(props: Partial<Parameters<typeof WaitingForYou>[0]> = {}) {
+    const onOpenPlan = vi.fn();
+    render(
+      <WaitingForYou
+        proposals={[]}
+        decided={[]}
+        canDecide
+        onDecide={vi.fn()}
+        activeBoardId={null}
+        onOpenBoard={vi.fn()}
+        planSuggestions={5}
+        onOpenPlan={onOpenPlan}
+        {...props}
+      />,
+    );
+    return { onOpenPlan, section: screen.getByRole('region', { name: 'Wartet auf dich' }) };
+  }
+
+  it('wait as one card that opens the plan, and count one by one', () => {
+    const { onOpenPlan, section } = renderWaiting();
+
+    expect(within(section).getByLabelText('5 offen')).toHaveTextContent('5');
+    expect(section).toHaveTextContent('Moderator· Projektplan');
+    expect(section).toHaveTextContent('5 Abschnitte für den Projektplan warten auf dich.');
+    fireEvent.click(within(section).getByRole('button', { name: 'Plan öffnen' }));
+    expect(onOpenPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it('need no button while the plan is open, and use the singular', () => {
+    const { section } = renderWaiting({ planSuggestions: 1, onOpenPlan: undefined });
+
+    expect(section).toHaveTextContent('1 Abschnitt für den Projektplan wartet auf dich.');
+    expect(within(section).queryByRole('button')).not.toBeInTheDocument();
+  });
+});

@@ -751,9 +751,31 @@
     "label": "Projektplan",
     "loading": "Plan wird geladen …",
     "denied": "Du hast keinen Zugriff mehr auf diesen Plan.",
+    "generate": "Plan erzeugen",
+    "generating": "Der Moderator schreibt den Plan … Das dauert etwa eine Minute.",
+    "failure": {
+      "failed": "Der Plan konnte nicht erzeugt werden. Am Plan hat sich nichts geändert. Bitte versuche es noch einmal.",
+      "quota": "Das KI-Kontingent ist gerade aufgebraucht. Am Plan hat sich nichts geändert. Bitte versuche es später noch einmal.",
+      "quotaUntil": "Das KI-Kontingent ist gerade aufgebraucht und ab {{time}} wieder frei. Am Plan hat sich nichts geändert."
+    },
+    "suggestions": {
+      "title": "Vorschläge des Moderators",
+      "count_one": "{{count}} Vorschlag für den Plan",
+      "count_other": "{{count}} Vorschläge für den Plan",
+      "kind": "Vorschlag",
+      "for": "Vorschlag für „{{section}}“",
+      "acceptFor": "„{{section}}“ übernehmen",
+      "rejectFor": "„{{section}}“ verwerfen",
+      "acceptAll": "Alle übernehmen"
+    },
+    "waiting_one": "{{count}} Abschnitt für den Projektplan wartet auf dich.",
+    "waiting_other": "{{count}} Abschnitte für den Projektplan warten auf dich.",
+    "open": "Plan öffnen",
+    "actionFailed": "Das hat nicht geklappt. Bitte versuche es noch einmal.",
     "empty": {
       "title": "Der Plan ist noch leer",
       "text": "Schreibt ihn gemeinsam. Die Vorlage legt die fünf Abschnitte an, die ein Projektplan braucht.",
+      "textGenerate": "Schreibt ihn gemeinsam mit der Vorlage, oder lasst den Moderator einen ersten Entwurf aus euren Kriterien, Entscheidungen und dem Canvas schreiben.",
       "readOnly": "Sobald das Team schreibt, erscheint der Plan hier.",
       "template": "Mit Vorlage beginnen"
     },

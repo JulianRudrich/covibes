@@ -3,7 +3,6 @@
  * other people in it. Tiptap owns the markup, so it is styled here instead of with classes.
  */
 .plan-doc {
-  min-height: 240px;
   color: var(--color-text-body);
   font-size: var(--text-title);
   line-height: 1.6;
@@ -106,4 +105,19 @@
 
 .plan-selection {
   background: color-mix(in srgb, var(--color-human) 16%, transparent);
+}
+
+/* The document itself leaves room to click into below its last line. */
+.plan-doc.ProseMirror {
+  min-height: 240px;
+}
+
+/* Text of the plan outside the editor: a suggestion before it is accepted (spec 25b). */
+.plan-doc-preview {
+  font-size: var(--text-body);
+  line-height: 1.55;
+}
+
+.plan-doc-preview h3 {
+  font-size: var(--text-title);
 }

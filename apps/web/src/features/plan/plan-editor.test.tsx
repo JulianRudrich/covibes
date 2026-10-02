@@ -184,4 +184,41 @@ describe('PlanEditor', () => {
     expect(await screen.findByRole('textbox', { name: 'Projektplan' })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Verbindung wird wiederhergestellt …');
   });
+
+  it('offers "Plan erzeugen" in the toolbar and in the empty plan (spec 25b)', async () => {
+    const onGenerate = vi.fn();
+    renderPlan({ generation: { busy: false, onGenerate } });
+    await screen.findByRole('textbox', { name: 'Projektplan' });
+
+    expect(screen.getByText(/lasst den Moderator einen ersten Entwurf/)).toBeInTheDocument();
+    const buttons = screen.getAllByRole('button', { name: 'Plan erzeugen' });
+    expect(buttons).toHaveLength(2);
+    for (const button of buttons) fireEvent.click(button);
+    expect(onGenerate).toHaveBeenCalledTimes(2);
+  });
+
+  it('rests while the moderator writes or its suggestions wait, and shows them above the plan', async () => {
+    const onGenerate = vi.fn();
+    renderPlan({
+      generation: { busy: true, onGenerate },
+      above: <p>Der Moderator schreibt den Plan …</p>,
+    });
+    const document = await screen.findByRole('textbox', { name: 'Projektplan' });
+
+    const note = screen.getByText('Der Moderator schreibt den Plan …');
+    expect(note.compareDocumentPosition(document) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // An empty plan needs no start help while a draft is on its way.
+    expect(screen.queryByText('Der Plan ist noch leer')).not.toBeInTheDocument();
+    const button = screen.getByRole('button', { name: 'Plan erzeugen' });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(onGenerate).not.toHaveBeenCalled();
+  });
+
+  it('does not offer a generation to viewers', async () => {
+    renderPlan({ readOnly: true });
+    await screen.findByRole('textbox', { name: 'Projektplan' });
+
+    expect(screen.queryByRole('button', { name: 'Plan erzeugen' })).not.toBeInTheDocument();
+  });
 });

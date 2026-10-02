@@ -12,6 +12,7 @@ import {
 } from '@web/features/decisions/queries';
 import { handsQueryKey } from '@web/features/hands/queries';
 import { notificationsQuery } from '@web/features/notifications/queries';
+import { planStateQueryKey } from '@web/features/plan/queries';
 import { projectQuery } from '@web/features/projects/queries';
 import { proposalsQueryKey } from '@web/features/proposals/queries';
 import { invitationsQuery } from '@web/features/share/queries';
@@ -68,6 +69,9 @@ export function useProjectLive(projectId: string, userId?: string) {
         reload(handsQueryKey(projectId));
       } else if (event.type === 'decisions') {
         reloadDecisions();
+      } else if (event.type === 'plan') {
+        // A generation started or ended, or a suggestion was decided (spec 25b).
+        reload(planStateQueryKey(projectId));
       } else {
         applyLiveEvent(queryClient, projectId, event);
         // A vote started, got a ballot or ended: "Wartet auf dich" lists the open ones (spec 22a).
@@ -91,6 +95,7 @@ export function useProjectLive(projectId: string, userId?: string) {
       reload(proposalsQueryKey(projectId));
       reload(handsQueryKey(projectId));
       reload(openVotesQueryKey(projectId));
+      reload(planStateQueryKey(projectId));
       reloadDecisions();
     },
   });

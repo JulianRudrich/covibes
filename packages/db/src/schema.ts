@@ -353,6 +353,18 @@ export interface Offers {
   task: string;
 }
 
+export interface PlanSuggestions {
+  content: Json;
+  created_at: Generated<Timestamp>;
+  decided_at: Timestamp | null;
+  decided_by: string | null;
+  id: Generated<string>;
+  project_id: string;
+  run_id: string | null;
+  section: string;
+  status: Generated<string>;
+}
+
 export interface ProjectAgents {
   added_by: string | null;
   agent_key: string;
@@ -494,6 +506,7 @@ export interface DB {
   notification_settings: NotificationSettings;
   notifications: Notifications;
   offers: Offers;
+  plan_suggestions: PlanSuggestions;
   project_agents: ProjectAgents;
   project_members: ProjectMembers;
   project_people: ProjectPeople;

@@ -11,11 +11,12 @@ import { CollaborationCaret } from '@tiptap/extension-collaboration-caret';
 import { TextSelection } from '@tiptap/pm/state';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
 import type { BoardConnection } from '@web/features/canvas/board-connection';
+import { Sparkle } from '@web/features/canvas/node-chrome';
 import { useCollabDoc } from '@web/features/canvas/use-board-doc';
 import { PlanSections } from '@web/features/plan/plan-sections';
 import { PlanToolbar } from '@web/features/plan/plan-toolbar';
@@ -27,6 +28,13 @@ type PlanEditorProps = {
   readOnly: boolean;
   /** The project's language, in which the template is written. */
   language: PlanLanguage;
+  /** Shown above the document, e.g. the moderator's suggestions (spec 25b). */
+  above?: ReactNode;
+  /**
+   * "Plan erzeugen" (spec 25b), for owners and editors. `busy` says that the moderator writes or
+   * that its suggestions wait; then the button rests and an empty plan needs no start help.
+   */
+  generation?: { busy: boolean; onGenerate: () => void };
 };
 
 /** The caret of another person: a line in the human color with their name above it. */
@@ -80,6 +88,8 @@ function PlanDocument({
   user,
   readOnly,
   language,
+  above,
+  generation,
 }: Omit<PlanEditorProps, 'projectId'> & { connection: BoardConnection }) {
   const { t } = useTranslation();
   const editor = useEditor(
@@ -127,37 +137,66 @@ function PlanDocument({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {readOnly ? null : <PlanToolbar editor={editor} />}
+      {readOnly ? null : (
+        <PlanToolbar
+          editor={editor}
+          end={
+            generation ? (
+              <Button size="s" disabled={generation.busy} onClick={generation.onGenerate}>
+                <Sparkle />
+                {t('plan.generate')}
+              </Button>
+            ) : null
+          }
+        />
+      )}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-10 py-8">
-          {empty ? (
+          {above}
+          {empty && !generation?.busy ? (
             <div className="flex flex-col items-start gap-2.5 rounded-card border border-border bg-bg-subtle p-4">
               <div className="text-ui font-semibold text-text">{t('plan.empty.title')}</div>
               <p className="m-0 text-body leading-normal text-text-body">
-                {t(readOnly ? 'plan.empty.readOnly' : 'plan.empty.text')}
+                {t(
+                  readOnly
+                    ? 'plan.empty.readOnly'
+                    : generation
+                      ? 'plan.empty.textGenerate'
+                      : 'plan.empty.text',
+                )}
               </p>
               {readOnly ? null : (
-                <Button
-                  variant="primary"
-                  size="s"
-                  onClick={() => {
-                    editor
-                      .chain()
-                      .setContent(planTemplate(language))
-                      // The caret goes below the first heading, where the writing starts.
-                      .command(({ tr }) => {
-                        const heading = tr.doc.firstChild;
-                        if (heading) {
-                          tr.setSelection(TextSelection.near(tr.doc.resolve(heading.nodeSize + 1)));
-                        }
-                        return true;
-                      })
-                      .focus()
-                      .run();
-                  }}
-                >
-                  {t('plan.empty.template')}
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="primary"
+                    size="s"
+                    onClick={() => {
+                      editor
+                        .chain()
+                        .setContent(planTemplate(language))
+                        // The caret goes below the first heading, where the writing starts.
+                        .command(({ tr }) => {
+                          const heading = tr.doc.firstChild;
+                          if (heading) {
+                            tr.setSelection(
+                              TextSelection.near(tr.doc.resolve(heading.nodeSize + 1)),
+                            );
+                          }
+                          return true;
+                        })
+                        .focus()
+                        .run();
+                    }}
+                  >
+                    {t('plan.empty.template')}
+                  </Button>
+                  {generation ? (
+                    <Button size="s" onClick={generation.onGenerate}>
+                      <Sparkle />
+                      {t('plan.generate')}
+                    </Button>
+                  ) : null}
+                </div>
               )}
             </div>
           ) : null}

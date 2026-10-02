@@ -10,6 +10,7 @@ import {
   Undo2,
   type LucideIcon,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { IconButton } from '@web/components/ui/icon-button';
@@ -55,9 +56,10 @@ function Divider() {
 
 /**
  * The formats of the plan (spec 25a; derived looks): two levels of headings, bold, italic, the two
- * kinds of lists, and undo and redo of one's own changes.
+ * kinds of lists, and undo and redo of one's own changes. `end` sits at the right end of the row,
+ * e.g. "Plan erzeugen" (spec 25b).
  */
-export function PlanToolbar({ editor }: { editor: Editor }) {
+export function PlanToolbar({ editor, end }: { editor: Editor; end?: ReactNode }) {
   const { t } = useTranslation();
   const state = useEditorState({
     editor,
@@ -131,6 +133,7 @@ export function PlanToolbar({ editor }: { editor: Editor }) {
         disabled={!state.canRedo}
         onClick={() => run().redo().run()}
       />
+      {end ? <div className="ml-auto flex items-center gap-2 pl-2">{end}</div> : null}
     </div>
   );
 }

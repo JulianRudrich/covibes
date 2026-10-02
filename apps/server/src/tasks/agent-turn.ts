@@ -1,6 +1,7 @@
 import type { DB } from '@covibes/db';
 import {
   isCustomAgentKey,
+  planToMarkdown,
   projectSettingsSchema,
   readEdges,
   readNodes,
@@ -41,6 +42,7 @@ import {
 } from '@server/ai-gateway';
 import { loadMessage, selectMessages, toMessage } from '@server/chat/rows';
 import type { BoardAccess } from '@server/collab/board-client';
+import { readStoredPlan } from '@server/plan/stored-plan';
 import { MAX_DELTA_LENGTH, notifyLive } from '@server/realtime/notifications';
 import type { Intent } from '@server/rules/decide';
 import type { FileStorage } from '@server/storage/storage';
@@ -106,6 +108,8 @@ const FLUSH_MS = 50;
 /** Longest message content (database constraint). */
 const MAX_CONTENT_LENGTH = 8000;
 const MAX_ERROR_LENGTH = 1000;
+/** The plan in an agent's context; a longer plan is cut at the end. */
+const MAX_PLAN_LENGTH = 8000;
 
 const payloadSchema = z.object({ runId: z.uuid() });
 
@@ -583,6 +587,8 @@ async function converse(
       }))
     : { nodes: [], edges: [], locks: new Map<string, NodeLock>() };
   const proposals = await loadOpenProposals(deps.admin, run.projectId);
+  // The project plan as text (spec 25b), so agents answer questions about it and build on it.
+  const plan = await readStoredPlan(deps.admin, run.projectId, planToMarkdown);
   // The files people attached to the chat (spec 20a); every agent may read them.
   // A custom agent also reads the files of its own knowledge (spec 20b).
   const custom = isCustomAgentKey(agent.key) ? agent.key : undefined;
@@ -743,6 +749,7 @@ async function converse(
         agentNames,
         ...canvas,
         proposals,
+        plan,
         files,
         // A debate only talks: it lists no knowledge and says nothing about the web.
         ...(debating ? {} : { knowledge, web }),
@@ -816,7 +823,7 @@ function authorName(message: ChatMessage, nameOf: NameOf): string {
 /** Chat text is data: it must not close the sections the prompt is built from. */
 function asData(text: string): string {
   return text.replace(
-    /<(\/?)(team|moderation|criteria|decisions|canvas|files|knowledge|chat|request)>/gi,
+    /<(\/?)(phase|team|moderation|criteria|decisions|canvas|plan|files|knowledge|chat|request)>/gi,
     '‹$1$2›',
   );
 }
@@ -906,7 +913,7 @@ function describeEdge(edge: CanvasEdge, nodes: ReadonlyMap<string, CanvasNode>):
 }
 
 /** The canvas overview: frames first, then blocks and notes, then the arrows. */
-function describeCanvas(
+export function describeCanvas(
   nodes: readonly CanvasNode[],
   edges: readonly CanvasEdge[],
   locks: ReadonlyMap<string, NodeLock> | undefined,
@@ -1039,6 +1046,8 @@ export function buildPrompt(context: {
   locks?: ReadonlyMap<string, NodeLock>;
   /** Open proposals of the project (spec 13), so agents do not propose the same again. */
   proposals?: readonly { id: string; agentKey: string; operations: CanvasOperation[] }[];
+  /** The project plan as Markdown (spec 25b); empty or missing while there is none. */
+  plan?: string;
   /** The latest files attached to the chat (spec 20a), which `read_file` reads. */
   files?: readonly ProjectFile[];
   /** The knowledge of the custom agent that answers (spec 20b). */
@@ -1096,6 +1105,11 @@ export function buildPrompt(context: {
     ...(context.moderation ? [describeModeration(context.moderation)] : []),
     ...(context.decisions ? describeDecisions(context.decisions) : []),
     `<canvas>\n${asData(canvas)}\n</canvas>`,
+    ...(context.plan
+      ? [
+          `<plan>\nThe project plan as the team has it in the tab "Projektplan"; people edit it there, you cannot change it:\n${asData(limitLength(context.plan, MAX_PLAN_LENGTH))}\n</plan>`,
+        ]
+      : []),
     ...(files.length > 0
       ? [
           `<files>\nFiles people attached to the chat, newest first; read one with read_file and its id:\n${asData(files.map(describeFile).join('\n'))}\n</files>`,

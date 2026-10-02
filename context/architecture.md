@@ -131,11 +131,13 @@ During development Vite forwards `/api` to the server. Web app and API therefore
 ### Plan
 - The plan is a Y.Doc of its own (`plan:{projectId}`) and is edited with Tiptap (spec 25a). It lives on the collaboration server like a board: members connect, viewers read only, the worker connects with its token.
 - A plan has five sections. A section starts at a heading that carries the section's key as an attribute, so the server finds it whatever the heading says.
-- "Generate plan" and "Update" are jobs (specs 25b and 25c).
-  - The result arrives per section as `plan_suggestions`.
-  - Humans accept or reject the suggestions.
-  - The server writes accepted suggestions into the Y.Doc.
-  - Manual edits are preserved.
+- "Generate plan" (spec 25b) and "Update" (spec 25c) are jobs.
+  - The model the project uses for the moderator writes the sections in a small Markdown; the server turns it into the nodes of the document.
+  - The result arrives per section as `plan_suggestions`; a generation is a run of the kind `plan`, one at a time per project.
+  - Owners and editors accept or reject the suggestions. Accepting decides in the database and writes the section into the Y.Doc in the same transaction, through the collaboration server.
+  - The server reads and writes the document in the form Tiptap stores it (`packages/shared`, `plan-doc.ts`), without an editor.
+  - Manual edits are preserved (spec 25c).
+- Every agent's context holds the plan as Markdown, read from what the collaboration server last stored.
 - Every update creates a snapshot in `plan_versions`.
 - The roadmap is derived from the plan's milestones. The plan is the source.
 
@@ -251,7 +253,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `invitations`, `share_links` | invitations by link or email with role, expiry, uses and the hash of the token; the read-only link of a project (one row, the hash of its token) |
 | `project_people` | everyone who is or was a member of a project, so former members keep their name |
 | `boards`, `yjs_documents` | boards and storage of the Y.Docs: the canvas of every board and the plan of every project |
-| `plans`, `plan_versions`, `plan_suggestions` | plan, versions, AI suggestions per section |
+| `plan_suggestions`, `plan_versions` | the moderator's suggestions per section of the plan with their status; versions of the plan (spec 25c). The plan itself is a document in `yjs_documents` |
 | `messages` | chat: author (human or agent), mentioned agents and people, block references |
 | `custom_agents`, `project_agents` | custom agents (personal or shared in a project); team per project. Catalog agents are defined in code |
 | `agent_knowledge` | the knowledge of a custom agent: files (content in the file storage) and links with a note |

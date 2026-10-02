@@ -1,10 +1,12 @@
-import type { AwarenessUser, PlanLanguage } from '@covibes/shared';
+import type { AwarenessUser, PlanLanguage, PlanState } from '@covibes/shared';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PanelHeader } from '@web/components/ui/panel';
 import { PlanEditor } from '@web/features/plan/plan-editor';
 import { PLAN_PANEL_ID } from '@web/features/plan/plan-ids';
+import { PlanSuggestions } from '@web/features/plan/plan-suggestions';
+import type { PlanDecision } from '@web/features/plan/queries';
 
 type PlanPanelProps = {
   projectId: string;
@@ -15,13 +17,18 @@ type PlanPanelProps = {
   user: AwarenessUser;
   readOnly: boolean;
   language: PlanLanguage;
+  /** What the moderator has for the plan (spec 25b); undefined while it loads. */
+  plan: PlanState | undefined;
+  /** Owners and editors start a generation and decide the suggestions. */
+  onGenerate?: () => void;
+  onDecide?: (decision: PlanDecision) => void;
 };
 
 /**
  * Header and plan of the project, as the two rows of the canvas panel (spec 25a): the plan takes
  * the place of the canvas while it is open, so the chat and the overview stay next to it.
  */
-export function PlanPanel({ tabs, notice, ...plan }: PlanPanelProps) {
+export function PlanPanel({ tabs, notice, plan, onGenerate, onDecide, ...editor }: PlanPanelProps) {
   const { t } = useTranslation();
   return (
     <>
@@ -33,7 +40,22 @@ export function PlanPanel({ tabs, notice, ...plan }: PlanPanelProps) {
         aria-label={t('plan.tab')}
         className="relative min-h-0 bg-bg-panel"
       >
-        <PlanEditor {...plan} />
+        <PlanEditor
+          {...editor}
+          above={
+            plan ? (
+              <PlanSuggestions state={plan} language={editor.language} onDecide={onDecide} />
+            ) : null
+          }
+          generation={
+            onGenerate
+              ? {
+                  busy: plan === undefined || plan.generating || plan.suggestions.length > 0,
+                  onGenerate,
+                }
+              : undefined
+          }
+        />
         {notice ? (
           <div
             role="status"

@@ -7,7 +7,7 @@
 Build the result (M5, specs 25 to 27): the project plan with suggestions and versions, the roadmap with milestones and tasks, and the exports. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 25b: generating the plan (branch `spec/25b-generating-the-plan`)
+- Nothing. Next is spec 25c ("plan outdated", updates and versions).
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -210,11 +210,17 @@ Build the result (M5, specs 25 to 27): the project plan with suggestions and ver
   - a section is known by its heading, so the next parts can write to it
 
   Lint, type check, format, 1298 tests and build pass; verified with `pnpm dev`.
+- [x] **Spec 25b generating the plan:**
+  - "Plan erzeugen" lets the moderator write the five sections from the criteria, the decisions, the boards, the conversation and what the plan already says
+  - the result arrives as a suggestion per section above the plan; owners and editors accept or reject each, or accept all, and accepted text is written into the plan
+  - the suggestions count under "Wartet auf dich", and every agent's context holds the plan
+
+  Lint, type check, format, 1357 tests and build pass; verified with `pnpm dev`.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M5 (result):** M4 (collaboration) is complete with spec 24. Spec 25 (project plan) is split into three parts: 25a (the plan as a shared document with its editor) is done; 25b (generating the plan as suggestions per section) is worked out and in progress; 25c ("plan outdated", updates and versions) follows. Its looks are derived from the prototype design until the design pass (spec 36).
+1. **M5 (result):** M4 (collaboration) is complete with spec 24. Spec 25 (project plan) is split into three parts: 25a (the plan as a shared document with its editor) is done; 25b (generating the plan as suggestions per section) is done; 25c ("plan outdated", updates and versions) follows. Its looks are derived from the prototype design until the design pass (spec 36).
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -327,6 +333,7 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-10-01, spec 17 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that variants are one proposal with a diagram per variant, that the server places them in one row with the tops aligned, that the canvas offers only "Übernehmen" per variant while "Verwerfen" for all sits in the overview, and that the canvas does not move to new variants by itself.
 - **2026-10-01, spec 18 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that a debate has two or three specialists and one to three rounds (two by default), that the moderator leads but does not argue, that debate runs have no tools, that the database advances the chain, that owners and editors can end a debate early with a summary of what was said, and that a turn that fails for good aborts the debate.
 - **2026-10-01, spec 19 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that a custom agent's key is its id, that a personal agent's instructions stay with its creator while a shared agent is edited by owners and editors, that custom agents draw or only talk (no choice of single tools), the six custom colors and the two-letter avatars, the limits of 20 agents, and that the templates are texts of the web app.
+- **2026-10-02, spec 25b implemented.** Details are in the spec under "Implementation notes". The coding agent decided that the moderator writes a small Markdown that the server turns into the plan's nodes, that a generation is one run of the kind `plan` and one at a time per project, that a suggestion replaces its whole section when accepted, that a new generation replaces the open suggestions, that the suggestions show above the document and as one card under "Wartet auf dich", and that every agent's context holds the plan.
 - **2026-10-02, spec 25a implemented.** Details are in the spec under "Implementation notes". The owner agreed to the split of spec 25 into three parts, to the plan as a tab next to the boards, to Tiptap and to the moderator's model for generating the plan (part 25b). The coding agent decided that a section is known by an attribute of its heading, that the hints of the template are no text of the plan, the formats of the editor, and that the project details carry the project's language.
 - **2026-10-02, spec 24 implemented; M4 completed.** Details are in the spec under "Implementation notes". The coding agent decided that a project has one current phase and the others follow from it, that owners and editors jump from a card that explains the phase, that the moderator changes the phase only on an instruction or an accepted offer and suggests it otherwise (no proposal for a phase), that the observer may offer the next phase as a third kind of offer, and that "Moderator fragen" sends an ordinary chat message. The live test found that the intent classifier took "wir gehen weiter zur Architektur" as a question; it now counts as an instruction.
 - **2026-10-02, spec 23 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that away means an hour without the project in a visible tab, that the summary is a section of the overview that stays until it is closed, what it lists (decisions, criteria, changes per board, messages, what waits), that the moderator's text is written by itself once five messages by others came in, with Claude Sonnet 5.5 like the observer (it runs for every person who returns; the owner can choose another model), and that plan versions and Git events join with their specs. The live test showed that the first text was too long for the column; the prompt now asks for 60 words.

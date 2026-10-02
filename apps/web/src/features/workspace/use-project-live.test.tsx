@@ -4,6 +4,7 @@ import { act, render, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { messagesQuery } from '@web/features/chat/queries';
+import { planStateQuery } from '@web/features/plan/queries';
 import { runsQuery } from '@web/features/chat/runs';
 import { projectQuery } from '@web/features/projects/queries';
 import { proposalsQuery } from '@web/features/proposals/queries';
@@ -60,6 +61,7 @@ function renderLive() {
     useQuery(proposalsQuery(PROJECT_ID));
     useQuery(notificationsQuery);
     useQuery(openVotesQuery(PROJECT_ID));
+    useQuery(planStateQuery(PROJECT_ID));
     useProjectLive(PROJECT_ID, ME);
     return null;
   }
@@ -246,5 +248,42 @@ describe('useProjectLive', () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(urls.map((url) => loads(fetchMock, url))).toEqual(before.map((count) => count + 1));
+  });
+
+  it('loads the state of the plan again when the plan changes (spec 25b)', async () => {
+    let suggestions = 0;
+    const api = stubApi({
+      [`GET ${PROJECT_URL}`]: () => ({ body: DETAILS }),
+      [`GET ${PROJECT_URL}/plan`]: () => ({
+        body: {
+          suggestions: Array.from({ length: suggestions }, (_, index) => ({
+            id: `0000000${String(index)}-0000-4000-8000-000000000000`,
+            section: ['scope', 'risks'][index],
+            content: [],
+            createdAt: '2026-10-02T18:00:00.000Z',
+          })),
+          generating: false,
+          failure: null,
+        },
+      }),
+    });
+    const queryClient = renderLive();
+    const planOf = () => queryClient.getQueryData(planStateQuery(PROJECT_ID).queryKey);
+    await waitFor(() => {
+      expect(planOf()).toMatchObject({ suggestions: [] });
+    });
+    const asked = () => api.mock.calls.filter(([url]) => url === `${PROJECT_URL}/plan`).length;
+    const before = asked();
+
+    // The moderator's suggestions arrived.
+    suggestions = 2;
+    act(() => {
+      live.handlers?.onEvent({ type: 'plan' });
+    });
+
+    await waitFor(() => {
+      expect(planOf()?.suggestions).toHaveLength(2);
+    });
+    expect(asked()).toBe(before + 1);
   });
 });

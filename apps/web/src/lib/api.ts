@@ -40,7 +40,8 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       ? new ApiError(response.status, body.error.code, body.error.detail)
       : new ApiError(response.status, 'internal');
   }
-  // "No content", e.g. after deleting something.
-  if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
+  // Nothing to read: "no content", e.g. after deleting something, or "accepted" for work that
+  // only starts, e.g. a generation of the plan.
+  const text = await response.text();
+  return (text === '' ? undefined : JSON.parse(text)) as T;
 }

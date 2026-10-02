@@ -286,4 +286,34 @@ describe('useProjectLive', () => {
     });
     expect(asked()).toBe(before + 1);
   });
+
+  it('loads the state of the plan again when a decision changes (spec 25c)', async () => {
+    const api = stubApi({
+      [`GET ${PROJECT_URL}`]: () => ({ body: DETAILS }),
+      [`GET ${PROJECT_URL}/plan`]: () => ({
+        body: {
+          suggestions: [],
+          generating: false,
+          failure: null,
+          outdated: null,
+          upToDate: false,
+        },
+      }),
+    });
+    const queryClient = renderLive();
+    await waitFor(() => {
+      expect(queryClient.getQueryData(planStateQuery(PROJECT_ID).queryKey)).toBeDefined();
+    });
+    const asked = () => api.mock.calls.filter(([url]) => url === `${PROJECT_URL}/plan`).length;
+    const before = asked();
+
+    // Someone reopened a decision: the plan may be outdated now.
+    act(() => {
+      live.handlers?.onEvent({ type: 'decisions' });
+    });
+
+    await waitFor(() => {
+      expect(asked()).toBe(before + 1);
+    });
+  });
 });

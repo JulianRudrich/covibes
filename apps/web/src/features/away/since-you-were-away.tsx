@@ -2,6 +2,7 @@ import type { AwayAuthor, AwayBoard, AwayDecision, AwaySummary } from '@covibes/
 import {
   AtSign,
   Check,
+  FileText,
   Hourglass,
   ListChecks,
   MessageSquare,
@@ -27,6 +28,8 @@ type SinceYouWereAwayProps = {
   /** Opens a decision with its reasoning, where owners and editors reopen it. */
   onOpenDecision: (decisionId: string) => void;
   onOpenBoard: (boardId: string) => void;
+  /** Opens the project plan, whose new versions the summary counts (spec 25c). */
+  onOpenPlan?: () => void;
   onDismiss: () => void;
 };
 
@@ -133,6 +136,7 @@ export function SinceYouWereAway({
   waiting,
   onOpenDecision,
   onOpenBoard,
+  onOpenPlan,
   onDismiss,
 }: SinceYouWereAwayProps) {
   const { t, i18n } = useTranslation();
@@ -190,6 +194,17 @@ export function SinceYouWereAway({
             onOpen={onOpenBoard}
           />
         ))}
+        {summary.planVersions > 0 ? (
+          <Row icon={FileText}>
+            {onOpenPlan ? (
+              <button type="button" className={LINK} onClick={onOpenPlan}>
+                {t('away.planVersions', { count: summary.planVersions })}
+              </button>
+            ) : (
+              t('away.planVersions', { count: summary.planVersions })
+            )}
+          </Row>
+        ) : null}
         {messages.count > 0 ? (
           <Row icon={MessageSquare}>
             {t(writers ? 'away.messages' : 'away.messagesPlain', {

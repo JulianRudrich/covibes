@@ -278,6 +278,12 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
       onNotice={showNotice}
       planOpen={planOpen}
       onOpenPlan={() => void openPlan()}
+      planOutdated={
+        planState !== undefined &&
+        planState.outdated !== null &&
+        !planState.generating &&
+        planState.suggestions.length === 0
+      }
     />
   );
 
@@ -341,6 +347,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                 plan={planState}
                 onGenerate={readOnly ? undefined : planActions.generate}
                 onDecide={readOnly ? undefined : planActions.decide}
+                onUpdate={readOnly ? undefined : planActions.update}
               />
             ) : (
               <CanvasPanel
@@ -372,6 +379,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                 })}
                 onOpenDecision={setOpenDecisionId}
                 onOpenBoard={(boardId) => void selectBoard(boardId)}
+                onOpenPlan={planOpen ? undefined : () => void openPlan()}
                 onDismiss={() => {
                   dismissAway();
                 }}

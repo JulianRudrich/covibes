@@ -65,6 +65,7 @@ vi.mock('@web/features/plan/plan-panel', async () => {
       plan?: PlanState;
       onGenerate?: () => void;
       onDecide?: (decision: { suggestionId: string | null; decision: 'accept' }) => void;
+      onUpdate?: () => void;
     }) =>
       createElement(
         'div',
@@ -75,11 +76,15 @@ vi.mock('@web/features/plan/plan-panel', async () => {
           'data-language': props.language,
           'data-suggestions': String(props.plan?.suggestions.length ?? 'loading'),
           'data-generating': String(props.plan?.generating ?? 'loading'),
+          'data-outdated': String(props.plan ? props.plan.outdated !== null : 'loading'),
         },
         props.tabs,
         props.notice,
         props.onGenerate
           ? createElement('button', { onClick: props.onGenerate }, 'Plan erzeugen')
+          : null,
+        props.onUpdate
+          ? createElement('button', { onClick: props.onUpdate }, 'Aktualisieren')
           : null,
         props.onDecide
           ? createElement(
@@ -192,6 +197,7 @@ const AWAY: AwaySummary = {
     },
   ],
   criteriaChanges: 0,
+  planVersions: 0,
   boards: [
     {
       boardId: EXTRA_BOARD.id,
@@ -838,13 +844,21 @@ describe('with a session', () => {
 
   describe('generating the plan (spec 25b)', () => {
     const PLAN_URL = `/api/projects/${PROJECT.id}/plan`;
-    const QUIET: PlanState = { suggestions: [], generating: false, failure: null };
+    const QUIET: PlanState = {
+      suggestions: [],
+      generating: false,
+      failure: null,
+      outdated: null,
+      upToDate: false,
+    };
     const suggestions = (count: number): PlanState['suggestions'] =>
       (['scope', 'milestones', 'tech'] as const).slice(0, count).map((section, index) => ({
         id: `7777777${String(index)}-7777-4777-8777-777777777777`,
         section,
         content: [],
         createdAt: new Date().toISOString(),
+        kind: 'generate',
+        handEdited: false,
       }));
 
     it('starts a generation, shows what arrives and accepts it', async () => {
@@ -944,6 +958,48 @@ describe('with a session', () => {
       });
     });
 
+    it('marks an outdated plan on its button and brings it up to date (spec 25c)', async () => {
+      let state: PlanState = {
+        ...QUIET,
+        outdated: { changes: [{ kind: 'reopened', topic: 'Hosting' }], more: 0 },
+      };
+      const api = stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+        [`GET ${PLAN_URL}`]: () => ({ body: state }),
+        [`POST ${PLAN_URL}/update`]: () => {
+          state = { ...QUIET, generating: true };
+          return { status: 202, body: null };
+        },
+      });
+      renderApp(`/p/${PROJECT.id}?view=plan`);
+      const plan = await screen.findByTestId('plan-panel');
+      await waitFor(() => {
+        expect(plan).toHaveAttribute('data-outdated', 'true');
+      });
+      expect(
+        within(plan).getByRole('button', { name: 'Projektplan, nicht mehr aktuell' }),
+      ).toBeInTheDocument();
+
+      fireEvent.click(within(plan).getByRole('button', { name: 'Aktualisieren' }));
+
+      await waitFor(() => {
+        expect(plan).toHaveAttribute('data-generating', 'true');
+      });
+      expect(api).toHaveBeenCalledWith(
+        `${PLAN_URL}/update`,
+        expect.objectContaining({ method: 'POST' }),
+      );
+      // While the moderator writes, the dot rests; the update's suggestions follow.
+      state = { ...QUIET, suggestions: suggestions(1) };
+      act(() => {
+        live.handlers?.onEvent({ type: 'plan' });
+      });
+      await waitFor(() => {
+        expect(plan).toHaveAttribute('data-suggestions', '1');
+      });
+      expect(within(plan).getByRole('button', { name: 'Projektplan' })).toBeInTheDocument();
+    });
+
     it('shows viewers the suggestions without letting them start or decide anything', async () => {
       stubApi({
         [`GET /api/projects/${PROJECT.id}`]: () => ({ body: { ...DETAILS, role: 'viewer' } }),
@@ -957,6 +1013,7 @@ describe('with a session', () => {
       });
       expect(within(plan).queryByRole('button', { name: 'Plan erzeugen' })).toBeNull();
       expect(within(plan).queryByRole('button', { name: 'Alle übernehmen' })).toBeNull();
+      expect(within(plan).queryByRole('button', { name: 'Aktualisieren' })).toBeNull();
       // Nothing waits for someone who only reads.
       expect(screen.queryByRole('region', { name: 'Wartet auf dich' })).not.toBeInTheDocument();
     });

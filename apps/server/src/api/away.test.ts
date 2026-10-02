@@ -164,6 +164,14 @@ describe('the summary of an absence', () => {
         { kind: 'human', userId: alex.id },
       );
     });
+    // Two versions of the plan were kept meanwhile, one long before (spec 25c).
+    await test.db.adminPool.query(
+      `insert into plan_versions (project_id, number, content, reason, created_at) values
+        ($1, 1, '[]', 'generated', now() - interval '5 hours'),
+        ($1, 2, '[]', 'manual', now()),
+        ($1, 3, '[]', 'updated', now())`,
+      [projectId],
+    );
     const extra = await test.db.adminPool.query<{ id: string }>(
       `insert into boards (project_id, title, kind, position)
        values ($1, 'Datenmodell', 'extra', 1) returning id`,
@@ -179,6 +187,7 @@ describe('the summary of an absence', () => {
       // The decision shows as it stood in the end; a topic that was only opened is no decision.
       decisions: [{ kind: 'decided', decisionId, topic: 'Canvas', value: 'React Flow' }],
       criteriaChanges: 1,
+      planVersions: 2,
       boards: [
         {
           boardId,

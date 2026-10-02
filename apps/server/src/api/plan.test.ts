@@ -1,10 +1,13 @@
 import {
   planNodesFromMarkdown,
+  planNodesToMarkdown,
   planToMarkdown,
   writePlanSection,
   type ApiErrorBody,
   type PlanSection,
   type PlanState,
+  type PlanVersion,
+  type PlanVersionContent,
   type ProjectSummary,
 } from '@covibes/shared';
 import { describe, expect, it } from 'vitest';
@@ -79,6 +82,8 @@ describe('the state of the plan', () => {
       suggestions: [],
       generating: false,
       failure: null,
+      outdated: null,
+      upToDate: false,
     });
   });
 
@@ -270,5 +275,217 @@ describe('deciding a suggestion', () => {
     ).toBe(403);
     expect((await post(`${plan}/suggestions/nope/accept`, viewer)).status).toBe(404);
     expect(await planOf(projectId)).toBe('');
+  });
+});
+
+describe('an outdated plan (spec 25c)', () => {
+  /** A finished run of the moderator: what the plan was last written or updated by. */
+  const written = (projectId: string, ago: string) =>
+    test.db.adminPool.query<{ id: string }>(
+      `insert into ai_runs (project_id, agent_key, kind, status, created_at, finished_at)
+       values ($1, 'moderator', 'plan', 'done', now() - $2::interval, now() - $2::interval)
+       returning id`,
+      [projectId, ago],
+    );
+  const logged = (projectId: string, kind: string, topic: string | null, ago: string) =>
+    test.db.adminPool.query(
+      `insert into decision_log (project_id, kind, topic, value, created_at)
+       values ($1, $2, $3, 'x', now() - $4::interval)`,
+      [projectId, kind, topic, ago],
+    );
+
+  it('says what changed since the moderator last wrote it', async () => {
+    const { owner, projectId, plan } = await createProject();
+    await logged(projectId, 'decided', 'Sprache', '5 hours');
+    // Decisions change, but nobody generated a plan yet: nothing to be outdated against.
+    expect((await stateOf(plan, owner)).outdated).toBeNull();
+
+    const run = await written(projectId, '3 hours');
+    await suggest(projectId, { scope: 'Umfang' });
+    await test.db.adminPool.query('update plan_suggestions set run_id = $1 where project_id = $2', [
+      run.rows[0]?.id,
+      projectId,
+    ]);
+    expect(await stateOf(plan, owner)).toMatchObject({ outdated: null, upToDate: false });
+
+    await logged(projectId, 'decided', 'Hosting', '2 hours');
+    await logged(projectId, 'criterion_added', null, '100 minutes');
+    await logged(projectId, 'criterion_removed', null, '90 minutes');
+    await logged(projectId, 'reopened', 'Hosting', '1 hour');
+    await logged(projectId, 'decided', 'Zahlung', '30 minutes');
+    await logged(projectId, 'opened', 'Später', '20 minutes');
+
+    // The newest first; a decision once with what happened last, the criteria as one change.
+    expect((await stateOf(plan, owner)).outdated).toEqual({
+      changes: [
+        { kind: 'decided', topic: 'Zahlung' },
+        { kind: 'reopened', topic: 'Hosting' },
+        { kind: 'criteria', topic: null },
+      ],
+      more: 0,
+    });
+  });
+
+  it('counts the changes it does not name', async () => {
+    const { owner, projectId, plan } = await createProject();
+    await written(projectId, '3 hours');
+    for (const [index, topic] of ['A', 'B', 'C', 'D', 'E', 'F', 'G'].entries()) {
+      await logged(projectId, 'decided', topic, `${String(60 - index)} minutes`);
+    }
+
+    const { outdated } = await stateOf(plan, owner);
+
+    expect(outdated?.changes.map((change) => change.topic)).toEqual(['G', 'F', 'E', 'D', 'C']);
+    expect(outdated?.more).toBe(2);
+  });
+
+  it('is current again after an update, also one that found nothing to change', async () => {
+    const { owner, projectId, plan } = await createProject();
+    await written(projectId, '3 hours');
+    await logged(projectId, 'decided', 'Hosting', '2 hours');
+    expect((await stateOf(plan, owner)).outdated).not.toBeNull();
+
+    // The update read the change and left no suggestion behind.
+    await written(projectId, '1 minute');
+    expect(await stateOf(plan, owner)).toMatchObject({ outdated: null, upToDate: true });
+
+    // The note about that does not stay for good.
+    await test.db.adminPool.query(
+      `update ai_runs set finished_at = now() - interval '11 minutes'
+       where project_id = $1 and created_at > now() - interval '1 hour'`,
+      [projectId],
+    );
+    expect(await stateOf(plan, owner)).toMatchObject({ outdated: null, upToDate: false });
+  });
+
+  it('is updated by owners and editors with a run of its own kind', async () => {
+    const { projectId, plan } = await createProject();
+    const editor = await member(projectId, 'editor');
+    const viewer = await member(projectId, 'viewer');
+
+    expect((await post(`${plan}/update`, viewer)).status).toBe(403);
+    expect((await post(`${plan}/update`, editor)).status).toBe(202);
+
+    const jobs = await test.db.adminPool.query<{ kind: string }>(
+      `select jobs.payload ->> 'kind' as kind
+       from graphile_worker._private_jobs jobs
+       join ai_runs on ai_runs.id::text = jobs.payload ->> 'runId'
+       where ai_runs.project_id = $1`,
+      [projectId],
+    );
+    expect(jobs.rows).toEqual([{ kind: 'update' }]);
+    const again = await post(`${plan}/generate`, editor);
+    expect(again.status).toBe(409);
+    expect(await errorCode(again)).toBe('already_running');
+  });
+});
+
+describe('versions of the plan (spec 25c)', () => {
+  async function versionsOf(path: string, cookie: string) {
+    const response = await request(`${path}/versions`, cookie);
+    expect(response.status).toBe(200);
+    return (await response.json()) as PlanVersion[];
+  }
+
+  async function versionText(path: string, cookie: string, id: string) {
+    const response = await request(`${path}/versions/${id}`, cookie);
+    expect(response.status).toBe(200);
+    const version = (await response.json()) as PlanVersionContent;
+    return { ...version, text: planNodesToMarkdown(version.content) };
+  }
+
+  /** The suggestions of one generation or update. */
+  async function batch(
+    projectId: string,
+    sections: Partial<Record<PlanSection, string>>,
+    kind = 'generate',
+  ) {
+    const ids = await suggest(projectId, sections);
+    const run = await test.db.adminPool.query<{ id: string }>(
+      `insert into ai_runs (project_id, agent_key, kind, status)
+       values ($1, 'moderator', 'plan', 'done') returning id`,
+      [projectId],
+    );
+    await test.db.adminPool.query(
+      'update plan_suggestions set run_id = $1, kind = $2 where id = any ($3)',
+      [run.rows[0]?.id, kind, Object.values(ids)],
+    );
+    return ids;
+  }
+
+  it('keep the plan as it stood before, and as it stands once all is decided', async () => {
+    const { owner, projectId, plan } = await createProject();
+    await test.collab.changePlan(projectId, (doc) => {
+      writePlanSection(doc, 'scope', planNodesFromMarkdown('Von Hand geschrieben'), 'de');
+    });
+    const ids = await batch(projectId, { scope: 'Vom Moderator', tech: 'React', risks: 'Zeit' });
+    expect(await versionsOf(plan, owner)).toEqual([]);
+
+    // The first accepted suggestion: the hand-written plan is kept before it is replaced.
+    await post(`${plan}/suggestions/${ids.scope ?? ''}/accept`, owner);
+    const [manual, ...none] = await versionsOf(plan, owner);
+    expect(none).toEqual([]);
+    expect(manual).toMatchObject({ number: 1, reason: 'manual' });
+    expect((await versionText(plan, owner, manual?.id ?? '')).text).toBe(
+      '## MVP-Umfang\n\nVon Hand geschrieben',
+    );
+
+    // In between nothing is kept; the last decision closes the generation.
+    await post(`${plan}/suggestions/${ids.tech ?? ''}/accept`, owner);
+    expect(await versionsOf(plan, owner)).toHaveLength(1);
+    await post(`${plan}/suggestions/${ids.risks ?? ''}/reject`, owner);
+
+    const versions = await versionsOf(plan, owner);
+    expect(versions.map((version) => [version.number, version.reason])).toEqual([
+      [2, 'generated'],
+      [1, 'manual'],
+    ]);
+    expect(versions[0]?.createdBy).toBeTruthy();
+    expect(Number.isNaN(Date.parse(versions[0]?.createdAt ?? ''))).toBe(false);
+    expect((await versionText(plan, owner, versions[0]?.id ?? '')).text).toBe(
+      '## MVP-Umfang\n\nVom Moderator\n\n## Tech-Empfehlung\n\nReact',
+    );
+  });
+
+  it('keep an update as its own kind, and nothing when nothing was accepted', async () => {
+    const { owner, projectId, plan } = await createProject();
+    await batch(projectId, { scope: 'Umfang', tech: 'React' });
+    await post(`${plan}/suggestions/accept`, owner);
+    // An empty plan had nothing to keep before; all at once closes the generation.
+    expect((await versionsOf(plan, owner)).map((version) => version.reason)).toEqual(['generated']);
+
+    const rejected = await batch(projectId, { risks: 'Zeit' }, 'update');
+    await post(`${plan}/suggestions/${rejected.risks ?? ''}/reject`, owner);
+    expect(await versionsOf(plan, owner)).toHaveLength(1);
+
+    // Nobody touched the plan since the last version: only the updated plan is kept.
+    const update = await batch(projectId, { tech: 'React und Node' }, 'update');
+    await post(`${plan}/suggestions/${update.tech ?? ''}/accept`, owner);
+    expect((await versionsOf(plan, owner)).map((version) => version.reason)).toEqual([
+      'updated',
+      'generated',
+    ]);
+  });
+
+  it('are read by every member and by nobody else', async () => {
+    const { owner, projectId, plan } = await createProject();
+    const viewer = await member(projectId, 'viewer');
+    await batch(projectId, { scope: 'Umfang' });
+    await post(`${plan}/suggestions/accept`, owner);
+    const [version] = await versionsOf(plan, viewer);
+
+    expect((await versionText(plan, viewer, version?.id ?? '')).text).toBe(
+      '## MVP-Umfang\n\nUmfang',
+    );
+    const stranger = await test.signIn();
+    expect((await request(`${plan}/versions`, stranger)).status).toBe(404);
+    expect((await request(`${plan}/versions/${version?.id ?? ''}`, stranger)).status).toBe(404);
+    expect((await request(`${plan}/versions`, null)).status).toBe(401);
+    expect((await request(`${plan}/versions/nope`, owner)).status).toBe(404);
+    // A version belongs to its project.
+    const other = await createProject('Anderes');
+    expect((await request(`${other.plan}/versions/${version?.id ?? ''}`, other.owner)).status).toBe(
+      404,
+    );
   });
 });

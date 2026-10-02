@@ -60,6 +60,8 @@ export const awaySummarySchema = z.object({
   decisions: z.array(awayDecisionSchema),
   /** How many criteria were added, changed or removed. */
   criteriaChanges: z.number().int().min(0),
+  /** How many versions of the plan were kept (spec 25c). */
+  planVersions: z.number().int().min(0).default(0),
   boards: z.array(awayBoardSchema),
   messages: z.object({
     count: z.number().int().min(0),

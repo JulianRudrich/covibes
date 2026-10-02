@@ -183,10 +183,21 @@ export function awayRoutes(db: AppDb, auth: Auth, documents: Pick<BoardDocuments
         )
       ).filter(({ changes, isNew }) => isNew || changes.length > 0);
 
+      // The versions of the plan that were kept in the meantime (spec 25c).
+      const versions = await trx
+        .selectFrom('plan_versions')
+        .select((eb) => eb.fn.countAll<string>().as('count'))
+        .where('project_id', '=', projectId.data)
+        .where('created_at', '>', period.from)
+        .where('created_at', '<=', period.until)
+        .executeTakeFirstOrThrow();
+      const planVersions = Number(versions.count);
+
       const messageCount = written.reduce((sum, row) => sum + Number(row.count), 0);
       if (
         decisions.length === 0 &&
         criteriaChanges === 0 &&
+        planVersions === 0 &&
         changedBoards.length === 0 &&
         messageCount === 0
       ) {
@@ -227,6 +238,7 @@ export function awayRoutes(db: AppDb, auth: Auth, documents: Pick<BoardDocuments
         textStatus,
         decisions,
         criteriaChanges,
+        planVersions,
         boards: changedBoards.map(({ board, changes, isNew }): AwayBoard => ({
           boardId: board.id,
           title: board.title,

@@ -114,7 +114,7 @@ async function createProject() {
 function suggestionsOf(projectId: string) {
   return test.db.admin
     .selectFrom('plan_suggestions')
-    .select(['section', 'status', 'content', 'run_id'])
+    .select(['section', 'status', 'content', 'run_id', 'kind', 'hand_edited'])
     .where('project_id', '=', projectId)
     .orderBy('created_at')
     .orderBy('section')
@@ -336,6 +336,187 @@ describe('generating the plan', () => {
     expect(await generatePlan(deps, { runId: randomUUID() })).toBe('gone');
     await expect(generatePlan(deps, {})).rejects.toThrow();
     expect(complete).not.toHaveBeenCalled();
+  });
+});
+
+describe('updating the plan (spec 25c)', () => {
+  /** Stores the plan as the collaboration server would. */
+  async function storePlan(projectId: string, sections: Record<string, string>) {
+    const doc = new Y.Doc();
+    for (const [section, markdown] of Object.entries(sections)) {
+      writePlanSection(doc, section as 'scope', planNodesFromMarkdown(markdown), 'de');
+    }
+    await test.db.adminPool.query(
+      `insert into yjs_documents (name, state) values ($1, $2)
+       on conflict (name) do update set state = excluded.state`,
+      [planDocumentName(projectId), Buffer.from(Y.encodeStateAsUpdate(doc))],
+    );
+  }
+
+  /** A project whose plan the moderator wrote two hours ago and the team accepted. */
+  async function projectWithPlan() {
+    const project = await createProject();
+    const { projectId } = project;
+    await test.db.adminPool.query(
+      `insert into ai_runs (project_id, agent_key, kind, status, created_at, finished_at)
+       values ($1, 'moderator', 'plan', 'done', now() - interval '2 hours', now() - interval '2 hours')`,
+      [projectId],
+    );
+    const written = {
+      scope: 'Mitgliederliste und Login.',
+      tech: 'React, gehostet auf einem eigenen Server.',
+      costs: 'Drei Monate.',
+    };
+    for (const [section, markdown] of Object.entries(written)) {
+      await test.db.adminPool.query(
+        `insert into plan_suggestions (project_id, section, content, status, decided_at)
+         values ($1, $2, $3, 'accepted', now() - interval '2 hours')`,
+        [projectId, section, JSON.stringify(planNodesFromMarkdown(markdown))],
+      );
+    }
+    // The team changed the costs by hand and wrote the risks itself.
+    await storePlan(projectId, {
+      ...written,
+      costs: 'Vier Monate, weil wir nur abends arbeiten.',
+      risks: 'Wenig Zeit.',
+    });
+    return project;
+  }
+
+  async function startUpdate(projectId: string) {
+    const run = await test.db.adminPool.query<{ id: string }>(
+      `insert into ai_runs (project_id, agent_key, kind, status)
+       values ($1, 'moderator', 'plan', 'queued') returning id`,
+      [projectId],
+    );
+    return { runId: run.rows[0]?.id ?? '', kind: 'update' };
+  }
+
+  it('tells the moderator what changed and which sections people wrote by hand', async () => {
+    const { projectId } = await projectWithPlan();
+    await test.db.adminPool.query(
+      `insert into decision_log (project_id, kind, topic, value, details, created_at) values
+        ($1, 'decided', 'Sprache', 'TypeScript', '{}', now() - interval '5 hours'),
+        ($1, 'reopened', 'Hosting', 'Eigener Server', '{"reason": "Zu viel Wartung"}', now() - interval '50 minutes'),
+        ($1, 'decided', 'Hosting', 'Verwalteter Dienst', '{}', now() - interval '40 minutes'),
+        ($1, 'criterion_changed', null, 'MVP in 4 Monaten', '{"previous": "MVP in 3 Monaten"}', now() - interval '30 minutes'),
+        ($1, 'criterion_added', null, 'EU-Hosting', '{}', now() - interval '20 minutes')`,
+      [projectId],
+    );
+    const { deps, complete } = planDeps(
+      [
+        '<section key="tech">React, gehostet bei einem verwalteten Dienst.</section>',
+        // The model returns a section it did not change; that is no suggestion.
+        '<section key="scope">Mitgliederliste und Login.</section>',
+        '<section key="costs">Vier Monate, weil wir nur abends arbeiten. Der Dienst kostet etwas.</section>',
+      ].join('\n'),
+    );
+
+    expect(await generatePlan(deps, await startUpdate(projectId))).toBe('done');
+
+    const asked = complete.mock.calls[0]?.[0];
+    expect(asked?.system).toContain('You bring the plan up to date');
+    const prompt = asked?.prompt ?? '';
+    expect(prompt).toContain(
+      [
+        '<changes>',
+        'What changed since the plan was last written, oldest first:',
+        '- reopened: Hosting (it was: Eigener Server), reason: Zu viel Wartung',
+        '- decided: Hosting: Verwalteter Dienst',
+        '- criterion changed: MVP in 3 Monaten → MVP in 4 Monaten',
+        '- criterion added: EU-Hosting',
+        '</changes>',
+      ].join('\n'),
+    );
+    // What was decided before the plan was written is no change.
+    expect(prompt).not.toContain('TypeScript');
+    expect(prompt).toContain(
+      'People changed these sections by hand since you last wrote them: risks, costs.',
+    );
+    expect(prompt).toContain('The plan as it stands:\n## MVP-Umfang');
+
+    const suggestions = await suggestionsOf(projectId);
+    expect(
+      suggestions
+        .filter((entry) => entry.status === 'open')
+        .map((entry) => [entry.section, entry.kind, entry.hand_edited]),
+    ).toEqual([
+      ['costs', 'update', true],
+      ['tech', 'update', false],
+    ]);
+  });
+
+  it('leaves the open suggestions of other sections and replaces the one of its own', async () => {
+    const { projectId } = await projectWithPlan();
+    await test.db.adminPool.query(
+      `insert into plan_suggestions (project_id, section, content) values
+        ($1, 'milestones', '[]'), ($1, 'tech', '[]')`,
+      [projectId],
+    );
+    await test.db.adminPool.query(
+      `insert into decision_log (project_id, kind, topic, value) values ($1, 'decided', 'Hosting', 'Dienst')`,
+      [projectId],
+    );
+    const { deps } = planDeps('<section key="tech">React bei einem Dienst.</section>');
+
+    await generatePlan(deps, await startUpdate(projectId));
+
+    const open = (await suggestionsOf(projectId))
+      .filter((entry) => entry.status !== 'accepted')
+      .map((entry) => `${entry.section} ${entry.status} ${entry.kind}`)
+      .sort();
+    expect(open).toEqual([
+      'milestones open generate',
+      'tech open update',
+      'tech replaced generate',
+    ]);
+  });
+
+  it('finds the plan current when nothing has to change', async () => {
+    const { projectId } = await projectWithPlan();
+    const payload = await startUpdate(projectId);
+    const { deps } = planDeps('unchanged');
+
+    expect(await generatePlan(deps, payload)).toBe('current');
+
+    expect(await runOf(payload.runId)).toMatchObject({ status: 'done', error: null });
+    expect((await suggestionsOf(projectId)).filter((entry) => entry.status === 'open')).toEqual([]);
+    // Without any change in the log the context says so.
+    const { deps: again, complete } = planDeps('unchanged');
+    await generatePlan(again, await startUpdate(projectId));
+    expect(complete.mock.calls[0]?.[0].prompt).toContain(
+      'What changed since the plan was last written, oldest first:\n\n</changes>',
+    );
+  });
+
+  it('is a generation while there is no plan to update', async () => {
+    const { projectId } = await createProject();
+    const { deps, complete } = planDeps(ANSWER);
+
+    expect(await generatePlan(deps, await startUpdate(projectId))).toBe('done');
+
+    expect(complete.mock.calls[0]?.[0].system).toContain(
+      'The team asked you to write its project plan',
+    );
+    expect(complete.mock.calls[0]?.[0].prompt).not.toContain('<changes>');
+    const suggestions = await suggestionsOf(projectId);
+    expect(suggestions).toHaveLength(5);
+    expect(suggestions.every((entry) => entry.kind === 'generate' && !entry.hand_edited)).toBe(
+      true,
+    );
+  });
+
+  it('marks what the team wrote itself, also in a generation', async () => {
+    const { projectId, start } = await createProject();
+    await storePlan(projectId, { scope: 'Nur für unseren Verein.' });
+    const runId = await start();
+
+    await generatePlan(planDeps(ANSWER).deps, { runId });
+
+    const edited = (await suggestionsOf(projectId))
+      .filter((entry) => entry.hand_edited)
+      .map((entry) => entry.section);
+    expect(edited).toEqual(['scope']);
   });
 });
 

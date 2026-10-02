@@ -136,9 +136,11 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - The result arrives per section as `plan_suggestions`; a generation is a run of the kind `plan`, one at a time per project.
   - Owners and editors accept or reject the suggestions. Accepting decides in the database and writes the section into the Y.Doc in the same transaction, through the collaboration server.
   - The server reads and writes the document in the form Tiptap stores it (`packages/shared`, `plan-doc.ts`), without an editor.
-  - Manual edits are preserved (spec 25c).
+- The plan is outdated (spec 25c) when the decision log has entries after the moderator last wrote it: decisions made or reopened, criteria changed. The state of the plan says so; it is computed when asked and stored nowhere.
+- An update is a generation that also reads what changed and which sections were changed by hand, and suggests only the affected sections. A section counts as changed by hand when it differs from the suggestion last accepted for it. Nothing enters the plan without someone accepting it, so manual edits are never overwritten unseen.
+- Texts of the plan are compared by line (`packages/shared`, `plan-diff.ts`): what a suggestion changes in its section, and what differs between versions.
+- `plan_versions` keeps the plan as it stood before the first suggestion of a run is accepted, and as it stands once the suggestions of a run are all decided. Both are written in the transaction that writes the plan. Versions are read and compared, not restored.
 - Every agent's context holds the plan as Markdown, read from what the collaboration server last stored.
-- Every update creates a snapshot in `plan_versions`.
 - The roadmap is derived from the plan's milestones. The plan is the source.
 
 ### Agents
@@ -253,7 +255,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `invitations`, `share_links` | invitations by link or email with role, expiry, uses and the hash of the token; the read-only link of a project (one row, the hash of its token) |
 | `project_people` | everyone who is or was a member of a project, so former members keep their name |
 | `boards`, `yjs_documents` | boards and storage of the Y.Docs: the canvas of every board and the plan of every project |
-| `plan_suggestions`, `plan_versions` | the moderator's suggestions per section of the plan with their status; versions of the plan (spec 25c). The plan itself is a document in `yjs_documents` |
+| `plan_suggestions`, `plan_versions` | the moderator's suggestions per section of the plan with their status, whether they come from a generation or an update and whether their section was changed by hand; the versions of the plan with why each was kept (spec 25c). The plan itself is a document in `yjs_documents` |
 | `messages` | chat: author (human or agent), mentioned agents and people, block references |
 | `custom_agents`, `project_agents` | custom agents (personal or shared in a project); team per project. Catalog agents are defined in code |
 | `agent_knowledge` | the knowledge of a custom agent: files (content in the file storage) and links with a note |

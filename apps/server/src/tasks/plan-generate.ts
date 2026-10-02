@@ -1,10 +1,14 @@
 import type { DB } from '@covibes/db';
 import {
   PLAN_SECTIONS,
+  planNodeSchema,
   planNodesFromMarkdown,
+  planNodesToMarkdown,
   planToMarkdown,
   readEdges,
   readNodes,
+  readPlanSections,
+  samePlanText,
   type PlanLanguage,
   type PlanNode,
   type PlanSection,
@@ -26,17 +30,26 @@ import { describeCanvas } from '@server/tasks/agent-turn';
 import { loadDecisionContext, type DecisionContext } from '@server/tasks/run-decisions';
 import { loadTeam } from '@server/tasks/run-team';
 
-/** Name of the job the database queues for "Plan erzeugen" (migration 0023). */
+/** Name of the job the database queues for "Plan erzeugen" and "Aktualisieren" (migration 0024). */
 export const PLAN_GENERATE_TASK = 'plan_generate';
 
 /** The latest messages of the conversation the moderator reads for the plan. */
 const CONTEXT_MESSAGES = 40;
 /** A longer message is cut: the plan needs what was said, not every word. */
 const MESSAGE_MAX_CHARS = 500;
+/** Changes an update is told about; older ones are counted. */
+const MAX_CHANGES = 30;
 
 const PLAN_PROMPT = loadPrompt('plan');
+const PLAN_UPDATE_PROMPT = loadPrompt('plan-update');
 
-const payloadSchema = z.object({ runId: z.uuid() });
+const payloadSchema = z.object({
+  runId: z.uuid(),
+  /** Jobs queued before updates existed have no kind and generate. */
+  kind: z.enum(['generate', 'update']).default('generate'),
+});
+
+const storedContentSchema = z.array(planNodeSchema);
 
 export type PlanGenerateDeps = {
   /** Role covibes_admin: the worker reads the project and writes the suggestions. */
@@ -54,13 +67,16 @@ export type PlanGenerateDeps = {
   signal?: AbortSignal;
 };
 
-/** `gone`: no run waits (finished, or deleted with its project). */
-export type PlanGenerateOutcome = 'gone' | 'failed' | 'done';
+/**
+ * `gone`: no run waits (finished, or deleted with its project); `current`: an update found
+ * nothing in the plan to change.
+ */
+export type PlanGenerateOutcome = 'gone' | 'failed' | 'done' | 'current';
 
 /** Text from people is data: it must not close the sections the prompt is built from. */
 function asData(text: string): string {
   return text.replace(
-    /<(\/?)(criteria|decisions|canvas|chat|plan|section)\b([^<>]*)>/gi,
+    /<(\/?)(criteria|decisions|changes|manual|canvas|chat|plan|section)\b([^<>]*)>/gi,
     '‹$1$2$3›',
   );
 }
@@ -69,6 +85,16 @@ function oneLine(text: string, max: number): string {
   const line = text.replace(/\s+/g, ' ').trim();
   return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
+
+/** What an update brings the plan up to date with (spec 25c). */
+export type PlanUpdateContext = {
+  /** What the decision log recorded since the plan was last written, oldest first. */
+  changes: readonly string[];
+  /** Changes of the period that are older than the ones given. */
+  earlierChanges: number;
+  /** The sections people changed by hand since the moderator last wrote them. */
+  handEdited: readonly PlanSection[];
+};
 
 export type PlanContext = {
   projectName: string;
@@ -80,9 +106,11 @@ export type PlanContext = {
   messages: readonly { author: string; content: string }[];
   /** The plan as it stands, as Markdown; empty for an empty plan. */
   plan: string;
+  /** For an update only. */
+  update?: PlanUpdateContext;
 };
 
-/** The context of a generation as one text; the instructions come as the system prompt. */
+/** The context of a generation or update as one text; the instructions come as the system prompt. */
 export function buildPlanPrompt(context: PlanContext): string {
   const criteria =
     context.decisions.criteria.length > 0
@@ -112,9 +140,24 @@ export function buildPlanPrompt(context: PlanContext): string {
           .map((message) => `${message.author}: ${oneLine(message.content, MESSAGE_MAX_CHARS)}`)
           .join('\n')
       : 'Nobody has written yet.';
+  const { update } = context;
   return [
     `Project: ${asData(context.projectName)}`,
     `Write in: ${context.language === 'en' ? 'English' : 'German'}`,
+    ...(update
+      ? [
+          `<changes>\nWhat changed since the plan was last written, oldest first:\n${
+            update.earlierChanges > 0
+              ? `(${String(update.earlierChanges)} earlier changes are not listed; the decisions below show how they stand.)\n`
+              : ''
+          }${asData(update.changes.join('\n'))}\n</changes>`,
+          `<manual>\n${
+            update.handEdited.length > 0
+              ? `People changed these sections by hand since you last wrote them: ${update.handEdited.join(', ')}.`
+              : 'No section was changed by hand since you last wrote it.'
+          }\n</manual>`,
+        ]
+      : []),
     `<criteria>\n${asData(criteria)}\n</criteria>`,
     `<decisions>\n${
       decisions.length > 0 ? asData(decisions.join('\n')) : 'Nothing is decided yet.'
@@ -151,17 +194,47 @@ export function parsePlanAnswer(answer: string): { section: PlanSection; content
   });
 }
 
+/** A change of the decision log as a line for the update. */
+function describeChange(entry: {
+  kind: string;
+  topic: string | null;
+  value: string | null;
+  details: unknown;
+}): string {
+  const details = (entry.details ?? {}) as { reason?: unknown; previous?: unknown };
+  const text = (value: unknown) => (typeof value === 'string' && value !== '' ? value : undefined);
+  switch (entry.kind) {
+    case 'decided':
+      return `- decided: ${entry.topic ?? ''}: ${entry.value ?? ''}`;
+    case 'reopened': {
+      const reason = text(details.reason);
+      return `- reopened: ${entry.topic ?? ''} (it was: ${entry.value ?? '?'})${
+        reason ? `, reason: ${reason}` : ''
+      }`;
+    }
+    case 'criterion_added':
+      return `- criterion added: ${entry.value ?? ''}`;
+    case 'criterion_removed':
+      return `- criterion removed: ${entry.value ?? ''}`;
+    case 'criterion_changed':
+      return `- criterion changed: ${text(details.previous) ?? '?'} → ${entry.value ?? ''}`;
+    default:
+      return `- ${entry.kind}: ${entry.topic ?? entry.value ?? ''}`;
+  }
+}
+
 /**
- * One generation of the plan (spec 25b): the moderator's model writes the five sections from the
- * criteria, the decisions, the boards, the conversation and the plan as it stands. The result is
- * stored as one open suggestion per section, in place of the open ones from before; nothing is
- * written into the plan itself. The run is metered, also when it fails.
+ * One generation or update of the plan (specs 25b and 25c). The moderator's model writes sections
+ * from the criteria, the decisions, the boards, the conversation and the plan as it stands: all
+ * five for a generation, only those a change affects for an update. The result is stored as one
+ * open suggestion per section, in place of an open one for the same section; nothing is written
+ * into the plan itself. The run is metered, also when it fails.
  */
 export async function generatePlan(
   deps: PlanGenerateDeps,
   payload: unknown,
 ): Promise<PlanGenerateOutcome> {
-  const { runId } = payloadSchema.parse(payload);
+  const { runId, kind: wanted } = payloadSchema.parse(payload);
   const { admin } = deps;
 
   const run = await admin
@@ -170,37 +243,85 @@ export async function generatePlan(
     .where('id', '=', runId)
     .where('kind', '=', 'plan')
     .where('status', '=', 'queued')
-    .returning('project_id')
+    .returning(['project_id', 'created_at'])
     .executeTakeFirst();
   if (!run) return 'gone';
   const projectId = run.project_id;
 
   try {
-    const [project, team, decisions, boardRows, messageRows, plan] = await Promise.all([
-      admin
-        .selectFrom('projects')
-        .select(['name', 'language'])
-        .where('id', '=', projectId)
-        .executeTakeFirstOrThrow(),
-      loadTeam(admin, projectId),
-      loadDecisionContext(admin, projectId),
-      admin
-        .selectFrom('boards')
-        .select(['id', 'title', 'kind'])
-        .where('project_id', '=', projectId)
-        .orderBy('kind', 'desc') // 'main' before 'extra'
-        .orderBy('position')
-        .orderBy('created_at')
-        .execute(),
-      selectMessages(admin)
-        .where('messages.project_id', '=', projectId)
-        .where('messages.status', '=', 'complete')
-        .orderBy('messages.created_at', 'desc')
-        .orderBy('messages.id', 'desc')
-        .limit(CONTEXT_MESSAGES)
-        .execute(),
-      readStoredPlan(admin, projectId, planToMarkdown),
-    ]);
+    const [project, team, decisions, boardRows, messageRows, plan, written, accepted] =
+      await Promise.all([
+        admin
+          .selectFrom('projects')
+          .select(['name', 'language'])
+          .where('id', '=', projectId)
+          .executeTakeFirstOrThrow(),
+        loadTeam(admin, projectId),
+        loadDecisionContext(admin, projectId),
+        admin
+          .selectFrom('boards')
+          .select(['id', 'title', 'kind'])
+          .where('project_id', '=', projectId)
+          .orderBy('kind', 'desc') // 'main' before 'extra'
+          .orderBy('position')
+          .orderBy('created_at')
+          .execute(),
+        selectMessages(admin)
+          .where('messages.project_id', '=', projectId)
+          .where('messages.status', '=', 'complete')
+          .orderBy('messages.created_at', 'desc')
+          .orderBy('messages.id', 'desc')
+          .limit(CONTEXT_MESSAGES)
+          .execute(),
+        readStoredPlan(admin, projectId, (doc) => ({
+          markdown: planToMarkdown(doc),
+          sections: readPlanSections(doc),
+        })),
+        // The run the plan was last written or updated by.
+        admin
+          .selectFrom('ai_runs')
+          .select('created_at')
+          .where('project_id', '=', projectId)
+          .where('kind', '=', 'plan')
+          .where('status', '=', 'done')
+          .orderBy('created_at', 'desc')
+          .limit(1)
+          .executeTakeFirst(),
+        // What the moderator last wrote into each section, newest first.
+        admin
+          .selectFrom('plan_suggestions')
+          .select(['section', 'content'])
+          .where('project_id', '=', projectId)
+          .where('status', '=', 'accepted')
+          .orderBy('decided_at', 'desc')
+          .execute(),
+      ]);
+
+    // A section is changed by hand when it says something else than what the moderator last
+    // wrote into it; a section the moderator never wrote is the team's own if it holds text.
+    const handEdited = PLAN_SECTIONS.filter((section) => {
+      const current = plan.sections[section] ?? [];
+      const last = accepted.find((row) => row.section === section);
+      if (!last) return planNodesToMarkdown(current) !== '';
+      const content = storedContentSchema.safeParse(last.content);
+      return !content.success || !samePlanText(current, content.data);
+    });
+
+    // Without a plan to update, an update is a generation.
+    const kind = wanted === 'update' && written && plan.markdown !== '' ? 'update' : 'generate';
+    const log =
+      kind === 'update' && written
+        ? await admin
+            .selectFrom('decision_log')
+            .select(['kind', 'topic', 'value', 'details'])
+            .where('project_id', '=', projectId)
+            .where('created_at', '>', written.created_at)
+            .where('created_at', '<=', run.created_at)
+            .orderBy('created_at')
+            .orderBy('id')
+            .execute()
+        : [];
+
     const boards = (
       await Promise.all(
         boardRows.map(async (board) => {
@@ -230,7 +351,7 @@ export async function generatePlan(
 
     const result = await deps.complete({
       model: model ?? MODERATOR.model,
-      system: PLAN_PROMPT,
+      system: kind === 'update' ? PLAN_UPDATE_PROMPT : PLAN_PROMPT,
       prompt: buildPlanPrompt({
         projectName: project.name,
         language,
@@ -245,18 +366,33 @@ export async function generatePlan(
                 'Agent'),
           content: message.content,
         })),
-        plan,
+        plan: plan.markdown,
+        ...(kind === 'update'
+          ? {
+              update: {
+                changes: log.slice(-MAX_CHANGES).map(describeChange),
+                earlierChanges: Math.max(0, log.length - MAX_CHANGES),
+                handEdited,
+              },
+            }
+          : {}),
       }),
       signal: deps.signal,
     });
 
-    const sections = parsePlanAnswer(result.text);
+    // An update only suggests what really changes a section.
+    const sections = parsePlanAnswer(result.text).filter(
+      ({ section, content }) =>
+        kind === 'generate' || !samePlanText(plan.sections[section] ?? [], content),
+    );
+    // A generation without a section is no plan; an update without one found the plan current.
+    const failed = kind === 'generate' && sections.length === 0;
     await admin.transaction().execute(async (trx) => {
       await trx
         .updateTable('ai_runs')
         .set({
-          status: sections.length > 0 ? 'done' : 'error',
-          error: sections.length > 0 ? null : 'The model wrote no section of the plan',
+          status: failed ? 'error' : 'done',
+          error: failed ? 'The model wrote no section of the plan' : null,
           provider: result.provider,
           model: result.model,
           input_tokens:
@@ -268,12 +404,20 @@ export async function generatePlan(
         .where('id', '=', runId)
         .execute();
       if (sections.length > 0) {
-        // A new generation takes the place of what the one before left open.
+        // A new suggestion takes the place of what was open: all of it after a generation, the
+        // same sections after an update.
         await trx
           .updateTable('plan_suggestions')
           .set({ status: 'replaced', decided_at: sql`now()` })
           .where('project_id', '=', projectId)
           .where('status', '=', 'open')
+          .$if(kind === 'update', (query) =>
+            query.where(
+              'section',
+              'in',
+              sections.map(({ section }) => section),
+            ),
+          )
           .execute();
         await trx
           .insertInto('plan_suggestions')
@@ -283,17 +427,19 @@ export async function generatePlan(
               run_id: runId,
               section,
               content: JSON.stringify(content),
+              kind,
+              hand_edited: handEdited.includes(section),
             })),
           )
           .execute();
       }
       await notifyLive(trx, { kind: 'plan', projectId });
     });
-    if (sections.length === 0) {
+    if (failed) {
       deps.logger.error(`The plan of project ${projectId} came back without a section`);
       return 'failed';
     }
-    return 'done';
+    return sections.length > 0 ? 'done' : 'current';
   } catch (error) {
     await admin
       .updateTable('ai_runs')

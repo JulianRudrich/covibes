@@ -20,6 +20,7 @@ import { Sparkle } from '@web/features/canvas/node-chrome';
 import { useCollabDoc } from '@web/features/canvas/use-board-doc';
 import { PlanSections } from '@web/features/plan/plan-sections';
 import { PlanToolbar } from '@web/features/plan/plan-toolbar';
+import { usePlanText, type PlanText } from '@web/features/plan/use-plan-text';
 
 type PlanEditorProps = {
   projectId: string;
@@ -28,8 +29,13 @@ type PlanEditorProps = {
   readOnly: boolean;
   /** The project's language, in which the template is written. */
   language: PlanLanguage;
-  /** Shown above the document, e.g. the moderator's suggestions (spec 25b). */
-  above?: ReactNode;
+  /**
+   * Shown above the document, e.g. the moderator's suggestions (spec 25b). It gets the plan as it
+   * stands, to compare with (spec 25c).
+   */
+  above?: (plan: PlanText) => ReactNode;
+  /** At the right end of the toolbar, before "Plan erzeugen": e.g. "Versionen" (spec 25c). */
+  toolbarEnd?: (plan: PlanText) => ReactNode;
   /**
    * "Plan erzeugen" (spec 25b), for owners and editors. `busy` says that the moderator writes or
    * that its suggestions wait; then the button rests and an empty plan needs no start help.
@@ -89,6 +95,7 @@ function PlanDocument({
   readOnly,
   language,
   above,
+  toolbarEnd,
   generation,
 }: Omit<PlanEditorProps, 'projectId'> & { connection: BoardConnection }) {
   const { t } = useTranslation();
@@ -134,25 +141,37 @@ function PlanDocument({
   }, [editor, readOnly]);
 
   const empty = useEditorState({ editor, selector: ({ editor: current }) => current.isEmpty });
+  const plan = usePlanText(connection.doc);
+  const extra = toolbarEnd?.(plan);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {readOnly ? null : (
+      {readOnly ? (
+        // Viewers format nothing, but read the versions.
+        extra ? (
+          <div className="flex shrink-0 justify-end border-b border-border-subtle px-3 py-1.5">
+            {extra}
+          </div>
+        ) : null
+      ) : (
         <PlanToolbar
           editor={editor}
           end={
-            generation ? (
-              <Button size="s" disabled={generation.busy} onClick={generation.onGenerate}>
-                <Sparkle />
-                {t('plan.generate')}
-              </Button>
-            ) : null
+            <>
+              {extra}
+              {generation ? (
+                <Button size="s" disabled={generation.busy} onClick={generation.onGenerate}>
+                  <Sparkle />
+                  {t('plan.generate')}
+                </Button>
+              ) : null}
+            </>
           }
         />
       )}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-10 py-8">
-          {above}
+          {above?.(plan)}
           {empty && !generation?.busy ? (
             <div className="flex flex-col items-start gap-2.5 rounded-card border border-border bg-bg-subtle p-4">
               <div className="text-ui font-semibold text-text">{t('plan.empty.title')}</div>

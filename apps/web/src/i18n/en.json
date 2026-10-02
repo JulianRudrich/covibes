@@ -727,6 +727,8 @@
     "writing": "Summing up the conversation for you …",
     "decided": "Decided: <b>{{topic}}</b> – {{value}}",
     "reopened": "Reopened: <b>{{topic}}</b>",
+    "planVersions_one": "{{count}} new version of the project plan",
+    "planVersions_other": "{{count}} new versions of the project plan",
     "criteria_one": "{{count}} criterion changed",
     "criteria_other": "{{count}} criteria changed",
     "board_one": "<b>{{title}}</b>: {{count}} change by {{names}}",
@@ -763,10 +765,53 @@
       "count_one": "{{count}} suggestion for the plan",
       "count_other": "{{count}} suggestions for the plan",
       "kind": "Suggestion",
+      "kindUpdate": "Update",
+      "handEdited": "This section was changed by hand. Check that your changes are kept.",
+      "showChanges": "Show changes",
+      "showText": "Show the whole text",
+      "changesFor": "Switch the view for \"{{section}}\"",
       "for": "Suggestion for \"{{section}}\"",
       "acceptFor": "Accept \"{{section}}\"",
       "rejectFor": "Reject \"{{section}}\"",
       "acceptAll": "Accept all"
+    },
+    "outdated": {
+      "title": "The plan is out of date",
+      "since": "Since it was last written: {{changes}}.",
+      "decided": "\"{{topic}}\" was decided",
+      "reopened": "\"{{topic}}\" was reopened",
+      "criteria": "the criteria changed",
+      "more_one": "{{count}} more change",
+      "more_other": "{{count}} more changes",
+      "update": "Update",
+      "dot": "out of date"
+    },
+    "upToDate": "The moderator checked the plan: nothing has to change.",
+    "diff": {
+      "none": "No differences.",
+      "removed": "removed",
+      "added": "new",
+      "unchanged_one": "… show {{count}} unchanged line",
+      "unchanged_other": "… show {{count}} unchanged lines"
+    },
+    "versions": {
+      "button": "Versions",
+      "title": "Versions of the plan",
+      "list": "Versions",
+      "empty": "No versions yet. A version is kept once suggestions of the moderator are decided.",
+      "number": "Version {{number}}",
+      "reason": {
+        "generated": "After generating",
+        "updated": "After the update",
+        "manual": "Changed by hand"
+      },
+      "show": "View",
+      "view": {
+        "text": "Text",
+        "current": "Changes since this version",
+        "previous": "Changes compared with version {{number}}"
+      },
+      "loading": "Loading the version …"
     },
     "waiting_one": "{{count}} section for the project plan waits for you.",
     "waiting_other": "{{count}} sections for the project plan wait for you.",

@@ -15,7 +15,12 @@ function inline(nodes: readonly PlanNode[] = []): ReactNode {
 function block(node: PlanNode, key: number): ReactNode {
   switch (node.type) {
     case 'heading':
-      return <h3 key={key}>{inline(node.content)}</h3>;
+      // The headings of the sections are one level above the headings inside them.
+      return node.attrs?.level === 2 ? (
+        <h2 key={key}>{inline(node.content)}</h2>
+      ) : (
+        <h3 key={key}>{inline(node.content)}</h3>
+      );
     case 'bulletList':
       return <ul key={key}>{(node.content ?? []).map(block)}</ul>;
     case 'orderedList':
@@ -28,8 +33,8 @@ function block(node: PlanNode, key: number): ReactNode {
 }
 
 /**
- * Text of the plan outside the editor (spec 25b: a suggestion before anyone accepts it), in the
- * look of the plan's document.
+ * Text of the plan outside the editor, in the look of the plan's document: a suggestion before
+ * anyone accepts it (spec 25b), or a version of the whole plan with its sections (spec 25c).
  */
 export function PlanContent({ nodes }: { nodes: readonly PlanNode[] }) {
   return <div className="plan-doc plan-doc-preview">{nodes.map(block)}</div>;

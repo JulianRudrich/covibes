@@ -44,6 +44,8 @@ export function useProjectLive(projectId: string, userId?: string) {
     if (queryClient.getQueryState(decisionLogQueryKey(projectId))) {
       reload(decisionLogQueryKey(projectId));
     }
+    // A changed decision or criterion can leave the plan outdated (spec 25c).
+    reload(planStateQueryKey(projectId));
   }
 
   useLiveChannel(projectId, {

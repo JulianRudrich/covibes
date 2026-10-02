@@ -116,6 +116,10 @@ export const planSuggestionSchema = z.object({
   section: z.enum(PLAN_SECTIONS),
   content: z.array(planNodeSchema),
   createdAt: z.string(),
+  /** From a generation of the whole plan, or from an update after something changed (spec 25c). */
+  kind: z.enum(['generate', 'update']).default('generate'),
+  /** People changed the section by hand since the moderator last wrote it. */
+  handEdited: z.boolean().default(false),
 });
 export type PlanSuggestion = z.infer<typeof planSuggestionSchema>;
 
@@ -130,7 +134,44 @@ export type PlanState = {
   /** The moderator is writing the plan right now. */
   generating: boolean;
   failure: { kind: 'quota' | 'failed'; resetsAt: string | null } | null;
+  /**
+   * Decisions or criteria changed since the moderator last wrote or updated the plan (spec 25c):
+   * what changed, the newest first, and how many more changes there are. Null while the plan is
+   * current or was never generated.
+   */
+  outdated: { changes: PlanChange[]; more: number } | null;
+  /** The latest update found nothing to change; shown until something else happens. */
+  upToDate: boolean;
 };
+
+/** A change of the project the plan does not know yet. */
+export type PlanChange = {
+  kind: 'decided' | 'reopened' | 'criteria';
+  /** The topic of the decision; null for a change of the criteria. */
+  topic: string | null;
+};
+
+/** Why a version of the plan was kept (spec 25c). */
+export const PLAN_VERSION_REASONS = ['generated', 'updated', 'manual'] as const;
+export type PlanVersionReason = (typeof PLAN_VERSION_REASONS)[number];
+
+/**
+ * A version of the plan (`GET /api/projects/:projectId/plan/versions`, newest first): `generated`
+ * and `updated` once the suggestions of a generation or update were decided, `manual` for the
+ * state before the first suggestion was written into a plan people had changed by hand.
+ */
+export const planVersionSchema = z.object({
+  id: z.uuid(),
+  number: z.number().int().positive(),
+  reason: z.enum(PLAN_VERSION_REASONS),
+  createdAt: z.string(),
+  /** Who accepted the suggestion that led to the version; null once the account is gone. */
+  createdBy: z.string().nullable(),
+});
+export type PlanVersion = z.infer<typeof planVersionSchema>;
+
+/** `GET …/plan/versions/:versionId`: a version with the plan as it stood. */
+export type PlanVersionContent = PlanVersion & { content: PlanNode[] };
 
 /** What belongs in a section, in the project's language; the editor shows it while it is empty. */
 export function planSectionHint(section: PlanSection, language: PlanLanguage): string {

@@ -347,6 +347,15 @@ export {
   type OpenVote,
 } from './notifications';
 export {
+  diffPlan,
+  diffPlanLines,
+  foldPlanDiff,
+  planLines,
+  samePlanText,
+  type PlanDiffFold,
+  type PlanDiffLine,
+} from './plan-diff';
+export {
   isPlanEmpty,
   planToMarkdown,
   readPlan,
@@ -369,12 +378,18 @@ export {
   planSectionTitle,
   planSuggestionSchema,
   planTemplate,
+  planVersionSchema,
   projectIdFromPlanDocumentName,
+  PLAN_VERSION_REASONS,
+  type PlanChange,
   type PlanLanguage,
   type PlanNode,
   type PlanSection,
   type PlanState,
   type PlanSuggestion,
+  type PlanVersion,
+  type PlanVersionContent,
+  type PlanVersionReason,
 } from './plan';
 export {
   FIRST_PHASE,

@@ -201,7 +201,7 @@ describe('PlanEditor', () => {
     const onGenerate = vi.fn();
     renderPlan({
       generation: { busy: true, onGenerate },
-      above: <p>Der Moderator schreibt den Plan …</p>,
+      above: () => <p>Der Moderator schreibt den Plan …</p>,
     });
     const document = await screen.findByRole('textbox', { name: 'Projektplan' });
 
@@ -220,5 +220,32 @@ describe('PlanEditor', () => {
     await screen.findByRole('textbox', { name: 'Projektplan' });
 
     expect(screen.queryByRole('button', { name: 'Plan erzeugen' })).not.toBeInTheDocument();
+  });
+
+  it('hands the plan as it stands to what shows above it and at the toolbar (spec 25c)', async () => {
+    renderPlan({
+      above: (plan) => <p>Abschnitte: {Object.keys(plan.sections).join(', ')}</p>,
+      toolbarEnd: (plan) => <span>Knoten: {plan.nodes.length}</span>,
+    });
+    await screen.findByRole('textbox', { name: 'Projektplan' });
+    expect(screen.getByText('Knoten: 0')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mit Vorlage beginnen' }));
+
+    // The comparison follows the document a moment after it changed.
+    expect(await screen.findByText('Knoten: 10')).toBeInTheDocument();
+    expect(screen.getByText('Abschnitte: scope, milestones, tech, risks, costs')).toBeVisible();
+    // It sits in the toolbar, before the place of "Plan erzeugen".
+    expect(
+      within(screen.getByRole('toolbar', { name: 'Formatierung' })).getByText('Knoten: 10'),
+    ).toBeInTheDocument();
+  });
+
+  it('gives viewers what stands at the toolbar without the toolbar', async () => {
+    renderPlan({ readOnly: true, toolbarEnd: () => <button type="button">Versionen</button> });
+    await screen.findByRole('textbox', { name: 'Projektplan' });
+
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Versionen' })).toBeInTheDocument();
   });
 });

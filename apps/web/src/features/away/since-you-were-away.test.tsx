@@ -30,6 +30,7 @@ const SUMMARY: AwaySummary = {
     },
   ],
   criteriaChanges: 2,
+  planVersions: 0,
   boards: [
     {
       boardId: MAIN,
@@ -165,5 +166,42 @@ describe('SinceYouWereAway', () => {
         .getAllByRole('listitem')
         .map((row) => row.textContent),
     ).toEqual(['1 Kriterium geändert', 'Haupt-Canvas: 1 Änderung', '1 neue Nachricht']);
+  });
+
+  it('counts the new versions of the plan and opens the plan from there (spec 25c)', () => {
+    const onOpenPlan = vi.fn();
+    render(
+      <SinceYouWereAway
+        summary={{ ...SUMMARY, planVersions: 2 }}
+        waiting={0}
+        onOpenDecision={vi.fn()}
+        onOpenBoard={vi.fn()}
+        onOpenPlan={onOpenPlan}
+        onDismiss={vi.fn()}
+      />,
+    );
+    const section = screen.getByRole('region', { name: 'Seit du weg warst' });
+
+    const rows = within(section)
+      .getAllByRole('listitem')
+      .map((row) => row.textContent);
+    // After the boards and before the messages.
+    expect(rows.indexOf('2 neue Versionen des Projektplans')).toBe(
+      rows.indexOf('Neues Board: Datenmodell') + 1,
+    );
+    fireEvent.click(
+      within(section).getByRole('button', { name: '2 neue Versionen des Projektplans' }),
+    );
+    expect(onOpenPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it('names a single version as text while the plan is open already', () => {
+    renderSection({ ...SUMMARY, planVersions: 1 });
+    const section = screen.getByRole('region', { name: 'Seit du weg warst' });
+
+    expect(section).toHaveTextContent('1 neue Version des Projektplans');
+    expect(
+      within(section).queryByRole('button', { name: /Version des Projektplans/ }),
+    ).not.toBeInTheDocument();
   });
 });

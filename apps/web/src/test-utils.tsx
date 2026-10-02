@@ -19,8 +19,8 @@ export function stubApi(routes: Record<string, Handler>) {
     const handler = routes[`${init?.method ?? 'GET'} ${url}`];
     const notFound: ApiErrorBody = { error: { code: 'not_found', message: 'Not found.' } };
     const { status = 200, body } = handler ? handler(init) : { status: 404, body: notFound };
-    // "No content" answers must not have a body.
-    if (status === 204) return Promise.resolve(new Response(null, { status }));
+    // "No content" answers must not have a body, and the server sends none with "accepted".
+    if (status === 204 || status === 202) return Promise.resolve(new Response(null, { status }));
     return Promise.resolve(
       new Response(JSON.stringify(body), {
         status,

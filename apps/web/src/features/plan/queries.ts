@@ -1,4 +1,4 @@
-import type { PlanState } from '@covibes/shared';
+import type { PlanState, PlanVersion, PlanVersionContent } from '@covibes/shared';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@web/lib/api';
@@ -22,6 +22,24 @@ export function planStateQuery(projectId: string) {
   });
 }
 
+/** The versions of the plan (spec 25c), newest first; loaded whenever the dialog opens. */
+export function planVersionsQuery(projectId: string) {
+  return queryOptions({
+    queryKey: [...planStateQueryKey(projectId), 'versions'] as const,
+    queryFn: () => api<PlanVersion[]>(`${base(projectId)}/versions`),
+  });
+}
+
+/** One version with the plan as it stood; a version never changes. */
+export function planVersionQuery(projectId: string, versionId: string) {
+  return queryOptions({
+    queryKey: [...planStateQueryKey(projectId), 'versions', versionId] as const,
+    queryFn: () =>
+      api<PlanVersionContent>(`${base(projectId)}/versions/${encodeURIComponent(versionId)}`),
+    staleTime: Infinity,
+  });
+}
+
 export type PlanDecision =
   | { suggestionId: string; decision: 'accept' | 'reject' }
   | { suggestionId: null; decision: 'accept' };
@@ -40,9 +58,12 @@ export function usePlanActions(projectId: string, onFailed: () => void) {
     queryClient.setQueryData<PlanState>(queryKey, (state) => state && update(state));
   };
 
-  const generate = useMutation({
-    mutationFn: () => api<undefined>(`${base(projectId)}/generate`, { method: 'POST' }),
-    onMutate: () => change((state) => ({ ...state, generating: true, failure: null })),
+  // "Plan erzeugen" writes all sections; "Aktualisieren" only what a change affects (spec 25c).
+  const start = useMutation({
+    mutationFn: (kind: 'generate' | 'update') =>
+      api<undefined>(`${base(projectId)}/${kind}`, { method: 'POST' }),
+    onMutate: () =>
+      change((state) => ({ ...state, generating: true, failure: null, upToDate: false })),
     onError: () => {
       onFailed();
       return reload();
@@ -73,7 +94,10 @@ export function usePlanActions(projectId: string, onFailed: () => void) {
 
   return {
     generate: () => {
-      generate.mutate();
+      start.mutate('generate');
+    },
+    update: () => {
+      start.mutate('update');
     },
     decide: (decision: PlanDecision) => {
       decide.mutate(decision);

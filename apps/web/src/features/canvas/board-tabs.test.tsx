@@ -269,7 +269,7 @@ describe('BoardTabs', () => {
 });
 
 describe('the plan next to the boards (spec 25a)', () => {
-  function renderWithPlan(planOpen: boolean) {
+  function renderWithPlan(planOpen: boolean, planOutdated = false) {
     const onSelect = vi.fn(() => Promise.resolve());
     const onOpenPlan = vi.fn();
     render(
@@ -283,10 +283,11 @@ describe('the plan next to the boards (spec 25a)', () => {
           onNotice={vi.fn()}
           planOpen={planOpen}
           onOpenPlan={onOpenPlan}
+          planOutdated={planOutdated}
         />
       </QueryClientProvider>,
     );
-    return { onSelect, onOpenPlan, plan: screen.getByRole('button', { name: 'Projektplan' }) };
+    return { onSelect, onOpenPlan, plan: screen.getByRole('button', { name: /^Projektplan/ }) };
   }
 
   it('opens from its button at the end of the row', () => {
@@ -325,5 +326,19 @@ describe('the plan next to the boards (spec 25a)', () => {
     renderTabs();
 
     expect(screen.queryByRole('button', { name: 'Projektplan' })).not.toBeInTheDocument();
+  });
+
+  it('carries a dot while the plan is outdated (spec 25c)', () => {
+    const { plan } = renderWithPlan(false, true);
+
+    expect(plan).toHaveAccessibleName('Projektplan, nicht mehr aktuell');
+    expect(plan.querySelector('.bg-ink.rounded-full')).toBeInTheDocument();
+  });
+
+  it('carries no dot while the plan is current', () => {
+    const { plan } = renderWithPlan(false);
+
+    expect(plan).toHaveAccessibleName('Projektplan');
+    expect(plan.querySelector('.bg-ink.rounded-full')).not.toBeInTheDocument();
   });
 });

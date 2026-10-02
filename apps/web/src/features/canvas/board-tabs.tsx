@@ -38,6 +38,8 @@ type BoardTabsProps = {
   planOpen?: boolean;
   /** Opens the project plan; without it there is no button for it. */
   onOpenPlan?: () => void;
+  /** Decisions changed since the plan was written (spec 25c): the button carries a dot. */
+  planOutdated?: boolean;
 };
 
 const FOCUS_RING =
@@ -58,6 +60,7 @@ export function BoardTabs({
   onNotice,
   planOpen = false,
   onOpenPlan,
+  planOutdated = false,
 }: BoardTabsProps) {
   const { t } = useTranslation();
   const { create, rename, remove } = useBoardMutations(projectId);
@@ -289,6 +292,12 @@ export function BoardTabs({
         >
           <FileText size={14} strokeWidth={2} aria-hidden="true" />
           {t('plan.tab')}
+          {planOutdated ? (
+            <>
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-ink" />
+              <span className="sr-only">, {t('plan.outdated.dot')}</span>
+            </>
+          ) : null}
         </button>
       ) : null}
 

@@ -16,6 +16,13 @@ describe('api', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('answers "accepted" without a body, e.g. when a generation starts', async () => {
+    stubApi({ 'POST /api/projects/p1/plan/generate': () => ({ status: 202, body: null }) });
+    await expect(
+      api<undefined>('/projects/p1/plan/generate', { method: 'POST' }),
+    ).resolves.toBeUndefined();
+  });
+
   it('sends JSON as JSON and a form as it is', async () => {
     const types: (string | null)[] = [];
     vi.stubGlobal(

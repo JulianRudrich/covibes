@@ -121,3 +121,7 @@
 .plan-doc-preview h3 {
   font-size: var(--text-title);
 }
+
+.plan-doc-preview h2 {
+  font-size: var(--text-display);
+}

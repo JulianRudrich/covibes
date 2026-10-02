@@ -6,6 +6,7 @@ import { PanelHeader } from '@web/components/ui/panel';
 import { PlanEditor } from '@web/features/plan/plan-editor';
 import { PLAN_PANEL_ID } from '@web/features/plan/plan-ids';
 import { PlanSuggestions } from '@web/features/plan/plan-suggestions';
+import { PlanVersions } from '@web/features/plan/plan-versions';
 import type { PlanDecision } from '@web/features/plan/queries';
 
 type PlanPanelProps = {
@@ -22,13 +23,23 @@ type PlanPanelProps = {
   /** Owners and editors start a generation and decide the suggestions. */
   onGenerate?: () => void;
   onDecide?: (decision: PlanDecision) => void;
+  /** Owners and editors bring an outdated plan up to date (spec 25c). */
+  onUpdate?: () => void;
 };
 
 /**
  * Header and plan of the project, as the two rows of the canvas panel (spec 25a): the plan takes
  * the place of the canvas while it is open, so the chat and the overview stay next to it.
  */
-export function PlanPanel({ tabs, notice, plan, onGenerate, onDecide, ...editor }: PlanPanelProps) {
+export function PlanPanel({
+  tabs,
+  notice,
+  plan,
+  onGenerate,
+  onDecide,
+  onUpdate,
+  ...editor
+}: PlanPanelProps) {
   const { t } = useTranslation();
   return (
     <>
@@ -42,11 +53,18 @@ export function PlanPanel({ tabs, notice, plan, onGenerate, onDecide, ...editor 
       >
         <PlanEditor
           {...editor}
-          above={
+          above={(text) =>
             plan ? (
-              <PlanSuggestions state={plan} language={editor.language} onDecide={onDecide} />
+              <PlanSuggestions
+                state={plan}
+                language={editor.language}
+                sections={text.sections}
+                onDecide={onDecide}
+                onUpdate={onUpdate}
+              />
             ) : null
           }
+          toolbarEnd={(text) => <PlanVersions projectId={editor.projectId} current={text.nodes} />}
           generation={
             onGenerate
               ? {

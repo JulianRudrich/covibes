@@ -727,6 +727,8 @@
     "writing": "Fasst die Unterhaltung für dich zusammen …",
     "decided": "Entschieden: <b>{{topic}}</b> – {{value}}",
     "reopened": "Wieder geöffnet: <b>{{topic}}</b>",
+    "planVersions_one": "{{count}} neue Version des Projektplans",
+    "planVersions_other": "{{count}} neue Versionen des Projektplans",
     "criteria_one": "{{count}} Kriterium geändert",
     "criteria_other": "{{count}} Kriterien geändert",
     "board_one": "<b>{{title}}</b>: {{count}} Änderung von {{names}}",
@@ -763,10 +765,53 @@
       "count_one": "{{count}} Vorschlag für den Plan",
       "count_other": "{{count}} Vorschläge für den Plan",
       "kind": "Vorschlag",
+      "kindUpdate": "Aktualisierung",
+      "handEdited": "Dieser Abschnitt wurde von Hand geändert. Schau nach, ob eure Änderungen erhalten bleiben.",
+      "showChanges": "Änderungen anzeigen",
+      "showText": "Ganzen Text anzeigen",
+      "changesFor": "Ansicht für „{{section}}“ wechseln",
       "for": "Vorschlag für „{{section}}“",
       "acceptFor": "„{{section}}“ übernehmen",
       "rejectFor": "„{{section}}“ verwerfen",
       "acceptAll": "Alle übernehmen"
+    },
+    "outdated": {
+      "title": "Der Plan ist nicht mehr aktuell",
+      "since": "Seit dem letzten Stand: {{changes}}.",
+      "decided": "„{{topic}}“ wurde entschieden",
+      "reopened": "„{{topic}}“ wurde wieder geöffnet",
+      "criteria": "die Kriterien haben sich geändert",
+      "more_one": "{{count}} weitere Änderung",
+      "more_other": "{{count}} weitere Änderungen",
+      "update": "Aktualisieren",
+      "dot": "nicht mehr aktuell"
+    },
+    "upToDate": "Der Moderator hat den Plan geprüft: Es muss nichts geändert werden.",
+    "diff": {
+      "none": "Keine Unterschiede.",
+      "removed": "entfällt",
+      "added": "neu",
+      "unchanged_one": "… {{count}} unveränderte Zeile anzeigen",
+      "unchanged_other": "… {{count}} unveränderte Zeilen anzeigen"
+    },
+    "versions": {
+      "button": "Versionen",
+      "title": "Versionen des Plans",
+      "list": "Versionen",
+      "empty": "Noch keine Versionen. Eine Version wird festgehalten, sobald Vorschläge des Moderators entschieden sind.",
+      "number": "Version {{number}}",
+      "reason": {
+        "generated": "Nach dem Erzeugen",
+        "updated": "Nach der Aktualisierung",
+        "manual": "Von Hand geändert"
+      },
+      "show": "Ansicht",
+      "view": {
+        "text": "Inhalt",
+        "current": "Änderungen seit dieser Version",
+        "previous": "Änderungen gegenüber Version {{number}}"
+      },
+      "loading": "Version wird geladen …"
     },
     "waiting_one": "{{count}} Abschnitt für den Projektplan wartet auf dich.",
     "waiting_other": "{{count}} Abschnitte für den Projektplan warten auf dich.",

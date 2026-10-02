@@ -358,11 +358,23 @@ export interface PlanSuggestions {
   created_at: Generated<Timestamp>;
   decided_at: Timestamp | null;
   decided_by: string | null;
+  hand_edited: Generated<boolean>;
   id: Generated<string>;
+  kind: Generated<string>;
   project_id: string;
   run_id: string | null;
   section: string;
   status: Generated<string>;
+}
+
+export interface PlanVersions {
+  content: Json;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  number: number;
+  project_id: string;
+  reason: string;
 }
 
 export interface ProjectAgents {
@@ -507,6 +519,7 @@ export interface DB {
   notifications: Notifications;
   offers: Offers;
   plan_suggestions: PlanSuggestions;
+  plan_versions: PlanVersions;
   project_agents: ProjectAgents;
   project_members: ProjectMembers;
   project_people: ProjectPeople;

@@ -192,7 +192,7 @@ Built in two parts (2026-10-02), because the unit is large.
 - **Design:** **required:** share dialog
 
 #### 21b Read-only link
-- **Goal:** a link that shows a project without an account and without write access.
+- **Goal:** a link that shows a project without an account and without write access: the canvas and the overview, without the chat (owner decision of 2026-10-02).
 - **Needs:** 21a
 - **Design:** **required:** read-only view
 

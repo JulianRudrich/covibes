@@ -2,9 +2,11 @@ import type { DB } from '@covibes/db';
 import {
   castVoteInputSchema,
   handRaiseSchema,
+  openVoteSchema,
   projectIdSchema,
   type ApiErrorCode,
   type HandRaise,
+  type OpenVote,
 } from '@covibes/shared';
 import { Hono, type Context } from 'hono';
 import { sql, type Transaction } from 'kysely';
@@ -147,6 +149,60 @@ export function handRoutes(db: AppDb, auth: Auth) {
 export function voteRoutes(db: AppDb, auth: Auth) {
   const routes = new Hono<{ Variables: SessionVariables }>();
   routes.use(sessionMiddleware(auth));
+
+  // The open votes of the project with who voted for what, for "Wartet auf dich" (spec 22a).
+  routes.get('/', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    const projectId = projectIdSchema.safeParse(c.req.param('projectId'));
+    if (!projectId.success) return apiError(c, 'not_found');
+
+    const rows = await withUser(db, user.id, async (trx) => {
+      if (!(await membership(trx, projectId.data, user.id))) return undefined;
+      return await trx
+        .selectFrom('votes')
+        .select((eb) => [
+          'votes.id',
+          'votes.message_id',
+          'votes.topic',
+          'votes.options',
+          'votes.status',
+          'votes.winner',
+          'votes.created_at',
+          eb
+            .selectFrom('vote_ballots')
+            .whereRef('vote_ballots.vote_id', '=', 'votes.id')
+            .select(
+              sql`coalesce(
+                json_agg(json_build_object('userId', user_id, 'option', option) order by created_at),
+                '[]'::json
+              )`.as('ballots'),
+            )
+            .as('ballots'),
+        ])
+        .where('votes.project_id', '=', projectId.data)
+        .where('votes.status', '=', 'open')
+        .orderBy('votes.created_at')
+        .orderBy('votes.id')
+        .execute();
+    });
+    if (!rows) return apiError(c, 'not_found');
+    return c.json<OpenVote[]>(
+      rows.flatMap((row) => {
+        const vote = openVoteSchema.safeParse({
+          id: row.id,
+          messageId: row.message_id,
+          topic: row.topic,
+          options: row.options,
+          status: row.status,
+          winner: row.winner,
+          ballots: row.ballots,
+          createdAt: row.created_at.toISOString(),
+        });
+        return vote.success ? [vote.data] : [];
+      }),
+    );
+  });
 
   routes.post('/:voteId/cast', async (c) => {
     const body: unknown = await c.req.json().catch(() => undefined);

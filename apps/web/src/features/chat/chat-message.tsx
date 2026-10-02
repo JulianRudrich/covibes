@@ -1,6 +1,6 @@
 import type { MessageDebate } from '@covibes/shared';
 import { Check, CornerDownRight, MessagesSquare } from 'lucide-react';
-import { useId, type ReactNode } from 'react';
+import { useId, useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Avatar } from '@web/components/ui/avatar';
@@ -47,6 +47,7 @@ const AGENT_CARET: Record<AgentLook, string> = {
 };
 
 const NO_AGENTS: readonly string[] = [];
+const NO_PEOPLE: readonly { userId: string; name: string }[] = [];
 
 type ChatMessageViewProps = {
   item: ChatItem;
@@ -61,6 +62,10 @@ type ChatMessageViewProps = {
    * kept; an agent's answer for the agents of the team it names.
    */
   team?: readonly string[];
+  /** The members of the project; a person's message shows chips for those it mentions (spec 22a). */
+  people?: readonly { userId: string; name: string }[];
+  /** The signed-in user, whose own mention stands out. */
+  currentUserId?: string;
   /** Accepts or declines the moderator's offer of help (spec 15); viewers get no buttons. */
   onOffer?: (message: ChatItem, accept: boolean) => void;
   /** Who votes and how, for the vote card of a message (spec 16b). */
@@ -84,6 +89,8 @@ export function ChatMessageView({
   replyToName,
   onRetry,
   team = NO_AGENTS,
+  people = NO_PEOPLE,
+  currentUserId,
   onOffer,
   voting,
   moderatorNeutral = true,
@@ -99,6 +106,16 @@ export function ChatMessageView({
   const streamingAgent = agent !== null && item.status === 'streaming' ? agent : null;
   const name =
     agent !== null ? agent.name : author.kind === 'human' && !isOwn ? author.name : t('common.you');
+
+  // The people the server found mentioned; agents mention nobody.
+  const mentionedUsers = item.mentionedUsers;
+  const mentioned = useMemo(
+    () =>
+      mentionedUsers && mentionedUsers.length > 0
+        ? people.filter((person) => mentionedUsers.includes(person.userId))
+        : NO_PEOPLE,
+    [people, mentionedUsers],
+  );
 
   // Screen readers announce each message as "name (Agent) time (delivery state)".
   const labelIds = [
@@ -202,7 +219,12 @@ export function ChatMessageView({
       )}
 
       <p className="text-body leading-[1.55] wrap-break-word text-text-body">
-        <MentionText text={item.content} agents={agent === null ? item.mentions : team} />
+        <MentionText
+          text={item.content}
+          agents={agent === null ? item.mentions : team}
+          people={mentioned}
+          self={currentUserId}
+        />
         {streamingAgent ? (
           <span
             aria-hidden="true"

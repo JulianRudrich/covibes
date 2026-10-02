@@ -223,6 +223,36 @@ describe('ChatMessageView', () => {
     expect(within(screen.getAllByRole('article')[1] as HTMLElement).queryByRole('link')).toBeNull();
   });
 
+  it('shows a chip for the people the server found mentioned, the own one stronger (spec 22a)', () => {
+    const people = [
+      { userId: 'user-alex', name: 'Alex Berg' },
+      { userId: 'user-olga', name: 'Olga' },
+      { userId: 'user-sam', name: 'Sam' },
+    ];
+    render(
+      <ChatMessageView
+        item={human({
+          content: '@Alex-Berg und @olga, fragt @Backend. @Sam war nicht gemeint.',
+          mentions: ['backend'],
+          mentionedUsers: ['user-alex', 'user-olga'],
+        })}
+        isOwn={false}
+        people={people}
+        currentUserId="user-olga"
+      />,
+    );
+    const text = messageText(screen.getByRole('article'));
+
+    const chips = Array.from(text.querySelectorAll('span.rounded-xs'));
+    expect(chips.map((chip) => chip.textContent)).toEqual(['@Alex-Berg', '@olga', '@Backend']);
+    expect(within(text).getByText('@Alex-Berg')).toHaveClass('bg-bg-subtle', 'text-text');
+    // The reader's own mention stands out.
+    expect(within(text).getByText('@olga')).toHaveClass('bg-ink', 'text-on-ink');
+    expect(within(text).getByText('@Backend')).toHaveClass('bg-agent-backend-tint');
+    // Sam is a member, but the server stored no mention of them.
+    expect(within(text).queryByText('@Sam')).not.toBeInTheDocument();
+  });
+
   it('shows no chip for an agent that the server did not keep, e.g. one outside the team', () => {
     const content = '@Sicherheit und @Moderator, was meint ihr?';
     render(<ChatMessageView item={human({ content, mentions: ['moderator'] })} isOwn={false} />);

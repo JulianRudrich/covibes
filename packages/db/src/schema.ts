@@ -292,11 +292,27 @@ export interface Messages {
   content: string;
   created_at: Generated<Timestamp>;
   id: Generated<string>;
+  mentioned_users: Generated<string[]>;
   mentions: Generated<string[]>;
   project_id: string;
   reply_to: string | null;
   status: Generated<string>;
   updated_at: Generated<Timestamp>;
+}
+
+export interface Notifications {
+  actor_id: string | null;
+  actor_name: Generated<string>;
+  created_at: Generated<Timestamp>;
+  excerpt: Generated<string>;
+  id: Generated<string>;
+  kind: string;
+  message_id: string | null;
+  project_id: string;
+  project_name: string;
+  read_at: Timestamp | null;
+  role: ProjectRole | null;
+  user_id: string;
 }
 
 export interface Offers {
@@ -448,6 +464,7 @@ export interface DB {
   hand_raises: HandRaises;
   invitations: Invitations;
   messages: Messages;
+  notifications: Notifications;
   offers: Offers;
   project_agents: ProjectAgents;
   project_members: ProjectMembers;

@@ -1,6 +1,7 @@
 import {
   FILE_ACCEPT,
   formatFileSize,
+  memberHandle,
   MESSAGE_MAX_LENGTH,
   type MessageAttachment,
 } from '@covibes/shared';
@@ -16,11 +17,13 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Avatar } from '@web/components/ui/avatar';
 import { Button } from '@web/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@web/components/ui/dropdown-menu';
 import { IconButton } from '@web/components/ui/icon-button';
@@ -28,10 +31,13 @@ import { Tooltip } from '@web/components/ui/tooltip';
 import { AgentAvatar } from '@web/features/agents/agent-avatar';
 import type { Uploads } from '@web/features/files/use-uploads';
 import { useAgents } from '@web/features/agents/agents';
+import { initialsOf } from '@web/lib/format';
 
 type ComposerProps = {
   /** The agents the `@` menu offers: the project's team (spec 14), by key. */
   agents: readonly string[];
+  /** The other members, offered below the agents (spec 22a). */
+  people?: readonly { userId: string; name: string }[];
   /**
    * Receives the trimmed text and the uploaded files to take along; empty and whitespace-only
    * messages never arrive here.
@@ -41,6 +47,8 @@ type ComposerProps = {
   uploads?: Uploads;
   disabled?: boolean;
 };
+
+const NO_PEOPLE: readonly { userId: string; name: string }[] = [];
 
 /** Enter that confirms an IME composition (e.g. Japanese input) must not send the message. */
 function isComposing(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -54,9 +62,19 @@ function isComposing(event: KeyboardEvent<HTMLTextAreaElement>) {
  * six lines. "@" offers the agents of the team; the paperclip attaches files, and images can be
  * pasted (spec 20a). Files upload at once and show as chips above the text.
  */
-export function Composer({ agents, onSend, uploads, disabled = false }: ComposerProps) {
+export function Composer({
+  agents,
+  people = NO_PEOPLE,
+  onSend,
+  uploads,
+  disabled = false,
+}: ComposerProps) {
   const { t, i18n } = useTranslation();
   const resolve = useAgents();
+  // A member is mentioned by the handle of their name; one without letters or digits cannot be.
+  const mentionable = people
+    .map((person) => ({ ...person, handle: memberHandle(person.name) }))
+    .filter((person) => person.handle !== '');
   const hintId = useId();
   const [draft, setDraft] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -208,6 +226,27 @@ export function Composer({ agents, onSend, uploads, disabled = false }: Composer
                 </DropdownMenuItem>
               );
             })}
+            {mentionable.length > 0 ? (
+              <DropdownMenuLabel>{t('chat.mentionPeople')}</DropdownMenuLabel>
+            ) : null}
+            {mentionable.map((person) => (
+              <DropdownMenuItem
+                key={person.userId}
+                onSelect={() => {
+                  insertMention(person.handle);
+                }}
+              >
+                <span aria-hidden="true" className="flex">
+                  <Avatar
+                    kind="human"
+                    size={24}
+                    label={person.name}
+                    initials={initialsOf(person.name)}
+                  />
+                </span>
+                {person.name}
+              </DropdownMenuItem>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
         {uploads ? (

@@ -19,6 +19,7 @@ import {
 } from '@server/api/invitations';
 import { debateRoutes, handRoutes, offerRoutes, voteRoutes } from '@server/api/hands';
 import { messageRoutes } from '@server/api/messages';
+import { notificationRoutes } from '@server/api/notifications';
 import { projectRoutes } from '@server/api/projects';
 import { proposalRoutes } from '@server/api/proposals';
 import { runRoutes } from '@server/api/runs';
@@ -139,6 +140,7 @@ export function createApp({
   );
   app.route('/api/projects/:projectId/members', memberRoutes(db.app, auth, connections));
   app.route('/api/invitations', invitationRoutes(db.app, auth));
+  app.route('/api/notifications', notificationRoutes(db.app, auth));
   app.route(
     '/api/projects/:projectId/share-link',
     shareLinkRoutes(db.app, auth, { appUrl: env.APP_URL }),

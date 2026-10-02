@@ -29,6 +29,8 @@ export const chatMessageSchema = z.object({
   content: z.string(),
   /** Agents addressed with `@`, found by the server (`parseMentions`). */
   mentions: z.array(agentKeySchema),
+  /** The people the message mentions (spec 22a), found by the server; left out when none. */
+  mentionedUsers: z.array(z.string()).optional(),
   replyTo: z.string().nullable(),
   status: z.enum(MESSAGE_STATUSES),
   /** The moderator's offer of help that this message makes, if any (spec 15). */

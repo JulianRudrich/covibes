@@ -16,6 +16,7 @@ import {
 import { Tooltip } from '@web/components/ui/tooltip';
 import { AccountMenu } from '@web/features/account/account-menu';
 import type { SessionUser } from '@web/features/auth/session';
+import { NotificationBell } from '@web/features/notifications/notification-bell';
 import { PhaseIndicator } from '@web/features/workspace/phase-indicator';
 import {
   ProjectSettingsDialog,
@@ -65,6 +66,7 @@ export function WorkspaceHeader({
       </div>
 
       <div className="flex items-center justify-end gap-2.5 pr-1">
+        <NotificationBell />
         <div role="group" aria-label={t('workspace.humansLabel')} className="flex items-center">
           {members.map((member, index) => {
             const name = member.isCurrentUser ? t('common.you') : member.name;

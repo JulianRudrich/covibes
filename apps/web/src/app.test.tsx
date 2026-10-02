@@ -82,6 +82,7 @@ const PROJECT: ProjectSummary = {
   name: 'Covibes V1',
   role: 'owner',
   updatedAt: new Date().toISOString(),
+  waiting: 0,
 };
 const DETAILS: ProjectDetails = {
   id: PROJECT.id,
@@ -357,6 +358,26 @@ describe('with a session', () => {
     expect(link).toHaveAttribute('href', `/p/${PROJECT.id}`);
     expect(within(link).getByText('Owner')).toBeInTheDocument();
     expect(within(link).getByText('geändert jetzt')).toBeInTheDocument();
+  });
+
+  it('shows on the project list how much waits in a project (spec 22a)', async () => {
+    stubApi({
+      'GET /api/projects': () => ({
+        body: [
+          { ...PROJECT, waiting: 3 },
+          { ...PROJECT, id: '77777777-7777-4777-8777-777777777777', name: 'Ruhig', waiting: 0 },
+          { ...PROJECT, id: '88888888-8888-4888-8888-888888888888', name: 'Eins', waiting: 1 },
+        ],
+      }),
+    });
+    renderApp('/');
+
+    const rows = within(await screen.findByRole('list', { name: 'Projekte' })).getAllByRole(
+      'listitem',
+    );
+    expect(rows[0]).toHaveTextContent('Covibes V13 warten auf dich');
+    expect(rows[1]).not.toHaveTextContent(/wartet|warten/);
+    expect(rows[2]).toHaveTextContent('Eins1 wartet auf dich');
   });
 
   it('creates a project and opens it', async () => {

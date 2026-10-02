@@ -10,6 +10,7 @@ import { Badge } from '@web/components/ui/badge';
 import { Card, Notice } from '@web/components/ui/card';
 import { AccountMenu } from '@web/features/account/account-menu';
 import { sessionQuery } from '@web/features/auth/session';
+import { NotificationBell } from '@web/features/notifications/notification-bell';
 import { CreateProjectDialog } from '@web/features/projects/create-project-dialog';
 import { projectsQuery } from '@web/features/projects/queries';
 import { formatRelativeTime, initialsOf } from '@web/lib/format';
@@ -25,6 +26,11 @@ function ProjectRow({ project }: { project: ProjectSummary }) {
       >
         <span className="truncate text-body font-medium">{project.name}</span>
         <span className="flex shrink-0 items-center gap-3 text-small text-text-3">
+          {project.waiting > 0 ? (
+            <span className="flex h-5 items-center rounded-[10px] bg-ink px-2 text-badge font-semibold whitespace-nowrap text-on-ink tabular-nums">
+              {t('projects.waiting', { count: project.waiting })}
+            </span>
+          ) : null}
           <Badge>{t(`projects.roles.${project.role}`)}</Badge>
           {t('projects.updated', {
             time: formatRelativeTime(project.updatedAt, i18n.language),
@@ -43,6 +49,7 @@ export function ProjectListPage() {
   return (
     <div className="min-h-dvh bg-bg-app text-text">
       <AppHeader>
+        {user ? <NotificationBell /> : null}
         {user ? (
           <AccountMenu user={user}>
             <Avatar

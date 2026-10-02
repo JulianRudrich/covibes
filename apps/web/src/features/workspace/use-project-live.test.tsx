@@ -7,6 +7,8 @@ import { messagesQuery } from '@web/features/chat/queries';
 import { runsQuery } from '@web/features/chat/runs';
 import { projectQuery } from '@web/features/projects/queries';
 import { proposalsQuery } from '@web/features/proposals/queries';
+import { openVotesQuery } from '@web/features/decisions/queries';
+import { notificationsQuery } from '@web/features/notifications/queries';
 import { useProjectLive } from '@web/features/workspace/use-project-live';
 import { createQueryClient } from '@web/lib/query-client';
 import { stubApi } from '@web/test-utils';
@@ -44,6 +46,8 @@ const DETAILS: ProjectDetails = {
   customAgents: [],
 };
 
+const ME = '11111111-1111-4111-8111-111111111111';
+
 /** The workspace's queries plus the live channel, as the workspace page has them. */
 function renderLive() {
   const queryClient = createQueryClient();
@@ -52,7 +56,9 @@ function renderLive() {
     useQuery(messagesQuery(PROJECT_ID));
     useQuery(runsQuery(PROJECT_ID));
     useQuery(proposalsQuery(PROJECT_ID));
-    useProjectLive(PROJECT_ID);
+    useQuery(notificationsQuery);
+    useQuery(openVotesQuery(PROJECT_ID));
+    useProjectLive(PROJECT_ID, ME);
     return null;
   }
   render(
@@ -68,6 +74,79 @@ function loads(fetchMock: ReturnType<typeof stubApi>, url: string) {
 }
 
 describe('useProjectLive', () => {
+  it('reloads the notifications for a mention of the user and the open votes for a vote (spec 22a)', async () => {
+    const NOTIFICATIONS_URL = '/api/notifications';
+    const VOTES_URL = `${PROJECT_URL}/votes`;
+    const fetchMock = stubApi({
+      [`GET ${PROJECT_URL}`]: () => ({ body: DETAILS }),
+      [`GET ${MESSAGES_URL}`]: () => ({ body: [] }),
+      [`GET ${RUNS_URL}`]: () => ({ body: [] }),
+      [`GET ${NOTIFICATIONS_URL}`]: () => ({ body: { notifications: [], unread: 0 } }),
+      [`GET ${VOTES_URL}`]: () => ({ body: [] }),
+    });
+    const queryClient = renderLive();
+    await waitFor(() => {
+      expect(queryClient.getQueryData(messagesQuery(PROJECT_ID).queryKey)).toEqual([]);
+      expect(loads(fetchMock, NOTIFICATIONS_URL)).toBe(1);
+      expect(loads(fetchMock, VOTES_URL)).toBe(1);
+    });
+    const now = new Date().toISOString();
+    const message: ChatMessage = {
+      id: 'm1',
+      projectId: PROJECT_ID,
+      author: { kind: 'human', userId: 'u1', name: 'Alex' },
+      content: 'Hallo',
+      mentions: [],
+      replyTo: null,
+      status: 'complete',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    // A message that mentions someone else changes nothing for the bell.
+    act(() => {
+      live.handlers?.onEvent({
+        type: 'message',
+        message: { ...message, mentionedUsers: ['someone-else'] },
+      });
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(loads(fetchMock, NOTIFICATIONS_URL)).toBe(1);
+
+    act(() => {
+      live.handlers?.onEvent({
+        type: 'message',
+        message: { ...message, id: 'm2', mentionedUsers: [ME] },
+      });
+    });
+    await waitFor(() => {
+      expect(loads(fetchMock, NOTIFICATIONS_URL)).toBe(2);
+    });
+    expect(loads(fetchMock, VOTES_URL)).toBe(1);
+
+    act(() => {
+      live.handlers?.onEvent({
+        type: 'message',
+        message: {
+          ...message,
+          id: 'm3',
+          author: { kind: 'agent', agentKey: 'moderator' },
+          vote: {
+            id: '22222222-2222-4222-8222-222222222222',
+            topic: 'Hosting',
+            options: ['A', 'B'],
+            status: 'open',
+            winner: null,
+            ballots: [],
+          },
+        },
+      });
+    });
+    await waitFor(() => {
+      expect(loads(fetchMock, VOTES_URL)).toBe(2);
+    });
+  });
+
   it('puts messages into the chat and reloads the boards when they change', async () => {
     const fetchMock = stubApi({
       [`GET ${PROJECT_URL}`]: () => ({ body: DETAILS }),

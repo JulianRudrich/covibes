@@ -245,7 +245,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `project_people` | everyone who is or was a member of a project, so former members keep their name |
 | `boards`, `yjs_documents` | boards and storage of the Y.Docs |
 | `plans`, `plan_versions`, `plan_suggestions` | plan, versions, AI suggestions per section |
-| `messages` | chat: author (human or agent), mentions, block references |
+| `messages` | chat: author (human or agent), mentioned agents and people, block references |
 | `custom_agents`, `project_agents` | custom agents (personal or shared in a project); team per project. Catalog agents are defined in code |
 | `agent_knowledge` | the knowledge of a custom agent: files (content in the file storage) and links with a note |
 | `hand_raises`, `offers` | raised hands (open, heard, dismissed); the moderator's offers of help (open, accepted, declined) |
@@ -255,7 +255,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `debates` | debates between agents: question, participants, rounds, finished turns and status |
 | `tasks` | tasks with milestone, assignee, spec reference and GitLab issue |
 | `git_connections`, `oauth_tokens`, `git_actions` | GitLab connection, tokens (encrypted), audit log |
-| `notifications` | in-app notifications and "Waiting for you" |
+| `notifications` | notifications per person: mentions, changed roles, removals, new members; with the names they show and when they were read |
 | `files` | files attached to chat messages: name, kind (image, PDF, text), size and the key of the content in the file storage |
 | `ai_runs`, `usage` | agent runs (status, queue, web searches), usage and costs |
 
@@ -279,6 +279,11 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
   - `covibes_app`: for every request on behalf of a user. It is subject to RLS. The server opens a transaction for it and sets `app.user_id` (`withUser`).
   - `covibes_admin`: for migrations, Better Auth and the worker. It bypasses RLS and is never used for user requests.
 - **RLS:** every table has policies built on `private.current_user_id()`, `private.is_member()` and `private.has_role()`. The database protects the data even if a check is missing on the server.
+- **Mentions and notifications (spec 22a):**
+  - People are mentioned like agents; the server stores whom a message mentions (`messages.mentioned_users`).
+  - Triggers write a notification for whom something concerns: a mention, a role someone else changed, a removal, a new member of an own project. A notification carries the names it shows, and everyone reads and marks only their own.
+  - The bell asks the server every 30 seconds; there is no person-wide live channel. In the open project a live message that mentions the user reloads it at once.
+  - "Waiting for you" is what a person can act on in a project: open proposals, raised hands and votes without their vote; a database function counts the same for the project list.
 - **Read-only links (spec 21b):** a link shows the canvas and the overview of a project without an account, never the chat and never a person. A request with a link runs as `covibes_app` without a user; the server sets the link's token for the transaction (`withShareLink`), and select policies let it read the rows of that one project the view needs. Only the hash of the token is stored. The boards' content is read from the collaboration server without connecting, and human authors are removed before it leaves the server.
 
 ## AI providers

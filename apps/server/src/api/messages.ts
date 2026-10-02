@@ -2,6 +2,7 @@ import type { DB } from '@covibes/db';
 import {
   MESSAGE_PAGE_SIZE,
   parseMentions,
+  parsePeopleMentions,
   projectIdSchema,
   sendMessageInputSchema,
   type ChatMessage,
@@ -79,6 +80,15 @@ export function messageRoutes(db: AppDb, auth: Auth, live: LivePublisher, limite
       // Only agents of the team answer (spec 14); other mentions stay plain text. Catalog agents
       // go by their fixed names, custom agents by their handle (spec 19).
       const names = await loadTeamMentionNames(trx, projectId.data);
+      // People are mentioned like agents (spec 22a): the other members by the handle of their
+      // name. A name an agent answers to calls the agent.
+      const people = await trx
+        .selectFrom('project_members')
+        .innerJoin('users', 'users.id', 'project_members.user_id')
+        .where('project_members.project_id', '=', projectId.data)
+        .where('project_members.user_id', '<>', user.id)
+        .select(['users.id as userId', 'users.name'])
+        .execute();
       // Files to take along (spec 20a): the sender's own uploads in this project that are attached
       // to nothing yet, or to this very message when it is sent again.
       if (attachments.length > 0) {
@@ -102,6 +112,7 @@ export function messageRoutes(db: AppDb, auth: Auth, live: LivePublisher, limite
           author_user_id: user.id,
           content,
           mentions: parseMentions(content, names),
+          mentioned_users: parsePeopleMentions(content, people, names).slice(0, 20),
         })
         .onConflict((conflict) => conflict.column('id').doNothing())
         .returning('id')

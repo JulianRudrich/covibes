@@ -3,6 +3,8 @@ import {
   type AgentKey,
   type CanvasProposal,
   type DecisionProposal,
+  type HandRaise,
+  type OpenVote,
   type Proposal,
   type TeamProposal,
   type VariantsProposal,
@@ -15,6 +17,7 @@ import { Button } from '@web/components/ui/button';
 import { AgentAvatar } from '@web/features/agents/agent-avatar';
 import { agentClass, useAgents } from '@web/features/agents/agents';
 import { AGENT_DARK_TEXT } from '@web/features/canvas/agent-look';
+import type { HandDecision } from '@web/features/hands/queries';
 import type { DecideProposal, DecidedProposal } from '@web/features/proposals/queries';
 import { proposalSummary } from '@web/features/proposals/summary';
 import { VariantPreview } from '@web/features/proposals/variant-preview';
@@ -32,7 +35,20 @@ type WaitingForYouProps = {
   activeBoardId: string | null;
   /** Opens the board of a proposal that lies on another one. */
   onOpenBoard: (boardId: string) => void;
+  /** The open raised hands of the agents (spec 22a). */
+  hands?: readonly HandRaise[];
+  onHand?: (hand: HandRaise, decision: HandDecision) => void;
+  /** The open votes in which the user has not voted yet (spec 22a). */
+  votes?: readonly OpenVote[];
+  onVote?: (vote: OpenVote, option: number) => void;
+  /** How many people vote, for "1 von 3 haben abgestimmt". */
+  voters?: number;
 };
+
+const NO_HANDS: readonly HandRaise[] = [];
+const NO_VOTES: readonly OpenVote[] = [];
+
+const CARD = 'flex flex-col gap-2.5 rounded-card border border-border bg-bg-panel p-3 shadow-panel';
 
 const BOLD = { b: <strong className="font-semibold text-text" /> };
 
@@ -48,7 +64,8 @@ function useAgentList() {
 /**
  * "Wartet auf dich" in the overview (handoff, section 4; spec 13 for proposals): a live counter,
  * one card per open proposal with "Übernehmen" and "Verwerfen", in sync with the canvas, and a
- * line with a check for every proposal decided in this session.
+ * line with a check for every proposal decided in this session. Raised hands and votes without
+ * the own vote wait here too (spec 22a); the counter counts what the user can act on.
  */
 export function WaitingForYou({
   proposals,
@@ -58,10 +75,24 @@ export function WaitingForYou({
   onDecide,
   activeBoardId,
   onOpenBoard,
+  hands = NO_HANDS,
+  onHand,
+  votes = NO_VOTES,
+  onVote,
+  voters,
 }: WaitingForYouProps) {
   const { t, i18n } = useTranslation();
   const agents = useAgents();
   const agentList = useAgentList();
+  // What the user can act on: nothing for viewers, no decisions while only the owner decides.
+  const waiting = canDecide
+    ? proposals.filter(
+        (proposal) =>
+          canConfirmDecisions || (proposal.kind !== 'decision' && proposal.kind !== 'variants'),
+      ).length +
+      hands.length +
+      votes.length
+    : 0;
 
   return (
     <section
@@ -74,21 +105,18 @@ export function WaitingForYou({
         </h3>
         <span
           className="grid h-5 min-w-5 place-items-center rounded-[10px] bg-ink px-1.5 text-badge font-semibold text-on-ink tabular-nums"
-          aria-label={t('overview.waitingCount', { count: proposals.length })}
+          aria-label={t('overview.waitingCount', { count: waiting })}
         >
-          {proposals.length}
+          {waiting}
         </span>
       </div>
 
-      {proposals.length > 0 ? (
+      {proposals.length + hands.length + votes.length > 0 ? (
         <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
           {proposals.map((proposal) => {
             const agent = agents(proposal.agentKey);
             return (
-              <li
-                key={proposal.id}
-                className="flex flex-col gap-2.5 rounded-card border border-border bg-bg-panel p-3 shadow-panel"
-              >
+              <li key={proposal.id} className={CARD}>
                 <div className="flex items-center gap-1.5 text-meta text-text-3">
                   <AgentAvatar agent={agent} size={16} />
                   <span className={cn('font-medium', agentClass(AGENT_DARK_TEXT, agent))}>
@@ -174,6 +202,86 @@ export function WaitingForYou({
                     </Button>
                   </div>
                 ) : null}
+              </li>
+            );
+          })}
+          {hands.map((hand) => {
+            const agent = agents(hand.agentKey);
+            return (
+              <li key={hand.id} className={CARD}>
+                <div className="flex items-center gap-1.5 text-meta text-text-3">
+                  <AgentAvatar agent={agent} size={16} />
+                  <span className={cn('font-medium', agentClass(AGENT_DARK_TEXT, agent))}>
+                    {agent.name}
+                  </span>
+                  <span>· {t('overview.hand')}</span>
+                  <span className="ml-auto tabular-nums">
+                    {formatRelativeTime(hand.createdAt, i18n.language)}
+                  </span>
+                </div>
+                <div className="text-body leading-snug text-text-body">{hand.reason}</div>
+                {canDecide && onHand ? (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="primary"
+                      size="s"
+                      onClick={() => {
+                        onHand(hand, 'listen');
+                      }}
+                    >
+                      {t('hands.listen')}
+                    </Button>
+                    <Button
+                      size="s"
+                      onClick={() => {
+                        onHand(hand, 'dismiss');
+                      }}
+                    >
+                      {t('hands.dismiss')}
+                    </Button>
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+          {votes.map((vote) => {
+            const moderator = agents('moderator');
+            return (
+              <li key={vote.id} className={CARD}>
+                <div className="flex items-center gap-1.5 text-meta text-text-3">
+                  <AgentAvatar agent={moderator} size={16} />
+                  <span className={cn('font-medium', agentClass(AGENT_DARK_TEXT, moderator))}>
+                    {moderator.name}
+                  </span>
+                  <span>· {t('overview.vote')}</span>
+                  <span className="ml-auto tabular-nums">
+                    {formatRelativeTime(vote.createdAt, i18n.language)}
+                  </span>
+                </div>
+                <div className="text-body leading-snug font-semibold text-text">{vote.topic}</div>
+                {canDecide && onVote ? (
+                  <div className="flex flex-wrap gap-2">
+                    {vote.options.map((option, position) => (
+                      <Button
+                        // The options of a vote never change, so their position is a stable key.
+                        key={position}
+                        size="s"
+                        className="max-w-full"
+                        aria-label={t('overview.voteFor', { option })}
+                        onClick={() => {
+                          onVote(vote, position);
+                        }}
+                      >
+                        <span className="truncate">{option}</span>
+                      </Button>
+                    ))}
+                  </div>
+                ) : null}
+                {voters === undefined ? null : (
+                  <div className="text-meta text-text-3">
+                    {t('overview.voteProgress', { voted: vote.ballots.length, total: voters })}
+                  </div>
+                )}
               </li>
             );
           })}

@@ -54,7 +54,9 @@
       "submit": "Anlegen",
       "creating": "Wird angelegt …",
       "error": "Das Projekt konnte nicht angelegt werden. Bitte versuch es noch einmal."
-    }
+    },
+    "waiting_one": "{{count}} wartet auf dich",
+    "waiting_other": "{{count}} warten auf dich"
   },
   "workspace": {
     "projectMenu": "zur Projektliste",
@@ -450,7 +452,8 @@
     "messages": "Nachrichten",
     "today": "Heute",
     "placeholder": "Nachricht an Team und Agents, @ ruft einen Agent",
-    "mentionAgent": "Agent erwähnen",
+    "mentionAgent": "Agent oder Mitglied erwähnen",
+    "mentionPeople": "Mitglieder",
     "attach": "Datei anhängen",
     "enterToSend": "Enter zum Senden",
     "send": "Senden",
@@ -676,6 +679,26 @@
   },
   "overview": {
     "waiting": "Wartet auf dich",
-    "waitingCount": "{{count}} offen"
+    "waitingCount": "{{count}} offen",
+    "hand": "Handzeichen",
+    "vote": "Abstimmung",
+    "voteProgress": "{{voted}} von {{total}} haben abgestimmt",
+    "voteFor": "Für {{option}} stimmen"
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "open": "Benachrichtigungen",
+    "openUnread_one": "Benachrichtigungen, {{count}} ungelesen",
+    "openUnread_other": "Benachrichtigungen, {{count}} ungelesen",
+    "readAll": "Alle als gelesen markieren",
+    "empty": "Keine Benachrichtigungen.",
+    "unread": "ungelesen",
+    "someone": "Jemand",
+    "kinds": {
+      "mention": "<b>{{name}}</b> hat dich in <b>{{project}}</b> erwähnt",
+      "role_changed": "<b>{{name}}</b> hat deine Rolle in <b>{{project}}</b> geändert: {{role}}",
+      "removed": "<b>{{name}}</b> hat dich aus <b>{{project}}</b> entfernt",
+      "joined": "<b>{{name}}</b> ist <b>{{project}}</b> beigetreten, als {{role}}"
+    }
   }
 }

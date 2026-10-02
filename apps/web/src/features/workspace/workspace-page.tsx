@@ -1,4 +1,4 @@
-import type { ProjectDetails, Proposal } from '@covibes/shared';
+import type { HandRaise, OpenVote, ProjectDetails, Proposal } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -12,6 +12,9 @@ import { BoardTabs } from '@web/features/canvas/board-tabs';
 import { CanvasPanel } from '@web/features/canvas/canvas-panel';
 import { ChatPanel } from '@web/features/chat/chat-panel';
 import { DecisionsOverview } from '@web/features/decisions/decisions-overview';
+import { openVotesQuery, useVoteActions } from '@web/features/decisions/queries';
+import { handsQuery, useHandDecisions } from '@web/features/hands/queries';
+import { notificationsQuery, useMarkNotificationsRead } from '@web/features/notifications/queries';
 import { projectQuery, useUpdateProject } from '@web/features/projects/queries';
 import {
   decidedQueryKey,
@@ -100,7 +103,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
   const navigate = useNavigate();
   const { board: requested } = route.useSearch();
   const { notice, show: showNotice } = useNotice();
-  useProjectLive(project.id);
+  useProjectLive(project.id, user?.id);
 
   // The main canvas comes first; it is open unless the address names another board.
   const activeBoard =
@@ -170,6 +173,48 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
     [proposals],
   );
   const updateProject = useUpdateProject(project.id);
+
+  // What else waits for the user (spec 22a): raised hands, and votes without their vote. Nothing
+  // waits for someone who only reads.
+  const hands = useQuery(handsQuery(project.id)).data ?? NO_HANDS;
+  const openVotes = useQuery({ ...openVotesQuery(project.id), enabled: !readOnly }).data;
+  const userId = user?.id ?? '';
+  const votesToCast = useMemo(
+    () =>
+      (openVotes ?? NO_VOTES).filter(
+        (vote) => !vote.ballots.some((ballot) => ballot.userId === userId),
+      ),
+    [openVotes, userId],
+  );
+  const decideHand = useHandDecisions(project.id, (reason) => {
+    showNotice(t(reason === 'already_decided' ? 'hands.alreadyDecided' : 'hands.failed'));
+  });
+  const { cast: castVote } = useVoteActions(project.id, userId, (reason) => {
+    showNotice(t(reason === 'already_decided' ? 'votes.alreadyClosed' : 'votes.failed'));
+  });
+  const waitingHands = readOnly ? NO_HANDS : hands;
+
+  // A mention in the project that is open and visible is read: the person is looking at it.
+  const notifications = useQuery(notificationsQuery).data;
+  const { mutate: markRead } = useMarkNotificationsRead();
+  const mentionedHere =
+    notifications?.notifications.some(
+      (notification) =>
+        !notification.read &&
+        notification.kind === 'mention' &&
+        notification.projectId === project.id,
+    ) ?? false;
+  useEffect(() => {
+    if (!mentionedHere) return;
+    const read = () => {
+      if (document.visibilityState === 'visible') markRead({ projectId: project.id });
+    };
+    read();
+    document.addEventListener('visibilitychange', read);
+    return () => {
+      document.removeEventListener('visibilitychange', read);
+    };
+  }, [mentionedHere, markRead, project.id]);
   const teamKeys = useMemo(() => project.agents.map((agent) => agent.key), [project.agents]);
 
   return (
@@ -233,10 +278,18 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
         }
         overview={
           <>
-            {proposals.length > 0 || decided.length > 0 ? (
+            {proposals.length > 0 ||
+            decided.length > 0 ||
+            waitingHands.length > 0 ||
+            votesToCast.length > 0 ? (
               <WaitingForYou
                 proposals={proposals}
                 decided={decided}
+                hands={waitingHands}
+                onHand={decideHand}
+                votes={votesToCast}
+                onVote={castVote}
+                voters={project.members.filter((member) => member.role !== 'viewer').length}
                 canDecide={!readOnly}
                 canConfirmDecisions={canConfirmDecisions}
                 onDecide={decide}
@@ -259,6 +312,8 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
 }
 
 const NO_PROPOSALS: Proposal[] = [];
+const NO_HANDS: HandRaise[] = [];
+const NO_VOTES: OpenVote[] = [];
 const NO_DECISIONS: DecidedProposal[] = [];
 
 function mainBoardId(project: ProjectDetails): string | undefined {

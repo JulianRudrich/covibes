@@ -293,6 +293,107 @@ describe('decision proposals (spec 16a)', () => {
   });
 });
 
+describe('raised hands and votes under "Wartet auf dich" (spec 22a)', () => {
+  const hand = {
+    id: '99999999-9999-4999-8999-999999999999',
+    projectId: PROJECT,
+    agentKey: 'critic' as const,
+    reason: 'Einwand zu den Kosten',
+    createdAt: new Date().toISOString(),
+  };
+  const vote = {
+    id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    messageId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    topic: 'Hosting',
+    options: ['Eigener Server', 'Verwalteter Dienst'],
+    status: 'open' as const,
+    winner: null,
+    ballots: [{ userId: 'someone', option: 0 }],
+    createdAt: new Date().toISOString(),
+  };
+
+  it('wait with their buttons and count like proposals', () => {
+    const onHand = vi.fn();
+    const onVote = vi.fn();
+    render(
+      <WaitingForYou
+        proposals={[proposal()]}
+        decided={[]}
+        canDecide
+        onDecide={vi.fn()}
+        activeBoardId={BOARD}
+        onOpenBoard={vi.fn()}
+        hands={[hand]}
+        onHand={onHand}
+        votes={[vote]}
+        onVote={onVote}
+        voters={3}
+      />,
+    );
+
+    const section = screen.getByRole('region', { name: 'Wartet auf dich' });
+    expect(within(section).getByLabelText('3 offen')).toHaveTextContent('3');
+    const [, handCard, voteCard] = within(section).getAllByRole('listitem');
+    if (!handCard || !voteCard) throw new Error('The cards are missing');
+
+    expect(handCard).toHaveTextContent('Kritiker· Handzeichen');
+    expect(handCard).toHaveTextContent('Einwand zu den Kosten');
+    fireEvent.click(within(handCard).getByRole('button', { name: 'Anhören' }));
+    expect(onHand).toHaveBeenCalledWith(hand, 'listen');
+    fireEvent.click(within(handCard).getByRole('button', { name: 'Nicht jetzt' }));
+    expect(onHand).toHaveBeenCalledWith(hand, 'dismiss');
+
+    expect(voteCard).toHaveTextContent('Moderator· Abstimmung');
+    expect(voteCard).toHaveTextContent('Hosting');
+    expect(voteCard).toHaveTextContent('1 von 3 haben abgestimmt');
+    fireEvent.click(
+      within(voteCard).getByRole('button', { name: 'Für Verwalteter Dienst stimmen' }),
+    );
+    expect(onVote).toHaveBeenCalledWith(vote, 1);
+  });
+
+  it('count only what the reader can act on', () => {
+    const decision: DecisionProposal = {
+      id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      projectId: PROJECT,
+      kind: 'decision',
+      boardId: null,
+      agentKey: 'moderator',
+      status: 'open',
+      reason: 'owner_decides',
+      names: {},
+      operations: [
+        { op: 'decide', topic: 'Canvas', value: 'React Flow', reasoning: '', alternatives: [] },
+      ],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const props = {
+      proposals: [proposal(), decision],
+      decided: [],
+      onDecide: vi.fn(),
+      activeBoardId: BOARD,
+      onOpenBoard: vi.fn(),
+      hands: [hand],
+      onHand: vi.fn(),
+    };
+
+    // While the owner decides, the decision does not wait for an editor.
+    const { rerender } = render(<WaitingForYou {...props} canDecide canConfirmDecisions={false} />);
+    const section = screen.getByRole('region', { name: 'Wartet auf dich' });
+    expect(within(section).getByLabelText('2 offen')).toBeInTheDocument();
+    expect(within(section).getAllByRole('listitem')).toHaveLength(3);
+
+    rerender(<WaitingForYou {...props} canDecide />);
+    expect(within(section).getByLabelText('3 offen')).toBeInTheDocument();
+
+    // Nothing waits for someone who only reads, and nothing can be decided.
+    rerender(<WaitingForYou {...props} canDecide={false} />);
+    expect(within(section).getByLabelText('0 offen')).toBeInTheDocument();
+    expect(within(section).queryByRole('button', { name: 'Anhören' })).not.toBeInTheDocument();
+  });
+});
+
 describe('WaitingForYou', () => {
   it('counts open proposals, decides them and lists what was decided', () => {
     const onDecide = vi.fn();

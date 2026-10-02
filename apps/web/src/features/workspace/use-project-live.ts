@@ -8,8 +8,10 @@ import {
   criteriaQueryKey,
   decisionLogQueryKey,
   decisionsQueryKey,
+  openVotesQueryKey,
 } from '@web/features/decisions/queries';
 import { handsQueryKey } from '@web/features/hands/queries';
+import { notificationsQuery } from '@web/features/notifications/queries';
 import { projectQuery } from '@web/features/projects/queries';
 import { proposalsQueryKey } from '@web/features/proposals/queries';
 import { invitationsQuery } from '@web/features/share/queries';
@@ -17,10 +19,11 @@ import { useLiveChannel } from '@web/features/realtime/live-channel';
 
 /**
  * The live channel of the open project (specs 06 and 11), one connection for chat and boards:
- * messages and runs go into the chat's cache, a change of the boards loads them again. Whatever
+ * messages and runs go into the chat's cache, a change of the boards loads them again. A message
+ * that mentions `userId` reloads the notifications. Whatever
  * happened before the channel opened (or while it was down) arrives with a reload.
  */
-export function useProjectLive(projectId: string) {
+export function useProjectLive(projectId: string, userId?: string) {
   const queryClient = useQueryClient();
 
   // The reload has to start after the channel opened. A request still running from before (the
@@ -67,6 +70,18 @@ export function useProjectLive(projectId: string) {
         reloadDecisions();
       } else {
         applyLiveEvent(queryClient, projectId, event);
+        // A vote started, got a ballot or ended: "Wartet auf dich" lists the open ones (spec 22a).
+        if (event.type === 'message' && event.message.vote) {
+          reload(openVotesQueryKey(projectId));
+        }
+        // Someone mentioned the user here: the bell learns it at once (spec 22a).
+        if (
+          event.type === 'message' &&
+          userId !== undefined &&
+          event.message.mentionedUsers?.includes(userId)
+        ) {
+          reload(notificationsQuery.queryKey);
+        }
       }
     },
     onConnect: () => {
@@ -75,6 +90,7 @@ export function useProjectLive(projectId: string) {
       reload(projectQuery(projectId).queryKey);
       reload(proposalsQueryKey(projectId));
       reload(handsQueryKey(projectId));
+      reload(openVotesQueryKey(projectId));
       reloadDecisions();
     },
   });

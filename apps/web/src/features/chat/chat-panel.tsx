@@ -54,10 +54,16 @@ export function ChatPanel({
   const runs = useQuery(runsQuery(projectId));
   const hands = useQuery(handsQuery(projectId)).data ?? NO_HANDS;
   const mentionNames = useMentionNames(team);
+  // Everyone but oneself can be mentioned (spec 22a).
+  const others = useMemo(
+    () => members.filter((member) => member.userId !== user.id),
+    [members, user.id],
+  );
   const { send, retry } = useSendMessage(
     projectId,
     { userId: user.id, name: user.name },
     mentionNames,
+    others,
   );
   const decideHand = useHandDecisions(projectId, (reason) => {
     onNotice(t(reason === 'already_decided' ? 'hands.alreadyDecided' : 'hands.failed'));
@@ -111,6 +117,7 @@ export function ChatPanel({
             items={messages.data}
             currentUserId={user.id}
             team={team}
+            people={members}
             onRetry={retry}
             onOffer={readOnly ? undefined : decideOffer}
             voting={voting}
@@ -128,6 +135,7 @@ export function ChatPanel({
           ) : (
             <Composer
               agents={team}
+              people={others}
               uploads={uploads}
               onSend={(content, attachments) => {
                 send(content, attachments);

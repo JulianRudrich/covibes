@@ -36,7 +36,11 @@ export {
   type UpdateCustomAgentInput,
 } from './agents/custom';
 export {
+  memberHandle,
   parseMentions,
+  parsePeopleMentions,
+  peopleMentionNames,
+  PERSON_KEY_PREFIX,
   splitMentions,
   type MentionNames,
   type MessageSegment,
@@ -313,6 +317,18 @@ export {
   type MessageStatus,
   type SendMessageInput,
 } from './messages';
+export {
+  markNotificationsReadInputSchema,
+  NOTIFICATION_KINDS,
+  NOTIFICATION_PAGE_SIZE,
+  notificationSchema,
+  openVoteSchema,
+  type MarkNotificationsReadInput,
+  type Notification,
+  type NotificationKind,
+  type NotificationList,
+  type OpenVote,
+} from './notifications';
 export { PHASES, phaseStatuses, type Phase, type PhaseStatus } from './phases';
 export {
   addProjectAgentInputSchema,

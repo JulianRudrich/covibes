@@ -59,7 +59,14 @@ export const projectSettingsSchema = z.looseObject({
 export type CreateProjectInput = z.infer<typeof createProjectInputSchema>;
 
 /** One entry of `GET /api/projects`. */
-export type ProjectSummary = { id: string; name: string; role: ProjectRole; updatedAt: string };
+export type ProjectSummary = {
+  id: string;
+  name: string;
+  role: ProjectRole;
+  updatedAt: string;
+  /** How much waits for the person in the project (spec 22a): proposals, raised hands, votes. */
+  waiting: number;
+};
 
 export type ProjectMember = {
   userId: string;

@@ -54,7 +54,9 @@
       "submit": "Create",
       "creating": "Creating …",
       "error": "The project could not be created. Please try again."
-    }
+    },
+    "waiting_one": "{{count}} waits for you",
+    "waiting_other": "{{count}} wait for you"
   },
   "workspace": {
     "projectMenu": "to the project list",
@@ -450,7 +452,8 @@
     "messages": "Messages",
     "today": "Today",
     "placeholder": "Message the team and agents, @ calls an agent",
-    "mentionAgent": "Mention an agent",
+    "mentionAgent": "Mention an agent or a member",
+    "mentionPeople": "Members",
     "attach": "Attach file",
     "enterToSend": "Enter to send",
     "send": "Send",
@@ -676,6 +679,26 @@
   },
   "overview": {
     "waiting": "Waiting for you",
-    "waitingCount": "{{count}} open"
+    "waitingCount": "{{count}} open",
+    "hand": "Raised hand",
+    "vote": "Vote",
+    "voteProgress": "{{voted}} of {{total}} have voted",
+    "voteFor": "Vote for {{option}}"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "open": "Notifications",
+    "openUnread_one": "Notifications, {{count}} unread",
+    "openUnread_other": "Notifications, {{count}} unread",
+    "readAll": "Mark all as read",
+    "empty": "No notifications.",
+    "unread": "unread",
+    "someone": "Someone",
+    "kinds": {
+      "mention": "<b>{{name}}</b> mentioned you in <b>{{project}}</b>",
+      "role_changed": "<b>{{name}}</b> changed your role in <b>{{project}}</b>: {{role}}",
+      "removed": "<b>{{name}}</b> removed you from <b>{{project}}</b>",
+      "joined": "<b>{{name}}</b> joined <b>{{project}}</b> as {{role}}"
+    }
   }
 }

@@ -15,6 +15,8 @@ type MessageListProps = {
   currentUserId: string;
   /** The agents of the team, whose mentions in agent answers are shown as chips. */
   team: readonly string[];
+  /** The members of the project, for the chips of mentioned people (spec 22a). */
+  people?: readonly { userId: string; name: string }[];
   onRetry: (id: string) => void;
   /** Accepts or declines the moderator's offer of help; without it the buttons are left out. */
   onOffer?: (message: ChatItem, accept: boolean) => void;
@@ -43,6 +45,7 @@ export function MessageList({
   items,
   currentUserId,
   team,
+  people,
   onRetry,
   onOffer,
   voting,
@@ -128,6 +131,8 @@ export function MessageList({
                   isOwn={isOwn}
                   replyToName={replyToName}
                   team={team}
+                  people={people}
+                  currentUserId={currentUserId}
                   onRetry={onRetry}
                   onOffer={onOffer}
                   voting={voting}

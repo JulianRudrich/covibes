@@ -31,7 +31,9 @@ function sendButton() {
 }
 
 async function chooseAgent(name: string) {
-  fireEvent.keyDown(screen.getByRole('button', { name: 'Agent erwähnen' }), { key: 'Enter' });
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Agent oder Mitglied erwähnen' }), {
+    key: 'Enter',
+  });
   fireEvent.click(await screen.findByRole('menuitem', { name }));
 }
 
@@ -99,7 +101,9 @@ describe('Composer', () => {
   it('offers only the agents of the team under "@" (spec 14)', async () => {
     renderComposer({ agents: ['moderator', 'ml'] });
 
-    fireEvent.keyDown(screen.getByRole('button', { name: 'Agent erwähnen' }), { key: 'Enter' });
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Agent oder Mitglied erwähnen' }), {
+      key: 'Enter',
+    });
 
     const items = await screen.findAllByRole('menuitem');
     expect(items.map((item) => item.textContent)).toEqual(['MModerator', 'MLML']);
@@ -108,7 +112,9 @@ describe('Composer', () => {
   it('offers the four agents under "@"', async () => {
     renderComposer();
 
-    fireEvent.keyDown(screen.getByRole('button', { name: 'Agent erwähnen' }), { key: 'Enter' });
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Agent oder Mitglied erwähnen' }), {
+      key: 'Enter',
+    });
 
     const items = await screen.findAllByRole('menuitem');
     expect(items).toHaveLength(4);
@@ -155,13 +161,49 @@ describe('Composer', () => {
       </TooltipProvider>,
     );
 
-    fireEvent.keyDown(screen.getByRole('button', { name: 'Agent erwähnen' }), { key: 'Enter' });
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Agent oder Mitglied erwähnen' }), {
+      key: 'Enter',
+    });
     const item = await screen.findByRole('menuitem', { name: 'UX Writer' });
     expect(item).toHaveTextContent('UWUX Writer');
     fireEvent.click(item);
 
     await waitFor(() => {
       expect(screen.getByRole('textbox')).toHaveValue('@UX-Writer ');
+    });
+  });
+
+  it('offers the other members below the agents and mentions them by their handle (spec 22a)', async () => {
+    const onSend = vi.fn<(content: string) => void>();
+    render(
+      <TooltipProvider>
+        <Composer
+          agents={['moderator']}
+          people={[
+            { userId: '11111111-1111-4111-8111-111111111111', name: 'Alex Berg' },
+            { userId: '22222222-2222-4222-8222-222222222222', name: 'sam.smith' },
+            // A name without a letter or digit cannot be mentioned.
+            { userId: '33333333-3333-4333-8333-333333333333', name: '…' },
+          ]}
+          onSend={onSend}
+        />
+      </TooltipProvider>,
+    );
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Agent oder Mitglied erwähnen' }), {
+      key: 'Enter',
+    });
+    const items = await screen.findAllByRole('menuitem');
+    expect(items.map((item) => item.textContent)).toEqual([
+      'MModerator',
+      'ABAlex Berg',
+      'Ssam.smith',
+    ]);
+    expect(screen.getByText('Mitglieder')).toBeInTheDocument();
+    fireEvent.click(items[1] as HTMLElement);
+
+    await waitFor(() => {
+      expect(screen.getByRole('textbox')).toHaveValue('@Alex-Berg ');
     });
   });
 
@@ -178,7 +220,7 @@ describe('Composer', () => {
     const { onSend, textbox } = renderComposer({ disabled: true });
 
     expect(textbox).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Agent erwähnen' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Agent oder Mitglied erwähnen' })).toBeDisabled();
     expect(sendButton()).toBeDisabled();
 
     fireEvent.keyDown(textbox, { key: 'Enter' });

@@ -7,7 +7,7 @@
 Build collaboration (M4, specs 21 to 24): invitations, roles and the read-only link, "Waiting for you" and notifications, "Since you were away", and the phase indicator with the next step. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-- Spec 22a: mentioning people, notifications in the app and "Waiting for you" (branch `spec/22a-notifications`)
+- Nothing. Next is spec 22b (notifications by email).
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -180,11 +180,17 @@ Build collaboration (M4, specs 21 to 24): invitations, roles and the read-only l
   - the view shows no chat and names no person; database policies let a link read only what the view needs
 
   Lint, type check, format, 1142 tests and build pass; verified with `pnpm dev`. Spec 21 is complete with it.
+- [x] **Spec 22a mentioning people, notifications in the app and "Waiting for you":**
+  - members mention each other with `@`, from the menu or by typing; the server stores whom a message mentions, and the chat shows chips
+  - a bell in the header collects mentions, changed roles, removals and new members across projects, with a counter of the unread ones
+  - "Wartet auf dich" also lists raised hands and votes without the own vote and counts what the person can act on; the project list shows how much waits per project
+
+  Lint, type check, format, 1178 tests and build pass; verified with `pnpm dev`.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M4 (collaboration):** M3 (AI core) is complete with spec 20b. Spec 21 (invitations, roles and read-only link) is done in two parts. Spec 22 ("Waiting for you" and notifications) is built in two parts: 22a (mentioning people, notifications in the app, the complete "Waiting for you") is worked out and in progress, 22b (notifications by email) follows. The share dialog and the read-only view are derived from the prototype design until the design pass (spec 36).
+1. **M4 (collaboration):** M3 (AI core) is complete with spec 20b. Spec 21 (invitations, roles and read-only link) is done in two parts. Spec 22 ("Waiting for you" and notifications) is built in two parts: 22a (mentioning people, notifications in the app, the complete "Waiting for you") is done, 22b (notifications by email) is next. The share dialog and the read-only view are derived from the prototype design until the design pass (spec 36).
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -297,6 +303,7 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
 - **2026-10-01, spec 17 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that variants are one proposal with a diagram per variant, that the server places them in one row with the tops aligned, that the canvas offers only "Übernehmen" per variant while "Verwerfen" for all sits in the overview, and that the canvas does not move to new variants by itself.
 - **2026-10-01, spec 18 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that a debate has two or three specialists and one to three rounds (two by default), that the moderator leads but does not argue, that debate runs have no tools, that the database advances the chain, that owners and editors can end a debate early with a summary of what was said, and that a turn that fails for good aborts the debate.
 - **2026-10-01, spec 19 implemented.** Details are in the spec under "Implementation notes". The coding agent decided that a custom agent's key is its id, that a personal agent's instructions stay with its creator while a shared agent is edited by owners and editors, that custom agents draw or only talk (no choice of single tools), the six custom colors and the two-letter avatars, the limits of 20 agents, and that the templates are texts of the web app.
+- **2026-10-02, spec 22a implemented.** Details are in the spec under "Implementation notes". The coding agent split spec 22 into two parts and decided that people are mentioned by the handle of their name (agents of the team keep their names), which events notify whom (mentions, a changed role, a removal, a new member for owners), that the bell asks every 30 seconds instead of a person-wide live channel, that raised hands and open votes join "Wartet auf dich" while the moderator's offers stay in the chat, and that the counter counts only what the person can act on.
 - **2026-10-02, spec 21b implemented.** Details are in the spec under "Implementation notes". The owner decided that the link shows the canvas and the overview, without the chat. The coding agent decided that the view names no person (people are "Teammitglied", decisions do not say who confirmed them, no decision log), that there is one link per project without an expiry, that the view is a picture loaded again every 30 seconds instead of a live session, and that every member sees that a link exists.
 - **2026-10-02, spec 21a implemented.** Details are in the spec under "Implementation notes". The coding agent split spec 21 into two parts and decided that an invitation makes an editor or a viewer (owners are made in the member list), that both kinds are valid for seven days, that a link is for several people and a mail works once and is not bound to its address, that only the hash of a link is stored (so it shows once), the limits (20 open invitations, 50 members, 20 mails per hour), that personal agents leave a team with their creator, and that the creator's place passes to the longest-standing other owner. The owner then decided that the read-only link of spec 21b shows the canvas and the overview, without the chat.
 - **2026-10-01, spec 20b implemented.** Details are in the spec under "Implementation notes". The coding agent decided that reading links is an own tool that only reaches the public web (the built-in link reader stays off), the limits (10 seconds, 2 MB of text, PDFs up to 10 MB, five redirects), one switch per project for search and links, that sources are plain addresses at the end of an answer, ten knowledge entries per custom agent, and that knowledge is maintained for existing agents only and applies at once.

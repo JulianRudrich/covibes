@@ -1,5 +1,6 @@
 import {
   parseMentions,
+  parsePeopleMentions,
   sendMessageInputSchema,
   type ChatMessage,
   type MentionNames,
@@ -37,6 +38,8 @@ async function post(queryClient: QueryClient, projectId: string, input: SendMess
   }
 }
 
+const NO_PEOPLE: readonly { userId: string; name: string }[] = [];
+
 /**
  * Optimistic sending (spec 06). The delivery state lives on each message in the cached list, so
  * several messages can be on their way at once. The id is created here, so sending again after an
@@ -47,6 +50,8 @@ export function useSendMessage(
   author: { userId: string; name: string },
   /** The names the team answers to; like the server, only their mentions count (spec 14). */
   names: MentionNames,
+  /** The other members; like the server, their mentions are stored with the message (spec 22a). */
+  people: readonly { userId: string; name: string }[] = NO_PEOPLE,
 ) {
   const queryClient = useQueryClient();
   const { userId, name } = author;
@@ -67,12 +72,14 @@ export function useSendMessage(
 
       const { id, content } = input.data;
       const now = new Date().toISOString();
+      const mentionedUsers = parsePeopleMentions(content, people, names);
       const item: ChatItem = {
         id,
         projectId,
         author: { kind: 'human', userId, name },
         content,
         mentions: parseMentions(content, names),
+        ...(mentionedUsers.length > 0 ? { mentionedUsers } : {}),
         ...(attachments.length > 0 ? { attachments: [...attachments] } : {}),
         replyTo: null,
         status: 'complete',
@@ -88,7 +95,7 @@ export function useSendMessage(
       });
       return true;
     },
-    [queryClient, projectId, userId, name, names],
+    [queryClient, projectId, userId, name, names, people],
   );
 
   /** Sends a failed message again with the same id; does nothing for any other message. */

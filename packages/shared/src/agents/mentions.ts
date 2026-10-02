@@ -61,3 +61,56 @@ export function parseMentions(text: string, names: MentionNames = AGENT_MENTION_
   }
   return keys;
 }
+
+// Mentions of people (spec 22a): `@` and a member's name, written like the handle of a custom
+// agent, with hyphens for everything that is not a letter or digit.
+
+/** The key of a person in `MentionNames`, next to the keys of the agents. */
+export const PERSON_KEY_PREFIX = 'user:';
+
+/** How a member is mentioned: "Alex Berg" is `Alex-Berg`, "sam.smith" is `sam-smith`. */
+export function memberHandle(name: string): string {
+  return name
+    .trim()
+    .replace(/[^\p{L}\p{N}_]+/gu, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+type Person = { userId: string; name: string };
+
+/** The names people answer to, by `user:<id>`; someone whose name has no letter or digit is left out. */
+export function peopleMentionNames(people: readonly Person[]): MentionNames {
+  const names: Record<string, readonly string[]> = {};
+  for (const person of people) {
+    const handle = memberHandle(person.name).toLowerCase();
+    if (handle !== '') names[`${PERSON_KEY_PREFIX}${person.userId}`] = [handle];
+  }
+  return names;
+}
+
+/**
+ * The people a message mentions, each once, in the order of their first mention. A name an agent
+ * answers to (`agentNames`) calls the agent; a handle that several people share mentions them all.
+ */
+export function parsePeopleMentions(
+  text: string,
+  people: readonly Person[],
+  agentNames: MentionNames = {},
+): string[] {
+  const byHandle = new Map<string, string[]>();
+  for (const person of people) {
+    const handle = memberHandle(person.name).toLowerCase();
+    if (handle === '') continue;
+    byHandle.set(handle, [...(byHandle.get(handle) ?? []), person.userId]);
+  }
+  // Agents first: `keyForName` takes the first key a name belongs to.
+  const names = { ...agentNames, ...peopleMentionNames(people) };
+  const mentioned: string[] = [];
+  for (const segment of splitMentions(text, names)) {
+    if (segment.kind !== 'mention' || !segment.key.startsWith(PERSON_KEY_PREFIX)) continue;
+    for (const userId of byHandle.get(segment.text.slice(1).toLowerCase()) ?? []) {
+      if (!mentioned.includes(userId)) mentioned.push(userId);
+    }
+  }
+  return mentioned;
+}

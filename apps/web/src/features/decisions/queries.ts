@@ -1,4 +1,4 @@
-import type { Criterion, Decision, DecisionLogEntry, MessageVote } from '@covibes/shared';
+import type { Criterion, Decision, DecisionLogEntry, MessageVote, OpenVote } from '@covibes/shared';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
@@ -17,7 +17,23 @@ export function decisionLogQueryKey(projectId: string) {
   return ['projects', projectId, 'decisions', 'log'] as const;
 }
 
+export function openVotesQueryKey(projectId: string) {
+  return ['projects', projectId, 'votes'] as const;
+}
+
 const base = (projectId: string) => `/projects/${encodeURIComponent(projectId)}`;
+
+/**
+ * The open votes of a project, for "Wartet auf dich" (spec 22a). The live channel reloads them
+ * when a message with a vote changes.
+ */
+export function openVotesQuery(projectId: string) {
+  return queryOptions({
+    queryKey: openVotesQueryKey(projectId),
+    queryFn: () => api<OpenVote[]>(`${base(projectId)}/votes`),
+    staleTime: Infinity,
+  });
+}
 
 /**
  * Criteria, decisions and the decision log of a project (spec 16a). The live channel reloads them
@@ -157,6 +173,10 @@ export function useVoteActions(
         item.vote?.id === voteId ? { ...item, vote: { ...item.vote, ballots } } : item,
       ),
     );
+    // The same vote under "Wartet auf dich" (spec 22a).
+    queryClient.setQueryData<OpenVote[]>(openVotesQueryKey(projectId), (votes) =>
+      votes?.map((vote) => (vote.id === voteId ? { ...vote, ballots } : vote)),
+    );
   };
 
   const { mutate: castVote } = useMutation({
@@ -172,11 +192,16 @@ export function useVoteActions(
       setBallots(vote.id, vote.ballots);
       failed(error);
     },
+    // The vote no longer waits for the user (spec 22a).
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: openVotesQueryKey(projectId), exact: true }),
   });
 
   const { mutate: closeVote } = useMutation({
     mutationFn: (vote: MessageVote) => api<undefined>(path(vote, 'close'), { method: 'POST' }),
     onError: failed,
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: openVotesQueryKey(projectId), exact: true }),
   });
 
   return {

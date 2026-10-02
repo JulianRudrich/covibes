@@ -23,7 +23,14 @@ function summaries(trx: Transaction<DB>, userId: string) {
     .selectFrom('projects')
     .innerJoin('project_members', 'project_members.project_id', 'projects.id')
     .where('project_members.user_id', '=', userId)
-    .select(['projects.id', 'projects.name', 'project_members.role', 'projects.updated_at']);
+    .select([
+      'projects.id',
+      'projects.name',
+      'project_members.role',
+      'projects.updated_at',
+      // What waits for the user there (spec 22a).
+      sql<number>`public.project_waiting_count(projects.id)`.as('waiting'),
+    ]);
 }
 
 function toSummary(row: {
@@ -31,8 +38,15 @@ function toSummary(row: {
   name: string;
   role: ProjectSummary['role'];
   updated_at: Date;
+  waiting: number;
 }): ProjectSummary {
-  return { id: row.id, name: row.name, role: row.role, updatedAt: row.updated_at.toISOString() };
+  return {
+    id: row.id,
+    name: row.name,
+    role: row.role,
+    updatedAt: row.updated_at.toISOString(),
+    waiting: row.waiting,
+  };
 }
 
 /** `/api/projects`: every route needs a session and reads through `withUser`. */

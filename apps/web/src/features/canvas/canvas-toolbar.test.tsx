@@ -89,6 +89,14 @@ describe('CanvasToolbar', () => {
     expect(screen.queryByRole('button', { name: 'Block' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Vergrößern' })).toBeInTheDocument();
   });
+
+  it('shows what stands at its end after the zoom, also for viewers (spec 27a)', () => {
+    renderToolbar({ readOnly: true, end: <button type="button">Exportieren</button> });
+
+    expect(
+      screen.getAllByRole('button').map((button) => button.textContent || button.ariaLabel),
+    ).toEqual(['Verkleinern', 'Vergrößern', 'Exportieren']);
+  });
 });
 
 describe('PlacementLayer', () => {

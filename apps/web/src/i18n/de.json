@@ -866,5 +866,14 @@
       "short": "Zuweisen",
       "failed": "Die Aufgabe konnte nicht zugewiesen werden. Bitte versuche es noch einmal."
     }
+  },
+  "export": {
+    "label": "Exportieren",
+    "png": "Als Bild (PNG)",
+    "svg": "Als Vektorgrafik (SVG)",
+    "mermaid": "Als Diagramm-Code (Mermaid)",
+    "markdown": "Als Markdown",
+    "pdf": "Als PDF",
+    "failed": "Der Export hat nicht geklappt. Bitte versuche es noch einmal."
   }
 }

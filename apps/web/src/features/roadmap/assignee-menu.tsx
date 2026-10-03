@@ -10,6 +10,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@web/components/ui/dropdown-menu';
+import { NO_EXPORT } from '@web/features/export/board-image';
 import type { TaskAssigning } from '@web/features/roadmap/roadmap-context';
 import { cn } from '@web/lib/cn';
 import { initialsOf } from '@web/lib/format';
@@ -108,6 +109,9 @@ export function TaskAssignee({
             : t('roadmap.assign.open', { task: task.text })
         }
         title={shown?.name}
+        // The button to assign is a control, no part of the board: an image leaves it out
+        // (spec 27a). An avatar says who took the task and stays.
+        {...(shown ? {} : { [NO_EXPORT]: '' })}
         className={cn(
           'nodrag nopan grid size-6 shrink-0 cursor-pointer place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
           !shown &&

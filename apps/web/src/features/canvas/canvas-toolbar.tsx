@@ -30,6 +30,8 @@ type CanvasToolbarProps = {
   layoutBusy: boolean;
   /** Viewers only get the zoom. */
   readOnly: boolean;
+  /** At the right end, after the zoom: e.g. "Exportieren" (spec 27a). */
+  end?: ReactNode;
 };
 
 /**
@@ -42,6 +44,7 @@ export function CanvasToolbar({
   onAutoLayout,
   layoutBusy,
   readOnly,
+  end,
 }: CanvasToolbarProps) {
   const { t } = useTranslation();
   const { zoomTo } = useReactFlow();
@@ -90,6 +93,12 @@ export function CanvasToolbar({
       >
         <Plus size={14} strokeWidth={2.2} aria-hidden="true" />
       </ZoomButton>
+      {end ? (
+        <>
+          <span className="mx-1 h-[22px] w-px bg-border-soft" aria-hidden="true" />
+          {end}
+        </>
+      ) : null}
     </div>
   );
 }

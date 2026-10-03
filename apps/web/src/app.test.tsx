@@ -45,6 +45,7 @@ vi.mock('@web/features/canvas/canvas-panel', async () => {
       notice: string | null;
       focusId?: string;
       onFocused?: () => void;
+      exports?: { title: string; fileName: string; language: string; onFailed: () => void };
     }) =>
       createElement(
         'div',
@@ -53,6 +54,11 @@ vi.mock('@web/features/canvas/canvas-panel', async () => {
           'data-board': props.boardId,
           'data-readonly': String(props.readOnly),
           'data-focus': props.focusId ?? '',
+          'data-export': props.exports
+            ? `${props.exports.fileName}|${props.exports.title}|${props.exports.language}`
+            : '',
+          // Stands for an export that gave no file.
+          onDoubleClick: props.exports?.onFailed,
         },
         props.notice,
         props.focusId ? createElement('button', { onClick: props.onFocused }, 'Im Blick') : null,
@@ -76,6 +82,8 @@ vi.mock('@web/features/plan/plan-panel', async () => {
       onUpdate?: () => void;
       onOpenRoadmap: () => void;
       roadmapBusy: boolean;
+      projectName: string;
+      onExportFailed: () => void;
       tasks?: {
         assignees: ReadonlyMap<string, { userId: string; name: string } | null>;
         assigning?: {
@@ -99,6 +107,7 @@ vi.mock('@web/features/plan/plan-panel', async () => {
                 .map(([id, assignee]) => `${id.slice(0, 4)}:${assignee?.name ?? '-'}`)
                 .join(' ')
             : 'loading',
+          'data-project-name': props.projectName,
           'data-members':
             props.tasks?.assigning?.members.map((member) => member.name).join(',') ?? '',
         },
@@ -1058,6 +1067,38 @@ describe('with a session', () => {
       expect(within(plan).queryByRole('button', { name: 'Aktualisieren' })).toBeNull();
       // Nothing waits for someone who only reads.
       expect(screen.queryByRole('region', { name: 'Wartet auf dich' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('exports (spec 27a)', () => {
+    it('names the files of a board after the project and the board, also for viewers', async () => {
+      stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({
+          body: { ...DETAILS, role: 'viewer', boards: [...DETAILS.boards, EXTRA_BOARD] },
+        }),
+      });
+      renderApp(`/p/${PROJECT.id}?board=${EXTRA_BOARD.id}`);
+
+      const canvas = await screen.findByTestId('canvas-panel');
+      expect(canvas).toHaveAttribute('data-export', `covibes-v1-ablauf|${EXTRA_BOARD.title}|de`);
+
+      // An export that gave no file says so over the canvas.
+      fireEvent.doubleClick(canvas);
+      expect(
+        await within(canvas).findByText(
+          'Der Export hat nicht geklappt. Bitte versuche es noch einmal.',
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('gives the plan the name of the project for its exports', async () => {
+      stubApi({ [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }) });
+      renderApp(`/p/${PROJECT.id}?view=plan`);
+
+      expect(await screen.findByTestId('plan-panel')).toHaveAttribute(
+        'data-project-name',
+        PROJECT.name,
+      );
     });
   });
 

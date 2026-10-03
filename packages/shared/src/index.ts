@@ -381,6 +381,14 @@ export {
   type RoadmapPlace,
   type RoadmapTask,
 } from './plan-roadmap';
+export { boardToMermaid, type BoardExport } from './canvas/mermaid';
+export { exportFileName, exportTexts, type ExportTexts } from './export-texts';
+export {
+  planExportMarkdown,
+  planExportTitle,
+  withAssigneeNames,
+  type PlanExport,
+} from './plan-export';
 export {
   carryTaskIds,
   ensureTaskIds,

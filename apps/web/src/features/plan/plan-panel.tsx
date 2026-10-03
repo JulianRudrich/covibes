@@ -1,8 +1,9 @@
 import type { AwarenessUser, PlanLanguage, PlanState } from '@covibes/shared';
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PanelHeader } from '@web/components/ui/panel';
+import { PlanExportMenu } from '@web/features/export/plan-export-menu';
 import { PlanEditor, type PlanTaskAssignments } from '@web/features/plan/plan-editor';
 import { PLAN_PANEL_ID } from '@web/features/plan/plan-ids';
 import { PlanSuggestions } from '@web/features/plan/plan-suggestions';
@@ -31,6 +32,9 @@ type PlanPanelProps = {
   roadmapBusy: boolean;
   /** Who took which task of the plan (spec 26b); undefined until the roadmap is loaded. */
   tasks?: PlanTaskAssignments;
+  /** The project's name, after which the exports of the plan are called (spec 27a). */
+  projectName: string;
+  onExportFailed: () => void;
 };
 
 /**
@@ -46,9 +50,21 @@ export function PlanPanel({
   onUpdate,
   onOpenRoadmap,
   roadmapBusy,
+  projectName,
+  onExportFailed,
   ...editor
 }: PlanPanelProps) {
   const { t } = useTranslation();
+  // An export names who took a task; it has no avatars to show it.
+  const assigneeNames = useMemo(
+    () =>
+      new Map(
+        [...(editor.tasks?.assignees ?? [])].flatMap(([taskId, assignee]) =>
+          assignee?.name ? [[taskId, assignee.name] as const] : [],
+        ),
+      ),
+    [editor.tasks],
+  );
   return (
     <>
       <PanelHeader className="gap-1 px-3">{tabs}</PanelHeader>
@@ -76,6 +92,13 @@ export function PlanPanel({
             <>
               <PlanVersions projectId={editor.projectId} current={text.nodes} />
               <RoadmapButton busy={roadmapBusy} onOpen={onOpenRoadmap} />
+              <PlanExportMenu
+                projectName={projectName}
+                language={editor.language}
+                nodes={text.nodes}
+                assignees={assigneeNames}
+                onFailed={onExportFailed}
+              />
             </>
           )}
           generation={

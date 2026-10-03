@@ -45,6 +45,7 @@ Browser ── React app (static files)
 | Email | SMTP behind an interface; locally a development mailbox in the app | login links, invitations, notifications |
 | GitLab | `@gitbeaker/rest`, webhooks | repository, issues, merge requests |
 | Monitoring | set up for the public launch | errors in web and server |
+| Exports | `html-to-image` (a board as PNG and SVG), an own Mermaid serializer in `packages/shared`, `pdfmake` (the plan as PDF); all in the browser, loaded on first use (spec 27a) | files of boards and of the plan |
 | Tests | Vitest (also against a real test database), Playwright | logic, permissions, flows |
 
 Exact package versions are in the `package.json` files and in the implementation notes of the specs.
@@ -382,7 +383,6 @@ Claude brings web search and web fetch as tools. Providers added later get equiv
 
 ## Open (resolved in the feature specs)
 - hosting for the public launch (spec 35)
-- library for the PDF export
 - the route for GPT, Gemini and Mistral once a second provider is needed
 - default models per catalog agent after the evals; until then Claude Opus 5.5 for all (owner decision, 2026-09-30)
 - provider for sending email in production

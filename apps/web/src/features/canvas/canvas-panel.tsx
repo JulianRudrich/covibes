@@ -7,6 +7,7 @@ import {
   addNote,
   authorOrigin,
   BLOCK_SIZE,
+  boardToMermaid,
   computeLayout,
   edgeProblem,
   fitRoadmap,
@@ -30,6 +31,7 @@ import {
   type Author,
   type AwarenessUser,
   type BlockType,
+  type PlanLanguage,
   type Position,
   type ProjectMember,
   type Proposal,
@@ -42,6 +44,7 @@ import {
   ReactFlowProvider,
   useReactFlow,
   useStore,
+  useStoreApi,
   ViewportPortal,
   type Connection,
   type EdgeTypes,
@@ -87,6 +90,9 @@ import { useNodeLocks } from '@web/features/canvas/use-node-locks';
 import { useUndo } from '@web/features/canvas/use-undo';
 import { useYjsFlow } from '@web/features/canvas/use-yjs-flow';
 import { ZOOM_MAX, ZOOM_MIN } from '@web/features/canvas/zoom';
+import { boardImage, NO_EXPORT } from '@web/features/export/board-image';
+import { downloadBlob, downloadText } from '@web/features/export/download';
+import { ExportMenu, type ExportOption } from '@web/features/export/export-menu';
 import { initialsOf } from '@web/lib/format';
 
 const nodeTypes: NodeTypes = { block: BlockNode, sticky: NoteNode, frame: FrameNode };
@@ -114,6 +120,18 @@ type CanvasPanelProps = {
   /** An element to bring into view once it is on the board, e.g. the roadmap (spec 26a). */
   focusId?: string;
   onFocused?: () => void;
+  /** What the exports of the board are called (spec 27a); without it the board offers none. */
+  exports?: BoardExports;
+};
+
+export type BoardExports = {
+  /** The title of the board, the heading of its Mermaid file. */
+  title: string;
+  /** The name of the files, without their ending. */
+  fileName: string;
+  /** The project's language, in which an export writes what it adds. */
+  language: PlanLanguage;
+  onFailed: () => void;
 };
 
 /**
@@ -151,6 +169,7 @@ function BoardCanvas({
   canAdoptVariants,
   focusId,
   onFocused,
+  exports,
 }: Omit<CanvasPanelProps, 'tabs' | 'notice'>) {
   const { t } = useTranslation();
   const { connection, status, loaded, denied } = useBoardDoc(boardId);
@@ -173,6 +192,7 @@ function BoardCanvas({
           canAdoptVariants={canAdoptVariants}
           focusId={focusId}
           onFocused={onFocused}
+          exports={exports}
         />
       ) : (
         <CanvasMessage>{t('canvas.loading')}</CanvasMessage>
@@ -195,6 +215,7 @@ type BoardProps = {
   canAdoptVariants?: boolean;
   focusId?: string;
   onFocused?: () => void;
+  exports?: BoardExports;
 };
 
 /** Room around an element brought into view, on each side. */
@@ -221,6 +242,7 @@ function Board({
   canAdoptVariants,
   focusId,
   onFocused,
+  exports,
 }: BoardProps) {
   const { t } = useTranslation();
   const agents = useAgents();
@@ -576,6 +598,51 @@ function Board({
 
   const placing = tool === 'block' || tool === 'note' || tool === 'frame';
 
+  // The board as files (spec 27a): an image of everything on it, or its diagrams as Mermaid.
+  const store = useStoreApi();
+  const exportOptions = useMemo<ExportOption[] | null>(() => {
+    if (!exports) return null;
+    const image = (format: 'png' | 'svg') => async () => {
+      // The image shows the board, not what is selected on it right now.
+      onNodesChange(
+        nodes
+          .filter((node) => node.selected)
+          .map((node) => ({ type: 'select' as const, id: node.id, selected: false })),
+      );
+      onEdgesChange(
+        edges
+          .filter((edge) => edge.selected)
+          .map((edge) => ({ type: 'select' as const, id: edge.id, selected: false })),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const viewport = store
+        .getState()
+        .domNode?.querySelector<HTMLElement>('.react-flow__viewport');
+      if (!viewport) throw new Error('The board is not drawn');
+      downloadBlob(await boardImage(viewport, format), `${exports.fileName}.${format}`);
+    };
+    return [
+      { key: 'png', label: t('export.png'), run: image('png') },
+      { key: 'svg', label: t('export.svg'), run: image('svg') },
+      {
+        key: 'mermaid',
+        label: t('export.mermaid'),
+        run: () => {
+          downloadText(
+            boardToMermaid({
+              title: exports.title,
+              nodes: readNodes(doc),
+              edges: readEdges(doc),
+              roadmap,
+              language: exports.language,
+            }),
+            `${exports.fileName}.md`,
+          );
+        },
+      },
+    ];
+  }, [exports, nodes, edges, onNodesChange, onEdgesChange, store, doc, roadmap, t]);
+
   return (
     <CanvasActionsProvider value={actions}>
       <ArrowMarkers />
@@ -616,17 +683,20 @@ function Board({
           bgColor="var(--color-bg-canvas)"
         />
         <ViewportPortal>
-          <ProposalLayer
-            overlay={overlay}
-            rects={rects}
-            proposals={proposalsById}
-            canDecide={!readOnly}
-            canAdoptVariants={canAdoptVariants}
-            onDecide={onDecide}
-          />
-          {cursors.map((cursor) => (
-            <LiveCursor key={cursor.clientId} cursor={cursor} />
-          ))}
+          {/* Proposals and the cursors of others are no part of the board: an image leaves them out. */}
+          <div className="contents" {...{ [NO_EXPORT]: '' }}>
+            <ProposalLayer
+              overlay={overlay}
+              rects={rects}
+              proposals={proposalsById}
+              canDecide={!readOnly}
+              canAdoptVariants={canAdoptVariants}
+              onDecide={onDecide}
+            />
+            {cursors.map((cursor) => (
+              <LiveCursor key={cursor.clientId} cursor={cursor} />
+            ))}
+          </div>
         </ViewportPortal>
         {placing ? <PlacementLayer drawsArea={tool === 'frame'} onPlace={place} /> : null}
         <CanvasToolbar
@@ -635,6 +705,15 @@ function Board({
           onAutoLayout={() => void autoLayout()}
           layoutBusy={layoutBusy}
           readOnly={readOnly}
+          end={
+            exportOptions && exports ? (
+              <ExportMenu
+                options={exportOptions}
+                onFailed={exports.onFailed}
+                className="grid h-[34px] w-[30px] rounded-md text-text-body hover:bg-bg-subtle"
+              />
+            ) : null
+          }
         />
       </ReactFlow>
     </CanvasActionsProvider>

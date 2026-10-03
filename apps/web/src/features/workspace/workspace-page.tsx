@@ -1,9 +1,10 @@
-import type {
-  HandRaise,
-  OpenVote,
-  ProjectDetails,
-  Proposal,
-  RoadmapAssignee,
+import {
+  exportFileName,
+  type HandRaise,
+  type OpenVote,
+  type ProjectDetails,
+  type Proposal,
+  type RoadmapAssignee,
 } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
@@ -17,7 +18,7 @@ import { sessionQuery, type SessionUser } from '@web/features/auth/session';
 import { awayQuery, useDismissAway } from '@web/features/away/queries';
 import { SinceYouWereAway } from '@web/features/away/since-you-were-away';
 import { BoardTabs } from '@web/features/canvas/board-tabs';
-import { CanvasPanel } from '@web/features/canvas/canvas-panel';
+import { CanvasPanel, type BoardExports } from '@web/features/canvas/canvas-panel';
 import { ChatPanel } from '@web/features/chat/chat-panel';
 import { DecisionsOverview } from '@web/features/decisions/decisions-overview';
 import { openVotesQuery, useVoteActions } from '@web/features/decisions/queries';
@@ -193,6 +194,21 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
       }),
     [navigate, project.id],
   );
+  // Exports (spec 27a): the open board and the plan as files, named after the project.
+  const exportFailed = useCallback(() => {
+    showNotice(t('export.failed'));
+  }, [showNotice, t]);
+  const boardExports = useMemo<BoardExports | undefined>(
+    () =>
+      activeBoard && {
+        title: activeBoard.title,
+        fileName: exportFileName(project.name, activeBoard.title),
+        language: project.language,
+        onFailed: exportFailed,
+      },
+    [activeBoard, project.name, project.language, exportFailed],
+  );
+
   // Tasks (spec 26b): owners and editors give them to members, on the roadmap and in the plan.
   const assignFailed = useCallback(() => {
     showNotice(t('roadmap.assign.failed'));
@@ -437,6 +453,8 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                 onOpenRoadmap={openRoadmap}
                 roadmapBusy={roadmapOpening.isPending}
                 tasks={planTasks}
+                projectName={project.name}
+                onExportFailed={exportFailed}
               />
             ) : (
               <RoadmapProvider value={roadmapSource}>
@@ -452,6 +470,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                   canAdoptVariants={canConfirmDecisions}
                   focusId={focus}
                   onFocused={clearFocus}
+                  exports={boardExports}
                 />
               </RoadmapProvider>
             )

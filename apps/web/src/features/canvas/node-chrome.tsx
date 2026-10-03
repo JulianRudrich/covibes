@@ -32,6 +32,8 @@ export function JustDrawnPill({
   const agents = useAgents();
   return (
     <div
+      // A mark of the moment, no part of the board (spec 27a: an image leaves it out).
+      data-no-export=""
       className={cn(
         'absolute -top-[27px] -right-[1.5px] flex h-[22px] items-center gap-[5px] rounded-sm pr-2 pl-1.5 text-meta font-medium whitespace-nowrap text-on-ink transition-[opacity,visibility] duration-200 motion-reduce:transition-none',
         agentClass(AGENT_BACKGROUND, agents(agent)),
@@ -48,7 +50,11 @@ export function JustDrawnPill({
 export function LockPill({ name }: { name: string }) {
   const { t } = useTranslation();
   return (
-    <div className="absolute -top-[27px] -left-[1.5px] flex h-[22px] items-center gap-1.5 rounded-sm bg-human pr-2 pl-1.5 text-meta font-medium whitespace-nowrap text-on-ink">
+    <div
+      // Who edits right now is no part of the board (spec 27a: an image leaves it out).
+      data-no-export=""
+      className="absolute -top-[27px] -left-[1.5px] flex h-[22px] items-center gap-1.5 rounded-sm bg-human pr-2 pl-1.5 text-meta font-medium whitespace-nowrap text-on-ink"
+    >
       <Lock size={11} strokeWidth={2.4} aria-hidden="true" />
       {t('canvas.isEditing', { name })}
     </div>

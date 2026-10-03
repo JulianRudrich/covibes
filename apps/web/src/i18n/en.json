@@ -866,5 +866,14 @@
       "short": "Assign",
       "failed": "The task could not be assigned. Please try again."
     }
+  },
+  "export": {
+    "label": "Export",
+    "png": "As an image (PNG)",
+    "svg": "As a vector graphic (SVG)",
+    "mermaid": "As diagram code (Mermaid)",
+    "markdown": "As Markdown",
+    "pdf": "As PDF",
+    "failed": "The export did not work. Please try again."
   }
 }

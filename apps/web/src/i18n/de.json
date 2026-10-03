@@ -889,6 +889,8 @@
         "specs_other": "{{count}} Feature-Specs",
         "milestones_one": "{{count}} Meilenstein",
         "milestones_other": "{{count}} Meilensteine",
+        "written_one": "{{count}} ausgearbeitet",
+        "written_other": "{{count}} ausgearbeitet",
         "noSpecs": "Der Plan nennt keine Aufgaben, also gibt es keine Feature-Specs.",
         "decisions_one": "{{count}} Entscheidung",
         "decisions_other": "{{count}} Entscheidungen",
@@ -936,6 +938,18 @@
         "failed": "Der Vorschlag hat nicht geklappt. Bitte versuche es noch einmal.",
         "quota": "Das KI-Kontingent ist gerade aufgebraucht. Bitte versuche es später noch einmal.",
         "quotaUntil": "Das KI-Kontingent ist gerade aufgebraucht und ab {{time}} wieder frei."
+      },
+      "specs": {
+        "title": "Feature-Specs",
+        "hint": "Der Moderator schreibt für jede Aufgabe Ziel, Vorgehen, Abgrenzung und Checkliste. Ein Lauf pro Meilenstein, er dauert ein paar Minuten.",
+        "milestone": "Meilenstein {{number}}: {{title}}",
+        "milestoneUntitled": "Meilenstein {{number}}",
+        "written": "{{written}} von {{count}} ausgearbeitet",
+        "noTasks": "Keine Aufgaben",
+        "write": "Ausarbeiten",
+        "rewrite": "Neu ausarbeiten",
+        "running": "Der Moderator schreibt …",
+        "failed": "Die Specs konnten nicht ausgearbeitet werden. Bitte versuche es noch einmal."
       },
       "files_one": "{{count}} Datei anzeigen",
       "files_other": "{{count}} Dateien anzeigen",

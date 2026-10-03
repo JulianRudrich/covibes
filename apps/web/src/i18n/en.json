@@ -889,6 +889,8 @@
         "specs_other": "{{count}} feature specs",
         "milestones_one": "{{count}} milestone",
         "milestones_other": "{{count}} milestones",
+        "written_one": "{{count}} written out",
+        "written_other": "{{count}} written out",
         "noSpecs": "The plan names no tasks, so there are no feature specs.",
         "decisions_one": "{{count}} decision",
         "decisions_other": "{{count}} decisions",
@@ -936,6 +938,18 @@
         "failed": "The suggestion did not work. Please try again.",
         "quota": "The AI quota is used up right now. Please try again later.",
         "quotaUntil": "The AI quota is used up right now and free again from {{time}}."
+      },
+      "specs": {
+        "title": "Feature specs",
+        "hint": "The moderator writes a goal, an approach, what is out of scope and a checklist for every task. One run per milestone; it takes a few minutes.",
+        "milestone": "Milestone {{number}}: {{title}}",
+        "milestoneUntitled": "Milestone {{number}}",
+        "written": "{{written}} of {{count}} written out",
+        "noTasks": "No tasks",
+        "write": "Write out",
+        "rewrite": "Write out again",
+        "running": "The moderator is writing …",
+        "failed": "The specs could not be written out. Please try again."
       },
       "files_one": "Show {{count}} file",
       "files_other": "Show {{count}} files",

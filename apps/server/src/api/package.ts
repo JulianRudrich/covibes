@@ -4,19 +4,24 @@ import {
   codingPackageSummary,
   codingPackageTexts,
   exportFileName,
+  MAX_MILESTONES,
   PACKAGE_TEXT_KINDS,
   packageTextInputSchema,
   packageTextKindSchema,
+  planSectionsOf,
   projectIdSchema,
+  readRoadmap,
   type AcceptedPackageSuggestion,
   type CodingPackageInput,
   type CodingPackageOverview,
+  type PackageSpecRun,
   type PackageSuggestion,
   type PackageTexts,
 } from '@covibes/shared';
 import { strToU8, zipSync } from 'fflate';
 import { Hono } from 'hono';
 import { sql, type Transaction } from 'kysely';
+import { z } from 'zod';
 
 import { loadDecisions } from '@server/api/decisions';
 import { apiError } from '@server/api/errors';
@@ -46,6 +51,29 @@ type Documents = Pick<BoardDocuments, 'readBoard' | 'readPlan'>;
 
 /** A run without an end after this time is taken as lost, like the database does (0027). */
 const SUGGESTION_LOST_MS = 10 * 60_000;
+
+const milestoneSchema = z.coerce.number().int().min(1).max(MAX_MILESTONES);
+
+/**
+ * Where the run that writes a milestone's specs stands; null once it is done, since the specs
+ * themselves say so then.
+ */
+function specRunState(row: {
+  status: string;
+  error: string | null;
+  created_at: Date;
+}): PackageSpecRun | null {
+  if (row.status === 'done') return null;
+  const waits = row.status === 'queued' || row.status === 'running';
+  if (waits && Date.now() - row.created_at.getTime() < SUGGESTION_LOST_MS) {
+    return { status: 'running' };
+  }
+  return {
+    status: 'failed',
+    failure:
+      row.status === 'error' ? decodePlanFailure(row.error) : { kind: 'failed', resetsAt: null },
+  };
+}
 
 /** Where a suggestion stands, from its row and the run that writes it. */
 function suggestionState(row: {
@@ -80,6 +108,8 @@ async function gather(
       input: CodingPackageInput;
       canEdit: boolean;
       suggestions: CodingPackageOverview['suggestions'];
+      /** The run that writes a milestone's specs, by the milestone's number. */
+      specRuns: Map<number, PackageSpecRun>;
     }
   | undefined
 > {
@@ -123,6 +153,22 @@ async function gather(
       ])
       .where('package_suggestions.project_id', '=', projectId)
       .execute();
+    const specs = await trx
+      .selectFrom('package_specs')
+      .select(['task_text', 'content'])
+      .where('project_id', '=', projectId)
+      .execute();
+    const specRuns = await trx
+      .selectFrom('package_spec_runs')
+      .innerJoin('ai_runs', 'ai_runs.id', 'package_spec_runs.run_id')
+      .select([
+        'package_spec_runs.milestone',
+        'ai_runs.status',
+        'ai_runs.error',
+        'ai_runs.created_at',
+      ])
+      .where('package_spec_runs.project_id', '=', projectId)
+      .execute();
     return {
       role: member.role,
       project,
@@ -130,6 +176,8 @@ async function gather(
       criteria,
       texts,
       suggestions,
+      specs,
+      specRuns,
       decisions: await loadDecisions(trx, projectId),
       assignees: await loadAssignees(trx, projectId),
     };
@@ -152,9 +200,15 @@ async function gather(
     const suggestion = stored.suggestions.find((row) => row.kind === kind);
     suggestions[kind] = suggestion ? suggestionState(suggestion) : null;
   }
+  const specRuns = new Map<number, PackageSpecRun>();
+  for (const row of stored.specRuns) {
+    const state = specRunState(row);
+    if (state) specRuns.set(row.milestone, state);
+  }
   return {
     canEdit: stored.role !== 'viewer',
     suggestions,
+    specRuns,
     input: {
       projectName: stored.project.name,
       language: stored.project.language === 'en' ? 'en' : 'de',
@@ -163,6 +217,7 @@ async function gather(
       assignees: new Map(
         [...stored.assignees].map(([taskId, assignee]) => [taskId, assignee.name]),
       ),
+      specs: new Map(stored.specs.map((spec) => [spec.task_text, spec.content])),
       decisions: stored.decisions,
       criteria: stored.criteria.map((criterion) => criterion.text),
       boards,
@@ -172,10 +227,10 @@ async function gather(
 }
 
 /**
- * `/api/projects/:projectId/package` (specs 27b and 27c): the package for coding agents. Members
+ * `/api/projects/:projectId/package` (specs 27b to 27d): the package for coding agents. Members
  * see what it holds and download it as a ZIP; owners and editors write the two texts the plan
- * does not hold, and ask the moderator for a suggestion for one. The package itself is built from
- * the project as it stands, without a model.
+ * does not hold, ask the moderator for a suggestion for one, and have it write the feature specs
+ * of a milestone out. The package itself is built from what the project holds, without a model.
  */
 export function packageRoutes(db: AppDb, auth: Auth, live: LivePublisher, documents: Documents) {
   const routes = new Hono<{ Variables: SessionVariables }>();
@@ -189,8 +244,13 @@ export function packageRoutes(db: AppDb, auth: Auth, live: LivePublisher, docume
 
     const project = await gather(db, documents, projectId.data, user.id);
     if (!project) return apiError(c, 'not_found');
+    const summary = codingPackageSummary(project.input);
     return c.json<CodingPackageOverview>({
-      ...codingPackageSummary(project.input),
+      ...summary,
+      milestoneSpecs: summary.milestoneSpecs.map((milestone) => ({
+        ...milestone,
+        run: project.specRuns.get(milestone.number) ?? null,
+      })),
       language: project.input.language,
       texts: project.input.texts,
       suggestions: project.suggestions,
@@ -321,6 +381,36 @@ export function packageRoutes(db: AppDb, auth: Auth, live: LivePublisher, docume
       return c.body(null, 204);
     } catch (error) {
       if (sqlState(error) === '42501') return apiError(c, 'forbidden');
+      throw error;
+    }
+  });
+
+  /**
+   * Asks the moderator to write the specs of a milestone out (spec 27d). The run is queued for
+   * the worker and the answer returns at once; the specs arrive with the live event `package`.
+   */
+  routes.post('/specs/:milestone', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    const projectId = projectIdSchema.safeParse(c.req.param('projectId'));
+    const milestone = milestoneSchema.safeParse(c.req.param('milestone'));
+    if (!projectId.success || !milestone.success) return apiError(c, 'not_found');
+
+    const member = await withUser(db, user.id, (trx) => membership(trx, projectId.data, user.id));
+    if (!member) return apiError(c, 'not_found');
+    // The milestone must be one of the plan as it stands, with tasks to write specs for.
+    const { milestones } = readRoadmap(planSectionsOf(await documents.readPlan(projectId.data)));
+    if ((milestones[milestone.data - 1]?.tasks.length ?? 0) === 0) return apiError(c, 'not_found');
+
+    try {
+      await withUser(db, user.id, (trx) =>
+        sql`select public.start_package_specs(${projectId.data}, ${milestone.data})`.execute(trx),
+      );
+      return c.body(null, 202);
+    } catch (error) {
+      const state = sqlState(error);
+      if (state === '55000') return apiError(c, 'already_running');
+      if (state === '42501') return apiError(c, 'forbidden');
       throw error;
     }
   });

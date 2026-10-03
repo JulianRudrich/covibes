@@ -17,6 +17,10 @@ const OVERVIEW: CodingPackageOverview = {
   hasPlan: true,
   milestones: 2,
   tasks: 3,
+  milestoneSpecs: [
+    { number: 1, title: 'Grundgerüst', tasks: 2, written: 0, run: null },
+    { number: 2, title: 'Mitglieder', tasks: 1, written: 0, run: null },
+  ],
   decisions: { decided: 4, open: 1 },
   diagrams: 1,
   files: ['CLAUDE.md', 'AGENTS.md', 'context/project-plan.md', 'docs/diagrams/haupt-canvas.md'],
@@ -66,7 +70,7 @@ function stubPackage(overview: CodingPackageOverview, fail: string[] = [], runni
       if (key === `GET ${BASE}`) return Promise.resolve(Response.json(overview));
       if (method === 'PUT') return Promise.resolve(new Response(null, { status: 204 }));
       if (method === 'DELETE') return Promise.resolve(new Response(null, { status: 204 }));
-      if (method === 'POST' && url.endsWith('/suggestion')) {
+      if (method === 'POST' && (url.endsWith('/suggestion') || url.includes('/specs/'))) {
         return Promise.resolve(new Response(null, { status: 202 }));
       }
       if (method === 'POST' && url.endsWith('/suggestion/accept')) {
@@ -388,7 +392,9 @@ describe('the moderator’s suggestions in the PackageDialog (spec 27c)', () => 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Abbrechen' }));
 
     await waitFor(() => {
-      expect(within(dialog).queryByText(/Der Moderator schreibt/)).not.toBeInTheDocument();
+      expect(
+        within(dialog).queryByText(/Der Moderator schreibt einen Vorschlag/),
+      ).not.toBeInTheDocument();
     });
     expect(others(calls)).toEqual([`DELETE ${UI}`]);
     expect(asks(dialog)).toHaveLength(2);
@@ -544,5 +550,159 @@ describe('the moderator’s suggestions in the PackageDialog (spec 27c)', () => 
     expect(within(dialog).getByText(/Der Moderator schreibt einen Vorschlag/)).toBeVisible();
     expect(within(dialog).queryByRole('button', { name: 'Abbrechen' })).not.toBeInTheDocument();
     expect(asks(dialog)).toHaveLength(0);
+  });
+});
+
+describe('the feature specs in the PackageDialog (spec 27d)', () => {
+  const SPECS = `${BASE}/specs`;
+  const posts = (calls: Call[]) =>
+    calls.filter((call) => call.method === 'POST').map((call) => call.url);
+
+  /** The lines of the section: the milestone, how far it is, and what can be done or goes on. */
+  async function milestones(dialog: HTMLElement) {
+    const section = await within(dialog).findByRole('region', { name: 'Feature-Specs' });
+    return within(section)
+      .getAllByRole('listitem')
+      .map((item) => item.textContent);
+  }
+
+  it('lists the milestones with how many specs are written out', async () => {
+    const { dialog } = renderDialog({
+      milestoneSpecs: [
+        { number: 1, title: 'Grundgerüst', tasks: 2, written: 2, run: null },
+        { number: 2, title: '', tasks: 3, written: 1, run: null },
+        { number: 3, title: 'Abschluss', tasks: 0, written: 0, run: null },
+      ],
+    });
+
+    expect(await milestones(dialog)).toEqual([
+      'Meilenstein 1: Grundgerüst2 von 2 ausgearbeitetNeu ausarbeiten',
+      // A milestone without a name is called by its number.
+      'Meilenstein 21 von 3 ausgearbeitetAusarbeiten',
+      // Nothing to write for a milestone without tasks.
+      'Meilenstein 3: AbschlussKeine Aufgaben',
+    ]);
+    expect((await rows(dialog))[1]).toBe('✓ 3 Feature-Specs · 2 Meilensteine · 3 ausgearbeitet');
+  });
+
+  it('has the moderator write the specs of a milestone out, and says that it writes', async () => {
+    const { calls, dialog } = renderDialog();
+    const section = await within(dialog).findByRole('region', { name: 'Feature-Specs' });
+
+    fireEvent.click(
+      within(section).getAllByRole('button', { name: 'Ausarbeiten' })[1] as HTMLElement,
+    );
+
+    expect(await within(section).findByText('Der Moderator schreibt …')).toBeInTheDocument();
+    expect(posts(calls)).toEqual([`${SPECS}/2`]);
+    expect(await milestones(dialog)).toEqual([
+      'Meilenstein 1: Grundgerüst0 von 2 ausgearbeitetAusarbeiten',
+      'Meilenstein 2: Mitglieder0 von 1 ausgearbeitetMDer Moderator schreibt …',
+    ]);
+  });
+
+  it('stores what the fields show before the moderator reads them', async () => {
+    const { calls, dialog } = renderDialog();
+    const field = await within(dialog).findByLabelText('UI-Richtung');
+    const section = within(dialog).getByRole('region', { name: 'Feature-Specs' });
+
+    // The field is never left.
+    fireEvent.change(field, { target: { value: 'Ruhig und hell.' } });
+    fireEvent.click(
+      within(section).getAllByRole('button', { name: 'Ausarbeiten' })[0] as HTMLElement,
+    );
+
+    await within(section).findByText('Der Moderator schreibt …');
+    const order = calls.map((call) => `${call.method} ${call.url}`);
+    expect(order.indexOf(`PUT ${BASE}/texts/ui_direction`)).toBeGreaterThan(-1);
+    expect(order.indexOf(`PUT ${BASE}/texts/ui_direction`)).toBeLessThan(
+      order.indexOf(`POST ${SPECS}/1`),
+    );
+  });
+
+  it('shows a run that is on its way or failed after the dialog was opened again', async () => {
+    const { dialog } = renderDialog({
+      milestoneSpecs: [
+        { number: 1, title: 'Grundgerüst', tasks: 2, written: 0, run: { status: 'running' } },
+        {
+          number: 2,
+          title: 'Mitglieder',
+          tasks: 1,
+          written: 0,
+          run: { status: 'failed', failure: { kind: 'failed', resetsAt: null } },
+        },
+      ],
+    });
+
+    expect(await milestones(dialog)).toEqual([
+      'Meilenstein 1: Grundgerüst0 von 2 ausgearbeitetMDer Moderator schreibt …',
+      // A failed run can be asked for again.
+      'Meilenstein 2: Mitglieder0 von 1 ausgearbeitetAusarbeitenDie Specs konnten nicht ausgearbeitet werden. Bitte versuche es noch einmal.',
+    ]);
+  });
+
+  it('says when the quota is used up, with the time it is free again', async () => {
+    const { dialog } = renderDialog({
+      milestoneSpecs: [
+        {
+          number: 1,
+          title: 'Grundgerüst',
+          tasks: 2,
+          written: 0,
+          run: {
+            status: 'failed',
+            failure: { kind: 'quota', resetsAt: '2026-10-03T20:30:00.000Z' },
+          },
+        },
+      ],
+    });
+    const section = await within(dialog).findByRole('region', { name: 'Feature-Specs' });
+
+    expect(within(section).getByRole('alert')).toHaveTextContent(
+      /^Das KI-Kontingent ist gerade aufgebraucht und ab \d{1,2}:\d{2}(\sUhr)? wieder frei\.$/,
+    );
+  });
+
+  it('tells when the moderator could not be asked, but not when it writes already', async () => {
+    const failing = renderDialog({}, { fail: [`POST ${SPECS}/1`] });
+    const section = await within(failing.dialog).findByRole('region', { name: 'Feature-Specs' });
+    fireEvent.click(
+      within(section).getAllByRole('button', { name: 'Ausarbeiten' })[0] as HTMLElement,
+    );
+
+    expect(await within(section).findByRole('alert')).toHaveTextContent(
+      'Die Specs konnten nicht ausgearbeitet werden.',
+    );
+    failing.unmount();
+
+    // Someone else asked in the same moment: the overview is loaded again and says what is true.
+    const taken = renderDialog({}, { running: [`POST ${SPECS}/1`] });
+    const again = await within(taken.dialog).findByRole('region', { name: 'Feature-Specs' });
+    fireEvent.click(
+      within(again).getAllByRole('button', { name: 'Ausarbeiten' })[0] as HTMLElement,
+    );
+
+    await waitFor(() => {
+      expect(taken.calls.filter((call) => call.url === BASE)).toHaveLength(2);
+    });
+    expect(within(again).queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('shows viewers how far the specs are, without a button', async () => {
+    const { dialog } = renderDialog({
+      canEdit: false,
+      milestoneSpecs: [{ number: 1, title: 'Grundgerüst', tasks: 2, written: 1, run: null }],
+    });
+    const section = await within(dialog).findByRole('region', { name: 'Feature-Specs' });
+
+    expect(within(section).getByText('1 von 2 ausgearbeitet')).toBeVisible();
+    expect(within(section).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('has no section for a plan without milestones', async () => {
+    const { dialog } = renderDialog({ milestones: 0, tasks: 0, milestoneSpecs: [] });
+    await within(dialog).findByLabelText('UI-Richtung');
+
+    expect(within(dialog).queryByRole('region', { name: 'Feature-Specs' })).not.toBeInTheDocument();
   });
 });

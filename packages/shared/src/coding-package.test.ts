@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ROADMAP_DIAGRAM, type CanvasEdge, type CanvasNode } from './canvas/model';
 import {
   buildCodingPackage,
+  packageTaskKey,
   codingPackageSummary,
   MAX_PACKAGE_SPECS,
   PACKAGE_PATHS,
@@ -511,6 +512,7 @@ describe('codingPackageSummary', () => {
       hasPlan: false,
       milestones: 0,
       tasks: 0,
+      milestoneSpecs: [],
       decisions: { decided: 1, open: 1 },
       diagrams: 1,
       files: [],
@@ -530,5 +532,103 @@ describe('packageTextInputSchema', () => {
     expect(packageTextInputSchema.safeParse({ content: 'x'.repeat(8001) }).success).toBe(false);
     expect(packageTextInputSchema.safeParse({ content: 'x', kind: 'y' }).success).toBe(false);
     expect(packageTextInputSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe('written-out specs (spec 27d)', () => {
+  const WRITTEN = [
+    '## Ziel',
+    '',
+    'Mitglieder melden sich ohne Passwort an.',
+    '',
+    '## Checkliste',
+    '',
+    '- [ ] Der Link gilt 15 Minuten.',
+  ].join('\n');
+  const withSpec = (overrides: Partial<CodingPackageInput> = {}) =>
+    vereinsApp({ specs: new Map([['Login per Link', WRITTEN]]), ...overrides });
+
+  it('puts what the moderator wrote in the place of the skeleton', () => {
+    expect(contentOf(withSpec(), 'context/feature-specs/01-02-login-per-link.md'))
+      .toBe(`# 01-02 Login per Link
+
+## Aufgabe
+
+Login per Link
+
+## Meilenstein
+
+Meilenstein 1: Grundgerüst (2 Wochen)
+
+Die App läuft.
+
+## Zuständig
+
+Alex Berg
+
+## Ziel
+
+Mitglieder melden sich ohne Passwort an.
+
+## Checkliste
+
+- [ ] Der Link gilt 15 Minuten.
+
+## Kontext
+
+- [Projektübersicht](../project-overview.md)
+- [Architektur](../architecture.md)
+- [Entscheidungen](../decisions.md)
+- [Code-Standards](../code-standards.md)
+- [UI-Richtung](../ui-context.md)
+- [Projektplan](../project-plan.md)
+`);
+    // The other specs stay skeletons.
+    expect(contentOf(withSpec(), 'context/feature-specs/01-01-projekt-aufsetzen.md')).toContain(
+      '> Gerüst aus dem Projektplan.',
+    );
+  });
+
+  it('says in the instructions and in the list which specs are written out', () => {
+    const claude = contentOf(withSpec(), PACKAGE_PATHS.claude);
+    const overview = contentOf(withSpec(), PACKAGE_PATHS.specs);
+
+    expect(claude).toContain('- Eine ausgearbeitete Spec setzt du so um, wie sie dasteht.');
+    expect(claude).not.toContain('- Die Specs sind ein Gerüst aus dem Projektplan.');
+    expect(overview).toContain('Eine Spec mit dem Vermerk „Gerüst“ wird vor dem Bauen');
+    expect(overview).toContain(
+      '- [01-01 Projekt aufsetzen](01-01-projekt-aufsetzen.md) (Gerüst)\n- [01-02 Login per Link](01-02-login-per-link.md)\n',
+    );
+    // Without a written spec nothing is marked.
+    expect(contentOf(vereinsApp(), PACKAGE_PATHS.specs)).not.toContain('(Gerüst)');
+  });
+
+  it('keeps a spec with the text of its task: a reworded task is a skeleton again', () => {
+    const reworded = withSpec({ specs: new Map([['Login per Link und Code', WRITTEN]]) });
+    const spaced = withSpec({
+      specs: new Map([[packageTaskKey('  Login   per\nLink '), WRITTEN]]),
+    });
+
+    expect(contentOf(reworded, 'context/feature-specs/01-02-login-per-link.md')).toContain(
+      '> Gerüst aus dem Projektplan.',
+    );
+    expect(contentOf(spaced, 'context/feature-specs/01-02-login-per-link.md')).toContain(
+      'Mitglieder melden sich ohne Passwort an.',
+    );
+    // An empty text is no spec.
+    expect(
+      contentOf(
+        withSpec({ specs: new Map([['Login per Link', '  ']]) }),
+        'context/feature-specs/01-02-login-per-link.md',
+      ),
+    ).toContain('> Gerüst aus dem Projektplan.');
+  });
+
+  it('counts the written specs per milestone', () => {
+    expect(codingPackageSummary(withSpec()).milestoneSpecs).toEqual([
+      { number: 1, title: 'Grundgerüst', tasks: 2, written: 1 },
+      { number: 2, title: 'Beiträge', tasks: 1, written: 0 },
+    ]);
+    expect(codingPackageSummary(vereinsApp({ plan: [] })).milestoneSpecs).toEqual([]);
   });
 });

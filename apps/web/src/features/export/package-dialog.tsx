@@ -20,9 +20,11 @@ import {
   packageQueryKey,
   savePackageText,
   useDismissPackageSuggestion,
+  useRequestPackageSpecs,
   useRequestPackageSuggestion,
   useSavePackageText,
 } from '@web/features/export/package-queries';
+import { PackageSpecsSection } from '@web/features/export/package-specs';
 import { PackageSuggestionNote } from '@web/features/export/package-suggestion';
 import { ApiError } from '@web/lib/api';
 import { cn } from '@web/lib/cn';
@@ -42,10 +44,10 @@ type PackageDialogProps = {
 };
 
 /**
- * The export dialog of the package for coding agents (specs 27b and 27c; derived look): what the
+ * The export dialog of the package for coding agents (specs 27b to 27d; derived look): what the
  * package holds and what is still missing, the two texts the plan does not hold with the
- * moderator's suggestions for them, the list of its files and the download. The content of a
- * dialog; the caller opens and closes it.
+ * moderator's suggestions for them, the feature specs it writes out per milestone, the list of
+ * the files and the download. The content of a dialog; the caller opens and closes it.
  */
 export function PackageDialog({ projectId, outdated }: PackageDialogProps) {
   const { t } = useTranslation();
@@ -89,6 +91,9 @@ function PackageBody({
   const save = useSavePackageText(projectId);
   const request = useRequestPackageSuggestion(projectId);
   const dismiss = useDismissPackageSuggestion(projectId);
+  const writeSpecs = useRequestPackageSpecs(projectId);
+  /** The milestone whose specs could not be asked for. */
+  const [specsProblem, setSpecsProblem] = useState<number | null>(null);
   /** Asking for a suggestion or taking one over did not work, per text. */
   const [problems, setProblems] = useState<Record<PackageTextKind, boolean>>({
     code_standards: false,
@@ -193,6 +198,22 @@ function PackageBody({
     queue.current = run;
   }
 
+  /**
+   * Has the moderator write the specs of a milestone out. It reads the team's texts, so what the
+   * fields show is stored first; that someone else asked in the same moment is no problem.
+   */
+  async function writeOut(milestone: number) {
+    setSpecsProblem(null);
+    await Promise.all(PACKAGE_TEXT_KINDS.map((kind) => store(kind, drafts[kind])));
+    writeSpecs.mutate(milestone, {
+      onError: (error) => {
+        if (!(error instanceof ApiError && error.code === 'already_running')) {
+          setSpecsProblem(milestone);
+        }
+      },
+    });
+  }
+
   async function download() {
     setFailed(false);
     setDownloading(true);
@@ -214,6 +235,10 @@ function PackageBody({
   }
 
   const { decided, open } = overview.decisions;
+  const writtenSpecs = overview.milestoneSpecs.reduce(
+    (sum, milestone) => sum + milestone.written,
+    0,
+  );
   const rows: { key: string; done: boolean; text: string }[] = [
     {
       key: 'plan',
@@ -229,10 +254,13 @@ function PackageBody({
       done: overview.tasks > 0,
       text:
         overview.tasks > 0
-          ? `${t('export.package.rows.specs', { count: overview.tasks })} · ${t(
-              'export.package.rows.milestones',
-              { count: overview.milestones },
-            )}`
+          ? [
+              t('export.package.rows.specs', { count: overview.tasks }),
+              t('export.package.rows.milestones', { count: overview.milestones }),
+              ...(writtenSpecs > 0
+                ? [t('export.package.rows.written', { count: writtenSpecs })]
+                : []),
+            ].join(' · ')
           : t('export.package.rows.noSpecs'),
     },
     {
@@ -389,6 +417,18 @@ function PackageBody({
             );
           })}
         </section>
+
+        {overview.milestoneSpecs.length > 0 ? (
+          <PackageSpecsSection
+            milestones={overview.milestoneSpecs}
+            canEdit={overview.canEdit}
+            problem={specsProblem}
+            busy={writeSpecs.isPending}
+            onWrite={(milestone) => {
+              void writeOut(milestone);
+            }}
+          />
+        ) : null}
 
         {overview.files.length > 0 ? (
           <details className="group">

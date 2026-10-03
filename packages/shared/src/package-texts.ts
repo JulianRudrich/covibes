@@ -27,6 +27,8 @@ export type CodingPackageTexts = {
   rules: readonly string[];
   /** One more rule while a file is marked as open. */
   openRule: string;
+  /** Takes the place of the rule about skeletons once specs are written out. */
+  writtenRule: string;
   sameContent: string;
 
   overviewTitle: string;
@@ -67,6 +69,10 @@ export type CodingPackageTexts = {
 
   specsTitle: string;
   specsIntro: string;
+  /** The intro once specs are written out: the others are marked. */
+  specsIntroWritten: string;
+  /** Marks a spec that is still a skeleton, in the list of specs. */
+  skeletonMark: string;
   noTasks: string;
   /** A milestone without tasks, in the lists of specs. */
   noTasksInMilestone: string;
@@ -111,6 +117,8 @@ const TEXTS: Readonly<Record<PlanLanguage, CodingPackageTexts>> = {
     ],
     openRule:
       'Was als „noch offen“ markiert ist, klärst du mit dem Team vor dem ersten Code und trägst es in die Datei ein.',
+    writtenRule:
+      'Eine ausgearbeitete Spec setzt du so um, wie sie dasteht. Passt sie nicht zum Stand des Codes oder zu einer Entscheidung, sag es dem Team, bevor du abweichst. Eine Spec mit dem Vermerk „Gerüst“ arbeitest du vor dem Bauen aus (Ziel, Vorgehen, Abgrenzung, Checkliste) und lässt sie vom Team bestätigen.',
     sameContent:
       '`CLAUDE.md` und `AGENTS.md` haben denselben Inhalt. Wer eine der beiden ändert, ändert beide.',
 
@@ -157,6 +165,9 @@ const TEXTS: Readonly<Record<PlanLanguage, CodingPackageTexts>> = {
     specsTitle: 'Feature-Specs',
     specsIntro:
       'Eine Spec pro Aufgabe des Projektplans, in der Reihenfolge der Meilensteine. Jede Spec ist ein Gerüst und wird vor dem Bauen ausgearbeitet.',
+    specsIntroWritten:
+      'Eine Spec pro Aufgabe des Projektplans, in der Reihenfolge der Meilensteine. Eine Spec mit dem Vermerk „Gerüst“ wird vor dem Bauen ausgearbeitet; alle anderen sind ausgearbeitet.',
+    skeletonMark: 'Gerüst',
     noTasks:
       'Der Projektplan nennt noch keine Aufgaben. Leite die Specs mit dem Team aus `project-plan.md` ab, bevor du baust.',
     noTasksInMilestone: 'Der Plan nennt für diesen Meilenstein keine Aufgaben.',
@@ -203,6 +214,8 @@ const TEXTS: Readonly<Record<PlanLanguage, CodingPackageTexts>> = {
     ],
     openRule:
       'What is marked as "still open" you settle with the team before the first code and write into its file.',
+    writtenRule:
+      'A spec that is written out you build as it stands. If it does not fit the state of the code or a decision, tell the team before you deviate. A spec marked "skeleton" you work out before you build it (goal, approach, out of scope, checklist) and have the team confirm it.',
     sameContent:
       '`CLAUDE.md` and `AGENTS.md` hold the same content. Whoever changes one of them changes both.',
 
@@ -247,6 +260,9 @@ const TEXTS: Readonly<Record<PlanLanguage, CodingPackageTexts>> = {
     specsTitle: 'Feature specs',
     specsIntro:
       'One spec per task of the project plan, in the order of the milestones. Every spec is a skeleton and is worked out before it is built.',
+    specsIntroWritten:
+      'One spec per task of the project plan, in the order of the milestones. A spec marked "skeleton" is worked out before it is built; all others are written out.',
+    skeletonMark: 'skeleton',
     noTasks:
       'The project plan names no tasks yet. Derive the specs from `project-plan.md` with the team before you build.',
     noTasksInMilestone: 'The plan names no tasks for this milestone.',

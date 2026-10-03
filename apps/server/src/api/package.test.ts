@@ -479,3 +479,81 @@ describe('the moderator’s suggestions for the texts (spec 27c)', () => {
     expect((await post(path, editor)).status).toBe(202);
   });
 });
+
+describe('the written-out feature specs (spec 27d)', () => {
+  const post = (path: string, cookie: string | null) => request(path, cookie, { method: 'POST' });
+
+  it('lists the milestones with their specs', async () => {
+    const project = await plannedProject();
+
+    expect((await overviewOf(project.package, project.owner)).milestoneSpecs).toEqual([
+      { number: 1, title: 'Grundgerüst', tasks: 2, written: 0, run: null },
+      { number: 2, title: 'Mitglieder', tasks: 1, written: 0, run: null },
+    ]);
+  });
+
+  it('asks the moderator for owners and editors, one run per milestone at a time', async () => {
+    const project = await plannedProject();
+    const editor = await member(project.projectId, 'editor');
+
+    const started = await post(`${project.package}/specs/1`, editor);
+    const again = await post(`${project.package}/specs/1`, project.owner);
+    const other = await post(`${project.package}/specs/2`, project.owner);
+
+    expect([started.status, again.status, other.status]).toEqual([202, 409, 202]);
+    expect(await errorCode(again)).toBe('already_running');
+    expect(
+      (await overviewOf(project.package, project.owner)).milestoneSpecs.map(
+        (milestone) => milestone.run,
+      ),
+    ).toEqual([{ status: 'running' }, { status: 'running' }]);
+  });
+
+  it('does not ask for viewers, strangers or milestones the plan does not have', async () => {
+    const project = await plannedProject();
+    const empty = await createProject();
+    const viewer = await member(project.projectId, 'viewer');
+    const stranger = await test.signIn();
+
+    const asViewer = await post(`${project.package}/specs/1`, viewer);
+
+    expect(asViewer.status).toBe(403);
+    expect(await errorCode(asViewer)).toBe('forbidden');
+    expect((await post(`${project.package}/specs/1`, stranger)).status).toBe(404);
+    expect((await post(`${project.package}/specs/1`, null)).status).toBe(401);
+    expect((await post(`${project.package}/specs/3`, project.owner)).status).toBe(404);
+    expect((await post(`${project.package}/specs/0`, project.owner)).status).toBe(404);
+    expect((await post(`${project.package}/specs/eins`, project.owner)).status).toBe(404);
+    // A project without a plan has no milestone to write specs for.
+    expect((await post(`${empty.package}/specs/1`, empty.owner)).status).toBe(404);
+    const { rows } = await test.db.adminPool.query(
+      `select 1 from ai_runs where project_id = any($1) and kind = 'package'`,
+      [[project.projectId, empty.projectId]],
+    );
+    expect(rows).toEqual([]);
+  });
+
+  it('carries a written spec in the package, in the place of the skeleton', async () => {
+    const project = await plannedProject();
+    await test.db.adminPool.query(
+      `insert into package_specs (project_id, task_text, content)
+       values ($1, 'Login per Link', $2)`,
+      [project.projectId, '## Ziel\n\nAnmelden ohne Passwort.\n\n## Checkliste\n\n- [ ] Tests'],
+    );
+
+    const overview = await overviewOf(project.package, project.owner);
+    const files = await unzip(await request(`${project.package}/download`, project.owner));
+
+    expect(overview.milestoneSpecs[0]).toMatchObject({ tasks: 2, written: 1 });
+    const login = files['context/feature-specs/01-02-login-per-link.md'] ?? '';
+    expect(login).toContain('## Ziel\n\nAnmelden ohne Passwort.\n');
+    expect(login).not.toContain('Gerüst aus dem Projektplan');
+    expect(files['context/feature-specs/01-01-projekt-aufsetzen.md']).toContain(
+      '> Gerüst aus dem Projektplan.',
+    );
+    expect(files['CLAUDE.md']).toContain('Eine ausgearbeitete Spec setzt du so um');
+    expect(files['context/feature-specs/00-overview.md']).toContain(
+      '(01-01-projekt-aufsetzen.md) (Gerüst)',
+    );
+  });
+});

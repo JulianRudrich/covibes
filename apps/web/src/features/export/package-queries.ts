@@ -103,6 +103,36 @@ export function acceptPackageSuggestion(projectId: string, kind: PackageTextKind
   });
 }
 
+/**
+ * Asks the moderator to write the specs of a milestone out (spec 27d). The dialog shows at once
+ * that it writes; the specs follow with the live event `package`.
+ */
+export function useRequestPackageSpecs(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (milestone: number) =>
+      api<undefined>(`${base(projectId)}/specs/${String(milestone)}`, { method: 'POST' }),
+    onSuccess: (_, milestone) => {
+      queryClient.setQueryData(packageQuery(projectId).queryKey, (overview) =>
+        overview
+          ? {
+              ...overview,
+              milestoneSpecs: overview.milestoneSpecs.map((entry) =>
+                entry.number === milestone
+                  ? { ...entry, run: { status: 'running' as const } }
+                  : entry,
+              ),
+            }
+          : overview,
+      );
+    },
+    onError: () => {
+      // Someone else may have asked in the same moment: the server knows what is true.
+      void queryClient.invalidateQueries({ queryKey: packageQueryKey(projectId) });
+    },
+  });
+}
+
 /** Downloads the package: the server builds the ZIP and names it after the project. */
 export async function downloadPackage(projectId: string): Promise<void> {
   let response: Response;

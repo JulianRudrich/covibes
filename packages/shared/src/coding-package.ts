@@ -43,6 +43,20 @@ export type PackageTexts = Record<PackageTextKind, string>;
 /** Feature specs a package holds at most; a plan with more tasks names the rest only in the plan. */
 export const MAX_PACKAGE_SPECS = 500;
 
+/** Specs the moderator writes out in one run (spec 27d); a longer milestone takes another run. */
+export const MAX_SPECS_PER_RUN = 20;
+
+/** Same limit as the check constraint on `package_specs.content` (packages/db/migrations). */
+export const PACKAGE_SPEC_MAX_LENGTH = 8000;
+
+/**
+ * What a written spec is kept by (spec 27d): the text of its task on one line. A task that is
+ * reworded has no written spec any more; a task that only moves keeps it.
+ */
+export function packageTaskKey(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
 export type PackageFile = { path: string; content: string };
 
 export type CodingPackageInput = {
@@ -57,6 +71,8 @@ export type CodingPackageInput = {
   plan: readonly PlanNode[];
   /** Who took which task, by the id of the task: the name to print. */
   assignees?: ReadonlyMap<string, string>;
+  /** The specs the moderator wrote out (spec 27d), by the text of their task (`packageTaskKey`). */
+  specs?: ReadonlyMap<string, string>;
   decisions: readonly Pick<
     Decision,
     | 'topic'
@@ -75,6 +91,19 @@ export type CodingPackageInput = {
   texts: PackageTexts;
 };
 
+/** The specs of a milestone: how many it has and how many of them are written out. */
+export type PackageMilestoneSpecs = {
+  /** The milestone's place in the order of the plan, from 1. */
+  number: number;
+  title: string;
+  tasks: number;
+  written: number;
+};
+
+/** The run that writes the specs of a milestone out (spec 27d): on its way, or it gave nothing. */
+export type PackageSpecRun =
+  { status: 'running' } | { status: 'failed'; failure: NonNullable<PlanState['failure']> };
+
 /** What a package holds, for the export dialog. */
 export type CodingPackageSummary = {
   /** The plan holds text below its headings; without it there is no package. */
@@ -82,6 +111,8 @@ export type CodingPackageSummary = {
   milestones: number;
   /** The tasks of the plan, each with a feature spec. */
   tasks: number;
+  /** The milestones with how many of their specs are written out (spec 27d). */
+  milestoneSpecs: PackageMilestoneSpecs[];
   decisions: { decided: number; open: number };
   /** The boards with content, each with a file of diagrams. */
   diagrams: number;
@@ -103,7 +134,9 @@ export type PackageSuggestion =
 export type AcceptedPackageSuggestion = { content: string };
 
 /** `GET /api/projects/:projectId/package`. */
-export type CodingPackageOverview = CodingPackageSummary & {
+export type CodingPackageOverview = Omit<CodingPackageSummary, 'milestoneSpecs'> & {
+  /** The milestones with their specs and, if someone asked, the run that writes them. */
+  milestoneSpecs: (PackageMilestoneSpecs & { run: PackageSpecRun | null })[];
   language: PlanLanguage;
   texts: PackageTexts;
   /** What the moderator suggests for each text; null where nobody asked. */
@@ -181,6 +214,8 @@ type Spec = {
   title: string;
   text: string;
   assignee: string | null;
+  /** What the moderator wrote for the task; null while the spec is a skeleton. */
+  written: string | null;
   milestone: RoadmapMilestone;
 };
 
@@ -188,6 +223,7 @@ type Spec = {
 function specsOf(
   roadmap: Roadmap,
   assignees: ReadonlyMap<string, string> | undefined,
+  written: ReadonlyMap<string, string> | undefined,
   texts: CodingPackageTexts,
 ): Spec[] {
   const specs: Spec[] = [];
@@ -199,8 +235,9 @@ function specsOf(
         number,
         name: `${number}-${specSlug(task.text) || texts.taskFile}.md`,
         title: short(task.text, 80),
-        text: task.text.replace(/\s+/g, ' ').trim(),
+        text: packageTaskKey(task.text),
         assignee: (task.id ? assignees?.get(task.id) : undefined) ?? null,
+        written: written?.get(packageTaskKey(task.text))?.trim() || null,
         milestone,
       });
     }
@@ -252,6 +289,7 @@ function instructions(
   texts: CodingPackageTexts,
   date: string,
   hasDiagrams: boolean,
+  hasWrittenSpecs: boolean,
 ): string[] {
   const open = (text: string) => (text.trim() ? '' : ` (${texts.stillOpen})`);
   const openCode = open(input.texts.code_standards);
@@ -266,6 +304,8 @@ function instructions(
     { path: PACKAGE_PATHS.tracker, what: texts.reads.tracker },
   ];
   const rules = [...texts.rules];
+  // The second rule is the one about skeletons.
+  if (hasWrittenSpecs) rules[1] = texts.writtenRule;
   // The rule about what is open stands before the last one, "ask instead of guessing".
   if (openCode || openUi) rules.splice(rules.length - 1, 0, texts.openRule);
   return [
@@ -350,7 +390,7 @@ function specFile(spec: Spec, texts: CodingPackageTexts, planTitle: string): Pac
   ];
   return file(`${SPECS_DIR}/${spec.name}`, [
     `# ${spec.number} ${markdownLine(spec.title)}`,
-    `> ${texts.skeleton}`,
+    spec.written === null && `> ${texts.skeleton}`,
     `## ${texts.task}`,
     markdownLine(spec.text),
     `## ${texts.milestoneHeading}`,
@@ -358,10 +398,12 @@ function specFile(spec: Spec, texts: CodingPackageTexts, planTitle: string): Pac
     spec.milestone.goal.trim() && markdownLine(spec.milestone.goal),
     spec.assignee !== null && `## ${texts.assignee}`,
     spec.assignee !== null && markdownLine(spec.assignee),
+    // What the moderator wrote brings its own headings and its own checklist.
+    spec.written,
     `## ${texts.context}`,
     context.map(({ name, target }) => `- [${name}](../${target})`).join('\n'),
-    `## ${texts.checklist}`,
-    texts.checks.map((check) => `- [ ] ${check}`).join('\n'),
+    spec.written === null && `## ${texts.checklist}`,
+    spec.written === null && texts.checks.map((check) => `- [ ] ${check}`).join('\n'),
   ]);
 }
 
@@ -373,7 +415,7 @@ function parts(input: CodingPackageInput) {
     texts,
     sections,
     roadmap,
-    specs: specsOf(roadmap, input.assignees, texts),
+    specs: specsOf(roadmap, input.assignees, input.specs, texts),
     diagrams: diagramsOf(input, roadmap, texts),
   };
 }
@@ -393,7 +435,8 @@ export function buildCodingPackage(input: CodingPackageInput): PackageFile[] {
   });
   const day = (date: Date) => days.format(date);
   const today = day(input.date);
-  const guide = instructions(input, texts, today, diagrams.length > 0);
+  const hasWrittenSpecs = specs.some((spec) => spec.written !== null);
+  const guide = instructions(input, texts, today, diagrams.length > 0, hasWrittenSpecs);
   const specsOfMilestone = (milestone: RoadmapMilestone) =>
     specs.filter((spec) => spec.milestone === milestone);
 
@@ -467,7 +510,11 @@ export function buildCodingPackage(input: CodingPackageInput): PackageFile[] {
     ]),
     file(PACKAGE_PATHS.specs, [
       `# ${texts.specsTitle}: ${name}`,
-      specs.length > 0 ? texts.specsIntro : texts.noTasks,
+      specs.length === 0
+        ? texts.noTasks
+        : hasWrittenSpecs
+          ? texts.specsIntroWritten
+          : texts.specsIntro,
       ...roadmap.milestones.flatMap((milestone) => {
         const own = specsOfMilestone(milestone);
         return [
@@ -475,7 +522,12 @@ export function buildCodingPackage(input: CodingPackageInput): PackageFile[] {
           milestone.goal.trim() && markdownLine(milestone.goal),
           own.length > 0
             ? own
-                .map((spec) => `- [${spec.number} ${markdownLine(spec.title)}](${spec.name})`)
+                .map(
+                  (spec) =>
+                    `- [${spec.number} ${markdownLine(spec.title)}](${spec.name})${
+                      hasWrittenSpecs && spec.written === null ? ` (${texts.skeletonMark})` : ''
+                    }`,
+                )
                 .join('\n')
             : texts.noTasksInMilestone,
         ];
@@ -494,6 +546,15 @@ export function codingPackageSummary(input: CodingPackageInput): CodingPackageSu
     hasPlan,
     milestones: roadmap.milestones.length,
     tasks: specs.length,
+    milestoneSpecs: roadmap.milestones.map((milestone) => {
+      const own = specs.filter((spec) => spec.milestone === milestone);
+      return {
+        number: milestone.number,
+        title: milestone.title,
+        tasks: own.length,
+        written: own.filter((spec) => spec.written !== null).length,
+      };
+    }),
     decisions: {
       decided: input.decisions.filter((decision) => decision.status === 'decided').length,
       open: input.decisions.filter((decision) => decision.status === 'open').length,

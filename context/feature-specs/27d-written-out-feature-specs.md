@@ -46,12 +46,42 @@ Fourth and last part of spec 27.
 - Spec 27c, spec 27b, spec 26a (the milestones and tasks of the plan), spec 25b
 
 ## Checklist
-- [ ] Owners and editors ask per milestone for its specs to be written out; the request returns at once and the dialog shows that the moderator writes, also after it was closed and opened again.
-- [ ] A run writes the tasks without a written spec (at most 20), or all of them when none is missing; the dialog counts the written specs per milestone.
-- [ ] The package carries a written spec in the place of the skeleton, and says which specs are written out.
-- [ ] A reworded task is a skeleton again; a task that moved keeps its spec; specs of tasks that are gone are removed.
-- [ ] The moderator's prompt holds criteria, decisions, diagrams, the plan, the team's texts and the milestone with its tasks; what people wrote is data, not instructions.
-- [ ] A failed run says so at its milestone; a second run for the same milestone is refused while one runs; the run is metered.
-- [ ] The derived looks were checked from screenshots and are listed in `ui-context.md`.
-- [ ] Tests for the shared code, the database, the task, the API and the dialog pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] Owners and editors ask per milestone for its specs to be written out; the request returns at once and the dialog shows that the moderator writes, also after it was closed and opened again.
+- [x] A run writes the tasks without a written spec (at most 20), or all of them when none is missing; the dialog counts the written specs per milestone.
+- [x] The package carries a written spec in the place of the skeleton, and says which specs are written out.
+- [x] A reworded task is a skeleton again; a task that moved keeps its spec; specs of tasks that are gone are removed.
+- [x] The moderator's prompt holds criteria, decisions, diagrams, the plan, the team's texts and the milestone with its tasks; what people wrote is data, not instructions.
+- [x] A failed run says so at its milestone; a second run for the same milestone is refused while one runs; the run is metered.
+- [x] The derived looks were checked from screenshots and are listed in `ui-context.md`.
+- [x] Tests for the shared code, the database, the task, the API and the dialog pass.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-10-03)
+- **Database** (migration `0028_package_specs.sql`):
+  - `package_specs`: a written spec per project and task text (the text on one line, at most 2000 characters; the spec at most 8000), unique by the hash of the text, with the run that wrote it. Members read; only the worker writes.
+  - `package_spec_runs`: the latest run per project and milestone, with who asked. Members read.
+  - `start_package_specs(project, milestone)`: for owners and editors, milestones 1 to 24; refuses a second run for the same milestone while one is queued or running (lost after ten minutes); queues the run (`ai_runs` of the kind `package`) and the job `package_specs`; announces `package`.
+- **Worker** (`apps/server/src/tasks/package-specs.ts`):
+  - It reads the stored plan and takes the milestone by its number. The tasks to write are the ones without a written spec, at most 20 (`MAX_SPECS_PER_RUN`); if none is missing, all of them (again at most 20).
+  - The moderator's model gets the prompt `package-specs.md` and, as data: name and language, criteria, decisions, the boards as text, the plan (at most 16,000 characters), the team's code standards and UI direction, the milestone with its time and goal, and all of its tasks numbered and marked `[write]` or `[skip]`.
+  - The answer holds one block `<spec task="N">` per task. A block for a task that was not asked for, a repeated one and an empty one are left out. A spec loses a title of its own and is cut to the limit at the end of a line.
+  - In one step the run is metered, the specs are stored by the text of their task, and specs whose task the plan no longer holds are removed. A run that finds no tasks ends without a model call.
+- **Shared** (`coding-package.ts`): `packageTaskKey` puts a task's text on one line; the builder takes the written specs by that key. A written spec stands in the file between the assignee and the links to the context, in the place of the skeleton's note and checklist. Once a spec is written out, `CLAUDE.md` and `AGENTS.md` carry another second rule (build a written spec as it stands; work a skeleton out first), and the list of specs marks the skeletons with "(Gerüst)". The summary counts the written specs per milestone.
+- **API** (`apps/server/src/api/package.ts`): the overview carries `milestoneSpecs` (number, title, tasks, written, and the run if it is on its way or failed). `POST …/package/specs/:milestone` asks for a run (202; 409 while one runs; 403 for viewers; 404 for a milestone the plan does not have or that has no tasks). The download carries the written specs.
+- **Web** (`apps/web/src/features/export/package-specs.tsx`): the section "Feature-Specs" below the two texts: a line per milestone with its name, "3 von 10 ausgearbeitet" and, for owners and editors, "Ausarbeiten" (or "Neu ausarbeiten" when none is missing); while a run is on its way the moderator's avatar and "Der Moderator schreibt …"; below a line why a run gave nothing. Before a run is asked for, what the two fields show is stored, since the moderator reads it. The line "Feature-Specs" under "Im Paket" also says how many are written out.
+- **Verified** with `pnpm dev` and the browser as olga in "Vereins-App", with one real run:
+  - The section listed the four milestones (10, 8, 7 and 6 tasks, none written out).
+  - "Ausarbeiten" for milestone 4 showed "Der Moderator schreibt …" at once; after about 40 seconds the line read "6 von 6 ausgearbeitet" with "Neu ausarbeiten", by itself (the live event), and "Im Paket" said "31 Feature-Specs · 4 Meilensteine · 6 ausgearbeitet".
+  - The ZIP was unpacked in the page: the six specs of milestone 4 hold goal, approach, out of scope and checklist (about 2,100 characters each), none of them the skeleton's note; the other 25 are skeletons and marked so in the list; `CLAUDE.md` carries the rule for written specs.
+  - A spec read as hoped: it builds on PostgreSQL as decided, names the open hosting decision instead of deciding it, says what belongs to the neighboring task, and ends with the tests and the tracker.
+  - The six specs stay in the test project. Not tried live, to spare the quota: a second milestone, writing again, a failed run and viewers; all are covered by tests.
+- **Decided while building:**
+  - A written spec is kept by the text of its task, not by the task's id: a reworded task is a skeleton again, a moved one keeps its spec, and no spec can end up at a task it was not written for. Tasks need no ids for it.
+  - A run writes what is missing; only when nothing is missing it writes all again. So a long milestone is finished by further clicks, and a click never pays for specs that are there.
+  - Several milestones may run side by side; one run per milestone.
+  - The moderator also reads the boards and the team's two texts, since a spec builds on the diagrams and follows the standards.
+- **Known limits:**
+  - A written spec cannot be read or edited in Covibes; it is in the package, and the team edits it in the repository.
+  - Rewording a task drops its spec without a warning; the dialog shows the lower count.
+  - Two tasks with the same text share one spec.
+  - "Neu ausarbeiten" for a milestone with more than 20 tasks writes the first 20 again.

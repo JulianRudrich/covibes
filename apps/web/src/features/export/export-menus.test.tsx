@@ -140,6 +140,7 @@ describe('PlanExportMenu', () => {
       hasPlan: true,
       milestones: 1,
       tasks: 1,
+      milestoneSpecs: [{ number: 1, title: 'Grundgerüst', tasks: 1, written: 0, run: null }],
       decisions: { decided: 0, open: 0 },
       diagrams: 0,
       files: ['CLAUDE.md'],

@@ -79,6 +79,7 @@ export function invitationMail(options: {
 /** One line of the notification mail (spec 22b). */
 export type DigestItem =
   | { kind: 'mention'; actorName: string; excerpt: string }
+  | { kind: 'task_assigned'; actorName: string; excerpt: string }
   | { kind: 'role_changed'; actorName: string; role: 'owner' | 'editor' | 'viewer' }
   | { kind: 'removed'; actorName: string }
   | { kind: 'waiting'; count: number };
@@ -104,6 +105,8 @@ const DIGEST_TEXT = {
       switch (item.kind) {
         case 'mention':
           return `${actor} hat dich erwähnt: „${item.excerpt}“`;
+        case 'task_assigned':
+          return `${actor} hat dir eine Aufgabe zugewiesen: ${item.excerpt}`;
         case 'role_changed':
           return `${actor} hat deine Rolle geändert: ${DIGEST_ROLES.de[item.role]}`;
         case 'removed':
@@ -129,6 +132,8 @@ const DIGEST_TEXT = {
       switch (item.kind) {
         case 'mention':
           return `${actor} mentioned you: "${item.excerpt}"`;
+        case 'task_assigned':
+          return `${actor} assigned you a task: ${item.excerpt}`;
         case 'role_changed':
           return `${actor} changed your role: ${DIGEST_ROLES.en[item.role]}`;
         case 'removed':
@@ -146,7 +151,8 @@ const DIGEST_TEXT = {
 
 /**
  * The notification mail (spec 22b): what a person has not seen in the app, grouped by project, as
- * plain text in their language. Names and message texts come from people, so each is one line.
+ * plain text in their language. Names, message texts and the texts of tasks come from people, so
+ * each is one line.
  */
 export function notificationDigestMail(options: {
   to: string;
@@ -162,7 +168,7 @@ export function notificationDigestMail(options: {
     ...project,
     name: oneLine(project.name, 120),
     items: project.items.map((item) =>
-      item.kind === 'mention' ? { ...item, excerpt: oneLine(item.excerpt, 200) } : item,
+      'excerpt' in item ? { ...item, excerpt: oneLine(item.excerpt, 200) } : item,
     ),
   }));
 

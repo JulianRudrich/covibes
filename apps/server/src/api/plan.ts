@@ -1,5 +1,6 @@
 import type { DB } from '@covibes/db';
 import {
+  carryTaskIds,
   isPlanEmpty,
   PLAN_SECTIONS,
   planNodeSchema,
@@ -7,6 +8,8 @@ import {
   planVersionSchema,
   projectIdSchema,
   readPlan,
+  readPlanSections,
+  withoutTaskIds,
   writePlanSection,
   type PlanChange,
   type PlanSection,
@@ -258,8 +261,10 @@ export function planRoutes(db: AppDb, auth: Auth, documents: Pick<BoardDocuments
         await documents.changePlan(projectId.data, async (doc) => {
           const keep = async (reason: 'generated' | 'updated' | 'manual') => {
             if (isPlanEmpty(doc)) return;
+            // A version holds the text of the plan, not the ids of its tasks (spec 26b).
+            const content = withoutTaskIds(readPlan(doc));
             await sql`select public.keep_plan_version(
-              ${projectId.data}, ${JSON.stringify(readPlan(doc))}::jsonb, ${reason}
+              ${projectId.data}, ${JSON.stringify(content)}::jsonb, ${reason}
             )`.execute(trx);
           };
           if (accepted.length > 0) {
@@ -267,10 +272,15 @@ export function planRoutes(db: AppDb, auth: Auth, documents: Pick<BoardDocuments
             if (!acceptedBefore) await keep('manual');
             for (const row of [...accepted].sort(bySection)) {
               const content = contentSchema.safeParse(row.content);
+              const nodes = content.success ? content.data : [];
               writePlanSection(
                 doc,
                 row.section as PlanSection,
-                content.success ? content.data : [],
+                // The tasks of the rewritten milestones keep their ids, and so their assignees
+                // (spec 26b).
+                row.section === 'milestones'
+                  ? carryTaskIds(readPlanSections(doc).milestones ?? [], nodes)
+                  : nodes,
                 language,
               );
             }

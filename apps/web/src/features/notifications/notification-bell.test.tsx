@@ -91,6 +91,13 @@ beforeEach(() => {
   });
 });
 
+const TASK: Notification = {
+  ...base,
+  id: '66666666-6666-4666-8666-666666666666',
+  kind: 'task_assigned',
+  excerpt: 'Login per E-Mail-Link bauen',
+};
+
 describe('NotificationBell', () => {
   it('shows how many notifications are unread and lists what happened', async () => {
     stubNotifications([MENTION, ROLE, REMOVED, JOINED]);
@@ -126,6 +133,24 @@ describe('NotificationBell', () => {
       expect(router.state.location.pathname).toBe(`/p/${PROJECT}`);
     });
     expect(read).toEqual([{ ids: [MENTION.id] }]);
+  });
+
+  it('names an assigned task and opens the plan, where it stands (spec 26b)', async () => {
+    const { read } = stubNotifications([TASK]);
+    const router = renderApp('/');
+    fireEvent.click(await screen.findByRole('button', { name: /1 ungelesen/ }));
+
+    const row = await screen.findByRole('button', {
+      name: /Sam hat dir in Vereins-App eine Aufgabe zugewiesen/,
+    });
+    expect(row).toHaveTextContent('Login per E-Mail-Link bauen');
+    fireEvent.click(row);
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe(`/p/${PROJECT}`);
+    });
+    expect(router.state.location.search).toEqual({ view: 'plan' });
+    expect(read).toEqual([{ ids: [TASK.id] }]);
   });
 
   it('reads a removal without leaving the page: there is no project to open', async () => {

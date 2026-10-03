@@ -125,3 +125,63 @@
 .plan-doc-preview h2 {
   font-size: var(--text-display);
 }
+
+/*
+ * Tasks (spec 26b; derived looks): who took a task stands at the end of its line, as a small
+ * avatar with the name; a task nobody took offers "Zuweisen" to owners and editors.
+ */
+.plan-task {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: baseline;
+  margin-left: 8px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  padding: 0 7px 0 2px;
+  color: var(--color-text-3);
+  font: inherit;
+  font-size: var(--text-meta);
+  line-height: 18px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+button.plan-task {
+  cursor: pointer;
+}
+
+button.plan-task:hover {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-2);
+}
+
+button.plan-task:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 1px;
+}
+
+.plan-task-open {
+  opacity: 0.45;
+  border: 1px dashed var(--color-border-strong);
+  padding: 0 7px;
+}
+
+.plan-doc li:hover > p > .plan-task-open,
+.plan-task-open:focus-visible {
+  opacity: 1;
+}
+
+.plan-task-avatar {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-human-avatar-bg);
+  width: 16px;
+  height: 16px;
+  color: var(--color-human-avatar-fg);
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 1;
+}

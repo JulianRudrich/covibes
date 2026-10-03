@@ -445,6 +445,16 @@ export interface ShareLinks {
   token_hash: string;
 }
 
+export interface Tasks {
+  assigned_at: Timestamp | null;
+  assigned_by: string | null;
+  assignee_id: string | null;
+  created_at: Generated<Timestamp>;
+  id: string;
+  project_id: string;
+  title: Generated<string>;
+}
+
 export interface Users {
   created_at: Generated<Timestamp>;
   email: string;
@@ -527,6 +537,7 @@ export interface DB {
   proposals: Proposals;
   sessions: Sessions;
   share_links: ShareLinks;
+  tasks: Tasks;
   users: Users;
   verifications: Verifications;
   vote_ballots: VoteBallots;

@@ -1,4 +1,10 @@
-import { PLAN_FIELD } from '@covibes/shared';
+import {
+  PLAN_FIELD,
+  PLAN_TASK_ATTRIBUTE,
+  planNodesFromMarkdown,
+  writePlanSection,
+  type PlanNode,
+} from '@covibes/shared';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
@@ -10,15 +16,17 @@ import { PlanEditor } from '@web/features/plan/plan-editor';
 // The collaboration server is replaced: the plan's document is a Y.Doc of the test, and the state
 // of the connection is set by hand.
 const collab = vi.hoisted(() => {
-  const fake: { doc: unknown; state: BoardConnectionState } = {
+  const fake: { doc: unknown; connection: unknown; state: BoardConnectionState } = {
     doc: undefined,
+    connection: undefined,
     state: { status: 'connected', loaded: true, denied: false },
   };
   return fake;
 });
 vi.mock('@web/features/canvas/use-board-doc', () => ({
   useCollabDoc: () => ({
-    connection: collab.state.denied ? null : { doc: collab.doc, provider: {} },
+    // One connection per test, as the app keeps one per plan: the editor lives as long as it.
+    connection: collab.state.denied ? null : collab.connection,
     ...collab.state,
   }),
 }));
@@ -33,6 +41,7 @@ const OLGA = { id: '11111111-1111-4111-8111-111111111111', name: 'Olga' };
 
 beforeEach(() => {
   collab.doc = new Y.Doc();
+  collab.connection = { doc: collab.doc, provider: {} };
   collab.state = { status: 'connected', loaded: true, denied: false };
   // jsdom lays nothing out; ProseMirror asks for the place of the caret when it gets the focus.
   const noRects = () => [] as unknown as DOMRectList;
@@ -247,5 +256,194 @@ describe('PlanEditor', () => {
 
     expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Versionen' })).toBeInTheDocument();
+  });
+});
+
+describe('tasks in the plan (spec 26b)', () => {
+  const LOGIN = '7a000000-0000-4000-8000-000000000001';
+  const EXPORT = '7a000000-0000-4000-8000-000000000002';
+  const NOTE = '7a000000-0000-4000-8000-000000000003';
+  const ALEX = { userId: '22222222-2222-4222-8222-222222222222', name: 'Alex Berg' };
+  const SAM = { userId: '33333333-3333-4333-8333-333333333333', name: 'Sam Lee' };
+
+  /** A plan whose milestone has two tasks and a note, each list item with its id. */
+  function writeTasks() {
+    const ids = [LOGIN, EXPORT, NOTE];
+    const withIds = (nodes: PlanNode[]): PlanNode[] =>
+      nodes.map((node) => ({
+        ...node,
+        ...(node.type === 'listItem' ? { attrs: { [PLAN_TASK_ATTRIBUTE]: ids.shift() } } : {}),
+        ...(node.content ? { content: withIds(node.content) } : {}),
+      }));
+    writePlanSection(
+      collab.doc as Y.Doc,
+      'milestones',
+      withIds(
+        planNodesFromMarkdown('### Meilenstein 1: Grundgerüst\n\n- Login bauen\n- Export\n- Notiz'),
+      ),
+      'de',
+    );
+  }
+
+  const items = (document: HTMLElement) =>
+    [...document.querySelectorAll('li')].map((item) => item.textContent);
+
+  it('shows who took a task and offers to assign the others', async () => {
+    writeTasks();
+    renderPlan({
+      tasks: {
+        // The note is no task of the roadmap, so nothing shows at it.
+        assignees: new Map([
+          [LOGIN, ALEX],
+          [EXPORT, null],
+        ]),
+        assigning: { members: [ALEX, SAM], onAssign: vi.fn() },
+      },
+    });
+    const document = await screen.findByRole('textbox', { name: 'Projektplan' });
+
+    await waitFor(() => {
+      expect(items(document)).toEqual(['Login bauenABAlex Berg', 'ExportZuweisen', 'Notiz']);
+    });
+    const taken = within(document).getByRole('button', { name: 'Zugewiesen an Alex Berg' });
+    expect(taken).toHaveClass('plan-task-assigned');
+    expect(taken).toHaveAttribute('contenteditable', 'false');
+    expect(within(document).getByRole('button', { name: 'Zuweisen' })).toHaveClass(
+      'plan-task-open',
+    );
+    // The controls are no text of the plan.
+    expect(stored()).not.toContain('Alex Berg');
+    expect(stored()).not.toContain('Zuweisen');
+  });
+
+  it('opens the members from a task and assigns the one chosen', async () => {
+    writeTasks();
+    const onAssign = vi.fn();
+    renderPlan({
+      tasks: {
+        assignees: new Map([
+          [LOGIN, ALEX],
+          [EXPORT, null],
+        ]),
+        assigning: { members: [ALEX, SAM], onAssign },
+      },
+    });
+    const document = await screen.findByRole('textbox', { name: 'Projektplan' });
+
+    fireEvent.click(await within(document).findByRole('button', { name: 'Zuweisen' }));
+    const menu = await screen.findByRole('menu');
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['ABAlex Berg', 'SLSam Lee', 'Niemand']);
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Sam Lee' }));
+
+    expect(onAssign).toHaveBeenCalledExactlyOnceWith(EXPORT, SAM);
+    await waitFor(() => {
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    // The one who has the task again changes nothing; "Niemand" clears it.
+    fireEvent.click(within(document).getByRole('button', { name: 'Zugewiesen an Alex Berg' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Alex Berg' }));
+    expect(onAssign).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(document).getByRole('button', { name: 'Zugewiesen an Alex Berg' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Niemand' }));
+    expect(onAssign).toHaveBeenLastCalledWith(LOGIN, null);
+  });
+
+  it('shows viewers who took a task, without a way to change it', async () => {
+    writeTasks();
+    renderPlan({
+      readOnly: true,
+      tasks: {
+        assignees: new Map([
+          [LOGIN, ALEX],
+          [EXPORT, null],
+        ]),
+      },
+    });
+    const document = await screen.findByRole('textbox', { name: 'Projektplan' });
+
+    await waitFor(() => {
+      expect(items(document)).toEqual(['Login bauenABAlex Berg', 'Export', 'Notiz']);
+    });
+    expect(within(document).queryByRole('button')).not.toBeInTheDocument();
+    expect(document.querySelector('span.plan-task-assigned')).toHaveAttribute(
+      'aria-label',
+      'Zugewiesen an Alex Berg',
+    );
+  });
+
+  it('follows when the assignee changes', async () => {
+    writeTasks();
+    const tasks = (assignee: typeof ALEX | null) => ({
+      assignees: new Map([[LOGIN, assignee]]),
+      assigning: { members: [ALEX, SAM], onAssign: vi.fn() },
+    });
+    const view = renderPlan({ tasks: tasks(ALEX) });
+    const document = await screen.findByRole('textbox', { name: 'Projektplan' });
+    await within(document).findByRole('button', { name: 'Zugewiesen an Alex Berg' });
+
+    view.rerender(
+      <TooltipProvider>
+        <PlanEditor
+          projectId={PROJECT}
+          user={OLGA}
+          readOnly={false}
+          language="de"
+          tasks={tasks(SAM)}
+        />
+      </TooltipProvider>,
+    );
+
+    expect(
+      await within(document).findByRole('button', { name: 'Zugewiesen an Sam Lee' }),
+    ).toBeInTheDocument();
+    expect(within(document).queryByRole('button', { name: /Alex Berg/ })).not.toBeInTheDocument();
+  });
+
+  it('keeps the id on its task while it is edited; a task split off it has none', async () => {
+    writeTasks();
+    renderPlan();
+    const document = await screen.findByRole('textbox', { name: 'Projektplan' });
+    await within(document).findByText('Login bauen');
+    const { editor } = document as unknown as {
+      editor: {
+        state: { doc: { descendants: (visit: (node: PmNode, position: number) => void) => void } };
+        chain: () => {
+          setTextSelection: (position: number) => {
+            insertContent: (text: string) => {
+              splitListItem: (type: string) => { run: () => boolean };
+            };
+          };
+        };
+      };
+    };
+    type PmNode = { type: { name: string }; textContent: string; nodeSize: number };
+    let end = 0;
+    editor.state.doc.descendants((node, position) => {
+      if (node.type.name === 'paragraph' && node.textContent === 'Login bauen') {
+        end = position + node.nodeSize - 1;
+      }
+    });
+
+    act(() => {
+      editor
+        .chain()
+        .setTextSelection(end)
+        .insertContent(' und testen')
+        .splitListItem('listItem')
+        .run();
+    });
+
+    await waitFor(() => {
+      expect(items(document)).toEqual(['Login bauen und testen', '', 'Export', 'Notiz']);
+    });
+    expect(stored()).toContain(`<listitem taskId="${LOGIN}"><paragraph>Login bauen und testen`);
+    // One list item carries the id, and the new one carries none.
+    expect(stored().split(`taskId="${LOGIN}"`)).toHaveLength(2);
+    expect(stored().match(/taskId=/g)).toHaveLength(3);
   });
 });

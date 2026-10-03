@@ -5,22 +5,45 @@ import {
   planTemplate,
   type AwarenessUser,
   type PlanLanguage,
+  type RoadmapAssignee,
 } from '@covibes/shared';
 import { Collaboration } from '@tiptap/extension-collaboration';
 import { CollaborationCaret } from '@tiptap/extension-collaboration-caret';
 import { TextSelection } from '@tiptap/pm/state';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
-import { useEffect, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@web/components/ui/dropdown-menu';
 import type { BoardConnection } from '@web/features/canvas/board-connection';
 import { Sparkle } from '@web/features/canvas/node-chrome';
 import { useCollabDoc } from '@web/features/canvas/use-board-doc';
 import { PlanSections } from '@web/features/plan/plan-sections';
+import {
+  NO_PLAN_TASKS,
+  PlanTasks,
+  planTasksKey,
+  type PlanTasksState,
+} from '@web/features/plan/plan-tasks';
 import { PlanToolbar } from '@web/features/plan/plan-toolbar';
 import { usePlanText, type PlanText } from '@web/features/plan/use-plan-text';
+import { AssigneeItems } from '@web/features/roadmap/assignee-menu';
+import type { TaskAssigning } from '@web/features/roadmap/roadmap-context';
+
+/** The tasks of the plan (spec 26b): who took which, and for owners and editors how to assign. */
+export type PlanTaskAssignments = {
+  /** The tasks by their id; null: nobody took it. */
+  assignees: ReadonlyMap<string, RoadmapAssignee | null>;
+  assigning?: TaskAssigning;
+};
+
+const NO_TASKS: PlanTaskAssignments['assignees'] = new Map();
 
 type PlanEditorProps = {
   projectId: string;
@@ -41,6 +64,8 @@ type PlanEditorProps = {
    * that its suggestions wait; then the button rests and an empty plan needs no start help.
    */
   generation?: { busy: boolean; onGenerate: () => void };
+  /** Shown at the tasks of the milestones; undefined until the roadmap is loaded. */
+  tasks?: PlanTaskAssignments;
 };
 
 /** The caret of another person: a line in the human color with their name above it. */
@@ -97,8 +122,16 @@ function PlanDocument({
   above,
   toolbarEnd,
   generation,
+  tasks,
 }: Omit<PlanEditorProps, 'projectId'> & { connection: BoardConnection }) {
   const { t } = useTranslation();
+  // The task whose menu is open, and where its button stands on the screen.
+  const [picking, setPicking] = useState<{ taskId: string; at: DOMRect } | null>(null);
+  const pick = useCallback((taskId: string, anchor: HTMLElement) => {
+    setPicking({ taskId, at: anchor.getBoundingClientRect() });
+  }, []);
+  // What the editor shows at its tasks; it reads this whenever it draws them.
+  const taskState = useRef<PlanTasksState>(NO_PLAN_TASKS);
   const editor = useEditor(
     {
       extensions: [
@@ -115,6 +148,7 @@ function PlanDocument({
           underline: false,
         }),
         PlanSections.configure({ hint: (section) => planSectionHint(section, language) }),
+        PlanTasks.configure({ read: () => taskState.current }),
         Collaboration.configure({ document: connection.doc, field: PLAN_FIELD }),
         CollaborationCaret.configure({
           provider: connection.provider,
@@ -139,6 +173,23 @@ function PlanDocument({
   useEffect(() => {
     editor.setEditable(!readOnly);
   }, [editor, readOnly]);
+
+  // The tasks show who took them; the editor draws them anew whenever that changes.
+  const assignees = tasks?.assignees ?? NO_TASKS;
+  const canAssign = tasks?.assigning !== undefined;
+  useEffect(() => {
+    if (editor.isDestroyed) return;
+    taskState.current = {
+      assignees,
+      onPick: canAssign ? pick : null,
+      labels: {
+        assign: t('roadmap.assign.short'),
+        assignedTo: (name) => t('roadmap.assign.assignedTo', { name }),
+        teamMember: t('shareView.teamMember'),
+      },
+    };
+    editor.view.dispatch(editor.state.tr.setMeta(planTasksKey, true));
+  }, [editor, assignees, canAssign, pick, t]);
 
   const empty = useEditorState({ editor, selector: ({ editor: current }) => current.isEmpty });
   const plan = usePlanText(connection.doc);
@@ -169,6 +220,46 @@ function PlanDocument({
           }
         />
       )}
+      {picking && tasks?.assigning ? (
+        // The button of a task belongs to the editor; the menu opens from where it stands.
+        <DropdownMenu
+          open
+          onOpenChange={(open) => {
+            if (!open) setPicking(null);
+          }}
+        >
+          <DropdownMenuTrigger asChild>
+            <span
+              aria-hidden="true"
+              className="pointer-events-none fixed"
+              style={{
+                left: picking.at.left,
+                top: picking.at.top,
+                width: picking.at.width,
+                height: picking.at.height,
+              }}
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="min-w-[220px]"
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+            }}
+          >
+            <AssigneeItems
+              current={assignees.get(picking.taskId) ?? null}
+              assigning={tasks.assigning}
+              onDone={(next) => {
+                const current = assignees.get(picking.taskId) ?? null;
+                if (next?.userId !== current?.userId) {
+                  tasks.assigning?.onAssign(picking.taskId, next);
+                }
+              }}
+            />
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-10 py-8">
           {above?.(plan)}

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { DB } from '@covibes/db';
 import {
   addFrame,
+  assignTaskInputSchema,
   findFreeSpot,
   isRoadmap,
   projectIdSchema,
@@ -11,18 +12,27 @@ import {
   ROADMAP_DIAGRAM,
   ROADMAP_TITLE,
   roadmapLayout,
+  withAssignees,
   type Roadmap,
   type RoadmapPlace,
 } from '@covibes/shared';
 import { Hono } from 'hono';
-import type { Transaction } from 'kysely';
+import { sql, type Transaction } from 'kysely';
+import { z } from 'zod';
 
 import { apiError } from '@server/api/errors';
 import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
 import type { BoardDocuments } from '@server/collab/collab';
 import { withUser, type AppDb } from '@server/db/database';
+import { loadAssignees } from '@server/plan/assignees';
+import type { LivePublisher } from '@server/realtime/realtime';
 import { centerOfNodes } from '@server/tools/placement';
+
+function sqlState(error: unknown): string | undefined {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === 'string' ? code : undefined;
+}
 
 function membership(trx: Transaction<DB>, projectId: string, userId: string) {
   return trx
@@ -34,13 +44,16 @@ function membership(trx: Transaction<DB>, projectId: string, userId: string) {
 }
 
 /**
- * `/api/projects/:projectId/roadmap` (spec 26a): the roadmap as the plan shows it right now, and
- * where it is on the canvas. The plan is the source; a roadmap frame holds nothing of its own.
+ * `/api/projects/:projectId/roadmap` (specs 26a and 26b): the roadmap as the plan shows it right
+ * now, where it is on the canvas, and who takes which of its tasks. The plan is the source; a
+ * roadmap frame holds nothing of its own. An assignment is announced on the project's live
+ * channel.
  */
 export function roadmapRoutes(
   db: AppDb,
   auth: Auth,
-  documents: Pick<BoardDocuments, 'changeBoard' | 'readBoard' | 'readPlanSections'>,
+  live: LivePublisher,
+  documents: Pick<BoardDocuments, 'changeBoard' | 'readBoard' | 'readPlanSections' | 'giveTaskIds'>,
 ) {
   const routes = new Hono<{ Variables: SessionVariables }>();
   routes.use(sessionMiddleware(auth));
@@ -51,9 +64,60 @@ export function roadmapRoutes(
     const projectId = projectIdSchema.safeParse(c.req.param('projectId'));
     if (!projectId.success) return apiError(c, 'not_found');
 
+    const assignees = await withUser(db, user.id, async (trx) => {
+      if (!(await membership(trx, projectId.data, user.id))) return undefined;
+      return await loadAssignees(trx, projectId.data);
+    });
+    if (!assignees) return apiError(c, 'not_found');
+    const roadmap = readRoadmap(await documents.readPlanSections(projectId.data));
+    // A task without an id cannot be assigned. The server gives ids after it stored a plan; a
+    // plan from before that, or one nobody changed since, gets them now, and the roadmap is
+    // announced again once they are there.
+    if (roadmap.milestones.some((milestone) => milestone.tasks.some((task) => task.id === null))) {
+      documents.giveTaskIds?.(projectId.data);
+    }
+    return c.json<Roadmap>(withAssignees(roadmap, assignees));
+  });
+
+  /**
+   * Gives a task to a member, or to nobody (spec 26b). The task must be one of the plan as it
+   * stands; its text there is how the assignment and its notification read. The database checks
+   * who may assign and who can be assigned, and notifies the assignee.
+   */
+  routes.put('/tasks/:taskId/assignee', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    const projectId = projectIdSchema.safeParse(c.req.param('projectId'));
+    const taskId = z.uuid().safeParse(c.req.param('taskId'));
+    if (!projectId.success || !taskId.success) return apiError(c, 'not_found');
+    const body: unknown = await c.req.json().catch(() => undefined);
+    const input = assignTaskInputSchema.safeParse(body);
+    if (!input.success) return apiError(c, 'invalid_input');
+
     const member = await withUser(db, user.id, (trx) => membership(trx, projectId.data, user.id));
     if (!member) return apiError(c, 'not_found');
-    return c.json<Roadmap>(readRoadmap(await documents.readPlanSections(projectId.data)));
+    const task = readRoadmap(await documents.readPlanSections(projectId.data))
+      .milestones.flatMap((milestone) => milestone.tasks)
+      .find((candidate) => candidate.id === taskId.data);
+    if (!task) return apiError(c, 'not_found');
+
+    try {
+      const changed = await withUser(db, user.id, async (trx) => {
+        const assigned = await sql<{ changed: boolean }>`
+          select public.assign_task(
+            ${projectId.data}, ${taskId.data}, ${input.data.userId}, ${task.text}
+          ) as changed`.execute(trx);
+        return assigned.rows[0]?.changed === true;
+      });
+      // Assigning it to who has it already changes nothing, and there is nothing to load again.
+      if (changed) live.publish(projectId.data, { type: 'roadmap' });
+      return c.body(null, 204);
+    } catch (error) {
+      const state = sqlState(error);
+      if (state === '42501') return apiError(c, 'forbidden');
+      if (state === '22023') return apiError(c, 'invalid_input');
+      throw error;
+    }
   });
 
   /**

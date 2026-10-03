@@ -13,6 +13,9 @@ import {
   type RoadmapMilestone,
 } from './plan-roadmap';
 
+/** A task as it is read from a plan the server has not given ids yet. */
+const task = (text: string) => ({ id: null, text, assignee: null });
+
 const roadmapOf = (milestones: string, costs = '') =>
   readRoadmap({
     milestones: planNodesFromMarkdown(milestones),
@@ -82,14 +85,14 @@ describe('readRoadmap', () => {
         title: 'Grundgerüst und Anmeldung',
         goal: 'Frontend, API und Datenbank laufen.',
         duration: { text: '3 Wochen', weeks: 3 },
-        tasks: [{ text: 'Projekt aufsetzen' }, { text: 'Login per E-Mail-Link' }],
+        tasks: [task('Projekt aufsetzen'), task('Login per E-Mail-Link')],
       },
       {
         number: 2,
         title: 'Mitglieder',
         goal: '',
         duration: { text: '2–3 weeks', weeks: 3 },
-        tasks: [{ text: 'Tabelle anlegen' }, { text: 'Liste bauen' }],
+        tasks: [task('Tabelle anlegen'), task('Liste bauen')],
       },
       { number: 3, title: 'Trainingszeiten', goal: '', duration: null, tasks: [] },
     ]);
@@ -183,7 +186,7 @@ describe('readRoadmap', () => {
         title: 'Grundgerüst',
         goal: '',
         duration: { text: '2 Wochen', weeks: 2 },
-        tasks: [{ text: 'Projekt aufsetzen' }, { text: 'Login' }],
+        tasks: [task('Projekt aufsetzen'), task('Login')],
       },
       { number: 2, title: 'Mitglieder', goal: '', duration: null, tasks: [] },
     ]);
@@ -248,7 +251,7 @@ const milestone = (
   title: `Schritt ${String(number)}`,
   goal,
   duration: weeks === null ? null : { text: `${String(weeks)} Wochen`, weeks },
-  tasks: Array.from({ length: tasks }, (_, index) => ({ text: `Aufgabe ${String(index + 1)}` })),
+  tasks: Array.from({ length: tasks }, (_, index) => task(`Aufgabe ${String(index + 1)}`)),
 });
 
 describe('roadmapWeeks and roadmapLayout', () => {

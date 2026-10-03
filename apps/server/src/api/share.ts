@@ -9,9 +9,11 @@ import {
   readRoadmap,
   shareBoardInputSchema,
   shareViewInputSchema,
+  withAssignees,
   type Author,
   type CreatedShareLink,
   type CustomAgentSummary,
+  type RoadmapAssignee,
   type SharedBoard,
   type SharedProject,
   type ShareLinkStatus,
@@ -132,6 +134,9 @@ export function shareLinkRoutes(db: AppDb, auth: Auth, deps: { appUrl: string })
 
 const NOBODY: Author = { kind: 'human', userId: NO_USER_ID };
 
+/** Whoever took a task (spec 26b): the view says that it is taken, not by whom. */
+const SOMEONE: RoadmapAssignee = { userId: NO_USER_ID, name: '' };
+
 /** The element without who made or changed it, if that was a person; agents stay. */
 function withoutPeople<T extends { createdBy: Author; lastChangedBy: Author }>(element: T): T {
   return {
@@ -222,20 +227,33 @@ export function shareViewRoutes(db: AppDb, documents: BoardDocuments, limiter: R
     if (!limiter.take(hashOf(input.data.token))) return apiError(c, 'too_many_requests');
 
     // The policies show the link the boards of its project only.
-    const board = await withShareLink(db, input.data.token, (trx) =>
-      trx
+    const board = await withShareLink(db, input.data.token, async (trx) => {
+      const found = await trx
         .selectFrom('boards')
         .select(['id', 'project_id'])
         .where('id', '=', input.data.boardId)
         .where('project_id', '=', sql<string>`private.shared_project_id()`)
-        .executeTakeFirst(),
-    );
+        .executeTakeFirst();
+      if (!found) return undefined;
+      // Which tasks of the plan are taken (spec 26b); by whom is not read. Someone who left the
+      // project has no task any more.
+      const taken = await trx
+        .selectFrom('tasks')
+        .select('id')
+        .where('project_id', '=', found.project_id)
+        .where('assignee_id', 'is not', null)
+        .execute();
+      return { ...found, taken: taken.map((task) => task.id) };
+    });
     if (!board) return apiError(c, 'not_found');
 
     const content = await documents.readBoard(board.id);
     // A roadmap shows the plan's milestones (spec 26a); the board brings them along.
     const roadmap = content.nodes.some(isRoadmap)
-      ? readRoadmap(await documents.readPlanSections(board.project_id))
+      ? withAssignees(
+          readRoadmap(await documents.readPlanSections(board.project_id)),
+          new Map(board.taken.map((taskId) => [taskId, SOMEONE])),
+        )
       : null;
     return c.json<SharedBoard>({
       nodes: content.nodes.map(withoutPeople),

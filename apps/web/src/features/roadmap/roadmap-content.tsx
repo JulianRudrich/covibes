@@ -8,6 +8,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
+import { TaskAssignee } from '@web/features/roadmap/assignee-menu';
 import { useRoadmap, useRoadmapSource } from '@web/features/roadmap/roadmap-context';
 import { cn } from '@web/lib/cn';
 
@@ -114,6 +115,7 @@ function Milestone({
   hasGoals: boolean;
 }) {
   const { t } = useTranslation();
+  const { assigning } = useRoadmapSource();
   const time = milestone.duration
     ? [
         milestone.duration.text,
@@ -167,14 +169,20 @@ function Milestone({
           style={{ gap: ROADMAP.taskGap, marginTop: ROADMAP.blockGap }}
         >
           {milestone.tasks.slice(0, column.shownTasks).map((task, index) => (
-            // Tasks have no identity of their own yet, and a plan can name the same task twice.
+            // A task gets its id from the server a moment after it was written; until then only
+            // its place tells it apart.
             <li
-              key={index}
-              title={task.text}
-              className="line-clamp-2 rounded-md border border-border bg-bg-panel px-2 py-1.5 text-small leading-snug text-text-body"
+              key={task.id ?? index}
+              className="flex items-center gap-1.5 rounded-md border border-border bg-bg-panel py-1.5 pr-1.5 pl-2"
               style={{ height: ROADMAP.task }}
             >
-              {task.text}
+              <span
+                title={task.text}
+                className="line-clamp-2 min-w-0 flex-1 text-small leading-snug text-text-body"
+              >
+                {task.text}
+              </span>
+              <TaskAssignee task={task} assigning={assigning} />
             </li>
           ))}
         </ul>

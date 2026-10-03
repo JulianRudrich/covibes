@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
 import type { ProjectSummary } from '@covibes/shared';
+import { sql } from 'kysely';
 import { describe, expect, it, vi } from 'vitest';
 
+import { withUser } from '@server/db/database';
 import { DevOutbox } from '@server/integrations/mail/mailer';
 import {
   MAIL_GAP_MS,
@@ -57,6 +59,14 @@ async function say(cookie: string, projectId: string, content: string) {
   });
   expect(response.status).toBe(201);
 }
+
+/** What assigning a task of the plan does in the database (spec 26b). */
+const assignTask = (actorId: string, projectId: string, assigneeId: string, title: string) =>
+  withUser(test.db.app, actorId, (trx) =>
+    sql`select public.assign_task(${projectId}, ${randomUUID()}, ${assigneeId}, ${title})`.execute(
+      trx,
+    ),
+  );
 
 /** An agent has one open hand per project, so a second hand is another agent's. */
 const raiseHand = (projectId: string, agentKey = 'critic') =>
@@ -270,6 +280,30 @@ describe('the notification mail', () => {
     );
   });
 
+  it('tells someone which task they were given (spec 26b)', async () => {
+    const olga = await person('Olga');
+    const alex = await person('Alex');
+    const projectId = await createProject(olga.cookie, 'Sportverein');
+    await addMember(projectId, alex.id, 'editor');
+    await assignTask(olga.id, projectId, alex.id, 'Login\nbauen');
+    // A task someone takes themselves is no news to them.
+    await assignTask(alex.id, projectId, alex.id, 'Export bauen');
+    const { outbox, run } = job();
+
+    expect(await run(alex.id)).toBe('sent');
+
+    const [mail] = outbox.list();
+    expect(mail).toMatchObject({ to: alex.email, subject: 'Neues für dich in „Sportverein“' });
+    // The text of a task comes from people: one line, like the excerpt of a mention.
+    expect(mail?.text).toContain(
+      `„Sportverein“\n${APP_URL}/p/${projectId}\n- Olga hat dir eine Aufgabe zugewiesen: Login bauen\n\n`,
+    );
+    expect(mail?.text).not.toContain('Export bauen');
+    // Mailed once, and nothing to the person who assigned it.
+    expect(await run(alex.id, later(60))).toBe('nothing');
+    expect(await run(olga.id)).toBe('nothing');
+  });
+
   it('writes in the language of the person', async () => {
     const olga = await person('Olga');
     const alex = await person('Alex');
@@ -277,6 +311,7 @@ describe('the notification mail', () => {
     const projectId = await createProject(olga.cookie, 'Club app');
     await addMember(projectId, alex.id, 'editor');
     await say(olga.cookie, projectId, '@Alex please have a look');
+    await assignTask(olga.id, projectId, alex.id, 'Login bauen');
     await raiseHand(projectId);
     await raiseHand(projectId, 'security');
     const { outbox, run } = job();
@@ -287,6 +322,7 @@ describe('the notification mail', () => {
     expect(mail?.subject).toBe('News for you in "Club app"');
     expect(mail?.text).toContain('Hello Alex,');
     expect(mail?.text).toContain('- Olga mentioned you: "@Alex please have a look"');
+    expect(mail?.text).toContain('- Olga assigned you a task: Login bauen');
     expect(mail?.text).toContain('- 2 things wait for you (proposals, raised hands or votes).');
     expect(mail?.text).toContain('under "Email notifications"');
   });

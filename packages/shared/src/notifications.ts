@@ -8,8 +8,15 @@ import { PROJECT_ROLES } from './projects';
 /**
  * `mention`: someone mentioned the person in a chat. `role_changed` and `removed`: an owner
  * changed their role or removed them. `joined`: someone joined a project the person owns.
+ * `task_assigned`: someone gave the person a task of the plan (spec 26b).
  */
-export const NOTIFICATION_KINDS = ['mention', 'role_changed', 'removed', 'joined'] as const;
+export const NOTIFICATION_KINDS = [
+  'mention',
+  'role_changed',
+  'removed',
+  'joined',
+  'task_assigned',
+] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 /** How many of the latest notifications the bell shows. */
@@ -26,7 +33,7 @@ export const notificationSchema = z.object({
   projectName: z.string(),
   /** Who mentioned, changed, removed or joined; empty when nobody in particular did. */
   actorName: z.string(),
-  /** A mention: how the message starts. */
+  /** A mention: how the message starts. An assigned task: how it reads. */
   excerpt: z.string(),
   /** The new role, or the role of who joined. */
   role: z.enum(PROJECT_ROLES).nullable(),

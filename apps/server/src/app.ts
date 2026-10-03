@@ -157,7 +157,7 @@ export function createApp({
   app.route('/api/projects/:projectId/decisions', decisionRoutes(db.app, auth));
   app.route('/api/projects/:projectId/away', awayRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/plan', planRoutes(db.app, auth, documents));
-  app.route('/api/projects/:projectId/roadmap', roadmapRoutes(db.app, auth, documents));
+  app.route('/api/projects/:projectId/roadmap', roadmapRoutes(db.app, auth, live, documents));
   const invitationMailLimiter = createRateLimiter({
     limit: INVITATION_MAILS_PER_HOUR,
     windowMs: 60 * 60_000,

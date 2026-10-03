@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PanelHeader } from '@web/components/ui/panel';
-import { PlanEditor } from '@web/features/plan/plan-editor';
+import { PlanEditor, type PlanTaskAssignments } from '@web/features/plan/plan-editor';
 import { PLAN_PANEL_ID } from '@web/features/plan/plan-ids';
 import { PlanSuggestions } from '@web/features/plan/plan-suggestions';
 import { PlanVersions } from '@web/features/plan/plan-versions';
@@ -29,6 +29,8 @@ type PlanPanelProps = {
   /** Opens the roadmap on the canvas (spec 26a); busy while the server finds or adds it. */
   onOpenRoadmap: () => void;
   roadmapBusy: boolean;
+  /** Who took which task of the plan (spec 26b); undefined until the roadmap is loaded. */
+  tasks?: PlanTaskAssignments;
 };
 
 /**

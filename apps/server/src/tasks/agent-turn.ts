@@ -9,6 +9,7 @@ import {
   readPlanSections,
   readRoadmap,
   toPhase,
+  withAssignees,
   type CanvasEdge,
   type CanvasNode,
   type CanvasOperation,
@@ -17,6 +18,7 @@ import {
   type ModeratorStance,
   type NodeLock,
   type Phase,
+  type Roadmap,
 } from '@covibes/shared';
 import type { Task } from 'graphile-worker';
 import { sql, type Kysely } from 'kysely';
@@ -45,6 +47,7 @@ import {
 } from '@server/ai-gateway';
 import { loadMessage, selectMessages, toMessage } from '@server/chat/rows';
 import type { BoardAccess } from '@server/collab/board-client';
+import { loadAssignees } from '@server/plan/assignees';
 import { readStoredPlan } from '@server/plan/stored-plan';
 import { MAX_DELTA_LENGTH, notifyLive } from '@server/realtime/notifications';
 import type { Intent } from '@server/rules/decide';
@@ -114,6 +117,9 @@ const MAX_CONTENT_LENGTH = 8000;
 const MAX_ERROR_LENGTH = 1000;
 /** The plan in an agent's context; a longer plan is cut at the end. */
 const MAX_PLAN_LENGTH = 8000;
+/** Who took which task, in an agent's context: a longer list is cut at the end, a task sooner. */
+const MAX_ASSIGNMENTS_LENGTH = 4000;
+const MAX_TASK_LENGTH = 200;
 
 const payloadSchema = z.object({ runId: z.uuid() });
 
@@ -591,8 +597,13 @@ async function converse(
       }))
     : { nodes: [], edges: [], locks: new Map<string, NodeLock>() };
   const proposals = await loadOpenProposals(deps.admin, run.projectId);
-  // The project plan as text (spec 25b), so agents answer questions about it and build on it.
-  const plan = await readStoredPlan(deps.admin, run.projectId, planToMarkdown);
+  // The project plan as text (spec 25b), so agents answer questions about it and build on it,
+  // and its tasks with who took them (spec 26b).
+  const plan = await readStoredPlan(deps.admin, run.projectId, (doc) => ({
+    text: planToMarkdown(doc),
+    roadmap: readRoadmap(readPlanSections(doc)),
+  }));
+  const roadmap = withAssignees(plan.roadmap, await loadAssignees(deps.admin, run.projectId));
   // The files people attached to the chat (spec 20a); every agent may read them.
   // A custom agent also reads the files of its own knowledge (spec 20b).
   const custom = isCustomAgentKey(agent.key) ? agent.key : undefined;
@@ -766,7 +777,8 @@ async function converse(
         agentNames,
         ...canvas,
         proposals,
-        plan,
+        plan: plan.text,
+        roadmap,
         files,
         // A debate only talks: it lists no knowledge and says nothing about the web.
         ...(debating ? {} : { knowledge, web }),
@@ -840,7 +852,7 @@ function authorName(message: ChatMessage, nameOf: NameOf): string {
 /** Chat text is data: it must not close the sections the prompt is built from. */
 function asData(text: string): string {
   return text.replace(
-    /<(\/?)(phase|team|moderation|criteria|decisions|canvas|plan|files|knowledge|chat|request)>/gi,
+    /<(\/?)(phase|team|moderation|criteria|decisions|canvas|plan|assignments|files|knowledge|chat|request)>/gi,
     '‹$1$2›',
   );
 }
@@ -1008,6 +1020,22 @@ function describeDecisions(
   ];
 }
 
+/**
+ * Who took which task of the plan (spec 26b): one line per task of the roadmap that someone took,
+ * in the order of the plan.
+ */
+function describeAssignments(roadmap: Roadmap): string[] {
+  return roadmap.milestones.flatMap((milestone) =>
+    milestone.tasks.flatMap((task) => {
+      if (!task.assignee) return [];
+      // A name is one line, like the title and the task the plan gives.
+      const name = task.assignee.name.replace(/\s+/g, ' ').trim() || 'Someone';
+      const text = limitLength(task.text, MAX_TASK_LENGTH);
+      return [`- Milestone ${String(milestone.number)} "${milestone.title}": "${text}" → ${name}`];
+    }),
+  );
+}
+
 function agentNames(keys: readonly string[], nameOf: NameOf): string {
   return keys.map(nameOf).join(', ');
 }
@@ -1067,6 +1095,8 @@ export function buildPrompt(context: {
   proposals?: readonly { id: string; agentKey: string; operations: CanvasOperation[] }[];
   /** The project plan as Markdown (spec 25b); empty or missing while there is none. */
   plan?: string;
+  /** The plan's roadmap with who took which task (spec 26b). */
+  roadmap?: Roadmap;
   /** The latest files attached to the chat (spec 20a), which `read_file` reads. */
   files?: readonly ProjectFile[];
   /** The knowledge of the custom agent that answers (spec 20b). */
@@ -1100,6 +1130,7 @@ export function buildPrompt(context: {
   const chat = context.messages
     .map((message) => `${authorName(message, nameOf)}: ${message.content}${attachedTo(message)}`)
     .join('\n');
+  const assignments = context.roadmap ? describeAssignments(context.roadmap) : [];
   const files = context.files ?? [];
   const knowledge = context.knowledge ?? [];
   const { occasion } = context;
@@ -1127,6 +1158,11 @@ export function buildPrompt(context: {
     ...(context.plan
       ? [
           `<plan>\nThe project plan as the team has it in the tab "Projektplan"; people edit it there, you cannot change it:\n${asData(limitLength(context.plan, MAX_PLAN_LENGTH))}\n</plan>`,
+        ]
+      : []),
+    ...(assignments.length > 0
+      ? [
+          `<assignments>\nWho took which task of the plan; people assign tasks in the plan and on the roadmap, you cannot:\n${asData(limitLength(assignments.join('\n'), MAX_ASSIGNMENTS_LENGTH))}\n</assignments>`,
         ]
       : []),
     ...(files.length > 0

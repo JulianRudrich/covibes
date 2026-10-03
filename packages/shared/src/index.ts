@@ -367,9 +367,13 @@ export {
   ROADMAP,
   roadmapLayout,
   roadmapSchema,
+  assignTaskInputSchema,
   roadmapWeeks,
   ROADMAP_TITLE,
+  withAssignees,
+  type AssignTaskInput,
   type Roadmap,
+  type RoadmapAssignee,
   type RoadmapColumn,
   type RoadmapDuration,
   type RoadmapLayout,
@@ -377,6 +381,15 @@ export {
   type RoadmapPlace,
   type RoadmapTask,
 } from './plan-roadmap';
+export {
+  carryTaskIds,
+  ensureTaskIds,
+  listItemText,
+  needsTaskIds,
+  TASK_IDS_ORIGIN,
+  taskIdOf,
+  withoutTaskIds,
+} from './plan-tasks';
 export {
   isPlanEmpty,
   planToMarkdown,
@@ -393,6 +406,7 @@ export {
   PLAN_FIELD,
   PLAN_SECTION_ATTRIBUTE,
   PLAN_SECTION_LEVEL,
+  PLAN_TASK_ATTRIBUTE,
   PLAN_SECTIONS,
   planDocumentName,
   planNodeSchema,

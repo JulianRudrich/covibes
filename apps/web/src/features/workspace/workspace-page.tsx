@@ -1,4 +1,10 @@
-import type { HandRaise, OpenVote, ProjectDetails, Proposal } from '@covibes/shared';
+import type {
+  HandRaise,
+  OpenVote,
+  ProjectDetails,
+  Proposal,
+  RoadmapAssignee,
+} from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -15,6 +21,7 @@ import { CanvasPanel } from '@web/features/canvas/canvas-panel';
 import { ChatPanel } from '@web/features/chat/chat-panel';
 import { DecisionsOverview } from '@web/features/decisions/decisions-overview';
 import { openVotesQuery, useVoteActions } from '@web/features/decisions/queries';
+import type { PlanTaskAssignments } from '@web/features/plan/plan-editor';
 import { PlanPanel } from '@web/features/plan/plan-panel';
 import { planStateQuery, usePlanActions } from '@web/features/plan/queries';
 import { handsQuery, useHandDecisions } from '@web/features/hands/queries';
@@ -28,8 +35,12 @@ import {
 } from '@web/features/proposals/queries';
 import { waitingCount } from '@web/features/proposals/waiting-count';
 import { WaitingForYou } from '@web/features/proposals/waiting-for-you';
-import { useOpenRoadmap } from '@web/features/roadmap/queries';
-import { RoadmapProvider, type RoadmapSource } from '@web/features/roadmap/roadmap-context';
+import { roadmapQuery, useAssignTask, useOpenRoadmap } from '@web/features/roadmap/queries';
+import {
+  RoadmapProvider,
+  type RoadmapSource,
+  type TaskAssigning,
+} from '@web/features/roadmap/roadmap-context';
 import { ProjectShare } from '@web/features/share/project-share';
 import { ProjectTeam } from '@web/features/team/project-team';
 import { useAskNextStep } from '@web/features/workspace/use-ask-next-step';
@@ -182,9 +193,44 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
       }),
     [navigate, project.id],
   );
+  // Tasks (spec 26b): owners and editors give them to members, on the roadmap and in the plan.
+  const assignFailed = useCallback(() => {
+    showNotice(t('roadmap.assign.failed'));
+  }, [showNotice, t]);
+  const { mutate: assignTask } = useAssignTask(project.id, assignFailed);
+  const canAssign = project.role !== 'viewer';
+  const assigning = useMemo<TaskAssigning | undefined>(
+    () =>
+      canAssign
+        ? {
+            members: project.members.map((member) => ({
+              userId: member.userId,
+              name: member.name,
+            })),
+            onAssign: (taskId: string, assignee: RoadmapAssignee | null) => {
+              assignTask({ taskId, assignee });
+            },
+          }
+        : undefined,
+    [canAssign, project.members, assignTask],
+  );
   const roadmapSource = useMemo<RoadmapSource>(
-    () => ({ projectId: project.id, onOpenPlan: () => void openPlan() }),
-    [project.id, openPlan],
+    () => ({ projectId: project.id, onOpenPlan: () => void openPlan(), assigning }),
+    [project.id, openPlan, assigning],
+  );
+  // The plan shows who took which of its tasks; the roadmap knows which list items are tasks.
+  const planRoadmap = useQuery({ ...roadmapQuery(project.id), enabled: planOpen }).data;
+  const planTasks = useMemo<PlanTaskAssignments | undefined>(
+    () =>
+      planRoadmap && {
+        assignees: new Map(
+          planRoadmap.milestones.flatMap((milestone) =>
+            milestone.tasks.flatMap((task) => (task.id ? [[task.id, task.assignee] as const] : [])),
+          ),
+        ),
+        assigning,
+      },
+    [planRoadmap, assigning],
   );
 
   // A board that disappears while it is open was deleted by someone else; unknown boards in the
@@ -390,6 +436,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                 onUpdate={readOnly ? undefined : planActions.update}
                 onOpenRoadmap={openRoadmap}
                 roadmapBusy={roadmapOpening.isPending}
+                tasks={planTasks}
               />
             ) : (
               <RoadmapProvider value={roadmapSource}>

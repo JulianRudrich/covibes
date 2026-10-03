@@ -22,6 +22,12 @@ export const PLAN_FIELD = 'default';
 export const PLAN_SECTION_ATTRIBUTE = 'section';
 export const PLAN_SECTION_LEVEL = 2;
 
+/**
+ * A task is a list item of the plan (spec 26b). It carries its id in this attribute, so its
+ * assignment stays with it whatever its text becomes. The server gives the ids.
+ */
+export const PLAN_TASK_ATTRIBUTE = 'taskId';
+
 /** The name of a project's plan document on the collaboration server. */
 export function planDocumentName(projectId: string): string {
   return `plan:${projectId}`;

@@ -5,6 +5,7 @@ import {
   addFrame,
   addNote,
   boardDocumentName,
+  ensureTaskIds,
   NO_USER_ID,
   planNodesFromMarkdown,
   ROADMAP_DIAGRAM,
@@ -14,6 +15,7 @@ import {
   type ProjectBoard,
   type ProjectDetails,
   type ProjectSummary,
+  type Roadmap,
   type SharedBoard,
   type SharedProject,
   type ShareLinkStatus,
@@ -325,12 +327,80 @@ describe('the read-only view', () => {
           title: 'Grundgerüst',
           goal: 'Die App läuft.',
           duration: { text: '2 Wochen', weeks: 2 },
-          tasks: [{ text: 'Login' }],
+          tasks: [{ id: null, text: 'Login', assignee: null }],
         },
       ],
     });
     // A board without a roadmap does not carry the plan.
     expect(((await (await board(token, other.id)).json()) as SharedBoard).roadmap).toBeNull();
+  });
+
+  it('says which tasks of the roadmap are taken, and never by whom (spec 26b)', async () => {
+    const owner = await test.signIn();
+    const { id: ownerId } = await userOf(owner);
+    const { projectId, boardId } = await createProject(owner);
+    const editor = await test.signIn();
+    const leaving = await test.signIn();
+    await addMember(projectId, editor, 'editor');
+    await addMember(projectId, leaving, 'editor');
+    const { id: editorId } = await userOf(editor);
+    const { id: leavingId } = await userOf(leaving);
+    await test.db.adminPool.query('update users set name = $1 where id = $2', [
+      'Alex Berg',
+      editorId,
+    ]);
+    await test.collab.changePlan(projectId, (doc) => {
+      writePlanSection(
+        doc,
+        'milestones',
+        planNodesFromMarkdown('### Meilenstein 1: Grundgerüst\n\n- Login\n- Export\n- Import'),
+        'de',
+      );
+      // The server gives the ids once it stored the plan.
+      ensureTaskIds(doc);
+    });
+    await test.collab.changeBoard({ boardId, projectId }, (doc) => {
+      addFrame(
+        doc,
+        {
+          id: randomUUID(),
+          position: { x: 0, y: 0 },
+          title: 'Roadmap',
+          diagramType: ROADMAP_DIAGRAM,
+          size: { width: 600, height: 300 },
+        },
+        { kind: 'human', userId: ownerId },
+      );
+    });
+    const roadmap = (await (
+      await request(`/api/projects/${projectId}/roadmap`, owner)
+    ).json()) as Roadmap;
+    const [login, exported] = roadmap.milestones[0]?.tasks ?? [];
+    const assign = (taskId: string | null | undefined, userId: string) =>
+      request(`/api/projects/${projectId}/roadmap/tasks/${taskId ?? ''}/assignee`, owner, {
+        method: 'PUT',
+        body: JSON.stringify({ userId }),
+      });
+    expect((await assign(login?.id, editorId)).status).toBe(204);
+    expect((await assign(exported?.id, leavingId)).status).toBe(204);
+    // Someone who leaves the project loses their tasks.
+    await test.db.adminPool.query(
+      'delete from project_members where project_id = $1 and user_id = $2',
+      [projectId, leavingId],
+    );
+    const { token } = await createLink(owner, projectId);
+
+    const content = (await (await board(token, boardId)).json()) as SharedBoard;
+
+    expect(content.roadmap?.milestones[0]?.tasks).toEqual([
+      { id: login?.id, text: 'Login', assignee: { userId: NO_USER_ID, name: '' } },
+      { id: exported?.id, text: 'Export', assignee: null },
+      { id: expect.any(String) as unknown, text: 'Import', assignee: null },
+    ]);
+    const text = JSON.stringify(content);
+    for (const person of [ownerId, editorId, leavingId, 'Alex Berg']) {
+      expect(text).not.toContain(person);
+    }
   });
 
   it('shows nothing with a wrong link, and no board of another project', async () => {

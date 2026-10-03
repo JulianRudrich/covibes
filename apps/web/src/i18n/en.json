@@ -718,7 +718,8 @@
       "mention": "<b>{{name}}</b> mentioned you in <b>{{project}}</b>",
       "role_changed": "<b>{{name}}</b> changed your role in <b>{{project}}</b>: {{role}}",
       "removed": "<b>{{name}}</b> removed you from <b>{{project}}</b>",
-      "joined": "<b>{{name}}</b> joined <b>{{project}}</b> as {{role}}"
+      "joined": "<b>{{name}}</b> joined <b>{{project}}</b> as {{role}}",
+      "task_assigned": "<b>{{name}}</b> assigned you a task in <b>{{project}}</b>"
     }
   },
   "away": {
@@ -855,6 +856,15 @@
     "none": "There is no roadmap yet.",
     "label": "Roadmap with {{count}} milestones",
     "milestone": "Milestone {{number}}: {{title}}",
-    "tasks": "Tasks"
+    "tasks": "Tasks",
+    "assign": {
+      "title": "Assign to",
+      "open": "Assign “{{task}}”",
+      "change": "“{{task}}”, assigned to {{name}}. Change the assignment",
+      "assignedTo": "Assigned to {{name}}",
+      "nobody": "Nobody",
+      "short": "Assign",
+      "failed": "The task could not be assigned. Please try again."
+    }
   }
 }

@@ -39,7 +39,10 @@ type CollabDeps = {
   auth: Auth;
   /** Shared secret of the worker (spec 07). Unset, no connection gets service access. */
   internalToken?: string;
-  /** Called with the document after the plan of a project was stored (spec 26a: the roadmap). */
+  /**
+   * Called with the document after the plan of a project was stored (spec 26a: the roadmap; spec
+   * 26b: the ids of its tasks). It only reads the document; a change goes through `changePlan`.
+   */
   onPlanStored?: (projectId: string, doc: Y.Doc) => void;
 };
 
@@ -328,4 +331,10 @@ export type Collab = ReturnType<typeof createCollab>;
 export type BoardDocuments = Pick<
   Collab,
   'deleteBoard' | 'changeBoard' | 'changePlan' | 'readBoard' | 'readPlanSections'
->;
+> & {
+  /**
+   * Asks for ids for the tasks of a plan that has some without (spec 26b); it returns at once and
+   * the ids follow. Missing where nothing gives ids, e.g. in most tests.
+   */
+  giveTaskIds?: (projectId: string) => void;
+};

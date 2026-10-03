@@ -1,7 +1,10 @@
 import {
+  ensureTaskIds,
+  PLAN_TASK_ATTRIBUTE,
   planNodesFromMarkdown,
   planNodesToMarkdown,
   planToMarkdown,
+  readRoadmap,
   writePlanSection,
   type ApiErrorBody,
   type PlanSection,
@@ -252,6 +255,65 @@ describe('deciding a suggestion', () => {
     expect((await post(`${plan}/suggestions/accept`, editor)).status).toBe(204);
   });
 
+  it('lets the tasks of rewritten milestones keep their ids (spec 26b)', async () => {
+    const { owner, projectId, plan } = await createProject();
+    /** The tasks of the plan as the collaboration server holds it: their ids by their text. */
+    const tasksOf = async () =>
+      new Map(
+        readRoadmap(await test.collab.readPlanSections(projectId))
+          .milestones.flatMap((milestone) => milestone.tasks)
+          .map((task) => [task.text, task.id]),
+      );
+    await test.collab.changePlan(projectId, (doc) => {
+      writePlanSection(
+        doc,
+        'milestones',
+        planNodesFromMarkdown(
+          [
+            '### Meilenstein 1: Grundgerüst',
+            '- Projekt aufsetzen\n- Login per E-Mail-Link in der API bauen\n- Alte Aufgabe',
+          ].join('\n\n'),
+        ),
+        'de',
+      );
+      // The server gives the ids once it stored the plan.
+      ensureTaskIds(doc);
+    });
+    const before = await tasksOf();
+    const ids = await suggest(projectId, {
+      scope: '- Mitgliederliste',
+      milestones: [
+        '### Meilenstein 1: Fundament (2 Wochen)',
+        '- Abnahme mit dem Vorstand\n- Login per E-Mail-Link bauen',
+        '### Meilenstein 2: Start',
+        '- Projekt aufsetzen',
+      ].join('\n\n'),
+    });
+
+    expect((await post(`${plan}/suggestions/${ids.milestones ?? ''}/accept`, owner)).status).toBe(
+      204,
+    );
+    expect((await post(`${plan}/suggestions/${ids.scope ?? ''}/accept`, owner)).status).toBe(204);
+
+    const after = await tasksOf();
+    expect([...after.keys()]).toEqual([
+      'Abnahme mit dem Vorstand',
+      'Login per E-Mail-Link bauen',
+      'Projekt aufsetzen',
+    ]);
+    // The same text keeps its id wherever it stands now, and so does a reworded task.
+    expect(after.get('Projekt aufsetzen')).toBe(before.get('Projekt aufsetzen'));
+    expect(after.get('Login per E-Mail-Link bauen')).toBe(
+      before.get('Login per E-Mail-Link in der API bauen'),
+    );
+    // A new task gets a new id, also not the one of the task that left the plan.
+    expect(after.get('Abnahme mit dem Vorstand')).toMatch(/^[0-9a-f-]{36}$/);
+    expect([...before.values()]).not.toContain(after.get('Abnahme mit dem Vorstand'));
+    // Only the milestones hold tasks: the list of another section gets no ids.
+    const { scope } = await test.collab.readPlanSections(projectId);
+    expect(JSON.stringify(scope)).not.toContain(PLAN_TASK_ATTRIBUTE);
+  });
+
   it('is for owners and editors of the project', async () => {
     const { projectId, plan } = await createProject();
     const viewer = await member(projectId, 'viewer');
@@ -465,6 +527,35 @@ describe('versions of the plan (spec 25c)', () => {
       'updated',
       'generated',
     ]);
+  });
+
+  it('hold the text of the plan without the ids of its tasks (spec 26b)', async () => {
+    const { owner, projectId, plan } = await createProject();
+    await test.collab.changePlan(projectId, (doc) => {
+      writePlanSection(
+        doc,
+        'milestones',
+        planNodesFromMarkdown('### Meilenstein 1: Grundgerüst\n\n- Login bauen'),
+        'de',
+      );
+      ensureTaskIds(doc);
+    });
+    await batch(projectId, {
+      milestones: '### Meilenstein 1: Grundgerüst\n\n- Login bauen\n- Export bauen',
+    });
+
+    await post(`${plan}/suggestions/accept`, owner);
+
+    // The plan carries the ids, before and after; neither version does.
+    const sections = await test.collab.readPlanSections(projectId);
+    expect(JSON.stringify(sections).split(PLAN_TASK_ATTRIBUTE)).toHaveLength(3);
+    const versions = await versionsOf(plan, owner);
+    expect(versions.map((version) => version.reason)).toEqual(['generated', 'manual']);
+    for (const version of versions) {
+      const { content, text } = await versionText(plan, owner, version.id);
+      expect(JSON.stringify(content)).not.toContain(PLAN_TASK_ATTRIBUTE);
+      expect(text).toContain('### Meilenstein 1: Grundgerüst\n\n- Login bauen');
+    }
   });
 
   it('are read by every member and by nobody else', async () => {

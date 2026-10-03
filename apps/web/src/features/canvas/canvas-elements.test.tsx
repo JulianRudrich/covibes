@@ -267,7 +267,7 @@ describe('FrameNode as a roadmap (spec 26a)', () => {
         title: 'Grundgerüst',
         goal: '',
         duration: { text: '3 Wochen', weeks: 3 },
-        tasks: [{ text: 'Projekt aufsetzen' }],
+        tasks: [{ id: null, text: 'Projekt aufsetzen', assignee: null }],
       },
       {
         number: 2,

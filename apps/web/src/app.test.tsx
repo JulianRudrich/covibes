@@ -76,6 +76,13 @@ vi.mock('@web/features/plan/plan-panel', async () => {
       onUpdate?: () => void;
       onOpenRoadmap: () => void;
       roadmapBusy: boolean;
+      tasks?: {
+        assignees: ReadonlyMap<string, { userId: string; name: string } | null>;
+        assigning?: {
+          members: readonly { userId: string; name: string }[];
+          onAssign: (taskId: string, assignee: { userId: string; name: string } | null) => void;
+        };
+      };
     }) =>
       createElement(
         'div',
@@ -87,6 +94,13 @@ vi.mock('@web/features/plan/plan-panel', async () => {
           'data-suggestions': String(props.plan?.suggestions.length ?? 'loading'),
           'data-generating': String(props.plan?.generating ?? 'loading'),
           'data-outdated': String(props.plan ? props.plan.outdated !== null : 'loading'),
+          'data-tasks': props.tasks
+            ? [...props.tasks.assignees]
+                .map(([id, assignee]) => `${id.slice(0, 4)}:${assignee?.name ?? '-'}`)
+                .join(' ')
+            : 'loading',
+          'data-members':
+            props.tasks?.assigning?.members.map((member) => member.name).join(',') ?? '',
         },
         props.tabs,
         props.notice,
@@ -101,6 +115,19 @@ vi.mock('@web/features/plan/plan-panel', async () => {
           { onClick: props.onOpenRoadmap, disabled: props.roadmapBusy },
           'Roadmap',
         ),
+        props.tasks?.assigning
+          ? createElement(
+              'button',
+              {
+                onClick: () => {
+                  const [first] = props.tasks?.assignees.keys() ?? [];
+                  const [member] = props.tasks?.assigning?.members ?? [];
+                  if (first && member) props.tasks?.assigning?.onAssign(first, member);
+                },
+              },
+              'Erste Aufgabe zuweisen',
+            )
+          : null,
         props.onDecide
           ? createElement(
               'button',
@@ -1079,6 +1106,109 @@ describe('with a session', () => {
 
       expect(await screen.findByTestId('canvas-panel')).toHaveAttribute('data-focus', FRAME_ID);
       expect(router.state.location.search).toEqual({ focus: FRAME_ID });
+    });
+
+    const ROADMAP_URL = `/api/projects/${PROJECT.id}/roadmap`;
+    const TASK_ID = '7e7e7e7e-7e7e-4e7e-8e7e-7e7e7e7e7e7e';
+    const OTHER_TASK = '8f8f8f8f-8f8f-4f8f-8f8f-8f8f8f8f8f8f';
+    const tasksRoadmap = (assignee: { userId: string; name: string } | null) => ({
+      milestones: [
+        {
+          number: 1,
+          title: 'Grundgerüst',
+          goal: '',
+          duration: null,
+          tasks: [
+            { id: TASK_ID, text: 'Login bauen', assignee },
+            { id: OTHER_TASK, text: 'Export', assignee: null },
+            { id: null, text: 'Gerade geschrieben', assignee: null },
+          ],
+        },
+      ],
+    });
+
+    it('gives the plan its tasks and assigns one at once (spec 26b)', async () => {
+      let assignee: { userId: string; name: string } | null = null;
+      const api = stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+        [`GET ${ROADMAP_URL}`]: () => ({ body: tasksRoadmap(assignee) }),
+        [`PUT ${ROADMAP_URL}/tasks/${TASK_ID}/assignee`]: (init) => {
+          const body = JSON.parse(typeof init?.body === 'string' ? init.body : '{}') as {
+            userId: string;
+          };
+          assignee = { userId: body.userId, name: 'Alex Berg' };
+          return { status: 204, body: null };
+        },
+      });
+      renderApp(`/p/${PROJECT.id}?view=plan`);
+      const plan = await screen.findByTestId('plan-panel');
+      // Only tasks that have their id can be assigned; the one written a moment ago waits.
+      await waitFor(() => {
+        expect(plan).toHaveAttribute('data-tasks', '7e7e:- 8f8f:-');
+      });
+      expect(plan).toHaveAttribute('data-members', `Alex Berg,${OLGA.name}`);
+
+      fireEvent.click(within(plan).getByRole('button', { name: 'Erste Aufgabe zuweisen' }));
+
+      // It shows before the server answered.
+      await waitFor(() => {
+        expect(plan).toHaveAttribute('data-tasks', '7e7e:Alex Berg 8f8f:-');
+      });
+      await waitFor(() => {
+        expect(api).toHaveBeenCalledWith(
+          `${ROADMAP_URL}/tasks/${TASK_ID}/assignee`,
+          expect.objectContaining({
+            method: 'PUT',
+            body: JSON.stringify({ userId: DETAILS.members[0]?.userId }),
+          }),
+        );
+      });
+    });
+
+    it('takes an assignment back and says so when the server refuses it', async () => {
+      stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+        [`GET ${ROADMAP_URL}`]: () => ({ body: tasksRoadmap(null) }),
+        [`PUT ${ROADMAP_URL}/tasks/${TASK_ID}/assignee`]: () => ({
+          status: 404,
+          body: { error: { code: 'not_found', message: 'Not found.' } },
+        }),
+      });
+      renderApp(`/p/${PROJECT.id}?view=plan`);
+      const plan = await screen.findByTestId('plan-panel');
+      await waitFor(() => {
+        expect(plan).toHaveAttribute('data-tasks', '7e7e:- 8f8f:-');
+      });
+
+      fireEvent.click(within(plan).getByRole('button', { name: 'Erste Aufgabe zuweisen' }));
+
+      expect(
+        await within(plan).findByText(
+          'Die Aufgabe konnte nicht zugewiesen werden. Bitte versuche es noch einmal.',
+        ),
+      ).toBeInTheDocument();
+      await waitFor(() => {
+        expect(plan).toHaveAttribute('data-tasks', '7e7e:- 8f8f:-');
+      });
+    });
+
+    it('shows viewers the assignees without letting them assign', async () => {
+      stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({ body: { ...DETAILS, role: 'viewer' } }),
+        [`GET ${ROADMAP_URL}`]: () => ({
+          body: tasksRoadmap({ userId: DETAILS.members[0]?.userId ?? '', name: 'Alex Berg' }),
+        }),
+      });
+      renderApp(`/p/${PROJECT.id}?view=plan`);
+      const plan = await screen.findByTestId('plan-panel');
+
+      await waitFor(() => {
+        expect(plan).toHaveAttribute('data-tasks', '7e7e:Alex Berg 8f8f:-');
+      });
+      expect(plan).toHaveAttribute('data-members', '');
+      expect(
+        within(plan).queryByRole('button', { name: 'Erste Aufgabe zuweisen' }),
+      ).not.toBeInTheDocument();
     });
 
     it('tells viewers when there is no roadmap yet', async () => {

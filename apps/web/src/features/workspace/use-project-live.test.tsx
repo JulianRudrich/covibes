@@ -340,4 +340,31 @@ describe('useProjectLive', () => {
     // Nobody shows the roadmap here, so it is only marked; it loads when a board shows it.
     expect(asked()).toBe(before);
   });
+
+  it('loads the roadmap again when the team changes: who left has no tasks (spec 26b)', async () => {
+    stubApi({
+      [`GET ${PROJECT_URL}`]: () => ({ body: DETAILS }),
+      [`GET ${PROJECT_URL}/roadmap`]: () => ({ body: { milestones: [] } }),
+    });
+    const queryClient = renderLive();
+    await queryClient.query(roadmapQuery(PROJECT_ID));
+    const invalidated = () =>
+      queryClient.getQueryState(roadmapQuery(PROJECT_ID).queryKey)?.isInvalidated;
+
+    // A board changing says nothing about tasks.
+    act(() => {
+      live.handlers?.onEvent({ type: 'boards' });
+    });
+    await waitFor(() => {
+      expect(queryClient.isFetching({ queryKey: [PROJECT_URL] })).toBe(0);
+    });
+    expect(invalidated()).toBe(false);
+
+    act(() => {
+      live.handlers?.onEvent({ type: 'project' });
+    });
+    await waitFor(() => {
+      expect(invalidated()).toBe(true);
+    });
+  });
 });

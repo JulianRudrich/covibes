@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { FRAME_MIN_SIZE, type Size } from './canvas/model';
 import type { PlanNode, PlanSection } from './plan';
+import { listItemText, taskIdOf } from './plan-tasks';
 
 // The roadmap (spec 26a): the milestones of the plan with their times, goals and tasks, read from
 // the plan as it stands. The plan is the source; the roadmap holds nothing of its own.
@@ -14,8 +15,21 @@ export const roadmapDurationSchema = z.object({
 });
 export type RoadmapDuration = z.infer<typeof roadmapDurationSchema>;
 
-export const roadmapTaskSchema = z.object({ text: z.string() });
+/** Who took a task (spec 26b); the read-only view names nobody (`NO_USER_ID`, no name). */
+export const roadmapAssigneeSchema = z.object({ userId: z.uuid(), name: z.string() });
+export type RoadmapAssignee = z.infer<typeof roadmapAssigneeSchema>;
+
+export const roadmapTaskSchema = z.object({
+  /** The id the task carries in the plan; null until the server gave it one (spec 26b). */
+  id: z.uuid().nullable(),
+  text: z.string(),
+  assignee: roadmapAssigneeSchema.nullable(),
+});
 export type RoadmapTask = z.infer<typeof roadmapTaskSchema>;
+
+/** `PUT …/roadmap/tasks/:taskId/assignee`: the member who takes the task, or null for nobody. */
+export const assignTaskInputSchema = z.object({ userId: z.uuid().nullable() }).strict();
+export type AssignTaskInput = z.infer<typeof assignTaskInputSchema>;
 
 export const roadmapMilestoneSchema = z.object({
   /** Its place in the order of the plan, from 1. */
@@ -90,10 +104,9 @@ function textOf(node: PlanNode): string {
   return (node.content ?? []).map(textOf).join('');
 }
 
-/** The text of a list item: its first paragraph, without the lists nested in it. */
-function itemText(item: PlanNode): string {
-  const paragraph = (item.content ?? []).find((child) => child.type === 'paragraph');
-  return (paragraph ? textOf(paragraph) : '').replace(/\s+/g, ' ').trim();
+/** A list item as a task: its text, the id it carries in the plan, and nobody on it yet. */
+function taskOf(item: PlanNode): RoadmapTask {
+  return { id: taskIdOf(item), text: listItemText(item), assignee: null };
 }
 
 const isList = (node: PlanNode) => node.type === 'bulletList' || node.type === 'orderedList';
@@ -150,8 +163,8 @@ function fromHeadings(nodes: readonly PlanNode[]): Draft[] {
       continue;
     } else if (isList(node)) {
       for (const item of itemsOf(node)) {
-        const text = itemText(item);
-        if (text) current.tasks.push({ text });
+        const task = taskOf(item);
+        if (task.text) current.tasks.push(task);
       }
     } else if (node.type === 'paragraph' && current.goal === '' && current.tasks.length === 0) {
       current.goal = textOf(node).replace(/\s+/g, ' ').trim();
@@ -164,12 +177,12 @@ function fromHeadings(nodes: readonly PlanNode[]): Draft[] {
 function fromList(nodes: readonly PlanNode[]): Draft[] {
   return nodes.filter(isList).flatMap((list) =>
     itemsOf(list).flatMap((item): Draft[] => {
-      const text = itemText(item);
+      const text = listItemText(item);
       if (!text) return [];
       const tasks = (item.content ?? [])
         .filter(isList)
         .flatMap(itemsOf)
-        .map((task) => ({ text: itemText(task) }))
+        .map(taskOf)
         .filter((task) => task.text !== '');
       return [{ ...splitTitle(text), goal: '', tasks }];
     }),
@@ -219,6 +232,25 @@ export function readRoadmap(sections: Partial<Record<PlanSection, PlanNode[]>>):
       ...draft,
       number: index + 1,
       duration: draft.duration ?? fromCosts.get(index + 1) ?? null,
+    })),
+  };
+}
+
+/**
+ * The roadmap with who took which task (spec 26b): `assignees` by the id of the task. A task
+ * without an id, or with one nobody took, stays without an assignee.
+ */
+export function withAssignees(
+  roadmap: Roadmap,
+  assignees: ReadonlyMap<string, RoadmapAssignee>,
+): Roadmap {
+  return {
+    milestones: roadmap.milestones.map((milestone) => ({
+      ...milestone,
+      tasks: milestone.tasks.map((task) => ({
+        ...task,
+        assignee: (task.id ? assignees.get(task.id) : undefined) ?? null,
+      })),
     })),
   };
 }

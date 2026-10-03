@@ -66,6 +66,8 @@ export function useProjectLive(projectId: string, userId?: string) {
         if (event.type === 'project' && queryClient.getQueryState(invitations)) {
           reload(invitations);
         }
+        // Someone who left the project no longer has its tasks (spec 26b).
+        if (event.type === 'project') reload(roadmapQueryKey(projectId));
       } else if (event.type === 'proposals') {
         reload(proposalsQueryKey(projectId));
       } else if (event.type === 'hands') {

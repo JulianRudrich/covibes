@@ -281,10 +281,9 @@ function Board({
       ZOOM_MIN,
       Math.min(1, paneWidth / (width + 2 * FOCUS_MARGIN), paneHeight / (height + 2 * FOCUS_MARGIN)),
     );
-    void setCenter(target.position.x + width / 2, target.position.y + height / 2, {
-      zoom,
-      duration: 300,
-    });
+    // At once, without a movement: the board just opened, and a movement would never end in a tab
+    // that is not drawn right now, while the address already forgot what to show.
+    void setCenter(target.position.x + width / 2, target.position.y + height / 2, { zoom });
     onFocused?.();
   }, [focusId, nodes, paneWidth, paneHeight, setCenter, onFocused]);
   const { cursors, onPointerMove, onPointerLeave } = useLiveCursors(connection.provider, user);

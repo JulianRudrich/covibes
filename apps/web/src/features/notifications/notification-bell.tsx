@@ -1,7 +1,15 @@
 import type { Notification } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { AtSign, Bell, LogOut, UserPlus, UserRoundCog, type LucideIcon } from 'lucide-react';
+import {
+  AtSign,
+  Bell,
+  ClipboardCheck,
+  LogOut,
+  UserPlus,
+  UserRoundCog,
+  type LucideIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
@@ -15,6 +23,7 @@ const ICONS: Record<Notification['kind'], LucideIcon> = {
   role_changed: UserRoundCog,
   removed: LogOut,
   joined: UserPlus,
+  task_assigned: ClipboardCheck,
 };
 
 const BOLD = { b: <strong className="font-semibold text-text" /> };
@@ -37,7 +46,12 @@ export function NotificationBell() {
     if (!notification.read) markRead.mutate({ ids: [notification.id] });
     if (notification.kind === 'removed') return;
     setOpen(false);
-    void navigate({ to: '/p/$projectId', params: { projectId: notification.projectId } });
+    void navigate({
+      to: '/p/$projectId',
+      params: { projectId: notification.projectId },
+      // A task is read where it stands: in the plan.
+      search: notification.kind === 'task_assigned' ? { view: 'plan' } : {},
+    });
   }
 
   return (

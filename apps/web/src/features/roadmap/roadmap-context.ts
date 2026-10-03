@@ -1,8 +1,14 @@
-import type { Roadmap } from '@covibes/shared';
+import type { Roadmap, RoadmapAssignee } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { createContext, useContext } from 'react';
 
 import { roadmapQuery } from '@web/features/roadmap/queries';
+
+/** What owners and editors need to assign tasks (spec 26b): who can take one, and how. */
+export type TaskAssigning = {
+  members: readonly RoadmapAssignee[];
+  onAssign: (taskId: string, assignee: RoadmapAssignee | null) => void;
+};
 
 /**
  * Where the canvas gets the roadmap from (spec 26a): in a project it loads it, the read-only view
@@ -14,6 +20,8 @@ export type RoadmapSource = {
   roadmap?: Roadmap | null;
   /** Opens the plan, where the milestones are written; missing where that is not possible. */
   onOpenPlan?: () => void;
+  /** Missing for viewers and in the read-only view: they see the assignees and change nothing. */
+  assigning?: TaskAssigning;
 };
 
 const RoadmapContext = createContext<RoadmapSource>({ projectId: null, roadmap: null });

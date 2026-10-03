@@ -17,7 +17,7 @@ export const NOTIFICATION_MAIL_TASK = 'notification_mail';
 export const MAIL_GAP_MS = 30 * 60_000;
 
 /** The notifications that are mailed; that someone joined stays in the app. */
-const MAILED_KINDS = ['mention', 'role_changed', 'removed'] as const;
+const MAILED_KINDS = ['mention', 'role_changed', 'removed', 'task_assigned'] as const;
 
 /** Notifications one mail lists; more wait for the next one. */
 const MAX_NOTIFICATIONS = 20;
@@ -55,7 +55,8 @@ function isRole(value: string | null): value is 'owner' | 'editor' | 'viewer' {
 /**
  * The mail job of one person (spec 22b): sums up in one mail what they have not seen, and notes
  * what it mailed, so everything goes out once.
- * - unread mentions, a changed role and a removal that were not mailed yet
+ * - unread mentions, a changed role, a removal and assigned tasks (spec 26b) that were not mailed
+ *   yet
  * - projects where something waits for them that appeared since they last had the project open
  *   and since the last mail about it
  * Nothing is sent to someone who turned mails off, when nothing is left, or without a mailer. Too
@@ -132,8 +133,12 @@ export async function sendNotificationMail(
   for (const notification of notifications) {
     const project = projectOf(notification.project_id, notification.project_name);
     const item: DigestItem | undefined =
-      notification.kind === 'mention'
-        ? { kind: 'mention', actorName: notification.actor_name, excerpt: notification.excerpt }
+      notification.kind === 'mention' || notification.kind === 'task_assigned'
+        ? {
+            kind: notification.kind,
+            actorName: notification.actor_name,
+            excerpt: notification.excerpt,
+          }
         : notification.kind === 'removed'
           ? { kind: 'removed', actorName: notification.actor_name }
           : isRole(notification.role)

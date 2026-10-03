@@ -718,7 +718,8 @@
       "mention": "<b>{{name}}</b> hat dich in <b>{{project}}</b> erwähnt",
       "role_changed": "<b>{{name}}</b> hat deine Rolle in <b>{{project}}</b> geändert: {{role}}",
       "removed": "<b>{{name}}</b> hat dich aus <b>{{project}}</b> entfernt",
-      "joined": "<b>{{name}}</b> ist <b>{{project}}</b> beigetreten, als {{role}}"
+      "joined": "<b>{{name}}</b> ist <b>{{project}}</b> beigetreten, als {{role}}",
+      "task_assigned": "<b>{{name}}</b> hat dir in <b>{{project}}</b> eine Aufgabe zugewiesen"
     }
   },
   "away": {
@@ -855,6 +856,15 @@
     "none": "Es gibt noch keine Roadmap.",
     "label": "Roadmap mit {{count}} Meilensteinen",
     "milestone": "Meilenstein {{number}}: {{title}}",
-    "tasks": "Aufgaben"
+    "tasks": "Aufgaben",
+    "assign": {
+      "title": "Zuweisen an",
+      "open": "„{{task}}“ zuweisen",
+      "change": "„{{task}}“, zugewiesen an {{name}}. Zuweisung ändern",
+      "assignedTo": "Zugewiesen an {{name}}",
+      "nobody": "Niemand",
+      "short": "Zuweisen",
+      "failed": "Die Aufgabe konnte nicht zugewiesen werden. Bitte versuche es noch einmal."
+    }
   }
 }

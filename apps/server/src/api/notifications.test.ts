@@ -8,8 +8,10 @@ import type {
   OpenVote,
   ProjectSummary,
 } from '@covibes/shared';
+import { sql } from 'kysely';
 import { describe, expect, it } from 'vitest';
 
+import { withUser } from '@server/db/database';
 import { APP_URL, createTestServer } from '@server/testing';
 
 // Mentions of people, notifications and what waits for someone (spec 22a).
@@ -240,6 +242,40 @@ describe('notifications', () => {
     // Opening a project reads its mentions only; these stay until they are seen.
     await markRead(sam.cookie, { projectId });
     expect((await notificationsOf(sam.cookie)).unread).toBe(2);
+  });
+
+  it('tell about a task someone gave the person (spec 26b)', async () => {
+    const olga = await person('Olga');
+    const alex = await person('Alex');
+    const projectId = await createProject(olga.cookie, 'Team');
+    await addMember(projectId, alex.id, 'editor');
+
+    // What assigning a task on the roadmap or in the plan does in the database.
+    await withUser(test.db.app, olga.id, (trx) =>
+      sql`select public.assign_task(${projectId}, ${randomUUID()}, ${alex.id}, ${'Login bauen'})`.execute(
+        trx,
+      ),
+    );
+
+    expect(await notificationsOf(alex.cookie)).toEqual({
+      notifications: [
+        {
+          id: expect.any(String) as unknown,
+          kind: 'task_assigned',
+          projectId,
+          projectName: 'Team',
+          actorName: 'Olga',
+          excerpt: 'Login bauen',
+          role: null,
+          createdAt: expect.any(String) as unknown,
+          read: false,
+        },
+      ],
+      unread: 1,
+    });
+    // Like a changed role, it stays until it is seen.
+    await markRead(alex.cookie, { projectId });
+    expect((await notificationsOf(alex.cookie)).unread).toBe(1);
   });
 });
 

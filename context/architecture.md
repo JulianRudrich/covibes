@@ -45,7 +45,7 @@ Browser ── React app (static files)
 | Email | SMTP behind an interface; locally a development mailbox in the app | login links, invitations, notifications |
 | GitLab | `@gitbeaker/rest`, webhooks | repository, issues, merge requests |
 | Monitoring | set up for the public launch | errors in web and server |
-| Exports | `html-to-image` (a board as PNG and SVG), an own Mermaid serializer in `packages/shared`, `pdfmake` (the plan as PDF); all in the browser, loaded on first use (spec 27a) | files of boards and of the plan |
+| Exports | `html-to-image` (a board as PNG and SVG), an own Mermaid serializer in `packages/shared`, `pdfmake` (the plan as PDF); all in the browser, loaded on first use (spec 27a). `fflate` packs the package for coding agents on the server (spec 27b) | files of boards and of the plan, the package as a ZIP |
 | Tests | Vitest (also against a real test database), Playwright | logic, permissions, flows |
 
 Exact package versions are in the `package.json` files and in the implementation notes of the specs.
@@ -146,6 +146,10 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - `packages/shared` (`plan-roadmap.ts`) reads the milestones, their times, goals and tasks from the sections of the plan, without a model call, and lays the roadmap out with fixed measures, so web app and server size it alike.
   - On the canvas the roadmap is a frame of the kind `roadmap`. It stores nothing of the plan; it shows what `GET /roadmap` reads from the plan (the live document if it is open, else the stored one).
   - When a stored plan changes what its roadmap shows, the collaboration server announces `roadmap` on the live channel, and the canvas loads it again.
+- The package for coding agents is derived from the project as it stands (spec 27b), without a model call:
+  - `packages/shared` (`coding-package.ts`) turns the plan, the decisions, the criteria, the boards and the team's two texts into the files of the package: `CLAUDE.md`, `AGENTS.md`, the context files, a feature spec per task and a Mermaid file per board.
+  - The server gathers what the files are built from (the plan and the boards from the collaboration server, the rest from the database as the member) and packs the ZIP; the web app only shows the summary and downloads it.
+  - The code standards and the UI direction are the only things the package holds that nothing else in the project does; they are rows of `package_texts`.
 - A task is a list item of the plan (spec 26b). The plan holds its text; `tasks` holds who took it:
   - The list item carries the task's id as an attribute (`taskId`). Only the server gives ids: after it stored a plan, and when the roadmap reads a task without one (a plan from before, which nobody changed since), it gives every list item of the milestones section an id that has none or shares one (`ensureTaskIds`, through `changePlan`). One writer means two clients never give a task different ids.
   - Accepting a suggestion for the milestones carries the ids over to the tasks that read the same or nearly the same (`carryTaskIds`), so a rewritten section keeps its assignments.
@@ -274,6 +278,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `comparisons`, `votes`, `vote_ballots` | the moderator's comparisons of options; votes with their options, result and who voted for what |
 | `debates` | debates between agents: question, participants, rounds, finished turns and status |
 | `tasks` | who took which task of the plan (spec 26b): the id the task carries in the plan's document, the assignee, who assigned it and when, and how it read then. Text and milestone of a task are in the plan; spec reference and GitLab issue follow with their specs |
+| `package_texts` | what the team gives for the package for coding agents (spec 27b): the code standards and the UI direction, one text per kind and project, with who wrote it and when |
 | `git_connections`, `oauth_tokens`, `git_actions` | GitLab connection, tokens (encrypted), audit log |
 | `notifications` | notifications per person: mentions, changed roles, removals, new members; with the names they show, when they were read and when they were mailed |
 | `notification_settings`, `member_activity` | per person the switch for mails and when the last one went out; per member when they last had the project open and when a mail last told them that something waits |

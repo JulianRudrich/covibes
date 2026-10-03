@@ -1,4 +1,4 @@
-import { exportTexts, type ExportTexts } from '../export-texts';
+import { exportTexts, markdownLine, type ExportTexts } from '../export-texts';
 import type { PlanLanguage } from '../plan';
 import { roadmapLayout, type Roadmap } from '../plan-roadmap';
 import { isRoadmap, type CanvasEdge, type CanvasNode } from './model';
@@ -166,13 +166,7 @@ function timeline(title: string, roadmap: Roadmap, texts: ExportTexts): string[]
 
 const code = (lines: readonly string[]) => ['```mermaid', ...lines, '```'].join('\n');
 
-/** A text in a line of Markdown, without what would start markup or a new line. */
-function plain(text: string): string {
-  return text
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/([\\`*_[\]<>])/g, '\\$1');
-}
+const plain = markdownLine;
 
 export type BoardExport = {
   /** The title of the board, the heading of the file. */

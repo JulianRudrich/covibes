@@ -874,6 +874,59 @@
     "mermaid": "Als Diagramm-Code (Mermaid)",
     "markdown": "Als Markdown",
     "pdf": "Als PDF",
-    "failed": "Der Export hat nicht geklappt. Bitte versuche es noch einmal."
+    "failed": "Der Export hat nicht geklappt. Bitte versuche es noch einmal.",
+    "package": {
+      "menu": "Paket für Coding-Agents …",
+      "title": "Paket für Coding-Agents",
+      "hint": "Alles, wonach ein Coding-Agent baut, als ZIP: CLAUDE.md, AGENTS.md, Kontext-Dateien, eine Feature-Spec pro Aufgabe und die Diagramme.",
+      "loadFailed": "Das Paket konnte nicht geladen werden. Bitte versuche es noch einmal.",
+      "content": "Im Paket",
+      "rows": {
+        "plan": "Projektplan",
+        "planOutdated": "Der Projektplan ist veraltet. Aktualisiere ihn am besten vor dem Export.",
+        "noPlan": "Noch kein Projektplan. Ohne Plan gibt es kein Paket.",
+        "specs_one": "{{count}} Feature-Spec",
+        "specs_other": "{{count}} Feature-Specs",
+        "milestones_one": "{{count}} Meilenstein",
+        "milestones_other": "{{count}} Meilensteine",
+        "noSpecs": "Der Plan nennt keine Aufgaben, also gibt es keine Feature-Specs.",
+        "decisions_one": "{{count}} Entscheidung",
+        "decisions_other": "{{count}} Entscheidungen",
+        "openDecisions_one": "{{count}} Thema noch offen",
+        "openDecisions_other": "{{count}} Themen noch offen",
+        "noDecisions": "Keine Entscheidungen festgehalten.",
+        "diagrams_one": "Diagramme von {{count}} Board",
+        "diagrams_other": "Diagramme von {{count}} Boards",
+        "noDiagrams": "Keine Diagramme auf den Boards.",
+        "code_standards": {
+          "given": "Code-Standards",
+          "missing": "Code-Standards fehlen noch."
+        },
+        "ui_direction": {
+          "given": "UI-Richtung",
+          "missing": "UI-Richtung fehlt noch."
+        }
+      },
+      "texts": {
+        "title": "Was der Plan nicht sagt",
+        "hint": "Fehlt ein Text, bittet das Paket den Coding-Agent, ihn vor dem ersten Code mit euch festzulegen.",
+        "readOnly": "Owner und Bearbeiter schreiben diese Texte.",
+        "empty": "Noch nichts festgelegt.",
+        "saving": "Speichert …",
+        "saved": "Gespeichert",
+        "failed": "Nicht gespeichert",
+        "code_standards": {
+          "label": "Code-Standards",
+          "placeholder": "z. B. TypeScript strict, kein any. Tests mit Vitest. Conventional Commits."
+        },
+        "ui_direction": {
+          "label": "UI-Richtung",
+          "placeholder": "z. B. ruhig und hell, viel Weißraum, eine Akzentfarbe. Texte per Du."
+        }
+      },
+      "files_one": "{{count}} Datei anzeigen",
+      "files_other": "{{count}} Dateien anzeigen",
+      "download": "Paket herunterladen"
+    }
   }
 }

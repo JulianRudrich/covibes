@@ -49,6 +49,11 @@ export function DropdownMenuLabel({
   );
 }
 
+/** A line between two groups of a menu. */
+export function DropdownMenuSeparator() {
+  return <MenuPrimitive.Separator className="mx-1 my-1 h-px bg-border" />;
+}
+
 export function DropdownMenuItem({
   className,
   ...props

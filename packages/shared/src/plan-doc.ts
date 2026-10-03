@@ -94,9 +94,16 @@ function sectionOf(node: PlanNode): PlanSection | undefined {
 
 /** What every section of the plan holds below its heading; a section without a heading is missing. */
 export function readPlanSections(doc: Y.Doc): Partial<Record<PlanSection, PlanNode[]>> {
+  return planSectionsOf(readPlan(doc));
+}
+
+/** The sections of a plan given as nodes, as `readPlanSections` reads them from the document. */
+export function planSectionsOf(
+  nodes: readonly PlanNode[],
+): Partial<Record<PlanSection, PlanNode[]>> {
   const sections: Partial<Record<PlanSection, PlanNode[]>> = {};
   let current: PlanNode[] | undefined;
-  for (const node of readPlan(doc)) {
+  for (const node of nodes) {
     const section = sectionOf(node);
     if (section && !(section in sections)) {
       current = [];

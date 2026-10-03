@@ -22,6 +22,7 @@ import {
 import { debateRoutes, handRoutes, offerRoutes, voteRoutes } from '@server/api/hands';
 import { messageRoutes } from '@server/api/messages';
 import { notificationRoutes } from '@server/api/notifications';
+import { packageRoutes } from '@server/api/package';
 import { planRoutes } from '@server/api/plan';
 import { projectRoutes } from '@server/api/projects';
 import { proposalRoutes } from '@server/api/proposals';
@@ -158,6 +159,7 @@ export function createApp({
   app.route('/api/projects/:projectId/away', awayRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/plan', planRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/roadmap', roadmapRoutes(db.app, auth, live, documents));
+  app.route('/api/projects/:projectId/package', packageRoutes(db.app, auth, documents));
   const invitationMailLimiter = createRateLimiter({
     limit: INVITATION_MAILS_PER_HOUR,
     windowMs: 60 * 60_000,

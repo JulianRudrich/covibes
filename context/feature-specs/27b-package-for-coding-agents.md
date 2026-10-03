@@ -72,10 +72,53 @@ Second part of spec 27. This part uses no model: the package is built from what 
 - Package: `fflate` (server)
 
 ## Checklist
-- [ ] The ZIP holds `CLAUDE.md`, `AGENTS.md`, the context files, a feature spec per task and a diagram file per board with content, in the project's language.
-- [ ] `CLAUDE.md` and `AGENTS.md` name the files to read and the way of working; missing code standards and UI direction are named as open.
-- [ ] The dialog shows what the package holds and what is missing, and offers no download without a plan.
-- [ ] Owners and editors write code standards and UI direction; they are stored per project and go into the package. Viewers read them and can export.
-- [ ] The derived looks were checked from screenshots and are listed in `ui-context.md`.
-- [ ] Tests for the shared code, the database, the API and the dialog pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] The ZIP holds `CLAUDE.md`, `AGENTS.md`, the context files, a feature spec per task and a diagram file per board with content, in the project's language.
+- [x] `CLAUDE.md` and `AGENTS.md` name the files to read and the way of working; missing code standards and UI direction are named as open.
+- [x] The dialog shows what the package holds and what is missing, and offers no download without a plan.
+- [x] Owners and editors write code standards and UI direction; they are stored per project and go into the package. Viewers read them and can export.
+- [x] The derived looks were checked from screenshots and are listed in `ui-context.md`.
+- [x] Tests for the shared code, the database, the API and the dialog pass.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-10-03)
+- **The files** (`packages/shared/src/coding-package.ts`, `buildCodingPackage`):
+  - `CLAUDE.md` and `AGENTS.md` hold the same text: the project's name, the day of the package, the seven context files to read in their order, where the diagrams are, and the way of working (spec by spec, work a skeleton out first, tracker, decisions hold, ask instead of guessing). A text the team did not give is marked "noch offen" in the list, and one more rule says to settle it before the first code.
+  - `context/project-overview.md`: the plan's scope and the criteria. `context/architecture.md`: the plan's tech recommendation and links to the diagram files. A section the plan does not fill says so.
+  - `context/decisions.md`: every decided decision with value, reasoning, alternatives, day and name; open ones in a list of their own, with the reason if they were reopened.
+  - `context/code-standards.md` and `context/ui-context.md`: the team's text, or a note that asks the coding agent to propose it and have the team confirm it.
+  - `context/project-plan.md`: the Markdown export of part 27a. `context/progress-tracker.md`: the milestones with every task as an open checkbox that links to its spec and names its assignee.
+  - `context/feature-specs/00-overview.md` lists the specs by milestone. A spec is `MM-TT-name.md`: the task, its milestone with time and goal, the assignee, links to the context and a checklist of three points. The name is the task in at most 48 characters, cut at the end of a word; the title is at most 80 characters, the task itself stands whole in the spec.
+  - `docs/diagrams/name.md`: one file per board that holds blocks, notes or the roadmap; boards with the same name get a number.
+  - At most 500 specs. What people wrote is escaped where it stands in a line of Markdown; file names hold lowercase letters, digits and hyphens only.
+  - Without a plan (no text below the section headings) there are no files.
+- **Texts** (`package-texts.ts`): everything the package adds, in German and English.
+- **Database:** migration `0026_package_texts.sql`: one row per project and kind (`code_standards`, `ui_direction`) with the text (1 to 8000 characters), who wrote it and when. Members read; owners and editors add, change and remove in their own name.
+- **Server** (`apps/server/src/api/package.ts`):
+  - `GET /api/projects/:id/package`: the counts, the paths of the files, the two texts and whether the person may write them.
+  - `PUT …/package/texts/:kind` `{ content }`: stores the trimmed text; an empty one removes it. 403 for viewers.
+  - `GET …/package/download`: the ZIP (`fflate` 0.8.3) with the files at its top, named `project-coding-paket.zip` (`…-coding-package.zip` for an English project); 404 without a plan.
+  - The package is built from the project as it stands: the plan and the boards are read from the open documents, else from the stored ones (`readPlan` is new on the collaboration server).
+- **Web** (`apps/web/src/features/export/`):
+  - The plan's export menu has a third entry below a line, "Paket für Coding-Agents …", which opens `PackageDialog`.
+  - The dialog loads what the package holds whenever it opens. Six lines say what is there (a green check) and what is missing (an empty circle): plan (also "outdated"), feature specs and milestones, decisions and open topics, diagrams, code standards, UI direction.
+  - The two fields are stored when a field is left, before a download and when the dialog closes; a small note says "Gespeichert" or "Nicht gespeichert". Viewers read them.
+  - "42 Dateien anzeigen" unfolds the paths. "Paket herunterladen" rests without a plan; a download that fails shows a note, and nothing is downloaded while a text could not be stored.
+- **Verified** with `pnpm dev` and the browser as olga in "Vereins-App"; the ZIP was caught in the page instead of saved:
+  - The dialog showed the plan, 31 feature specs in 4 milestones, 5 decisions with 1 open topic, the diagrams of 1 board and both texts as missing, and listed 42 files.
+  - A text was stored on leaving its field, the other one by the download; both lines turned to "there", and after closing and opening the dialog the texts were back.
+  - The ZIP (about 34 KB, `vereins-app-coding-paket.zip`) was unpacked in the page: `CLAUDE.md` equals `AGENTS.md`, the decisions carry reasoning, alternatives, day and name, the tracker links every task to its spec, and a spec reads as described above.
+  - Closing the dialog gave the page back (focus on "Exportieren", nothing blocked).
+  - The test texts were removed afterwards. Not tried live: viewers and a project without a plan; both are covered by tests.
+- **Found while testing live:**
+  - Names of spec files ended in the middle of a word (the task cut at 60 characters); they end with a whole word now.
+  - Long paths in the file list broke in the middle of words; they break at hyphens now, with the rest indented.
+  - A text typed into a field was lost when the dialog was closed with Escape, since no field is left then; closing stores it now.
+- **Decided while building:**
+  - Part 27b uses no model at all; the moderator's suggestions for the two texts moved to part 27c, together with the written-out specs.
+  - `CLAUDE.md` and `AGENTS.md` carry the same full text instead of one pointing at the other, so every coding agent reads its own file completely.
+  - The texts are stored in a table of their own instead of the project's settings, because editors write them and settings belong to owners.
+- **Known limits:**
+  - A package is the state of the day it was made; nothing brings it up to date in a repository (spec 29 brings it there).
+  - Two people who write the same text at the same time: the later one counts.
+  - A plan with more than 500 tasks gets specs for the first 500.
+  - The file name of a spec changes when the task is reworded or moves in its milestone.

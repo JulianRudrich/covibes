@@ -1,6 +1,7 @@
-import { planNodesFromMarkdown } from '@covibes/shared';
+import { planNodesFromMarkdown, type CodingPackageOverview } from '@covibes/shared';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { downloadBlob, downloadText } from '@web/features/export/download';
 import { ExportMenu } from '@web/features/export/export-menu';
@@ -18,6 +19,10 @@ vi.mock('@web/features/export/plan-pdf', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 /** Opens the menu of formats and returns its entries. */
@@ -98,17 +103,64 @@ describe('PlanExportMenu', () => {
 
   function renderMenu(language: 'de' | 'en' = 'de') {
     const onFailed = vi.fn();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
-      <PlanExportMenu
-        projectName="Vereins-App"
-        language={language}
-        nodes={nodes}
-        assignees={new Map()}
-        onFailed={onFailed}
-      />,
+      <QueryClientProvider client={queryClient}>
+        <PlanExportMenu
+          projectId="7b6a0b52-8f55-4c4e-9f6b-4ad2b3b3c0de"
+          projectName="Vereins-App"
+          language={language}
+          nodes={nodes}
+          assignees={new Map()}
+          outdated={false}
+          onFailed={onFailed}
+        />
+      </QueryClientProvider>,
     );
     return onFailed;
   }
+
+  it('offers the plan as files and, set apart, the package for coding agents', async () => {
+    renderMenu();
+
+    const menu = await openMenu();
+
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Als Markdown',
+      'Als PDF',
+      'Paket für Coding-Agents …',
+    ]);
+    expect(menu.querySelector('[role="separator"] + [role="menuitem"]')).toHaveTextContent(
+      'Paket für Coding-Agents …',
+    );
+  });
+
+  it('opens the dialog of the package, which loads what it holds', async () => {
+    const overview: CodingPackageOverview = {
+      hasPlan: true,
+      milestones: 1,
+      tasks: 1,
+      decisions: { decided: 0, open: 0 },
+      diagrams: 0,
+      files: ['CLAUDE.md'],
+      language: 'de',
+      texts: { code_standards: '', ui_direction: '' },
+      canEdit: true,
+    };
+    const fetchMock = vi.fn(() => Promise.resolve(Response.json(overview)));
+    vi.stubGlobal('fetch', fetchMock);
+    renderMenu();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await openMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Paket für Coding-Agents …' }));
+
+    expect(
+      await screen.findByRole('dialog', { name: 'Paket für Coding-Agents' }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('1 Feature-Spec · 1 Meilenstein')).toBeInTheDocument();
+  });
 
   it('downloads the plan as Markdown, named after the project', async () => {
     renderMenu();

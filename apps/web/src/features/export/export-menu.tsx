@@ -1,17 +1,24 @@
 import { Download } from 'lucide-react';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@web/components/ui/dropdown-menu';
 import { cn } from '@web/lib/cn';
 
 /** A format to export in: what the menu calls it, and what makes and downloads the file. */
-export type ExportOption = { key: string; label: string; run: () => Promise<void> | void };
+export type ExportOption = {
+  key: string;
+  label: string;
+  run: () => Promise<void> | void;
+  /** A line above it sets it apart from the formats before it. */
+  separated?: boolean;
+};
 
 /**
  * "Exportieren" (spec 27a; derived looks): a button with a download icon that opens the formats.
@@ -62,14 +69,16 @@ export function ExportMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[220px]">
         {options.map((option) => (
-          <DropdownMenuItem
-            key={option.key}
-            onSelect={() => {
-              void run(option);
-            }}
-          >
-            {option.label}
-          </DropdownMenuItem>
+          <Fragment key={option.key}>
+            {option.separated ? <DropdownMenuSeparator /> : null}
+            <DropdownMenuItem
+              onSelect={() => {
+                void run(option);
+              }}
+            >
+              {option.label}
+            </DropdownMenuItem>
+          </Fragment>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>

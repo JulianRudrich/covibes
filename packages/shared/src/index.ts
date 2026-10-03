@@ -382,7 +382,31 @@ export {
   type RoadmapTask,
 } from './plan-roadmap';
 export { boardToMermaid, type BoardExport } from './canvas/mermaid';
-export { exportFileName, exportTexts, type ExportTexts } from './export-texts';
+export {
+  exportFileName,
+  exportTexts,
+  fileSlug,
+  markdownLine,
+  type ExportTexts,
+} from './export-texts';
+export {
+  buildCodingPackage,
+  codingPackageSummary,
+  MAX_PACKAGE_SPECS,
+  PACKAGE_PATHS,
+  PACKAGE_TEXT_KINDS,
+  PACKAGE_TEXT_MAX_LENGTH,
+  packageTextInputSchema,
+  packageTextKindSchema,
+  type CodingPackageInput,
+  type CodingPackageOverview,
+  type CodingPackageSummary,
+  type PackageFile,
+  type PackageTextInput,
+  type PackageTextKind,
+  type PackageTexts,
+} from './coding-package';
+export { codingPackageTexts, type CodingPackageTexts } from './package-texts';
 export {
   planExportMarkdown,
   planExportTitle,
@@ -400,6 +424,7 @@ export {
 } from './plan-tasks';
 export {
   isPlanEmpty,
+  planSectionsOf,
   planToMarkdown,
   readPlan,
   readPlanSections,

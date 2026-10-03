@@ -874,6 +874,59 @@
     "mermaid": "As diagram code (Mermaid)",
     "markdown": "As Markdown",
     "pdf": "As PDF",
-    "failed": "The export did not work. Please try again."
+    "failed": "The export did not work. Please try again.",
+    "package": {
+      "menu": "Package for coding agents …",
+      "title": "Package for coding agents",
+      "hint": "Everything a coding agent builds from, as a ZIP: CLAUDE.md, AGENTS.md, context files, a feature spec per task and the diagrams.",
+      "loadFailed": "The package could not be loaded. Please try again.",
+      "content": "In the package",
+      "rows": {
+        "plan": "Project plan",
+        "planOutdated": "The project plan is outdated. Best update it before the export.",
+        "noPlan": "No project plan yet. Without a plan there is no package.",
+        "specs_one": "{{count}} feature spec",
+        "specs_other": "{{count}} feature specs",
+        "milestones_one": "{{count}} milestone",
+        "milestones_other": "{{count}} milestones",
+        "noSpecs": "The plan names no tasks, so there are no feature specs.",
+        "decisions_one": "{{count}} decision",
+        "decisions_other": "{{count}} decisions",
+        "openDecisions_one": "{{count}} topic still open",
+        "openDecisions_other": "{{count}} topics still open",
+        "noDecisions": "No decisions recorded.",
+        "diagrams_one": "Diagrams of {{count}} board",
+        "diagrams_other": "Diagrams of {{count}} boards",
+        "noDiagrams": "No diagrams on the boards.",
+        "code_standards": {
+          "given": "Code standards",
+          "missing": "Code standards are still missing."
+        },
+        "ui_direction": {
+          "given": "UI direction",
+          "missing": "The UI direction is still missing."
+        }
+      },
+      "texts": {
+        "title": "What the plan does not say",
+        "hint": "If a text is missing, the package asks the coding agent to settle it with you before the first code.",
+        "readOnly": "Owners and editors write these texts.",
+        "empty": "Nothing set yet.",
+        "saving": "Saving …",
+        "saved": "Saved",
+        "failed": "Not saved",
+        "code_standards": {
+          "label": "Code standards",
+          "placeholder": "e.g. TypeScript strict, no any. Tests with Vitest. Conventional Commits."
+        },
+        "ui_direction": {
+          "label": "UI direction",
+          "placeholder": "e.g. calm and light, lots of white space, one accent color. Informal tone."
+        }
+      },
+      "files_one": "Show {{count}} file",
+      "files_other": "Show {{count}} files",
+      "download": "Download package"
+    }
   }
 }

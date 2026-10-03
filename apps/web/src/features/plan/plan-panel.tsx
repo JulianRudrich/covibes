@@ -93,10 +93,12 @@ export function PlanPanel({
               <PlanVersions projectId={editor.projectId} current={text.nodes} />
               <RoadmapButton busy={roadmapBusy} onOpen={onOpenRoadmap} />
               <PlanExportMenu
+                projectId={editor.projectId}
                 projectName={projectName}
                 language={editor.language}
                 nodes={text.nodes}
                 assignees={assigneeNames}
+                outdated={Boolean(plan?.outdated)}
                 onFailed={onExportFailed}
               />
             </>

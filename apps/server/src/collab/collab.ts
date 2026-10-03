@@ -9,6 +9,7 @@ import {
   projectIdFromPlanDocumentName,
   readEdges,
   readNodes,
+  readPlan as planOf,
   readPlanSections as planSectionsOf,
   type CanvasEdge,
   type CanvasNode,
@@ -296,6 +297,11 @@ export function createCollab({ db, auth, internalToken, onPlanStored }: CollabDe
     return readDocument(planDocumentName(projectId), planSectionsOf);
   }
 
+  /** The whole plan of a project as nodes, in the order of the document (spec 27b: the package). */
+  function readPlan(projectId: string): Promise<PlanNode[]> {
+    return readDocument(planDocumentName(projectId), planOf);
+  }
+
   /** Closes all connections and waits until every document is stored. */
   async function close() {
     hocuspocus.closeConnections();
@@ -319,6 +325,7 @@ export function createCollab({ db, auth, internalToken, onPlanStored }: CollabDe
     changeBoard,
     changePlan,
     readBoard,
+    readPlan,
     readPlanSections,
     closeUser,
     close,
@@ -330,7 +337,7 @@ export type Collab = ReturnType<typeof createCollab>;
 /** What the API needs from the collaboration server. */
 export type BoardDocuments = Pick<
   Collab,
-  'deleteBoard' | 'changeBoard' | 'changePlan' | 'readBoard' | 'readPlanSections'
+  'deleteBoard' | 'changeBoard' | 'changePlan' | 'readBoard' | 'readPlan' | 'readPlanSections'
 > & {
   /**
    * Asks for ids for the tasks of a plan that has some without (spec 26b); it returns at once and

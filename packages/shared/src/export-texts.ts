@@ -49,8 +49,11 @@ export function exportTexts(language: PlanLanguage): ExportTexts {
   return TEXTS[language];
 }
 
-/** A name people gave as a part of a file name; empty if nothing of it can stand there. */
-function slug(name: string): string {
+/**
+ * A name people gave as a part of a file name: lowercase letters and digits with single hyphens,
+ * at most 60 characters; empty if nothing of it can stand there.
+ */
+export function fileSlug(name: string): string {
   return (
     name
       .toLowerCase()
@@ -75,5 +78,13 @@ function slug(name: string): string {
  * if none is left, the file is called "export".
  */
 export function exportFileName(...names: string[]): string {
-  return names.map(slug).filter(Boolean).join('-') || 'export';
+  return names.map(fileSlug).filter(Boolean).join('-') || 'export';
+}
+
+/** A text in a line of Markdown, without what would start markup or a new line. */
+export function markdownLine(text: string): string {
+  return text
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/([\\`*_[\]<>])/g, '\\$1');
 }

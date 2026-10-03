@@ -238,6 +238,10 @@ Built in two parts (2026-10-03), because the unit is large:
 - **Design:** **required:** roadmap diagram
 
 ### 27 Exports
+Built in two parts (2026-10-03), because the unit is large:
+- **27a** exporting canvas and plan: a board as PNG, SVG and Mermaid, the plan as Markdown and PDF
+- **27b** the package for coding agents as a ZIP, with the export dialog and the moderator's questions before it
+
 - **Goal:**
   - diagrams as PNG, SVG and Mermaid
   - the plan as Markdown and PDF

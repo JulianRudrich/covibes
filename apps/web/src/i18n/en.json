@@ -436,7 +436,8 @@
       "architecture": "Architecture",
       "datamodel": "Data model",
       "flow": "Flow",
-      "sitemap": "Sitemap"
+      "sitemap": "Sitemap",
+      "roadmap": "Roadmap"
     },
     "changeDiagramType": "Change diagram type",
     "entityFields": "Fields",
@@ -835,5 +836,25 @@
       "undo": "Undo",
       "redo": "Redo"
     }
+  },
+  "roadmap": {
+    "button": "Roadmap",
+    "summary_one": "{{count}} milestone",
+    "summary_other": "{{count}} milestones",
+    "weeks_one": "{{count}} week",
+    "weeks_other": "{{count}} weeks",
+    "week": "W{{week}}",
+    "span": "W{{from}}–{{to}}",
+    "noTime": "no time given",
+    "more_one": "+ {{count}} more",
+    "more_other": "+ {{count}} more",
+    "loading": "Loading the roadmap …",
+    "emptyTitle": "The plan has no milestones yet.",
+    "emptyText": "The roadmap shows the milestones from the section “Milestones and tasks” of the project plan, with their time and their tasks.",
+    "openPlan": "Open plan",
+    "none": "There is no roadmap yet.",
+    "label": "Roadmap with {{count}} milestones",
+    "milestone": "Milestone {{number}}: {{title}}",
+    "tasks": "Tasks"
   }
 }

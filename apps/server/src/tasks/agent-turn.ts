@@ -1,10 +1,13 @@
 import type { DB } from '@covibes/db';
 import {
   isCustomAgentKey,
+  isRoadmap,
   planToMarkdown,
   projectSettingsSchema,
   readEdges,
   readNodes,
+  readPlanSections,
+  readRoadmap,
   toPhase,
   type CanvasEdge,
   type CanvasNode,
@@ -60,6 +63,7 @@ import { addAgentsTool } from '@server/tools/add-agents';
 import { addBlockTool } from '@server/tools/add-block';
 import { addFrameTool } from '@server/tools/add-frame';
 import { addNoteTool } from '@server/tools/add-note';
+import { addRoadmapTool } from '@server/tools/add-roadmap';
 import { arrangeFrameTool } from '@server/tools/arrange-frame';
 import { connectBlocksTool } from '@server/tools/connect-blocks';
 import {
@@ -641,6 +645,19 @@ async function converse(
       },
     };
     for (const name of agent.tools) {
+      // The roadmap (spec 26a) is sized from the plan as it was last stored.
+      if (name === 'add_roadmap') {
+        tools.push(
+          addRoadmapTool({
+            ...toolOptions,
+            loadRoadmap: () =>
+              readStoredPlan(deps.admin, run.projectId, (doc) =>
+                readRoadmap(readPlanSections(doc)),
+              ),
+          }),
+        );
+        continue;
+      }
       const create = CANVAS_TOOLS[name];
       if (create) tools.push(create(toolOptions));
     }
@@ -886,9 +903,11 @@ function describeNode(
   const type =
     node.type === 'block' && node.blockType
       ? `, type ${node.blockType}`
-      : node.type === 'frame' && node.diagramType
-        ? `, diagram ${node.diagramType}`
-        : '';
+      : isRoadmap(node)
+        ? ", roadmap of the plan's milestones (follows the plan by itself, holds no blocks)"
+        : node.type === 'frame' && node.diagramType
+          ? `, diagram ${node.diagramType}`
+          : '';
   const fields =
     node.type === 'block' && node.blockType === 'entity' && node.fields.length > 0
       ? `, fields: ${node.fields.map((field) => `${field.name}${field.type ? ` ${field.type}` : ''}`).join(', ')}`

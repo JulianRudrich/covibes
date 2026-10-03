@@ -32,13 +32,14 @@ export type AgentDefinition = {
   mention?: string;
 };
 
-/** The canvas tools every catalog agent uses (specs 08 to 13). */
+/** The canvas tools every catalog agent uses (specs 08 to 13, and the roadmap of spec 26a). */
 export const CANVAS_TOOLS: readonly string[] = [
   'add_block',
   'update_block',
   'connect_blocks',
   'add_note',
   'add_frame',
+  'add_roadmap',
   'arrange_frame',
 ];
 

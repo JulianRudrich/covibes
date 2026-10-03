@@ -6,6 +6,7 @@ import {
   ENTITY_FIELDS_MAX,
   findFreeSpot,
   FRAME_PADDING,
+  isRoadmap,
   newBlockType,
   readNodes,
   type CanvasNode,
@@ -101,6 +102,9 @@ export function addBlockTool(options: CanvasToolOptions): AgentTool {
           ? nodes.find((node) => node.id === frameId && node.type === 'frame')
           : undefined;
         if (frameId && !frame) throw new Error(`There is no frame with the id ${frameId}.`);
+        if (frame && isRoadmap(frame)) {
+          throw new Error("A roadmap holds no blocks; it shows the plan's milestones by itself.");
+        }
         const blockType =
           type ??
           (frame

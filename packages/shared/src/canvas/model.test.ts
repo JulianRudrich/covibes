@@ -13,6 +13,8 @@ import {
   boardIdFromDocumentName,
   DIAGRAM_BLOCK_TYPES,
   DIAGRAM_TYPES,
+  fitRoadmap,
+  frameAt,
   getEdgesMap,
   getNodesMap,
   moveNode,
@@ -23,6 +25,7 @@ import {
   readNodes,
   removeNodes,
   resizeFrame,
+  ROADMAP_FIT_ORIGIN,
   updateNode,
   type Author,
 } from './model';
@@ -526,6 +529,98 @@ describe('frame membership', () => {
 
     expect(node(doc, BLOCK_ID).frameId).toBeNull();
     expect(readNodes(doc)).toHaveLength(2);
+  });
+});
+
+describe('roadmaps (spec 26a)', () => {
+  const ROADMAP_ID = '77777777-7777-4777-8777-777777777777';
+
+  function docWithRoadmap() {
+    const doc = new Y.Doc();
+    addFrame(
+      doc,
+      {
+        id: ROADMAP_ID,
+        position: { x: 0, y: 0 },
+        title: 'Roadmap',
+        diagramType: 'roadmap',
+        size: { width: 900, height: 400 },
+      },
+      OLGA,
+    );
+    addBlock(doc, { id: BLOCK_ID, position: { x: 40, y: 60 }, label: 'API' }, OLGA);
+    return doc;
+  }
+
+  it('is a frame of its own kind with the size it comes with', () => {
+    const doc = docWithRoadmap();
+
+    expect(node(doc, ROADMAP_ID)).toMatchObject({
+      type: 'frame',
+      diagramType: 'roadmap',
+      size: { width: 900, height: 400 },
+    });
+  });
+
+  it('takes no members, neither by dropping nor by growing nor from an agent', () => {
+    const doc = docWithRoadmap();
+
+    placeNodes(doc, [BLOCK_ID], OLGA);
+    expect(node(doc, BLOCK_ID).frameId).toBeNull();
+    expect(frameAt(readNodes(doc), { x: 100, y: 100 })).toBeNull();
+
+    resizeFrame(doc, ROADMAP_ID, { size: { width: 1200, height: 600 } }, OLGA);
+    expect(node(doc, BLOCK_ID).frameId).toBeNull();
+
+    expect(() =>
+      addBlock(
+        doc,
+        { id: OTHER_ID, position: { x: 0, y: 0 }, label: 'X', frameId: ROADMAP_ID },
+        MODERATOR,
+      ),
+    ).toThrow('A roadmap holds no blocks');
+  });
+
+  it('keeps its type and lets no other frame become one', () => {
+    const doc = docWithRoadmap();
+    addFrame(doc, { id: FRAME_ID, position: { x: 0, y: 600 }, title: 'Architektur' }, OLGA);
+
+    expect(() => updateNode(doc, ROADMAP_ID, { diagramType: 'flow' }, OLGA)).toThrow(
+      'A roadmap keeps its type',
+    );
+    expect(() => updateNode(doc, ROADMAP_ID, { diagramType: null }, OLGA)).toThrow();
+    expect(() => updateNode(doc, FRAME_ID, { diagramType: 'roadmap' as never }, OLGA)).toThrow();
+    // Its title changes like any frame's.
+    expect(updateNode(doc, ROADMAP_ID, { label: 'Fahrplan' }, OLGA)).toBe(true);
+  });
+
+  it('fits its size to its content as the change of nobody', () => {
+    const doc = docWithRoadmap();
+    const before = node(doc, ROADMAP_ID);
+    const origins: unknown[] = [];
+    doc.on('afterTransaction', (transaction: Y.Transaction) => {
+      origins.push(transaction.origin);
+    });
+
+    expect(fitRoadmap(doc, ROADMAP_ID, { width: 1000, height: 420 })).toBe(true);
+    expect(node(doc, ROADMAP_ID)).toMatchObject({
+      size: { width: 1000, height: 420 },
+      lastChangedBy: before.lastChangedBy,
+      lastChangedAt: before.lastChangedAt,
+    });
+    expect(origins).toEqual([ROADMAP_FIT_ORIGIN]);
+
+    // A size beyond every roadmap is refused, and so is one that is none.
+    expect(fitRoadmap(doc, ROADMAP_ID, { width: 1_600_000_000_028, height: 198 })).toBe(false);
+    expect(() => fitRoadmap(doc, ROADMAP_ID, { width: Infinity, height: 198 })).toThrow();
+    expect(node(doc, ROADMAP_ID).size).toEqual({ width: 1000, height: 420 });
+
+    // The same size, another frame or a block: nothing happens.
+    expect(fitRoadmap(doc, ROADMAP_ID, { width: 1000, height: 420 })).toBe(false);
+    addFrame(doc, { id: FRAME_ID, position: { x: 0, y: 600 }, title: 'Architektur' }, OLGA);
+    expect(fitRoadmap(doc, FRAME_ID, { width: 1000, height: 420 })).toBe(false);
+    expect(fitRoadmap(doc, BLOCK_ID, { width: 1000, height: 420 })).toBe(false);
+    expect(origins).toHaveLength(2);
   });
 });
 

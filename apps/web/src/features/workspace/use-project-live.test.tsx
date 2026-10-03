@@ -8,6 +8,7 @@ import { planStateQuery } from '@web/features/plan/queries';
 import { runsQuery } from '@web/features/chat/runs';
 import { projectQuery } from '@web/features/projects/queries';
 import { proposalsQuery } from '@web/features/proposals/queries';
+import { roadmapQuery } from '@web/features/roadmap/queries';
 import { openVotesQuery } from '@web/features/decisions/queries';
 import { notificationsQuery } from '@web/features/notifications/queries';
 import { useProjectLive } from '@web/features/workspace/use-project-live';
@@ -315,5 +316,28 @@ describe('useProjectLive', () => {
     await waitFor(() => {
       expect(asked()).toBe(before + 1);
     });
+  });
+
+  it('loads the roadmap again when what it shows changed (spec 26a)', async () => {
+    const api = stubApi({
+      [`GET ${PROJECT_URL}`]: () => ({ body: DETAILS }),
+      [`GET ${PROJECT_URL}/roadmap`]: () => ({ body: { milestones: [] } }),
+    });
+    const queryClient = renderLive();
+    await queryClient.query(roadmapQuery(PROJECT_ID));
+    const asked = () => api.mock.calls.filter(([url]) => url === `${PROJECT_URL}/roadmap`).length;
+    const before = asked();
+
+    act(() => {
+      live.handlers?.onEvent({ type: 'roadmap' });
+    });
+
+    await waitFor(() => {
+      expect(queryClient.getQueryState(roadmapQuery(PROJECT_ID).queryKey)?.isInvalidated).toBe(
+        true,
+      );
+    });
+    // Nobody shows the roadmap here, so it is only marked; it loads when a board shows it.
+    expect(asked()).toBe(before);
   });
 });

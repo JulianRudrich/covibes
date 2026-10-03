@@ -3,6 +3,7 @@ import {
   DIAGRAM_BLOCK_TYPES,
   DIAGRAM_TYPES,
   isDiagramType,
+  ROADMAP_DIAGRAM,
   type BlockType,
   type DiagramType,
 } from '@covibes/shared';
@@ -10,6 +11,7 @@ import {
   AppWindow,
   Boxes,
   BrainCircuit,
+  ChartGantt,
   CircleDot,
   CirclePlay,
   CircleStop,
@@ -69,6 +71,7 @@ export function blockIcon(blockType: string | null): LucideIcon {
 
 /** The icon of a frame; free frames and types from a later version show the frame icon. */
 export function diagramIcon(diagramType: string | null): LucideIcon {
+  if (diagramType === ROADMAP_DIAGRAM) return ChartGantt;
   return isDiagramType(diagramType) ? DIAGRAM_ICONS[diagramType] : Frame;
 }
 

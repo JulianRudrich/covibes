@@ -18,6 +18,7 @@ import {
   type BlockNodeData,
   type CanvasFlowNode,
   type FlowLocks,
+  sizeRoadmaps,
 } from '@web/features/canvas/flow-mapping';
 
 const AUTHOR: Author = { kind: 'human', userId: '00000000-0000-4000-8000-000000000001' };
@@ -233,6 +234,25 @@ describe('toFlowNodes', () => {
     const [node] = toFlowNodes([canvasNode('f', 0, 0, 'frame')], [resizing], NO_LOCKS);
 
     expect(node).toMatchObject({ position: { x: -20, y: 0 }, width: 600, height: 400 });
+  });
+});
+
+describe('sizeRoadmaps (spec 26a)', () => {
+  it('gives roadmaps the size of their content and leaves everything else', () => {
+    const roadmap = { ...canvasNode('r', 0, 0, 'frame'), diagramType: 'roadmap' };
+    const frame = canvasNode('f', 0, 600, 'frame');
+    const block = canvasNode('b', 0, 900);
+    const nodes = toFlowNodes([roadmap, frame, block], [], NO_LOCKS);
+
+    const sized = sizeRoadmaps(nodes, { width: 1000, height: 420 });
+
+    const byId = (id: string) => sized.find((node) => node.id === id);
+    expect([byId('r')?.width, byId('r')?.height]).toEqual([1000, 420]);
+    expect([byId('f')?.width, byId('f')?.height]).toEqual([FRAME_SIZE.width, FRAME_SIZE.height]);
+    expect(byId('f')).toBe(nodes.find((node) => node.id === 'f'));
+    expect(byId('b')).toBe(nodes.find((node) => node.id === 'b'));
+    // Without a roadmap to size by, nothing changes.
+    expect(sizeRoadmaps(nodes, null)).toBe(nodes);
   });
 });
 

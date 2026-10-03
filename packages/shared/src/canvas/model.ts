@@ -118,6 +118,22 @@ export function isDiagramType(value: unknown): value is DiagramType {
   return (DIAGRAM_TYPES as readonly unknown[]).includes(value);
 }
 
+/**
+ * The kind of a frame that shows the plan's milestones (spec 26a). It is no diagram of blocks: it
+ * holds none, its content comes from the plan, and its size follows that content.
+ */
+export const ROADMAP_DIAGRAM = 'roadmap';
+
+export function isRoadmap(node: Pick<CanvasNode, 'type' | 'diagramType'>): boolean {
+  return node.type === 'frame' && node.diagramType === ROADMAP_DIAGRAM;
+}
+
+/** Transaction origin of fitting a roadmap to its content: nobody's change, never undone. */
+export const ROADMAP_FIT_ORIGIN = 'roadmap-fit';
+
+/** The largest size a roadmap is fitted to; its layout stays well below (24 milestones). */
+const ROADMAP_MAX_SIZE: Size = { width: 8000, height: 2000 };
+
 /** The block types of each diagram; the generic block fits everywhere. */
 export const DIAGRAM_BLOCK_TYPES: Readonly<Record<DiagramType, readonly BlockType[]>> = {
   mindmap: ['topic', 'idea'],
@@ -192,7 +208,11 @@ export const addFrameInputSchema = z.object({
   position: positionSchema,
   title: nodeTextSchema,
   size: frameSizeSchema.default(FRAME_SIZE),
-  diagramType: diagramTypeSchema.nullable().default(null),
+  /** A diagram type, or a roadmap (spec 26a), which comes with the size of its content. */
+  diagramType: z
+    .union([diagramTypeSchema, z.literal(ROADMAP_DIAGRAM)])
+    .nullable()
+    .default(null),
 });
 export type AddFrameInput = z.input<typeof addFrameInputSchema>;
 
@@ -255,8 +275,12 @@ function insertNode(
 
 export function addBlock(doc: Y.Doc, input: AddBlockInput, author: Author): CanvasNode {
   const data = addBlockInputSchema.parse(input);
-  if (data.frameId && getNodesMap(doc).get(data.frameId)?.get('type') !== 'frame') {
+  const frame = data.frameId ? getNodesMap(doc).get(data.frameId) : undefined;
+  if (data.frameId && frame?.get('type') !== 'frame') {
     throw new Error(`Frame ${data.frameId} does not exist`);
+  }
+  if (frame?.get('diagramType') === ROADMAP_DIAGRAM) {
+    throw new Error('A roadmap holds no blocks');
   }
   return insertNode(
     doc,
@@ -399,6 +423,9 @@ export function updateNode(
   if (type !== 'frame' && data.diagramType !== undefined) {
     throw new Error(`A ${String(type)} has no diagram type`);
   }
+  if (fields.get('diagramType') === ROADMAP_DIAGRAM && data.diagramType !== undefined) {
+    throw new Error('A roadmap keeps its type');
+  }
 
   doc.transact(() => {
     // A key passed as `undefined` survives parsing; it means "unchanged", not "clear".
@@ -437,11 +464,11 @@ function contains(area: Pick<CanvasNode, 'position' | 'size'>, point: Position):
   );
 }
 
-/** The topmost frame that contains `point`, or null. */
+/** The topmost frame that contains `point`, or null. A roadmap takes no members (spec 26a). */
 export function frameAt(nodes: readonly CanvasNode[], point: Position): CanvasNode | null {
   let found: CanvasNode | null = null;
   for (const frame of nodes) {
-    if (frame.type !== 'frame' || !contains(frame, point)) continue;
+    if (frame.type !== 'frame' || isRoadmap(frame) || !contains(frame, point)) continue;
     // Frames stack by their last change, like all nodes; the latest one lies on top.
     if (!found || frame.lastChangedAt > found.lastChangedAt) found = frame;
   }
@@ -496,10 +523,12 @@ export function resizeFrame(
   if (fields?.get('type') !== 'frame') return false;
 
   const origin = authorOrigin(changedBy);
+  const roadmap = fields.get('diagramType') === ROADMAP_DIAGRAM;
   doc.transact(() => {
     fields.set('size', size);
     if (position) fields.set('position', position);
     stampChange(fields, changedBy, new Date().toISOString());
+    if (roadmap) return;
     const area = { position: position ?? readPosition(fields) ?? { x: 0, y: 0 }, size };
     const nodes = getNodesMap(doc);
     const leaving: string[] = [];
@@ -511,6 +540,35 @@ export function resizeFrame(
     }
     placeIn(doc, leaving, origin);
   }, origin);
+  return true;
+}
+
+/**
+ * Fits a roadmap to its content (spec 26a): its size follows the plan, not a person, so the change
+ * is stamped by nobody and the undo of the people on the board leaves it alone. Returns whether
+ * the size changed.
+ */
+export function fitRoadmap(doc: Y.Doc, id: string, size: Size): boolean {
+  const target = sizeSchema.parse(size);
+  // A size beyond every roadmap is a mistake of the caller; the frame keeps the one it has.
+  if (target.width > ROADMAP_MAX_SIZE.width || target.height > ROADMAP_MAX_SIZE.height) {
+    return false;
+  }
+  const fields = getNodesMap(doc).get(id);
+  if (fields?.get('type') !== 'frame' || fields.get('diagramType') !== ROADMAP_DIAGRAM) {
+    return false;
+  }
+  const current = sizeSchema.safeParse(fields.get('size'));
+  if (
+    current.success &&
+    current.data.width === target.width &&
+    current.data.height === target.height
+  ) {
+    return false;
+  }
+  doc.transact(() => {
+    fields.set('size', target);
+  }, ROADMAP_FIT_ORIGIN);
   return true;
 }
 

@@ -9,6 +9,7 @@ import { createCollab } from '@server/collab/collab';
 import { createDatabase } from '@server/db/database';
 import { loadServerEnv, type ServerEnv } from '@server/env';
 import { createMailSetup } from '@server/integrations/mail/mailer';
+import { createRoadmapAnnouncer } from '@server/plan/roadmap-live';
 import { projectConnections } from '@server/realtime/connections';
 import { startLiveBridge } from '@server/realtime/notifications';
 import { createRealtime } from '@server/realtime/realtime';
@@ -32,8 +33,14 @@ const db = createDatabase(env);
 // Locally the development mailbox, in the Docker image SMTP (or no login by mail).
 const mail = createMailSetup(env);
 const auth = createAuth({ env, adminPool: db.adminPool, mailer: mail.mailer });
-const collab = createCollab({ db, auth, internalToken: env.INTERNAL_TOKEN });
 const realtime = createRealtime({ db, auth });
+const collab = createCollab({
+  db,
+  auth,
+  internalToken: env.INTERNAL_TOKEN,
+  // Everyone with the project open learns when a stored plan changed its roadmap (spec 26a).
+  onPlanStored: createRoadmapAnnouncer(realtime),
+});
 // Forwards what the worker announces (runs, agent messages, streamed text) to the live channels.
 const liveBridge = startLiveBridge({ adminPool: db.adminPool, admin: db.admin, live: realtime });
 

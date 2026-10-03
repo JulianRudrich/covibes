@@ -9,11 +9,13 @@ import {
   BLOCK_SIZE,
   computeLayout,
   edgeProblem,
+  fitRoadmap,
   FRAME_MIN_SIZE,
   FRAME_SIZE,
   frameAt,
   getNodesMap,
   GRID_SIZE,
+  isRoadmap,
   moveNodes,
   newBlockType,
   NOTE_SIZE,
@@ -21,6 +23,8 @@ import {
   readEdges,
   readNodes,
   resizeFrame,
+  ROADMAP_DIAGRAM,
+  roadmapLayout,
   updateEdgeLabel,
   updateNode,
   type Author,
@@ -36,6 +40,8 @@ import {
   BackgroundVariant,
   ReactFlow,
   ReactFlowProvider,
+  useReactFlow,
+  useStore,
   ViewportPortal,
   type Connection,
   type EdgeTypes,
@@ -45,6 +51,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type KeyboardEvent,
   type ReactNode,
@@ -64,6 +71,7 @@ import {
 import { ArrowMarkers, CanvasArrow } from '@web/features/canvas/canvas-arrow';
 import { CanvasToolbar } from '@web/features/canvas/canvas-toolbar';
 import { loadElk } from '@web/features/canvas/elk';
+import { sizeRoadmaps } from '@web/features/canvas/flow-mapping';
 import { FrameNode } from '@web/features/canvas/frame-node';
 import { LiveCursor } from '@web/features/canvas/live-cursor';
 import { NoteNode } from '@web/features/canvas/note-node';
@@ -72,6 +80,7 @@ import { edgesWithGeometry, nodeRects } from '@web/features/canvas/shown-edges';
 import { ProposalLayer } from '@web/features/proposals/proposal-layer';
 import { proposalOverlay } from '@web/features/proposals/proposal-overlay';
 import type { DecideProposal } from '@web/features/proposals/queries';
+import { useRoadmap } from '@web/features/roadmap/roadmap-context';
 import { useBoardDoc } from '@web/features/canvas/use-board-doc';
 import { useLiveCursors } from '@web/features/canvas/use-live-cursors';
 import { useNodeLocks } from '@web/features/canvas/use-node-locks';
@@ -102,6 +111,9 @@ type CanvasPanelProps = {
   onDecide: DecideProposal;
   /** Whether the user adopts variants; false for editors while the owner decides. */
   canAdoptVariants?: boolean;
+  /** An element to bring into view once it is on the board, e.g. the roadmap (spec 26a). */
+  focusId?: string;
+  onFocused?: () => void;
 };
 
 /**
@@ -137,6 +149,8 @@ function BoardCanvas({
   proposals,
   onDecide,
   canAdoptVariants,
+  focusId,
+  onFocused,
 }: Omit<CanvasPanelProps, 'tabs' | 'notice'>) {
   const { t } = useTranslation();
   const { connection, status, loaded, denied } = useBoardDoc(boardId);
@@ -157,6 +171,8 @@ function BoardCanvas({
           proposals={proposals}
           onDecide={onDecide}
           canAdoptVariants={canAdoptVariants}
+          focusId={focusId}
+          onFocused={onFocused}
         />
       ) : (
         <CanvasMessage>{t('canvas.loading')}</CanvasMessage>
@@ -177,7 +193,12 @@ type BoardProps = {
   onDecide: DecideProposal;
   /** Whether the user adopts variants; false for editors while the owner decides. */
   canAdoptVariants?: boolean;
+  focusId?: string;
+  onFocused?: () => void;
 };
+
+/** Room around an element brought into view, on each side. */
+const FOCUS_MARGIN = 48;
 
 function snap(value: number) {
   return Math.round(value / GRID_SIZE) * GRID_SIZE;
@@ -198,6 +219,8 @@ function Board({
   proposals,
   onDecide,
   canAdoptVariants,
+  focusId,
+  onFocused,
 }: BoardProps) {
   const { t } = useTranslation();
   const agents = useAgents();
@@ -207,12 +230,63 @@ function Board({
   const [tool, setTool] = useState<CanvasTool | null>(null);
   const [layoutBusy, setLayoutBusy] = useState(false);
   const flowLocks = useMemo(() => ({ locks, ownClientId }), [locks, ownClientId]);
-  const { nodes, edges, onNodesChange, onEdgesChange } = useYjsFlow(doc, {
+  const {
+    nodes: flowNodes,
+    edges,
+    onNodesChange,
+    onEdgesChange,
+  } = useYjsFlow(doc, {
     author,
     readOnly,
     locks: flowLocks,
     editingId,
   });
+
+  // A roadmap (spec 26a) has the size of its content, which comes from the plan. Owners and
+  // editors keep the stored size in line, so layout and agents see it too. A client writes when
+  // a roadmap appears or the roadmap it knows changes, never because the stored size changed:
+  // two clients that know different states of the plan for a moment would write in turns.
+  const roadmapFrames = flowNodes
+    .filter((node) => node.type === 'frame' && node.data.diagramType === ROADMAP_DIAGRAM)
+    .map((node) => node.id)
+    .join(' ');
+  const roadmap = useRoadmap(roadmapFrames !== '');
+  const roadmapSize = useMemo(() => (roadmap ? roadmapLayout(roadmap).size : null), [roadmap]);
+  const nodes = useMemo(() => sizeRoadmaps(flowNodes, roadmapSize), [flowNodes, roadmapSize]);
+  useEffect(() => {
+    if (readOnly || !roadmapSize || roadmapFrames === '') return;
+    for (const node of readNodes(doc)) {
+      if (isRoadmap(node)) fitRoadmap(doc, node.id, roadmapSize);
+    }
+  }, [doc, readOnly, roadmapSize, roadmapFrames]);
+
+  // An element asked for in the address comes into view once it is on the board.
+  const { setCenter } = useReactFlow();
+  const paneWidth = useStore((state) => state.width);
+  const paneHeight = useStore((state) => state.height);
+  const focused = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusId) {
+      // The address forgot it; the same element can be asked for again.
+      focused.current = null;
+      return;
+    }
+    if (focused.current === focusId || paneWidth === 0 || paneHeight === 0) return;
+    const target = nodes.find((node) => node.id === focusId);
+    if (!target) return;
+    focused.current = focusId;
+    const width = target.width ?? target.measured?.width ?? 0;
+    const height = target.height ?? target.measured?.height ?? 0;
+    const zoom = Math.max(
+      ZOOM_MIN,
+      Math.min(1, paneWidth / (width + 2 * FOCUS_MARGIN), paneHeight / (height + 2 * FOCUS_MARGIN)),
+    );
+    void setCenter(target.position.x + width / 2, target.position.y + height / 2, {
+      zoom,
+      duration: 300,
+    });
+    onFocused?.();
+  }, [focusId, nodes, paneWidth, paneHeight, setCenter, onFocused]);
   const { cursors, onPointerMove, onPointerLeave } = useLiveCursors(connection.provider, user);
   const undo = useUndo(doc, author, !readOnly);
 

@@ -1,4 +1,5 @@
-import { FRAME_SIZE, NOTE_SIZE, type Author } from '@covibes/shared';
+import { FRAME_SIZE, NOTE_SIZE, type Author, type Roadmap } from '@covibes/shared';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { EdgeProps, NodeProps } from '@xyflow/react';
 import type { ReactNode } from 'react';
@@ -9,6 +10,8 @@ import { CanvasActionsProvider, type CanvasActions } from '@web/features/canvas/
 import type { ArrowFlowEdge, FrameFlowNode, NoteFlowNode } from '@web/features/canvas/flow-mapping';
 import { FrameNode } from '@web/features/canvas/frame-node';
 import { NoteNode } from '@web/features/canvas/note-node';
+import { RoadmapProvider } from '@web/features/roadmap/roadmap-context';
+import { createQueryClient } from '@web/lib/query-client';
 
 // Resize handles and the edge layer need a running React Flow; they are checked in the browser.
 vi.mock('@xyflow/react', async (importOriginal) => ({
@@ -187,7 +190,7 @@ describe('FrameNode', () => {
   });
 
   it('shows a type from a later version as a free frame', () => {
-    const { frame } = renderFrame({ diagramType: 'roadmap' });
+    const { frame } = renderFrame({ diagramType: 'timeline' });
 
     expect(screen.getByText('5 Blöcke')).toBeInTheDocument();
     expect(frame.querySelector('.lucide-frame')).toBeInTheDocument();
@@ -254,6 +257,77 @@ describe('FrameNode', () => {
     fireEvent.keyDown(title, { key: 'Escape' });
 
     expect(actions.finishEditing).toHaveBeenCalledWith('frame-1', null);
+  });
+});
+describe('FrameNode as a roadmap (spec 26a)', () => {
+  const ROADMAP: Roadmap = {
+    milestones: [
+      {
+        number: 1,
+        title: 'Grundgerüst',
+        goal: '',
+        duration: { text: '3 Wochen', weeks: 3 },
+        tasks: [{ text: 'Projekt aufsetzen' }],
+      },
+      {
+        number: 2,
+        title: 'Mitglieder',
+        goal: '',
+        duration: { text: '4 Wochen', weeks: 4 },
+        tasks: [],
+      },
+    ],
+  };
+
+  function renderRoadmap(roadmap: Roadmap | null, selected = false) {
+    const actions = canvasActions();
+    const view = render(
+      <QueryClientProvider client={createQueryClient()}>
+        <CanvasActionsProvider value={actions}>
+          <RoadmapProvider value={{ projectId: null, roadmap }}>
+            <FrameNode
+              {...nodeBase}
+              selected={selected}
+              id="roadmap-1"
+              type="frame"
+              data={{
+                ...common,
+                label: 'Roadmap',
+                size: FRAME_SIZE,
+                blockCount: 0,
+                diagramType: 'roadmap',
+              }}
+            />
+          </RoadmapProvider>
+        </CanvasActionsProvider>
+      </QueryClientProvider>,
+    );
+    const frame = view.container.firstElementChild;
+    if (!(frame instanceof HTMLElement)) throw new Error('The frame was not rendered.');
+    return frame;
+  }
+
+  it('names its milestones and weeks instead of blocks and shows them', () => {
+    const frame = renderRoadmap(ROADMAP);
+
+    expect(screen.getByText('Roadmap · 2 Meilensteine · 7 Wochen')).toHaveClass('text-text-3');
+    expect(frame.querySelector('.lucide-chart-gantt')).toBeInTheDocument();
+    expect(screen.queryByText(/Blöcke/)).not.toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Roadmap mit 2 Meilensteinen' })).toBeInTheDocument();
+    expect(screen.getByText('Projekt aufsetzen')).toBeInTheDocument();
+  });
+
+  it('offers no change of its type, also when selected', () => {
+    renderRoadmap(ROADMAP, true);
+
+    expect(screen.queryByRole('button', { name: 'Diagrammtyp ändern' })).not.toBeInTheDocument();
+  });
+
+  it('names only its type while the roadmap is unknown', () => {
+    renderRoadmap(null);
+
+    expect(screen.getByText('Roadmap', { selector: 'span.text-status' })).toBeInTheDocument();
+    expect(screen.getByText('Roadmap wird geladen …')).toBeInTheDocument();
   });
 });
 

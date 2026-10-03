@@ -4,6 +4,7 @@ import type { CustomAgentSummary } from './agents/custom';
 import type { CanvasEdge, CanvasNode } from './canvas/model';
 import type { Criterion, Decision } from './decisions';
 import { invitationTokenSchema } from './invitations';
+import type { Roadmap } from './plan-roadmap';
 import type { ProjectBoard } from './projects';
 
 // The read-only link of a project (spec 21b): it shows the canvas and the overview to people
@@ -39,5 +40,8 @@ export type SharedProject = {
   customAgents: CustomAgentSummary[];
 };
 
-/** The content of one board, with every person replaced by `NO_USER_ID`. */
-export type SharedBoard = { nodes: CanvasNode[]; edges: CanvasEdge[] };
+/**
+ * The content of one board, with every person replaced by `NO_USER_ID`; with the plan's roadmap
+ * when the board shows one (spec 26a), else null.
+ */
+export type SharedBoard = { nodes: CanvasNode[]; edges: CanvasEdge[]; roadmap: Roadmap | null };

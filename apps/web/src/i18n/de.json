@@ -436,7 +436,8 @@
       "architecture": "Architektur",
       "datamodel": "Datenmodell",
       "flow": "Ablauf",
-      "sitemap": "Sitemap"
+      "sitemap": "Sitemap",
+      "roadmap": "Roadmap"
     },
     "changeDiagramType": "Diagrammtyp ändern",
     "entityFields": "Felder",
@@ -835,5 +836,25 @@
       "undo": "Rückgängig",
       "redo": "Wiederholen"
     }
+  },
+  "roadmap": {
+    "button": "Roadmap",
+    "summary_one": "{{count}} Meilenstein",
+    "summary_other": "{{count}} Meilensteine",
+    "weeks_one": "{{count}} Woche",
+    "weeks_other": "{{count}} Wochen",
+    "week": "W{{week}}",
+    "span": "W{{from}}–{{to}}",
+    "noTime": "ohne Zeitangabe",
+    "more_one": "+ {{count}} weitere",
+    "more_other": "+ {{count}} weitere",
+    "loading": "Roadmap wird geladen …",
+    "emptyTitle": "Der Plan hat noch keine Meilensteine.",
+    "emptyText": "Die Roadmap zeigt die Meilensteine aus dem Abschnitt „Meilensteine und Aufgaben“ des Projektplans, mit ihrer Zeit und ihren Aufgaben.",
+    "openPlan": "Plan öffnen",
+    "none": "Es gibt noch keine Roadmap.",
+    "label": "Roadmap mit {{count}} Meilensteinen",
+    "milestone": "Meilenstein {{number}}: {{title}}",
+    "tasks": "Aufgaben"
   }
 }

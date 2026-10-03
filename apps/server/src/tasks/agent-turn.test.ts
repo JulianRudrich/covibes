@@ -10,6 +10,9 @@ import {
   planNodesFromMarkdown,
   readEdges,
   readNodes,
+  readRoadmap,
+  ROADMAP_DIAGRAM,
+  roadmapLayout,
   writePlanSection,
   type ChatMessage,
   type LiveEvent,
@@ -305,6 +308,7 @@ describe('agent turn', () => {
       'connect_blocks',
       'add_note',
       'add_frame',
+      'add_roadmap',
       'arrange_frame',
       'add_agents',
       'set_phase',
@@ -1500,6 +1504,7 @@ describe('custom agents (spec 19)', () => {
       'connect_blocks',
       'add_note',
       'add_frame',
+      'add_roadmap',
       'arrange_frame',
     ]);
     expect(call?.prompt).toContain(
@@ -1973,6 +1978,34 @@ describe('buildPrompt', () => {
     );
   });
 
+  it('names a roadmap as one (spec 26a)', () => {
+    const doc = memoryBoards().doc(randomUUID());
+    const frame = '00000001-0000-4000-8000-000000000000';
+    addFrame(
+      doc,
+      {
+        id: frame,
+        position: { x: 0, y: 0 },
+        title: 'Roadmap',
+        diagramType: ROADMAP_DIAGRAM,
+        size: { width: 990, height: 312 },
+      },
+      { kind: 'human', userId: randomUUID() },
+    );
+
+    const prompt = buildPrompt({
+      projectName: 'Demo',
+      nodes: readNodes(doc),
+      messages: [],
+      request: undefined,
+    });
+
+    expect(prompt).toContain(
+      `- frame "Roadmap", roadmap of the plan's milestones (follows the plan by itself, holds no blocks) at 0, 0, 990 × 312, id ${frame}`,
+    );
+    expect(prompt).not.toContain('diagram roadmap');
+  });
+
   it('keeps chat text from closing the sections of the prompt', () => {
     const message: ChatMessage = {
       id: randomUUID(),
@@ -2160,5 +2193,41 @@ describe('the project plan (spec 25b)', () => {
     // The plan comes after the canvas and before the chat.
     expect(prompt.indexOf('<canvas>')).toBeLessThan(prompt.indexOf('<plan>'));
     expect(prompt.indexOf('<plan>')).toBeLessThan(prompt.indexOf('<chat>'));
+  });
+});
+
+describe('the roadmap (spec 26a)', () => {
+  it('is added by the moderator from the plan as the collaboration server stored it', async () => {
+    const { projectId, boardId, request } = await createProject();
+    const milestones = planNodesFromMarkdown(
+      '### Meilenstein 1: Grundgerüst (2 Wochen)\n\n- Login\n\n### Meilenstein 2: Mitglieder (1 Woche)\n\n- Liste',
+    );
+    const plan = new Y.Doc();
+    writePlanSection(plan, 'milestones', milestones, 'de');
+    await test.db.adminPool.query('insert into yjs_documents (name, state) values ($1, $2)', [
+      planDocumentName(projectId),
+      Buffer.from(Y.encodeStateAsUpdate(plan)),
+    ]);
+    const { runId } = await request('@Moderator zeig uns die Roadmap');
+    const { boards, doc } = memoryBoards();
+    let answer = '';
+    const { deps } = turnDeps(async (asked) => {
+      const tool = asked.tools.find((candidate) => candidate.name === 'add_roadmap');
+      if (!tool) throw new Error('add_roadmap is missing');
+      answer = await tool.run({});
+      return result('Die Roadmap ist auf dem Canvas.');
+    }, boards);
+
+    await runAgentTurn(deps, { runId }, FIRST_ATTEMPT);
+
+    expect(answer).toContain('It shows 2 milestones of the plan over 3 weeks.');
+    const [roadmap] = readNodes(doc(boardId));
+    expect(roadmap).toMatchObject({
+      type: 'frame',
+      diagramType: ROADMAP_DIAGRAM,
+      label: 'Roadmap',
+      size: roadmapLayout(readRoadmap({ milestones })).size,
+      createdBy: { kind: 'agent', agentKey: 'moderator' },
+    });
   });
 });

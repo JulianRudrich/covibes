@@ -15,6 +15,7 @@ import { notificationsQuery } from '@web/features/notifications/queries';
 import { planStateQueryKey } from '@web/features/plan/queries';
 import { projectQuery } from '@web/features/projects/queries';
 import { proposalsQueryKey } from '@web/features/proposals/queries';
+import { roadmapQueryKey } from '@web/features/roadmap/queries';
 import { invitationsQuery } from '@web/features/share/queries';
 import { useLiveChannel } from '@web/features/realtime/live-channel';
 
@@ -74,6 +75,9 @@ export function useProjectLive(projectId: string, userId?: string) {
       } else if (event.type === 'plan') {
         // A generation started or ended, or a suggestion was decided (spec 25b).
         reload(planStateQueryKey(projectId));
+      } else if (event.type === 'roadmap') {
+        // The plan changed what its roadmap shows (spec 26a).
+        reload(roadmapQueryKey(projectId));
       } else {
         applyLiveEvent(queryClient, projectId, event);
         // A vote started, got a ballot or ended: "Wartet auf dich" lists the open ones (spec 22a).
@@ -98,6 +102,7 @@ export function useProjectLive(projectId: string, userId?: string) {
       reload(handsQueryKey(projectId));
       reload(openVotesQueryKey(projectId));
       reload(planStateQueryKey(projectId));
+      reload(roadmapQueryKey(projectId));
       reloadDecisions();
     },
   });

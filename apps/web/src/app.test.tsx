@@ -39,15 +39,23 @@ vi.mock('@web/features/chat/chat-panel', async () => {
 vi.mock('@web/features/canvas/canvas-panel', async () => {
   const { createElement } = await import('react');
   return {
-    CanvasPanel: (props: { boardId: string; readOnly: boolean; notice: string | null }) =>
+    CanvasPanel: (props: {
+      boardId: string;
+      readOnly: boolean;
+      notice: string | null;
+      focusId?: string;
+      onFocused?: () => void;
+    }) =>
       createElement(
         'div',
         {
           'data-testid': 'canvas-panel',
           'data-board': props.boardId,
           'data-readonly': String(props.readOnly),
+          'data-focus': props.focusId ?? '',
         },
         props.notice,
+        props.focusId ? createElement('button', { onClick: props.onFocused }, 'Im Blick') : null,
       ),
   };
 });
@@ -66,6 +74,8 @@ vi.mock('@web/features/plan/plan-panel', async () => {
       onGenerate?: () => void;
       onDecide?: (decision: { suggestionId: string | null; decision: 'accept' }) => void;
       onUpdate?: () => void;
+      onOpenRoadmap: () => void;
+      roadmapBusy: boolean;
     }) =>
       createElement(
         'div',
@@ -86,6 +96,11 @@ vi.mock('@web/features/plan/plan-panel', async () => {
         props.onUpdate
           ? createElement('button', { onClick: props.onUpdate }, 'Aktualisieren')
           : null,
+        createElement(
+          'button',
+          { onClick: props.onOpenRoadmap, disabled: props.roadmapBusy },
+          'Roadmap',
+        ),
         props.onDecide
           ? createElement(
               'button',
@@ -1016,6 +1031,71 @@ describe('with a session', () => {
       expect(within(plan).queryByRole('button', { name: 'Aktualisieren' })).toBeNull();
       // Nothing waits for someone who only reads.
       expect(screen.queryByRole('region', { name: 'Wartet auf dich' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('the roadmap (spec 26a)', () => {
+    const OPEN_URL = `/api/projects/${PROJECT.id}/roadmap/open`;
+    const FRAME_ID = '7c7c7c7c-7c7c-4c7c-8c7c-7c7c7c7c7c7c';
+
+    it('opens the board that shows the roadmap from the plan and brings it into view', async () => {
+      const api = stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({
+          body: { ...DETAILS, boards: [...DETAILS.boards, EXTRA_BOARD] },
+        }),
+        [`POST ${OPEN_URL}`]: () => ({ body: { boardId: EXTRA_BOARD.id, nodeId: FRAME_ID } }),
+      });
+      const router = renderApp(`/p/${PROJECT.id}?view=plan`);
+      const plan = await screen.findByTestId('plan-panel');
+
+      fireEvent.click(within(plan).getByRole('button', { name: 'Roadmap' }));
+
+      const canvas = await screen.findByTestId('canvas-panel');
+      expect(canvas).toHaveAttribute('data-board', EXTRA_BOARD.id);
+      expect(canvas).toHaveAttribute('data-focus', FRAME_ID);
+      expect(api).toHaveBeenCalledWith(OPEN_URL, expect.objectContaining({ method: 'POST' }));
+
+      // Once it is in view, the address forgets it, so a reload does not jump again.
+      fireEvent.click(within(canvas).getByRole('button', { name: 'Im Blick' }));
+      await waitFor(() => {
+        expect(canvas).toHaveAttribute('data-focus', '');
+      });
+      expect(router.state.location.search).toEqual({ board: EXTRA_BOARD.id });
+    });
+
+    it('stays on the main canvas when the roadmap is there', async () => {
+      stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+        [`POST ${OPEN_URL}`]: () => ({
+          status: 201,
+          body: { boardId: DETAILS.boards[0]?.id, nodeId: FRAME_ID },
+        }),
+      });
+      const router = renderApp(`/p/${PROJECT.id}?view=plan`);
+
+      fireEvent.click(
+        within(await screen.findByTestId('plan-panel')).getByRole('button', { name: 'Roadmap' }),
+      );
+
+      expect(await screen.findByTestId('canvas-panel')).toHaveAttribute('data-focus', FRAME_ID);
+      expect(router.state.location.search).toEqual({ focus: FRAME_ID });
+    });
+
+    it('tells viewers when there is no roadmap yet', async () => {
+      stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({ body: { ...DETAILS, role: 'viewer' } }),
+        [`POST ${OPEN_URL}`]: () => ({
+          status: 404,
+          body: { error: { code: 'not_found', message: 'Not found.' } },
+        }),
+      });
+      renderApp(`/p/${PROJECT.id}?view=plan`);
+      const plan = await screen.findByTestId('plan-panel');
+
+      fireEvent.click(within(plan).getByRole('button', { name: 'Roadmap' }));
+
+      expect(await within(plan).findByText('Es gibt noch keine Roadmap.')).toBeInTheDocument();
+      expect(screen.queryByTestId('canvas-panel')).not.toBeInTheDocument();
     });
   });
 

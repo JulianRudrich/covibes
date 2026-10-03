@@ -117,7 +117,11 @@ function SharedWorkspace({ token, project }: { token: string; project: SharedPro
           <div role="tabpanel" className="relative min-h-0 bg-bg-canvas">
             {board && content.data ? (
               <ReactFlowProvider key={board.id}>
-                <SharedBoardCanvas nodes={content.data.nodes} edges={content.data.edges} />
+                <SharedBoardCanvas
+                  nodes={content.data.nodes}
+                  edges={content.data.edges}
+                  roadmap={content.data.roadmap}
+                />
               </ReactFlowProvider>
             ) : (
               <div className="absolute inset-0 grid place-items-center p-6 text-center text-ui text-text-3">

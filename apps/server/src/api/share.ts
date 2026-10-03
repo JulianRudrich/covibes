@@ -3,8 +3,10 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { DB } from '@covibes/db';
 import {
   customAgentSummarySchema,
+  isRoadmap,
   NO_USER_ID,
   projectIdSchema,
+  readRoadmap,
   shareBoardInputSchema,
   shareViewInputSchema,
   type Author,
@@ -223,7 +225,7 @@ export function shareViewRoutes(db: AppDb, documents: BoardDocuments, limiter: R
     const board = await withShareLink(db, input.data.token, (trx) =>
       trx
         .selectFrom('boards')
-        .select('id')
+        .select(['id', 'project_id'])
         .where('id', '=', input.data.boardId)
         .where('project_id', '=', sql<string>`private.shared_project_id()`)
         .executeTakeFirst(),
@@ -231,9 +233,14 @@ export function shareViewRoutes(db: AppDb, documents: BoardDocuments, limiter: R
     if (!board) return apiError(c, 'not_found');
 
     const content = await documents.readBoard(board.id);
+    // A roadmap shows the plan's milestones (spec 26a); the board brings them along.
+    const roadmap = content.nodes.some(isRoadmap)
+      ? readRoadmap(await documents.readPlanSections(board.project_id))
+      : null;
     return c.json<SharedBoard>({
       nodes: content.nodes.map(withoutPeople),
       edges: content.edges.map(withoutPeople),
+      roadmap,
     });
   });
 

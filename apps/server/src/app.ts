@@ -25,6 +25,7 @@ import { notificationRoutes } from '@server/api/notifications';
 import { planRoutes } from '@server/api/plan';
 import { projectRoutes } from '@server/api/projects';
 import { proposalRoutes } from '@server/api/proposals';
+import { roadmapRoutes } from '@server/api/roadmap';
 import { runRoutes } from '@server/api/runs';
 import { SHARE_REQUESTS_PER_MINUTE, shareLinkRoutes, shareViewRoutes } from '@server/api/share';
 import { AUTH_BASE_PATH, gitlabLoginEnabled, type Auth } from '@server/auth/auth';
@@ -156,6 +157,7 @@ export function createApp({
   app.route('/api/projects/:projectId/decisions', decisionRoutes(db.app, auth));
   app.route('/api/projects/:projectId/away', awayRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/plan', planRoutes(db.app, auth, documents));
+  app.route('/api/projects/:projectId/roadmap', roadmapRoutes(db.app, auth, documents));
   const invitationMailLimiter = createRateLimiter({
     limit: INVITATION_MAILS_PER_HOUR,
     windowMs: 60 * 60_000,

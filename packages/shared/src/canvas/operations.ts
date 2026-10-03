@@ -18,6 +18,7 @@ import {
   placeNodes,
   positionSchema,
   resizeFrame,
+  ROADMAP_DIAGRAM,
   updateNode,
   updateNodeInputSchema,
   type Author,
@@ -66,6 +67,19 @@ function isFrame(doc: Y.Doc, id: string | null): id is string {
   return id !== null && getNodesMap(doc).get(id)?.get('type') === 'frame';
 }
 
+function hasRoadmap(doc: Y.Doc): boolean {
+  for (const fields of getNodesMap(doc).values()) {
+    if (fields.get('type') === 'frame' && fields.get('diagramType') === ROADMAP_DIAGRAM)
+      return true;
+  }
+  return false;
+}
+
+/** A frame that takes blocks: any frame but a roadmap (spec 26a). */
+function takesBlocks(doc: Y.Doc, id: string | null): id is string {
+  return isFrame(doc, id) && getNodesMap(doc).get(id)?.get('diagramType') !== ROADMAP_DIAGRAM;
+}
+
 /** Applies one operation; false if it no longer fits the canvas. */
 function applyOne(doc: Y.Doc, operation: CanvasOperation, author: Author): boolean {
   const nodes = getNodesMap(doc);
@@ -75,7 +89,7 @@ function applyOne(doc: Y.Doc, operation: CanvasOperation, author: Author): boole
       if (nodes.has(block.id)) return false;
       addBlock(
         doc,
-        { ...block, frameId: isFrame(doc, block.frameId) ? block.frameId : null },
+        { ...block, frameId: takesBlocks(doc, block.frameId) ? block.frameId : null },
         author,
       );
       return true;
@@ -86,6 +100,8 @@ function applyOne(doc: Y.Doc, operation: CanvasOperation, author: Author): boole
       return true;
     case 'add_frame':
       if (nodes.has(operation.frame.id)) return false;
+      // A board shows the roadmap once, also when a proposal for it is applied late (spec 26a).
+      if (operation.frame.diagramType === ROADMAP_DIAGRAM && hasRoadmap(doc)) return false;
       addFrame(doc, operation.frame, author);
       placeNodes(
         doc,

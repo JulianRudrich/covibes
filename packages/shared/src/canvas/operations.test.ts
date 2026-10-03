@@ -126,6 +126,80 @@ describe('applyOperations', () => {
   });
 });
 
+describe('applyOperations with a roadmap (spec 26a)', () => {
+  it('adds a roadmap with its size, and a block meant for it stays free', () => {
+    const doc = new Y.Doc();
+    const roadmap = '7a7a7a7a-7a7a-4a7a-8a7a-7a7a7a7a7a7a';
+    const block = '7b7b7b7b-7b7b-4b7b-8b7b-7b7b7b7b7b7b';
+
+    const result = applyOperations(
+      doc,
+      [
+        {
+          op: 'add_frame',
+          frame: {
+            id: roadmap,
+            position: { x: 0, y: 0 },
+            title: 'Roadmap',
+            diagramType: 'roadmap',
+            size: { width: 960, height: 420 },
+          },
+        },
+        {
+          op: 'add_block',
+          block: { id: block, position: { x: 40, y: 80 }, label: 'Login', frameId: roadmap },
+        },
+      ],
+      { kind: 'agent', agentKey: 'moderator' },
+    );
+
+    expect(result).toEqual({ applied: 2, skipped: 0 });
+    const nodes = readNodes(doc);
+    expect(nodes.find((node) => node.id === roadmap)).toMatchObject({
+      diagramType: 'roadmap',
+      size: { width: 960, height: 420 },
+    });
+    expect(nodes.find((node) => node.id === block)?.frameId).toBeNull();
+  });
+
+  it('adds no second roadmap, e.g. when a proposal for one is applied late', () => {
+    const doc = new Y.Doc();
+    const roadmap = (id: string) => ({
+      op: 'add_frame' as const,
+      frame: {
+        id,
+        position: { x: 0, y: 0 },
+        title: 'Roadmap',
+        diagramType: 'roadmap' as const,
+        size: { width: 960, height: 420 },
+      },
+    });
+    const author: Author = { kind: 'agent', agentKey: 'moderator' };
+    applyOperations(doc, [roadmap('7a7a7a7a-7a7a-4a7a-8a7a-7a7a7a7a7a7a')], author);
+
+    const result = applyOperations(
+      doc,
+      [
+        roadmap('7c7c7c7c-7c7c-4c7c-8c7c-7c7c7c7c7c7c'),
+        // Another frame still comes.
+        {
+          op: 'add_frame',
+          frame: {
+            id: '7d7d7d7d-7d7d-4d7d-8d7d-7d7d7d7d7d7d',
+            position: { x: 0, y: 600 },
+            title: 'Ablauf',
+            diagramType: 'flow',
+          },
+        },
+      ],
+      author,
+    );
+
+    expect(result).toEqual({ applied: 1, skipped: 1 });
+    expect(readNodes(doc).filter((node) => node.diagramType === 'roadmap')).toHaveLength(1);
+  });
+});
+
 describe('withOperations', () => {
   it('shows the canvas with operations applied and leaves the board alone', () => {
     const doc = boardWithApi();

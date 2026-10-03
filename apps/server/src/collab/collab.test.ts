@@ -8,7 +8,11 @@ import {
   nodeLocks,
   PLAN_FIELD,
   planDocumentName,
+  planNodesFromMarkdown,
+  planNodesToMarkdown,
+  planToMarkdown,
   readNodes,
+  writePlanSection,
   type Author,
   type ProjectBoard,
   type ProjectDetails,
@@ -21,7 +25,7 @@ import {
   WebSocketStatus,
 } from '@hocuspocus/provider';
 import type { Hono } from 'hono';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import WebSocket from 'ws';
 import * as Y from 'yjs';
 
@@ -558,5 +562,87 @@ describe('the plan of a project (spec 25a)', () => {
         working.provider.configuration.websocketProvider.status === WebSocketStatus.Disconnected,
     );
     expect(await plan(projectId, editor).result).toBe('denied');
+  });
+});
+
+describe('reading and following the plan (spec 26a)', () => {
+  const moderator: Author = { kind: 'agent', agentKey: 'moderator' };
+  const milestonesOf = async (projectId: string) =>
+    planNodesToMarkdown((await collab.readPlanSections(projectId)).milestones ?? []);
+
+  function writeMilestones(doc: Y.Doc, markdown: string) {
+    writePlanSection(doc, 'milestones', planNodesFromMarkdown(markdown), 'de');
+  }
+
+  it('reads the sections of the stored plan without opening it', async () => {
+    const owner = await test.signIn();
+    const { projectId } = await projectWithBoard(owner);
+    expect(await collab.readPlanSections(projectId)).toEqual({});
+
+    await collab.changePlan(projectId, (doc) => {
+      writeMilestones(doc, '### Meilenstein 1: Grundgerüst (2 Wochen)');
+    });
+
+    expect(await milestonesOf(projectId)).toBe('### Meilenstein 1: Grundgerüst (2 Wochen)');
+    expect(collab.hocuspocus.documents.has(planDocumentName(projectId))).toBe(false);
+  });
+
+  it('reads what people write right now while they have the plan open', async () => {
+    const owner = await test.signIn();
+    const { projectId } = await projectWithBoard(owner);
+    const writing = connectTo(planDocumentName(projectId), owner);
+    expect(await writing.result).toBe('ok');
+
+    writeMilestones(writing.doc, '### Meilenstein 1: Gerade geschrieben');
+    await until(() => writing.provider.unsyncedChanges === 0);
+
+    expect(await milestonesOf(projectId)).toBe('### Meilenstein 1: Gerade geschrieben');
+  });
+
+  it('tells who follows the plan once it is stored, and stores it even when that fails', async () => {
+    const owner = await test.signIn();
+    const { projectId, boardId } = await projectWithBoard(owner);
+    const seen: { projectId: string; plan: string }[] = [];
+    const following = createCollab({
+      db: test.db,
+      auth: test.auth,
+      onPlanStored: (storedProjectId, doc) => {
+        seen.push({ projectId: storedProjectId, plan: planToMarkdown(doc) });
+      },
+    });
+    try {
+      await following.changePlan(projectId, (doc) => {
+        writeMilestones(doc, '### Meilenstein 1: Grundgerüst');
+      });
+      expect(seen).toEqual([
+        { projectId, plan: expect.stringContaining('### Meilenstein 1: Grundgerüst') as unknown },
+      ]);
+      // A board is no plan.
+      await following.changeBoard({ boardId, projectId }, (doc) => {
+        addBlock(doc, { id: randomUUID(), position: { x: 0, y: 0 }, label: 'API' }, moderator);
+      });
+      expect(seen).toHaveLength(1);
+    } finally {
+      await following.close();
+    }
+
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const failing = createCollab({
+      db: test.db,
+      auth: test.auth,
+      onPlanStored: () => {
+        throw new Error('The announcement failed');
+      },
+    });
+    try {
+      await failing.changePlan(projectId, (doc) => {
+        writeMilestones(doc, '### Meilenstein 1: Trotzdem gespeichert');
+      });
+      expect(errors).toHaveBeenCalledWith('Following a stored plan failed', expect.any(Error));
+    } finally {
+      errors.mockRestore();
+      await failing.close();
+    }
+    expect(await milestonesOf(projectId)).toBe('### Meilenstein 1: Trotzdem gespeichert');
   });
 });

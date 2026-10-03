@@ -1,6 +1,6 @@
 import '@xyflow/react/dist/base.css';
 
-import { GRID_SIZE, type SharedBoard } from '@covibes/shared';
+import { GRID_SIZE, roadmapLayout, type SharedBoard } from '@covibes/shared';
 import {
   applyNodeChanges,
   Background,
@@ -19,6 +19,7 @@ import { CanvasActionsProvider, type CanvasActions } from '@web/features/canvas/
 import { ArrowMarkers, CanvasArrow } from '@web/features/canvas/canvas-arrow';
 import { CanvasToolbar } from '@web/features/canvas/canvas-toolbar';
 import {
+  sizeRoadmaps,
   toFlowEdges,
   toFlowNodes,
   type CanvasFlowNode,
@@ -28,6 +29,7 @@ import { FrameNode } from '@web/features/canvas/frame-node';
 import { NoteNode } from '@web/features/canvas/note-node';
 import { edgesWithGeometry, nodeRects } from '@web/features/canvas/shown-edges';
 import { ZOOM_MAX, ZOOM_MIN } from '@web/features/canvas/zoom';
+import { RoadmapProvider, type RoadmapSource } from '@web/features/roadmap/roadmap-context';
 
 const nodeTypes: NodeTypes = { block: BlockNode, sticky: NoteNode, frame: FrameNode };
 const edgeTypes: EdgeTypes = { arrow: CanvasArrow };
@@ -40,14 +42,20 @@ const nothing = () => undefined;
 /**
  * A board in the read-only view (spec 21b): the same blocks, notes, frames and arrows as on the
  * live canvas, from a snapshot instead of a connection. Visitors move the view and zoom; nothing
- * can be selected, moved or changed. Agents keep their names, people are "Teammitglied".
+ * can be selected, moved or changed. Agents keep their names, people are "Teammitglied". A
+ * roadmap shows the one of the snapshot (spec 26a).
  */
-export function SharedBoardCanvas({ nodes, edges }: SharedBoard) {
+export function SharedBoardCanvas({ nodes, edges, roadmap }: SharedBoard) {
   const { t } = useTranslation();
   const agents = useAgents();
-  const [flowNodes, setFlowNodes] = useState<CanvasFlowNode[]>(() =>
+  const [measuredNodes, setFlowNodes] = useState<CanvasFlowNode[]>(() =>
     toFlowNodes(nodes, [], NO_LOCKS),
   );
+  const flowNodes = useMemo(
+    () => sizeRoadmaps(measuredNodes, roadmap ? roadmapLayout(roadmap).size : null),
+    [measuredNodes, roadmap],
+  );
+  const roadmapSource = useMemo<RoadmapSource>(() => ({ projectId: null, roadmap }), [roadmap]);
   // A newer snapshot keeps what the canvas measured of the elements that stayed.
   useEffect(() => {
     setFlowNodes((previous) => toFlowNodes(nodes, previous, NO_LOCKS));
@@ -88,39 +96,41 @@ export function SharedBoardCanvas({ nodes, edges }: SharedBoard) {
 
   return (
     <CanvasActionsProvider value={actions}>
-      <ArrowMarkers />
-      <ReactFlow
-        nodes={flowNodes}
-        edges={flowEdges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        onNodesChange={onNodesChange}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        nodesFocusable={false}
-        edgesFocusable={false}
-        elementsSelectable={false}
-        deleteKeyCode={null}
-        minZoom={ZOOM_MIN}
-        maxZoom={ZOOM_MAX}
-        fitView
-        fitViewOptions={{ maxZoom: 1, padding: 0.12 }}
-      >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={GRID_SIZE}
-          size={2}
-          color="var(--color-canvas-dot)"
-          bgColor="var(--color-bg-canvas)"
-        />
-        <CanvasToolbar
-          tool={null}
-          onToolChange={nothing}
-          onAutoLayout={nothing}
-          layoutBusy={false}
-          readOnly
-        />
-      </ReactFlow>
+      <RoadmapProvider value={roadmapSource}>
+        <ArrowMarkers />
+        <ReactFlow
+          nodes={flowNodes}
+          edges={flowEdges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onNodesChange={onNodesChange}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          nodesFocusable={false}
+          edgesFocusable={false}
+          elementsSelectable={false}
+          deleteKeyCode={null}
+          minZoom={ZOOM_MIN}
+          maxZoom={ZOOM_MAX}
+          fitView
+          fitViewOptions={{ maxZoom: 1, padding: 0.12 }}
+        >
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={GRID_SIZE}
+            size={2}
+            color="var(--color-canvas-dot)"
+            bgColor="var(--color-bg-canvas)"
+          />
+          <CanvasToolbar
+            tool={null}
+            onToolChange={nothing}
+            onAutoLayout={nothing}
+            layoutBusy={false}
+            readOnly
+          />
+        </ReactFlow>
+      </RoadmapProvider>
     </CanvasActionsProvider>
   );
 }

@@ -141,7 +141,10 @@ During development Vite forwards `/api` to the server. Web app and API therefore
 - Texts of the plan are compared by line (`packages/shared`, `plan-diff.ts`): what a suggestion changes in its section, and what differs between versions.
 - `plan_versions` keeps the plan as it stood before the first suggestion of a run is accepted, and as it stands once the suggestions of a run are all decided. Both are written in the transaction that writes the plan. Versions are read and compared, not restored.
 - Every agent's context holds the plan as Markdown, read from what the collaboration server last stored.
-- The roadmap is derived from the plan's milestones. The plan is the source.
+- The roadmap is derived from the plan's milestones (spec 26a). The plan is the source:
+  - `packages/shared` (`plan-roadmap.ts`) reads the milestones, their times, goals and tasks from the sections of the plan, without a model call, and lays the roadmap out with fixed measures, so web app and server size it alike.
+  - On the canvas the roadmap is a frame of the kind `roadmap`. It stores nothing of the plan; it shows what `GET /roadmap` reads from the plan (the live document if it is open, else the stored one).
+  - When a stored plan changes what its roadmap shows, the collaboration server announces `roadmap` on the live channel, and the canvas loads it again.
 
 ### Agents
 - **Definition format, the same for catalog agents and custom agents:**
@@ -243,7 +246,7 @@ Y.Doc "board:{boardId}"
                                   lastChangedBy, lastChangedAt
 ```
 
-The diagram type lives on its frame (spec 12), not in a separate `meta` map, so it moves, disappears and is undone together with the frame. Auto-layout with its presets per diagram type is shared code in `packages/shared`, used by the web app and by the worker for agents.
+The diagram type lives on its frame (spec 12), not in a separate `meta` map, so it moves, disappears and is undone together with the frame. A frame of the kind `roadmap` (spec 26a) holds no members and keeps its kind; its size follows the plan and is written by the clients of owners and editors as nobody's change (`fitRoadmap`, not undone). Auto-layout with its presets per diagram type is shared code in `packages/shared`, used by the web app and by the worker for agents.
 
 ## Data model (Postgres, first version)
 

@@ -1,4 +1,12 @@
-import type { Author, CanvasEdge, CanvasNode, EntityField, NodeLock, Size } from '@covibes/shared';
+import {
+  ROADMAP_DIAGRAM,
+  type Author,
+  type CanvasEdge,
+  type CanvasNode,
+  type EntityField,
+  type NodeLock,
+  type Size,
+} from '@covibes/shared';
 import type { Edge, Node } from '@xyflow/react';
 
 import type { ArrowGeometry } from '@web/features/canvas/arrow-geometry';
@@ -186,6 +194,21 @@ export function toFlowNodes(
     if (local.measured !== undefined) flowNode.measured = local.measured;
     return flowNode;
   });
+}
+
+/**
+ * Roadmaps take the size of their content (spec 26a), also while the stored size still lags behind
+ * the plan, e.g. for viewers, who never write it.
+ */
+export function sizeRoadmaps(nodes: CanvasFlowNode[], size: Size | null): CanvasFlowNode[] {
+  if (!size) return nodes;
+  return nodes.map((node) =>
+    node.type === 'frame' &&
+    node.data.diagramType === ROADMAP_DIAGRAM &&
+    (node.width !== size.width || node.height !== size.height)
+      ? { ...node, width: size.width, height: size.height }
+      : node,
+  );
 }
 
 /**

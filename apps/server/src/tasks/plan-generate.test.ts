@@ -168,6 +168,8 @@ describe('generating the plan', () => {
     const asked = complete.mock.calls[0]?.[0];
     expect(asked?.model).toBe('claude-opus-5-5');
     expect(asked?.system).toContain('The team asked you to write its project plan');
+    // The roadmap reads the time of a milestone from its heading (spec 26a).
+    expect(asked?.system).toContain('"### Meilenstein 1: Name (3 Wochen)"');
     const prompt = asked?.prompt ?? '';
     expect(prompt).toContain('Project: Vereins-App');
     expect(prompt).toContain('Write in: German');
@@ -416,6 +418,9 @@ describe('updating the plan (spec 25c)', () => {
 
     const asked = complete.mock.calls[0]?.[0];
     expect(asked?.system).toContain('You bring the plan up to date');
+    expect(asked?.system).toContain(
+      'Milestone headings keep this form, including the time in parentheses',
+    );
     const prompt = asked?.prompt ?? '';
     expect(prompt).toContain(
       [

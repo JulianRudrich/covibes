@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
-import { addBlock, addEdge, addFrame, readNodes, type CanvasNode } from '@covibes/shared';
+import {
+  addBlock,
+  addEdge,
+  addFrame,
+  readNodes,
+  ROADMAP_DIAGRAM,
+  type CanvasNode,
+} from '@covibes/shared';
 import type * as Y from 'yjs';
 import { describe, expect, it } from 'vitest';
 
@@ -206,5 +213,27 @@ describe('diagram types for agents', () => {
     await expect(arrange.run({ frameId: randomUUID() })).rejects.toThrow(
       'There is no frame with the id',
     );
+  });
+
+  it('leaves a roadmap as it is, since it arranges itself', async () => {
+    const { board, arrange } = setup();
+    const frameId = randomUUID();
+    const size = { width: 900, height: 320 };
+    addFrame(
+      board,
+      {
+        id: frameId,
+        position: { x: 0, y: 0 },
+        title: 'Roadmap',
+        diagramType: ROADMAP_DIAGRAM,
+        size,
+      },
+      OLGA,
+    );
+
+    expect(await arrange.run({ frameId })).toBe(
+      'The frame "Roadmap" is the roadmap: it arranges itself from the plan, so there was nothing to arrange.',
+    );
+    expect(nodeOf(board, frameId)).toMatchObject({ size, lastChangedBy: OLGA });
   });
 });

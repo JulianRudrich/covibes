@@ -2,11 +2,16 @@ import { randomUUID } from 'node:crypto';
 
 import {
   addBlock,
+  addFrame,
   addNote,
   boardDocumentName,
   NO_USER_ID,
+  planNodesFromMarkdown,
+  ROADMAP_DIAGRAM,
+  writePlanSection,
   type ApiErrorBody,
   type CreatedShareLink,
+  type ProjectBoard,
   type ProjectDetails,
   type ProjectSummary,
   type SharedBoard,
@@ -251,6 +256,7 @@ describe('the read-only view', () => {
     expect((await (await board(token, boardId)).json()) as SharedBoard).toEqual({
       nodes: [],
       edges: [],
+      roadmap: null,
     });
 
     const working = await test.collab.hocuspocus.openDirectConnection(boardDocumentName(boardId), {
@@ -272,6 +278,59 @@ describe('the read-only view', () => {
     } finally {
       await working.disconnect();
     }
+  });
+
+  it('brings the roadmap of the plan along with a board that shows it (spec 26a)', async () => {
+    const owner = await test.signIn();
+    const { id: ownerId } = await userOf(owner);
+    const { projectId, boardId } = await createProject(owner);
+    const extra = await request(`/api/projects/${projectId}/boards`, owner, {
+      method: 'POST',
+      body: JSON.stringify({ title: 'Ablauf' }),
+    });
+    const other = (await extra.json()) as ProjectBoard;
+    await test.collab.changePlan(projectId, (doc) => {
+      writePlanSection(
+        doc,
+        'milestones',
+        planNodesFromMarkdown(
+          '### Meilenstein 1: Grundgerüst (2 Wochen)\n\nDie App läuft.\n\n- Login',
+        ),
+        'de',
+      );
+    });
+    const roadmapId = randomUUID();
+    await test.collab.changeBoard({ boardId, projectId }, (doc) => {
+      addFrame(
+        doc,
+        {
+          id: roadmapId,
+          position: { x: 0, y: 0 },
+          title: 'Roadmap',
+          diagramType: ROADMAP_DIAGRAM,
+          size: { width: 600, height: 300 },
+        },
+        { kind: 'human', userId: ownerId },
+      );
+    });
+    const { token } = await createLink(owner, projectId);
+
+    const content = (await (await board(token, boardId)).json()) as SharedBoard;
+
+    expect(content.nodes).toMatchObject([{ id: roadmapId, diagramType: ROADMAP_DIAGRAM }]);
+    expect(content.roadmap).toEqual({
+      milestones: [
+        {
+          number: 1,
+          title: 'Grundgerüst',
+          goal: 'Die App läuft.',
+          duration: { text: '2 Wochen', weeks: 2 },
+          tasks: [{ text: 'Login' }],
+        },
+      ],
+    });
+    // A board without a roadmap does not carry the plan.
+    expect(((await (await board(token, other.id)).json()) as SharedBoard).roadmap).toBeNull();
   });
 
   it('shows nothing with a wrong link, and no board of another project', async () => {

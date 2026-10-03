@@ -24,7 +24,8 @@ Stay with the project
 
 How to write
 - A plan, not a chat message: no greeting, no address to the team, no remarks about yourself or about what you changed.
-- Keep the form of the section as it stands: its paragraphs, lists and headings. In the milestones a milestone is a heading of the form "### Meilenstein 1: Name" (in English "### Milestone 1: Name"), then one sentence, then the list of its tasks.
+- Keep the form of the section as it stands: its paragraphs, lists and headings. In the milestones a milestone is a heading of the form "### Meilenstein 1: Name (3 Wochen)" (in English "### Milestone 1: Name (3 weeks)"), then one sentence, then the list of its tasks.
+- Milestone headings keep this form, including the time in parentheses: the estimate that the section costs gives for that milestone. When an estimate changes, change the time in the heading with it.
 - Inside a section use plain paragraphs, lists with "- ", numbered lists with "1. ", headings with "### " and bold with two stars, sparingly. No tables, no code blocks, no links, no headings for the sections themselves.
 
 Answer

@@ -9,9 +9,12 @@ import {
   projectIdFromPlanDocumentName,
   readEdges,
   readNodes,
+  readPlanSections as planSectionsOf,
   type CanvasEdge,
   type CanvasNode,
   type NodeLock,
+  type PlanNode,
+  type PlanSection,
   type ProjectRole,
 } from '@covibes/shared';
 import { Database } from '@hocuspocus/extension-database';
@@ -36,6 +39,8 @@ type CollabDeps = {
   auth: Auth;
   /** Shared secret of the worker (spec 07). Unset, no connection gets service access. */
   internalToken?: string;
+  /** Called with the document after the plan of a project was stored (spec 26a: the roadmap). */
+  onPlanStored?: (projectId: string, doc: Y.Doc) => void;
 };
 
 /**
@@ -62,7 +67,7 @@ function toUint8Array(data: RawData): Uint8Array {
  * the document's project; viewers only read. The worker connects with the internal token to draw
  * for agents.
  */
-export function createCollab({ db, auth, internalToken }: CollabDeps) {
+export function createCollab({ db, auth, internalToken, onPlanStored }: CollabDeps) {
   const pendingStores = new Set<Promise<unknown>>();
   // Documents of deleted boards. Hocuspocus still stores a document after its last connection
   // closed; for these it must not, or the deleted canvas would come back.
@@ -140,7 +145,7 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
           );
           return rows[0] ? new Uint8Array(rows[0].state) : null;
         },
-        store: async ({ documentName, state }) => {
+        store: async ({ documentName, state, document }) => {
           if (deletedDocuments.has(documentName)) return;
           const stored = db.adminPool.query(
             `insert into yjs_documents (name, state, updated_at) values ($1, $2, now())
@@ -152,6 +157,15 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
             await stored;
           } finally {
             pendingStores.delete(stored);
+          }
+
+          const planOf = projectIdFromPlanDocumentName(documentName);
+          if (!planOf || !onPlanStored) return;
+          // The plan is stored; whatever follows from it must not make the store count as failed.
+          try {
+            onPlanStored(planOf, document);
+          } catch (error) {
+            console.error('Following a stored plan failed', error);
           }
         },
       }),
@@ -247,14 +261,12 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
   }
 
   /**
-   * What is on a board right now, without connecting to it (spec 21b: the read-only view). The
-   * live document if people have it open, else the stored one; nothing is loaded into the server
-   * and nothing is written.
+   * Reads a document as it is right now, without connecting to it: the live document if people
+   * have it open, else the stored one; nothing is loaded into the server and nothing is written.
    */
-  async function readBoard(boardId: string): Promise<{ nodes: CanvasNode[]; edges: CanvasEdge[] }> {
-    const documentName = boardDocumentName(boardId);
+  async function readDocument<T>(documentName: string, read: (doc: Y.Doc) => T): Promise<T> {
     const live = hocuspocus.documents.get(documentName);
-    if (live && !live.isLoading) return { nodes: readNodes(live), edges: readEdges(live) };
+    if (live && !live.isLoading) return read(live);
     const { rows } = await db.adminPool.query<{ state: Buffer }>(
       'select state from yjs_documents where name = $1',
       [documentName],
@@ -262,10 +274,23 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
     const stored = new Y.Doc();
     try {
       if (rows[0]) Y.applyUpdate(stored, new Uint8Array(rows[0].state));
-      return { nodes: readNodes(stored), edges: readEdges(stored) };
+      return read(stored);
     } finally {
       stored.destroy();
     }
+  }
+
+  /** What is on a board right now (spec 21b: the read-only view). */
+  function readBoard(boardId: string): Promise<{ nodes: CanvasNode[]; edges: CanvasEdge[] }> {
+    return readDocument(boardDocumentName(boardId), (doc) => ({
+      nodes: readNodes(doc),
+      edges: readEdges(doc),
+    }));
+  }
+
+  /** What the sections of a project's plan hold right now (spec 26a: the roadmap). */
+  function readPlanSections(projectId: string): Promise<Partial<Record<PlanSection, PlanNode[]>>> {
+    return readDocument(planDocumentName(projectId), planSectionsOf);
   }
 
   /** Closes all connections and waits until every document is stored. */
@@ -291,6 +316,7 @@ export function createCollab({ db, auth, internalToken }: CollabDeps) {
     changeBoard,
     changePlan,
     readBoard,
+    readPlanSections,
     closeUser,
     close,
   };
@@ -301,5 +327,5 @@ export type Collab = ReturnType<typeof createCollab>;
 /** What the API needs from the collaboration server. */
 export type BoardDocuments = Pick<
   Collab,
-  'deleteBoard' | 'changeBoard' | 'changePlan' | 'readBoard'
+  'deleteBoard' | 'changeBoard' | 'changePlan' | 'readBoard' | 'readPlanSections'
 >;

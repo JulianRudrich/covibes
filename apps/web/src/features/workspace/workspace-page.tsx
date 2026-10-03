@@ -28,6 +28,8 @@ import {
 } from '@web/features/proposals/queries';
 import { waitingCount } from '@web/features/proposals/waiting-count';
 import { WaitingForYou } from '@web/features/proposals/waiting-for-you';
+import { useOpenRoadmap } from '@web/features/roadmap/queries';
+import { RoadmapProvider, type RoadmapSource } from '@web/features/roadmap/roadmap-context';
 import { ProjectShare } from '@web/features/share/project-share';
 import { ProjectTeam } from '@web/features/team/project-team';
 import { useAskNextStep } from '@web/features/workspace/use-ask-next-step';
@@ -107,7 +109,7 @@ function useNotice() {
 function Workspace({ project, user }: { project: ProjectDetails; user: SessionUser | null }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { board: requested, view } = route.useSearch();
+  const { board: requested, view, focus } = route.useSearch();
   // The project plan takes the place of the canvas while it is open (spec 25a).
   const planOpen = view === 'plan';
   const { notice, show: showNotice } = useNotice();
@@ -145,6 +147,44 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
         search: { view: 'plan' },
       }),
     [navigate, project.id],
+  );
+
+  // "Roadmap" in the plan (spec 26a) opens the board that shows it and brings it into view; for
+  // owners and editors the server adds one when there is none.
+  const roadmapOpening = useOpenRoadmap(project.id);
+  const openRoadmap = useCallback(() => {
+    roadmapOpening.mutate(undefined, {
+      onSuccess: (place) =>
+        void navigate({
+          to: '/p/$projectId',
+          params: { projectId: project.id },
+          search:
+            place.boardId === mainBoardId(project)
+              ? { focus: place.nodeId }
+              : { board: place.boardId, focus: place.nodeId },
+        }),
+      onError: (error) => {
+        showNotice(
+          error instanceof ApiError && error.code === 'not_found'
+            ? t('roadmap.none')
+            : t('plan.actionFailed'),
+        );
+      },
+    });
+  }, [roadmapOpening, navigate, project, showNotice, t]);
+  const clearFocus = useCallback(
+    () =>
+      void navigate({
+        to: '/p/$projectId',
+        params: { projectId: project.id },
+        search: (previous) => ({ ...previous, focus: undefined }),
+        replace: true,
+      }),
+    [navigate, project.id],
+  );
+  const roadmapSource = useMemo<RoadmapSource>(
+    () => ({ projectId: project.id, onOpenPlan: () => void openPlan() }),
+    [project.id, openPlan],
   );
 
   // A board that disappears while it is open was deleted by someone else; unknown boards in the
@@ -348,19 +388,25 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                 onGenerate={readOnly ? undefined : planActions.generate}
                 onDecide={readOnly ? undefined : planActions.decide}
                 onUpdate={readOnly ? undefined : planActions.update}
+                onOpenRoadmap={openRoadmap}
+                roadmapBusy={roadmapOpening.isPending}
               />
             ) : (
-              <CanvasPanel
-                boardId={activeBoard.id}
-                tabs={boardTabs(activeBoard.id)}
-                notice={notice}
-                user={{ id: user.id, name: user.name }}
-                members={project.members}
-                readOnly={readOnly}
-                proposals={proposals}
-                onDecide={decide}
-                canAdoptVariants={canConfirmDecisions}
-              />
+              <RoadmapProvider value={roadmapSource}>
+                <CanvasPanel
+                  boardId={activeBoard.id}
+                  tabs={boardTabs(activeBoard.id)}
+                  notice={notice}
+                  user={{ id: user.id, name: user.name }}
+                  members={project.members}
+                  readOnly={readOnly}
+                  proposals={proposals}
+                  onDecide={decide}
+                  canAdoptVariants={canConfirmDecisions}
+                  focusId={focus}
+                  onFocused={clearFocus}
+                />
+              </RoadmapProvider>
             )
           ) : null
         }

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { addBlock, readNodes, type CanvasNode } from '@covibes/shared';
+import { addBlock, addFrame, readNodes, ROADMAP_DIAGRAM, type CanvasNode } from '@covibes/shared';
 import { describe, expect, it } from 'vitest';
 
 import { memoryBoards } from '@server/test-boards';
@@ -73,6 +73,21 @@ describe('add_block', () => {
       expect(Math.abs(node.position.x - 400)).toBeLessThanOrEqual(400);
       expect(Math.abs(node.position.y - 400)).toBeLessThanOrEqual(240);
     }
+  });
+
+  it('puts no block into a roadmap and tells the model why', async () => {
+    const { doc, tool } = setup();
+    const frameId = randomUUID();
+    addFrame(
+      doc,
+      { id: frameId, position: { x: 0, y: 0 }, title: 'Roadmap', diagramType: ROADMAP_DIAGRAM },
+      { kind: 'human', userId: randomUUID() },
+    );
+
+    await expect(tool.run({ title: 'Login', frameId })).rejects.toThrow(
+      "A roadmap holds no blocks; it shows the plan's milestones by itself.",
+    );
+    expect(readNodes(doc).map((node) => node.type)).toEqual(['frame']);
   });
 
   it('rejects input the schema does not allow', async () => {

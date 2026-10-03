@@ -1,4 +1,4 @@
-import { computeLayout, layoutPreset, readEdges, readNodes } from '@covibes/shared';
+import { computeLayout, isRoadmap, layoutPreset, readEdges, readNodes } from '@covibes/shared';
 import Elk from 'elkjs/lib/elk.bundled.js';
 import type { ELK } from 'elkjs/lib/elk-api';
 import { z } from 'zod';
@@ -31,6 +31,13 @@ export function arrangeFrameTool(options: CanvasToolOptions): AgentTool {
         const nodes = readNodes(view);
         const frame = nodes.find((node) => node.id === frameId && node.type === 'frame');
         if (!frame) throw new Error(`There is no frame with the id ${frameId}.`);
+        if (isRoadmap(frame)) {
+          return {
+            operations: [],
+            done: `The frame "${frame.label}" is the roadmap: it arranges itself from the plan, so there was nothing to arrange.`,
+            proposed: '',
+          };
+        }
 
         const layout = await computeLayout(layoutEngine(), nodes, readEdges(view), frameId);
         if (layout.positions.size === 0) {

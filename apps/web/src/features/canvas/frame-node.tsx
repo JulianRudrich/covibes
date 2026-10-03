@@ -1,4 +1,4 @@
-import { FRAME_MIN_SIZE, isDiagramType } from '@covibes/shared';
+import { FRAME_MIN_SIZE, isDiagramType, ROADMAP_DIAGRAM } from '@covibes/shared';
 import { NodeResizer, type NodeProps } from '@xyflow/react';
 import { Check } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
@@ -18,13 +18,15 @@ import type { FrameFlowNode } from '@web/features/canvas/flow-mapping';
 import { useFocusOnMount, useInPlaceEditing } from '@web/features/canvas/in-place-editing';
 import { EditCaret, JustDrawnPill, LockPill } from '@web/features/canvas/node-chrome';
 import { useJustDrawnBy } from '@web/features/canvas/use-just-drawn';
+import { RoadmapFrameContent, RoadmapSummary } from '@web/features/roadmap/roadmap-content';
 import { cn } from '@web/lib/cn';
 import { aiRing } from '@web/lib/styles';
 
 /**
  * A frame, a labeled area that holds a diagram (spec 09, handoff "Frame 'Architecture'"). It lies
  * below everything else; a selected frame can be resized at its corners. Its header shows the
- * diagram type, which the icon of a selected frame changes (spec 12).
+ * diagram type, which the icon of a selected frame changes (spec 12). A roadmap (spec 26a) shows
+ * the plan's milestones instead of blocks; its size and type follow from the plan.
  */
 export function FrameNode({ id, data, selected }: NodeProps<FrameFlowNode>) {
   const { t } = useTranslation();
@@ -36,6 +38,7 @@ export function FrameNode({ id, data, selected }: NodeProps<FrameFlowNode>) {
   const editing = actions.editingId === id;
   const canChange = !actions.readOnly && !lockedBy;
   const Icon = diagramIcon(data.diagramType);
+  const isRoadmap = data.diagramType === ROADMAP_DIAGRAM;
   const count = t('canvas.blockCount', { count: data.blockCount });
 
   return (
@@ -52,7 +55,7 @@ export function FrameNode({ id, data, selected }: NodeProps<FrameFlowNode>) {
       style={agent ? { boxShadow: aiRing(agent) } : undefined}
     >
       <NodeResizer
-        isVisible={selected && canChange && !editing}
+        isVisible={selected && canChange && !editing && !isRoadmap}
         minWidth={FRAME_MIN_SIZE.width}
         minHeight={FRAME_MIN_SIZE.height}
         onResizeStart={() => {
@@ -73,7 +76,7 @@ export function FrameNode({ id, data, selected }: NodeProps<FrameFlowNode>) {
         <DiagramMenu
           id={id}
           diagramType={data.diagramType}
-          enabled={selected && canChange && !editing}
+          enabled={selected && canChange && !editing && !isRoadmap}
         >
           <Icon size={14} strokeWidth={2} className="shrink-0 text-text-2b" aria-hidden="true" />
         </DiagramMenu>
@@ -86,11 +89,16 @@ export function FrameNode({ id, data, selected }: NodeProps<FrameFlowNode>) {
           </span>
         )}
         <span className="shrink-0 text-status text-text-3">
-          {isDiagramType(data.diagramType)
-            ? `${t(`canvas.diagramTypes.${data.diagramType}`)} · ${count}`
-            : count}
+          {isRoadmap ? (
+            <RoadmapSummary />
+          ) : isDiagramType(data.diagramType) ? (
+            `${t(`canvas.diagramTypes.${data.diagramType}`)} · ${count}`
+          ) : (
+            count
+          )}
         </span>
       </div>
+      {isRoadmap ? <RoadmapFrameContent /> : null}
     </div>
   );
 }

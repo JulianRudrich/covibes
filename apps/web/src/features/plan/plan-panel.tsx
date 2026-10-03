@@ -8,6 +8,7 @@ import { PLAN_PANEL_ID } from '@web/features/plan/plan-ids';
 import { PlanSuggestions } from '@web/features/plan/plan-suggestions';
 import { PlanVersions } from '@web/features/plan/plan-versions';
 import type { PlanDecision } from '@web/features/plan/queries';
+import { RoadmapButton } from '@web/features/roadmap/roadmap-button';
 
 type PlanPanelProps = {
   projectId: string;
@@ -25,6 +26,9 @@ type PlanPanelProps = {
   onDecide?: (decision: PlanDecision) => void;
   /** Owners and editors bring an outdated plan up to date (spec 25c). */
   onUpdate?: () => void;
+  /** Opens the roadmap on the canvas (spec 26a); busy while the server finds or adds it. */
+  onOpenRoadmap: () => void;
+  roadmapBusy: boolean;
 };
 
 /**
@@ -38,6 +42,8 @@ export function PlanPanel({
   onGenerate,
   onDecide,
   onUpdate,
+  onOpenRoadmap,
+  roadmapBusy,
   ...editor
 }: PlanPanelProps) {
   const { t } = useTranslation();
@@ -64,7 +70,12 @@ export function PlanPanel({
               />
             ) : null
           }
-          toolbarEnd={(text) => <PlanVersions projectId={editor.projectId} current={text.nodes} />}
+          toolbarEnd={(text) => (
+            <>
+              <PlanVersions projectId={editor.projectId} current={text.nodes} />
+              <RoadmapButton busy={roadmapBusy} onOpen={onOpenRoadmap} />
+            </>
+          )}
           generation={
             onGenerate
               ? {

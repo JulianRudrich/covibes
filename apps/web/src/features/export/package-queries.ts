@@ -1,5 +1,10 @@
-import type { CodingPackageOverview, PackageTextKind } from '@covibes/shared';
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import type {
+  AcceptedPackageSuggestion,
+  CodingPackageOverview,
+  PackageSuggestion,
+  PackageTextKind,
+} from '@covibes/shared';
+import { queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { downloadBlob } from '@web/features/export/download';
 import { api, ApiError } from '@web/lib/api';
@@ -43,6 +48,58 @@ export function useSavePackageText(projectId: string) {
         overview ? { ...overview, texts: { ...overview.texts, [kind]: content } } : overview,
       );
     },
+  });
+}
+
+/** The overview in the cache with another state for the suggestion of one text. */
+export function setPackageSuggestion(
+  queryClient: QueryClient,
+  projectId: string,
+  kind: PackageTextKind,
+  suggestion: PackageSuggestion | null,
+) {
+  queryClient.setQueryData(packageQuery(projectId).queryKey, (overview) =>
+    overview
+      ? { ...overview, suggestions: { ...overview.suggestions, [kind]: suggestion } }
+      : overview,
+  );
+}
+
+/**
+ * Asks the moderator for a suggestion for a text (spec 27c). The dialog shows at once that it
+ * writes; the suggestion follows with the live event `package`.
+ */
+export function useRequestPackageSuggestion(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (kind: PackageTextKind) =>
+      api<undefined>(`${base(projectId)}/texts/${kind}/suggestion`, { method: 'POST' }),
+    onSuccess: (_, kind) => {
+      setPackageSuggestion(queryClient, projectId, kind, { status: 'running' });
+    },
+    onError: () => {
+      // Someone else may have asked in the same moment: the server knows what is true.
+      void queryClient.invalidateQueries({ queryKey: packageQueryKey(projectId) });
+    },
+  });
+}
+
+/** Dismisses a suggestion, also one that is still being written. */
+export function useDismissPackageSuggestion(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (kind: PackageTextKind) =>
+      api<undefined>(`${base(projectId)}/texts/${kind}/suggestion`, { method: 'DELETE' }),
+    onSuccess: (_, kind) => {
+      setPackageSuggestion(queryClient, projectId, kind, null);
+    },
+  });
+}
+
+/** Takes a written suggestion over as the team's text; the answer is that text. */
+export function acceptPackageSuggestion(projectId: string, kind: PackageTextKind) {
+  return api<AcceptedPackageSuggestion>(`${base(projectId)}/texts/${kind}/suggestion/accept`, {
+    method: 'POST',
   });
 }
 

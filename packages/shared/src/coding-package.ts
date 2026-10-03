@@ -11,6 +11,7 @@ import {
   type PlanLanguage,
   type PlanNode,
   type PlanSection,
+  type PlanState,
 } from './plan';
 import { planSectionsOf } from './plan-doc';
 import { planExportMarkdown } from './plan-export';
@@ -88,10 +89,25 @@ export type CodingPackageSummary = {
   files: string[];
 };
 
+/**
+ * The moderator's suggestion for one of the team's texts (spec 27c): it is being written, it
+ * waits to be taken over or dismissed, or its run gave nothing. `failure` reads like the plan's:
+ * `quota` when the provider's quota was used up (with the time it is free again, if known).
+ */
+export type PackageSuggestion =
+  | { status: 'running' }
+  | { status: 'ready'; content: string }
+  | { status: 'failed'; failure: NonNullable<PlanState['failure']> };
+
+/** `POST /api/projects/:projectId/package/texts/:kind/suggestion/accept`: the text taken over. */
+export type AcceptedPackageSuggestion = { content: string };
+
 /** `GET /api/projects/:projectId/package`. */
 export type CodingPackageOverview = CodingPackageSummary & {
   language: PlanLanguage;
   texts: PackageTexts;
+  /** What the moderator suggests for each text; null where nobody asked. */
+  suggestions: Record<PackageTextKind, PackageSuggestion | null>;
   /** The person may write the texts: owners and editors. */
   canEdit: boolean;
 };

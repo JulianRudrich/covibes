@@ -19,6 +19,7 @@ import { AGENT_TURN_TASK, agentTurnTask } from '@server/tasks/agent-turn';
 import { AWAY_SUMMARY_TASK, awaySummaryTask } from '@server/tasks/away-summary';
 import { NOTIFICATION_MAIL_TASK, notificationMailTask } from '@server/tasks/notification-mails';
 import { OBSERVE_TASK, observeTask } from '@server/tasks/observe';
+import { PACKAGE_SUGGEST_TASK, packageSuggestTask } from '@server/tasks/package-suggest';
 import { PLAN_GENERATE_TASK, planGenerateTask } from '@server/tasks/plan-generate';
 import { loadWorkerEnv, type WorkerEnv } from '@server/worker-env';
 
@@ -95,6 +96,8 @@ const runner = await run({
     [OBSERVE_TASK]: observeTask({ admin, complete: completeText }),
     // The moderator writes the project plan as suggestions per section (spec 25b).
     [PLAN_GENERATE_TASK]: planGenerateTask({ admin, boards, complete: completeText }),
+    // The moderator suggests a text of the package for coding agents (spec 27c).
+    [PACKAGE_SUGGEST_TASK]: packageSuggestTask({ admin, complete: completeText }),
     // The moderator sums up the conversation for a member who comes back (spec 23).
     [AWAY_SUMMARY_TASK]: awaySummaryTask({ admin, complete: completeText }),
     // Sums up by mail what a person has not seen in the app (spec 22b).

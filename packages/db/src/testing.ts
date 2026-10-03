@@ -25,6 +25,13 @@ function freePort(): Promise<number> {
   });
 }
 
+/**
+ * Connections the test database takes at once. Test files run side by side, each with pools of
+ * its own; with PostgreSQL's default of 100 a full run of the server's tests ran out of them once
+ * in a while, and whichever test asked next failed.
+ */
+const TEST_MAX_CONNECTIONS = 400;
+
 /** A fresh, migrated database in a temporary folder for one test run. */
 export async function startTestDatabase(): Promise<TestDatabase> {
   const dataDir = mkdtempSync(join(tmpdir(), 'covibes-test-db-'));
@@ -34,6 +41,7 @@ export async function startTestDatabase(): Promise<TestDatabase> {
     postgresPassword: randomSecret(24),
     adminPassword: randomSecret(24),
     appPassword: randomSecret(24),
+    maxConnections: TEST_MAX_CONNECTIONS,
   });
   await migrate(running.adminUrl);
   return {

@@ -15,6 +15,7 @@ import { notificationsQuery } from '@web/features/notifications/queries';
 import { planStateQueryKey } from '@web/features/plan/queries';
 import { projectQuery } from '@web/features/projects/queries';
 import { proposalsQueryKey } from '@web/features/proposals/queries';
+import { packageQueryKey } from '@web/features/export/package-queries';
 import { roadmapQueryKey } from '@web/features/roadmap/queries';
 import { invitationsQuery } from '@web/features/share/queries';
 import { useLiveChannel } from '@web/features/realtime/live-channel';
@@ -80,6 +81,10 @@ export function useProjectLive(projectId: string, userId?: string) {
       } else if (event.type === 'roadmap') {
         // The plan changed what its roadmap shows (spec 26a).
         reload(roadmapQueryKey(projectId));
+      } else if (event.type === 'package') {
+        // A suggestion for a text of the package started, ended or was decided (spec 27c); only
+        // the open export dialog holds what is loaded again.
+        reload(packageQueryKey(projectId));
       } else {
         applyLiveEvent(queryClient, projectId, event);
         // A vote started, got a ballot or ended: "Wartet auf dich" lists the open ones (spec 22a).

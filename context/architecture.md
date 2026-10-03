@@ -150,6 +150,7 @@ During development Vite forwards `/api` to the server. Web app and API therefore
   - `packages/shared` (`coding-package.ts`) turns the plan, the decisions, the criteria, the boards and the team's two texts into the files of the package: `CLAUDE.md`, `AGENTS.md`, the context files, a feature spec per task and a Mermaid file per board.
   - The server gathers what the files are built from (the plan and the boards from the collaboration server, the rest from the database as the member) and packs the ZIP; the web app only shows the summary and downloads it.
   - The code standards and the UI direction are the only things the package holds that nothing else in the project does; they are rows of `package_texts`.
+  - On a click the moderator suggests one of these texts (spec 27c): a run of the worker like a generation of the plan, queued by the database (`start_package_suggestion`), metered, one per text at a time. The suggestion waits in `package_suggestions` and becomes the team's text only when an owner or editor takes it over (`accept_package_suggestion`). The live event `package` tells open dialogs.
 - A task is a list item of the plan (spec 26b). The plan holds its text; `tasks` holds who took it:
   - The list item carries the task's id as an attribute (`taskId`). Only the server gives ids: after it stored a plan, and when the roadmap reads a task without one (a plan from before, which nobody changed since), it gives every list item of the milestones section an id that has none or shares one (`ensureTaskIds`, through `changePlan`). One writer means two clients never give a task different ids.
   - Accepting a suggestion for the milestones carries the ids over to the tasks that read the same or nearly the same (`carryTaskIds`), so a rewritten section keeps its assignments.
@@ -279,6 +280,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `debates` | debates between agents: question, participants, rounds, finished turns and status |
 | `tasks` | who took which task of the plan (spec 26b): the id the task carries in the plan's document, the assignee, who assigned it and when, and how it read then. Text and milestone of a task are in the plan; spec reference and GitLab issue follow with their specs |
 | `package_texts` | what the team gives for the package for coding agents (spec 27b): the code standards and the UI direction, one text per kind and project, with who wrote it and when |
+| `package_suggestions` | what the moderator suggests for one of the package's texts (spec 27c): the run that writes it and the text once it is written, until someone takes it over or dismisses it |
 | `git_connections`, `oauth_tokens`, `git_actions` | GitLab connection, tokens (encrypted), audit log |
 | `notifications` | notifications per person: mentions, changed roles, removals, new members; with the names they show, when they were read and when they were mailed |
 | `notification_settings`, `member_activity` | per person the switch for mails and when the last one went out; per member when they last had the project open and when a mail last told them that something waits |

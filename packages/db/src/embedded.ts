@@ -21,6 +21,8 @@ type StartOptions = {
   postgresPassword: string;
   adminPassword: string;
   appPassword: string;
+  /** Connections the server takes at once; PostgreSQL's own default (100) if not given. */
+  maxConnections?: number;
 };
 
 type Binaries = { initdb: string; pg_ctl: string; postgres: string };
@@ -143,7 +145,11 @@ export async function startEmbeddedPostgres(options: StartOptions): Promise<Runn
     '60',
     // Only reachable from this machine, whatever postgresql.conf says.
     '-o',
-    `-p ${String(options.port)} -c listen_addresses=localhost`,
+    `-p ${String(options.port)} -c listen_addresses=localhost${
+      options.maxConnections === undefined
+        ? ''
+        : ` -c max_connections=${String(options.maxConnections)}`
+    }`,
   ]);
   if (started.code !== 0) {
     throw new Error(`PostgreSQL did not start. Last lines of ${logFile}:\n${logTail(logFile)}`);

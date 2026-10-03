@@ -8,13 +8,15 @@ import {
   packageTextInputSchema,
   packageTextKindSchema,
   projectIdSchema,
+  type AcceptedPackageSuggestion,
   type CodingPackageInput,
   type CodingPackageOverview,
+  type PackageSuggestion,
   type PackageTexts,
 } from '@covibes/shared';
 import { strToU8, zipSync } from 'fflate';
 import { Hono } from 'hono';
-import type { Transaction } from 'kysely';
+import { sql, type Transaction } from 'kysely';
 
 import { loadDecisions } from '@server/api/decisions';
 import { apiError } from '@server/api/errors';
@@ -23,6 +25,8 @@ import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
 import type { BoardDocuments } from '@server/collab/collab';
 import { withUser, type AppDb } from '@server/db/database';
 import { loadAssignees } from '@server/plan/assignees';
+import { decodePlanFailure } from '@server/plan/failure';
+import type { LivePublisher } from '@server/realtime/realtime';
 
 function sqlState(error: unknown): string | undefined {
   const code = (error as { code?: unknown } | null)?.code;
@@ -40,6 +44,28 @@ function membership(trx: Transaction<DB>, projectId: string, userId: string) {
 
 type Documents = Pick<BoardDocuments, 'readBoard' | 'readPlan'>;
 
+/** A run without an end after this time is taken as lost, like the database does (0027). */
+const SUGGESTION_LOST_MS = 10 * 60_000;
+
+/** Where a suggestion stands, from its row and the run that writes it. */
+function suggestionState(row: {
+  content: string | null;
+  status: string;
+  error: string | null;
+  created_at: Date;
+}): PackageSuggestion {
+  if (row.content) return { status: 'ready', content: row.content };
+  const waits = row.status === 'queued' || row.status === 'running';
+  if (waits && Date.now() - row.created_at.getTime() < SUGGESTION_LOST_MS) {
+    return { status: 'running' };
+  }
+  return {
+    status: 'failed',
+    failure:
+      row.status === 'error' ? decodePlanFailure(row.error) : { kind: 'failed', resetsAt: null },
+  };
+}
+
 /**
  * What a project holds right now, as the package is built from it; undefined for someone who is
  * no member. The plan and the boards are read as they stand, also while people have them open.
@@ -49,7 +75,14 @@ async function gather(
   documents: Documents,
   projectId: string,
   userId: string,
-): Promise<{ input: CodingPackageInput; canEdit: boolean } | undefined> {
+): Promise<
+  | {
+      input: CodingPackageInput;
+      canEdit: boolean;
+      suggestions: CodingPackageOverview['suggestions'];
+    }
+  | undefined
+> {
   const stored = await withUser(db, userId, async (trx) => {
     const member = await membership(trx, projectId, userId);
     if (!member) return undefined;
@@ -78,12 +111,25 @@ async function gather(
       .select(['kind', 'content'])
       .where('project_id', '=', projectId)
       .execute();
+    const suggestions = await trx
+      .selectFrom('package_suggestions')
+      .innerJoin('ai_runs', 'ai_runs.id', 'package_suggestions.run_id')
+      .select([
+        'package_suggestions.kind',
+        'package_suggestions.content',
+        'ai_runs.status',
+        'ai_runs.error',
+        'ai_runs.created_at',
+      ])
+      .where('package_suggestions.project_id', '=', projectId)
+      .execute();
     return {
       role: member.role,
       project,
       boards,
       criteria,
       texts,
+      suggestions,
       decisions: await loadDecisions(trx, projectId),
       assignees: await loadAssignees(trx, projectId),
     };
@@ -97,11 +143,18 @@ async function gather(
     boards.push({ title: board.title, ...(await documents.readBoard(board.id)) });
   }
   const texts: PackageTexts = { code_standards: '', ui_direction: '' };
+  const suggestions: CodingPackageOverview['suggestions'] = {
+    code_standards: null,
+    ui_direction: null,
+  };
   for (const kind of PACKAGE_TEXT_KINDS) {
     texts[kind] = stored.texts.find((text) => text.kind === kind)?.content ?? '';
+    const suggestion = stored.suggestions.find((row) => row.kind === kind);
+    suggestions[kind] = suggestion ? suggestionState(suggestion) : null;
   }
   return {
     canEdit: stored.role !== 'viewer',
+    suggestions,
     input: {
       projectName: stored.project.name,
       language: stored.project.language === 'en' ? 'en' : 'de',
@@ -119,11 +172,12 @@ async function gather(
 }
 
 /**
- * `/api/projects/:projectId/package` (spec 27b): the package for coding agents. Members see what
- * it holds and download it as a ZIP; owners and editors write the two texts the plan does not
- * hold. The package is built from the project as it stands, without a model.
+ * `/api/projects/:projectId/package` (specs 27b and 27c): the package for coding agents. Members
+ * see what it holds and download it as a ZIP; owners and editors write the two texts the plan
+ * does not hold, and ask the moderator for a suggestion for one. The package itself is built from
+ * the project as it stands, without a model.
  */
-export function packageRoutes(db: AppDb, auth: Auth, documents: Documents) {
+export function packageRoutes(db: AppDb, auth: Auth, live: LivePublisher, documents: Documents) {
   const routes = new Hono<{ Variables: SessionVariables }>();
   routes.use(sessionMiddleware(auth));
 
@@ -139,8 +193,87 @@ export function packageRoutes(db: AppDb, auth: Auth, documents: Documents) {
       ...codingPackageSummary(project.input),
       language: project.input.language,
       texts: project.input.texts,
+      suggestions: project.suggestions,
       canEdit: project.canEdit,
     });
+  });
+
+  /**
+   * Asks the moderator for a suggestion for a text (spec 27c). The run is queued for the worker
+   * and the answer returns at once; the suggestion arrives with the live event `package`.
+   */
+  routes.post('/texts/:kind/suggestion', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    const projectId = projectIdSchema.safeParse(c.req.param('projectId'));
+    const kind = packageTextKindSchema.safeParse(c.req.param('kind'));
+    if (!projectId.success || !kind.success) return apiError(c, 'not_found');
+
+    try {
+      const started = await withUser(db, user.id, async (trx) => {
+        if (!(await membership(trx, projectId.data, user.id))) return false;
+        await sql`select public.start_package_suggestion(${projectId.data}, ${kind.data})`.execute(
+          trx,
+        );
+        return true;
+      });
+      if (!started) return apiError(c, 'not_found');
+      return c.body(null, 202);
+    } catch (error) {
+      const state = sqlState(error);
+      if (state === '55000') return apiError(c, 'already_running');
+      if (state === '42501') return apiError(c, 'forbidden');
+      throw error;
+    }
+  });
+
+  /** Takes a written suggestion over as the team's text; the answer is that text. */
+  routes.post('/texts/:kind/suggestion/accept', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    const projectId = projectIdSchema.safeParse(c.req.param('projectId'));
+    const kind = packageTextKindSchema.safeParse(c.req.param('kind'));
+    if (!projectId.success || !kind.success) return apiError(c, 'not_found');
+
+    try {
+      const content = await withUser(db, user.id, async (trx) => {
+        if (!(await membership(trx, projectId.data, user.id))) return undefined;
+        const accepted = await sql<{ content: string | null }>`
+          select public.accept_package_suggestion(${projectId.data}, ${kind.data}) as content
+        `.execute(trx);
+        return accepted.rows[0]?.content ?? undefined;
+      });
+      // Nobody of the project, or no written suggestion waits (any more).
+      if (content === undefined) return apiError(c, 'not_found');
+      return c.json<AcceptedPackageSuggestion>({ content });
+    } catch (error) {
+      if (sqlState(error) === '42501') return apiError(c, 'forbidden');
+      throw error;
+    }
+  });
+
+  /** Dismisses a suggestion, also one that is still being written or whose run failed. */
+  routes.delete('/texts/:kind/suggestion', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    const projectId = projectIdSchema.safeParse(c.req.param('projectId'));
+    const kind = packageTextKindSchema.safeParse(c.req.param('kind'));
+    if (!projectId.success || !kind.success) return apiError(c, 'not_found');
+
+    const outcome = await withUser(db, user.id, async (trx) => {
+      const member = await membership(trx, projectId.data, user.id);
+      if (!member) return 'not_found' as const;
+      if (member.role === 'viewer') return 'forbidden' as const;
+      await trx
+        .deleteFrom('package_suggestions')
+        .where('project_id', '=', projectId.data)
+        .where('kind', '=', kind.data)
+        .execute();
+      return 'done' as const;
+    });
+    if (outcome !== 'done') return apiError(c, outcome);
+    live.publish(projectId.data, { type: 'package' });
+    return c.body(null, 204);
   });
 
   /** Stores one of the team's texts; an empty one removes it. The database checks who may. */

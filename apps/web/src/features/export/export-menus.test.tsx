@@ -145,6 +145,7 @@ describe('PlanExportMenu', () => {
       files: ['CLAUDE.md'],
       language: 'de',
       texts: { code_standards: '', ui_direction: '' },
+      suggestions: { code_standards: null, ui_direction: null },
       canEdit: true,
     };
     const fetchMock = vi.fn(() => Promise.resolve(Response.json(overview)));

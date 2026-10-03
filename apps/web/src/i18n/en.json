@@ -924,6 +924,19 @@
           "placeholder": "e.g. calm and light, lots of white space, one accent color. Informal tone."
         }
       },
+      "suggestion": {
+        "ask": "Suggestion from the moderator",
+        "title": "Suggestion",
+        "titleFor": "The moderator's suggestion: {{text}}",
+        "running": "The moderator is writing a suggestion … This takes about a minute.",
+        "accept": "Take over",
+        "dismiss": "Dismiss",
+        "replaces": "Replaces the text in the field.",
+        "hide": "Hide",
+        "failed": "The suggestion did not work. Please try again.",
+        "quota": "The AI quota is used up right now. Please try again later.",
+        "quotaUntil": "The AI quota is used up right now and free again from {{time}}."
+      },
       "files_one": "Show {{count}} file",
       "files_other": "Show {{count}} files",
       "download": "Download package"

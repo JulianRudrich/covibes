@@ -359,3 +359,123 @@ describe('GET /api/projects/:projectId/package/download', () => {
     expect((await request(`${planned.package}/download`, null)).status).toBe(401);
   });
 });
+
+describe('the moderator’s suggestions for the texts (spec 27c)', () => {
+  const post = (path: string, cookie: string | null) => request(path, cookie, { method: 'POST' });
+  const remove = (path: string, cookie: string | null) =>
+    request(path, cookie, { method: 'DELETE' });
+
+  /** What the worker does once the moderator wrote the text. */
+  async function write(projectId: string, kind: string, content: string) {
+    await test.db.adminPool.query(
+      `update ai_runs set status = 'done'
+       where id = (select run_id from package_suggestions where project_id = $1 and kind = $2)`,
+      [projectId, kind],
+    );
+    await test.db.adminPool.query(
+      'update package_suggestions set content = $3 where project_id = $1 and kind = $2',
+      [projectId, kind, content],
+    );
+  }
+
+  it('asks the moderator for owners and editors, one run per text at a time', async () => {
+    const project = await createProject();
+    const editor = await member(project.projectId, 'editor');
+    const path = `${project.package}/texts/code_standards/suggestion`;
+    expect((await overviewOf(project.package, project.owner)).suggestions).toEqual({
+      code_standards: null,
+      ui_direction: null,
+    });
+
+    const started = await post(path, editor);
+    const again = await post(path, project.owner);
+    const other = await post(`${project.package}/texts/ui_direction/suggestion`, project.owner);
+
+    expect([started.status, again.status, other.status]).toEqual([202, 409, 202]);
+    expect(await errorCode(again)).toBe('already_running');
+    expect((await overviewOf(project.package, project.owner)).suggestions).toEqual({
+      code_standards: { status: 'running' },
+      ui_direction: { status: 'running' },
+    });
+    const { rows } = await test.db.adminPool.query<{ kind: string; status: string }>(
+      `select kind, status from ai_runs where project_id = $1 and kind = 'package'`,
+      [project.projectId],
+    );
+    expect(rows).toEqual([
+      { kind: 'package', status: 'queued' },
+      { kind: 'package', status: 'queued' },
+    ]);
+  });
+
+  it('does not ask for viewers, strangers or texts it does not know', async () => {
+    const project = await createProject();
+    const viewer = await member(project.projectId, 'viewer');
+    const stranger = await test.signIn();
+    const path = `${project.package}/texts/code_standards/suggestion`;
+
+    const asViewer = await post(path, viewer);
+
+    expect(asViewer.status).toBe(403);
+    expect(await errorCode(asViewer)).toBe('forbidden');
+    expect((await post(path, stranger)).status).toBe(404);
+    expect((await post(path, null)).status).toBe(401);
+    expect((await post(`${project.package}/texts/readme/suggestion`, project.owner)).status).toBe(
+      404,
+    );
+    expect((await overviewOf(project.package, viewer)).suggestions.code_standards).toBeNull();
+  });
+
+  it('shows a written suggestion to every member and takes it over for owners and editors', async () => {
+    const project = await createProject();
+    const editor = await member(project.projectId, 'editor');
+    const viewer = await member(project.projectId, 'viewer');
+    await putText(`${project.package}/texts/code_standards`, project.owner, { content: 'Alt.' });
+    const path = `${project.package}/texts/code_standards/suggestion`;
+    await post(path, project.owner);
+
+    // Nothing to take over while the moderator writes.
+    expect((await post(`${path}/accept`, project.owner)).status).toBe(404);
+
+    await write(project.projectId, 'code_standards', '## Tests\n\n- Vitest');
+    expect((await overviewOf(project.package, viewer)).suggestions.code_standards).toEqual({
+      status: 'ready',
+      content: '## Tests\n\n- Vitest',
+    });
+    expect((await post(`${path}/accept`, viewer)).status).toBe(403);
+
+    const accepted = await post(`${path}/accept`, editor);
+
+    expect(accepted.status).toBe(200);
+    expect(await accepted.json()).toEqual({ content: '## Tests\n\n- Vitest' });
+    const overview = await overviewOf(project.package, project.owner);
+    expect(overview.texts.code_standards).toBe('## Tests\n\n- Vitest');
+    expect(overview.suggestions.code_standards).toBeNull();
+    // It is gone: a second click finds nothing.
+    expect((await post(`${path}/accept`, editor)).status).toBe(404);
+  });
+
+  it('dismisses a suggestion for owners and editors, also one that is still written', async () => {
+    const project = await createProject();
+    const editor = await member(project.projectId, 'editor');
+    const viewer = await member(project.projectId, 'viewer');
+    const stranger = await test.signIn();
+    const path = `${project.package}/texts/ui_direction/suggestion`;
+    await post(path, project.owner);
+
+    expect((await remove(path, viewer)).status).toBe(403);
+    expect((await remove(path, stranger)).status).toBe(404);
+    expect((await remove(path, null)).status).toBe(401);
+    expect((await overviewOf(project.package, project.owner)).suggestions.ui_direction).toEqual({
+      status: 'running',
+    });
+
+    const dismissed = await remove(path, editor);
+    // Dismissing what is not there is fine as well.
+    const again = await remove(path, editor);
+
+    expect([dismissed.status, again.status]).toEqual([204, 204]);
+    expect((await overviewOf(project.package, project.owner)).suggestions.ui_direction).toBeNull();
+    // After a dismissal the moderator can be asked again at once.
+    expect((await post(path, editor)).status).toBe(202);
+  });
+});

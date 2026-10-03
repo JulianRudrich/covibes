@@ -5,8 +5,8 @@ import {
   type PackageTextKind,
   type PackageTexts,
 } from '@covibes/shared';
-import { useQuery } from '@tanstack/react-query';
-import { Check, Circle, Download } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Check, Circle, Download, Sparkles } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -14,11 +14,17 @@ import { Button } from '@web/components/ui/button';
 import { DialogClose, DialogContent } from '@web/components/ui/dialog';
 import { FieldError, Label } from '@web/components/ui/input';
 import {
+  acceptPackageSuggestion,
   downloadPackage,
   packageQuery,
+  packageQueryKey,
   savePackageText,
+  useDismissPackageSuggestion,
+  useRequestPackageSuggestion,
   useSavePackageText,
 } from '@web/features/export/package-queries';
+import { PackageSuggestionNote } from '@web/features/export/package-suggestion';
+import { ApiError } from '@web/lib/api';
 import { cn } from '@web/lib/cn';
 
 const SECTION_TITLE = 'm-0 text-small font-medium text-text-2';
@@ -36,9 +42,10 @@ type PackageDialogProps = {
 };
 
 /**
- * The export dialog of the package for coding agents (spec 27b; derived look): what the package
- * holds and what is still missing, the two texts the plan does not hold, the list of its files and
- * the download. The content of a dialog; the caller opens and closes it.
+ * The export dialog of the package for coding agents (specs 27b and 27c; derived look): what the
+ * package holds and what is still missing, the two texts the plan does not hold with the
+ * moderator's suggestions for them, the list of its files and the download. The content of a
+ * dialog; the caller opens and closes it.
  */
 export function PackageDialog({ projectId, outdated }: PackageDialogProps) {
   const { t } = useTranslation();
@@ -78,7 +85,16 @@ function PackageBody({
 }: PackageDialogProps & { overview: CodingPackageOverview }) {
   const { t } = useTranslation();
   const ids = useId();
+  const queryClient = useQueryClient();
   const save = useSavePackageText(projectId);
+  const request = useRequestPackageSuggestion(projectId);
+  const dismiss = useDismissPackageSuggestion(projectId);
+  /** Asking for a suggestion or taking one over did not work, per text. */
+  const [problems, setProblems] = useState<Record<PackageTextKind, boolean>>({
+    code_standards: false,
+    ui_direction: false,
+  });
+  const [accepting, setAccepting] = useState(false);
   const [drafts, setDrafts] = useState<PackageTexts>(overview.texts);
   const [saving, setSaving] = useState<Record<PackageTextKind, Saving>>({
     code_standards: 'idle',
@@ -128,6 +144,54 @@ function PackageBody({
     },
     [projectId, canEdit],
   );
+
+  function setProblem(kind: PackageTextKind, problem: boolean) {
+    setProblems((state) => ({ ...state, [kind]: problem }));
+  }
+
+  /** Asks the moderator; that someone else asked in the same moment is no problem. */
+  function ask(kind: PackageTextKind) {
+    setProblem(kind, false);
+    request.mutate(kind, {
+      onError: (error) => {
+        setProblem(kind, !(error instanceof ApiError && error.code === 'already_running'));
+      },
+    });
+  }
+
+  /**
+   * Takes the suggestion over: it becomes the text of the field and of the server. It waits for
+   * what is being stored, so an older text never arrives after it.
+   */
+  function accept(kind: PackageTextKind) {
+    setProblem(kind, false);
+    setAccepting(true);
+    const run = queue.current.then(async () => {
+      try {
+        const { content } = await acceptPackageSuggestion(projectId, kind);
+        stored.current = { ...stored.current, [kind]: content };
+        shown.current = { ...shown.current, [kind]: content };
+        setDrafts((state) => ({ ...state, [kind]: content }));
+        setSaving((state) => ({ ...state, [kind]: 'saved' }));
+        queryClient.setQueryData(packageQuery(projectId).queryKey, (current) =>
+          current
+            ? {
+                ...current,
+                texts: { ...current.texts, [kind]: content },
+                suggestions: { ...current.suggestions, [kind]: null },
+              }
+            : current,
+        );
+      } catch {
+        setProblem(kind, true);
+        // Someone else may have taken it over or dismissed it: the server knows what is true.
+        void queryClient.invalidateQueries({ queryKey: packageQueryKey(projectId) });
+      } finally {
+        setAccepting(false);
+      }
+    });
+    queue.current = run;
+  }
 
   async function download() {
     setFailed(false);
@@ -247,46 +311,83 @@ function PackageBody({
               {t(overview.canEdit ? 'export.package.texts.hint' : 'export.package.texts.readOnly')}
             </p>
           </div>
-          {PACKAGE_TEXT_KINDS.map((kind) => (
-            <div key={kind} className="flex flex-col gap-1.5">
-              <div className="flex items-baseline justify-between gap-2">
-                <Label htmlFor={`${ids}-${kind}`}>{t(`export.package.texts.${kind}.label`)}</Label>
-                {saving[kind] === 'idle' ? null : (
-                  <span
-                    role="status"
-                    className={cn(
-                      'text-meta',
-                      saving[kind] === 'failed' ? 'text-danger' : 'text-text-4',
+          {PACKAGE_TEXT_KINDS.map((kind) => {
+            const suggestion = overview.suggestions[kind];
+            return (
+              <div key={kind} className="flex flex-col gap-1.5">
+                <div className="flex min-h-7 items-center justify-between gap-2">
+                  <div className="flex items-baseline gap-2">
+                    <Label htmlFor={`${ids}-${kind}`}>
+                      {t(`export.package.texts.${kind}.label`)}
+                    </Label>
+                    {saving[kind] === 'idle' ? null : (
+                      <span
+                        role="status"
+                        className={cn(
+                          'text-meta',
+                          saving[kind] === 'failed' ? 'text-danger' : 'text-text-4',
+                        )}
+                      >
+                        {t(`export.package.texts.${saving[kind]}`)}
+                      </span>
                     )}
-                  >
-                    {t(`export.package.texts.${saving[kind]}`)}
-                  </span>
-                )}
+                  </div>
+                  {/* Asking again takes the place of a run that failed. */}
+                  {overview.canEdit && (suggestion === null || suggestion.status === 'failed') ? (
+                    <Button
+                      variant="ghost"
+                      size="s"
+                      className="text-text-2"
+                      disabled={request.isPending}
+                      onClick={() => {
+                        ask(kind);
+                      }}
+                    >
+                      <Sparkles size={13} strokeWidth={2} aria-hidden="true" />
+                      {t('export.package.suggestion.ask')}
+                    </Button>
+                  ) : null}
+                </div>
+                <textarea
+                  id={`${ids}-${kind}`}
+                  value={drafts[kind]}
+                  rows={4}
+                  maxLength={PACKAGE_TEXT_MAX_LENGTH}
+                  readOnly={!overview.canEdit}
+                  placeholder={t(
+                    overview.canEdit
+                      ? `export.package.texts.${kind}.placeholder`
+                      : 'export.package.texts.empty',
+                  )}
+                  className={FIELD}
+                  onChange={(event) => {
+                    const text = event.target.value;
+                    shown.current = { ...shown.current, [kind]: text };
+                    setDrafts((state) => ({ ...state, [kind]: text }));
+                    setSaving((state) => ({ ...state, [kind]: 'idle' }));
+                  }}
+                  onBlur={(event) => {
+                    if (overview.canEdit) void store(kind, event.target.value);
+                  }}
+                />
+                <PackageSuggestionNote
+                  label={t(`export.package.texts.${kind}.label`)}
+                  suggestion={suggestion}
+                  canEdit={overview.canEdit}
+                  replaces={drafts[kind].trim() !== ''}
+                  problem={problems[kind]}
+                  busy={accepting || dismiss.isPending}
+                  onAccept={() => {
+                    accept(kind);
+                  }}
+                  onDismiss={() => {
+                    setProblem(kind, false);
+                    dismiss.mutate(kind);
+                  }}
+                />
               </div>
-              <textarea
-                id={`${ids}-${kind}`}
-                value={drafts[kind]}
-                rows={4}
-                maxLength={PACKAGE_TEXT_MAX_LENGTH}
-                readOnly={!overview.canEdit}
-                placeholder={t(
-                  overview.canEdit
-                    ? `export.package.texts.${kind}.placeholder`
-                    : 'export.package.texts.empty',
-                )}
-                className={FIELD}
-                onChange={(event) => {
-                  const text = event.target.value;
-                  shown.current = { ...shown.current, [kind]: text };
-                  setDrafts((state) => ({ ...state, [kind]: text }));
-                  setSaving((state) => ({ ...state, [kind]: 'idle' }));
-                }}
-                onBlur={(event) => {
-                  if (overview.canEdit) void store(kind, event.target.value);
-                }}
-              />
-            </div>
-          ))}
+            );
+          })}
         </section>
 
         {overview.files.length > 0 ? (

@@ -353,6 +353,15 @@ export interface Offers {
   task: string;
 }
 
+export interface PackageSuggestions {
+  content: string | null;
+  created_at: Generated<Timestamp>;
+  kind: string;
+  project_id: string;
+  requested_by: string | null;
+  run_id: string;
+}
+
 export interface PackageTexts {
   content: string;
   created_at: Generated<Timestamp>;
@@ -537,6 +546,7 @@ export interface DB {
   notification_settings: NotificationSettings;
   notifications: Notifications;
   offers: Offers;
+  package_suggestions: PackageSuggestions;
   package_texts: PackageTexts;
   plan_suggestions: PlanSuggestions;
   plan_versions: PlanVersions;

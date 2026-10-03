@@ -22,16 +22,20 @@ const OVERVIEW: CodingPackageOverview = {
   files: ['CLAUDE.md', 'AGENTS.md', 'context/project-plan.md', 'docs/diagrams/haupt-canvas.md'],
   language: 'de',
   texts: { code_standards: 'TypeScript strict.', ui_direction: '' },
+  suggestions: { code_standards: null, ui_direction: null },
   canEdit: true,
 };
+
+const SUGGESTED = '## Stil\n\n- Ruhig und hell';
 
 type Call = { method: string; url: string; body: unknown };
 
 /**
  * Answers the package's API: the overview given, "no content" for a stored text and a ZIP for the
- * download. `fail` names the calls that fail instead.
+ * download; a suggestion is asked for, taken over with its text and dismissed. `fail` names the
+ * calls that fail instead, `running` the ones the server refuses because a run is on its way.
  */
-function stubPackage(overview: CodingPackageOverview, fail: string[] = []) {
+function stubPackage(overview: CodingPackageOverview, fail: string[] = [], running: string[] = []) {
   const calls: Call[] = [];
   vi.stubGlobal(
     'fetch',
@@ -51,8 +55,23 @@ function stubPackage(overview: CodingPackageOverview, fail: string[] = []) {
           }),
         );
       }
+      if (running.includes(key)) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ error: { code: 'already_running', message: 'Running.' } }),
+            { status: 409 },
+          ),
+        );
+      }
       if (key === `GET ${BASE}`) return Promise.resolve(Response.json(overview));
       if (method === 'PUT') return Promise.resolve(new Response(null, { status: 204 }));
+      if (method === 'DELETE') return Promise.resolve(new Response(null, { status: 204 }));
+      if (method === 'POST' && url.endsWith('/suggestion')) {
+        return Promise.resolve(new Response(null, { status: 202 }));
+      }
+      if (method === 'POST' && url.endsWith('/suggestion/accept')) {
+        return Promise.resolve(Response.json({ content: SUGGESTED }));
+      }
       if (key === `GET ${BASE}/download`) {
         return Promise.resolve(
           new Response(new Blob(['PK'], { type: 'application/zip' }), {
@@ -71,9 +90,9 @@ function stubPackage(overview: CodingPackageOverview, fail: string[] = []) {
 
 function renderDialog(
   overview: Partial<CodingPackageOverview> = {},
-  { outdated = false, fail = [] as string[] } = {},
+  { outdated = false, fail = [] as string[], running = [] as string[] } = {},
 ) {
-  const calls = stubPackage({ ...OVERVIEW, ...overview }, fail);
+  const calls = stubPackage({ ...OVERVIEW, ...overview }, fail, running);
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -330,5 +349,200 @@ describe('PackageDialog', () => {
       'Das Paket konnte nicht geladen werden.',
     );
     expect(within(dialog).queryByRole('button', { name: 'Paket herunterladen' })).toBeNull();
+  });
+});
+
+describe('the moderator’s suggestions in the PackageDialog (spec 27c)', () => {
+  const UI = `${BASE}/texts/ui_direction/suggestion`;
+  const ready = { status: 'ready', content: SUGGESTED } as const;
+  const asks = (dialog: HTMLElement) =>
+    within(dialog).queryAllByRole('button', { name: 'Vorschlag vom Moderator' });
+  const others = (calls: Call[]) =>
+    calls.filter((call) => call.method !== 'GET').map((call) => `${call.method} ${call.url}`);
+
+  it('asks the moderator for a text and says that it writes', async () => {
+    const { calls, dialog } = renderDialog();
+    await within(dialog).findByLabelText('UI-Richtung');
+    expect(asks(dialog)).toHaveLength(2);
+
+    // The second button belongs to the second field, the UI direction.
+    fireEvent.click(asks(dialog)[1] as HTMLElement);
+
+    expect(
+      await within(dialog).findByText(
+        'Der Moderator schreibt einen Vorschlag … Das dauert etwa eine Minute.',
+      ),
+    ).toBeInTheDocument();
+    expect(others(calls)).toEqual([`POST ${UI}`]);
+    // While it writes, it cannot be asked again for the same text.
+    expect(asks(dialog)).toHaveLength(1);
+    expect(within(dialog).getByLabelText('UI-Richtung')).toHaveValue('');
+  });
+
+  it('shows that the moderator writes after the dialog was opened again, and lets it be stopped', async () => {
+    const { calls, dialog } = renderDialog({
+      suggestions: { code_standards: null, ui_direction: { status: 'running' } },
+    });
+
+    expect(await within(dialog).findByText(/Der Moderator schreibt einen Vorschlag/)).toBeVisible();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Abbrechen' }));
+
+    await waitFor(() => {
+      expect(within(dialog).queryByText(/Der Moderator schreibt/)).not.toBeInTheDocument();
+    });
+    expect(others(calls)).toEqual([`DELETE ${UI}`]);
+    expect(asks(dialog)).toHaveLength(2);
+  });
+
+  it('shows a suggestion below its field and takes it over into the field', async () => {
+    const { calls, dialog } = renderDialog({
+      suggestions: { code_standards: null, ui_direction: ready },
+    });
+    const suggestion = await within(dialog).findByRole('region', {
+      name: 'Vorschlag des Moderators: UI-Richtung',
+    });
+    expect(suggestion).toHaveTextContent('Moderator· Vorschlag');
+    expect(suggestion).toHaveTextContent('- Ruhig und hell');
+    // The field is empty: nothing is replaced.
+    expect(within(suggestion).queryByText('Ersetzt den Text im Feld.')).not.toBeInTheDocument();
+    expect(within(dialog).getByLabelText('UI-Richtung')).toHaveValue('');
+
+    fireEvent.click(within(suggestion).getByRole('button', { name: 'Übernehmen' }));
+
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText('UI-Richtung')).toHaveValue(SUGGESTED);
+    });
+    expect(suggestion).not.toBeInTheDocument();
+    expect(within(dialog).getByText('Gespeichert')).toBeInTheDocument();
+    expect((await rows(dialog)).at(-1)).toBe('✓ UI-Richtung');
+    expect(others(calls)).toEqual([`POST ${UI}/accept`]);
+    // The text is the server's already: leaving the field stores nothing more.
+    fireEvent.blur(within(dialog).getByLabelText('UI-Richtung'));
+    await waitFor(() => {
+      expect(asks(dialog)).toHaveLength(2);
+    });
+    expect(puts(calls)).toEqual([]);
+  });
+
+  it('says that taking a suggestion over replaces the text of the field', async () => {
+    const { dialog } = renderDialog({
+      suggestions: { code_standards: ready, ui_direction: null },
+    });
+    const suggestion = await within(dialog).findByRole('region', {
+      name: 'Vorschlag des Moderators: Code-Standards',
+    });
+
+    expect(within(suggestion).getByText('Ersetzt den Text im Feld.')).toBeVisible();
+    fireEvent.click(within(suggestion).getByRole('button', { name: 'Übernehmen' }));
+
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText('Code-Standards')).toHaveValue(SUGGESTED);
+    });
+  });
+
+  it('dismisses a suggestion and leaves the field as it is', async () => {
+    const { calls, dialog } = renderDialog({
+      suggestions: { code_standards: ready, ui_direction: null },
+    });
+    const suggestion = await within(dialog).findByRole('region', {
+      name: 'Vorschlag des Moderators: Code-Standards',
+    });
+
+    fireEvent.click(within(suggestion).getByRole('button', { name: 'Verwerfen' }));
+
+    await waitFor(() => {
+      expect(suggestion).not.toBeInTheDocument();
+    });
+    expect(others(calls)).toEqual([`DELETE ${BASE}/texts/code_standards/suggestion`]);
+    expect(within(dialog).getByLabelText('Code-Standards')).toHaveValue('TypeScript strict.');
+    expect(asks(dialog)).toHaveLength(2);
+  });
+
+  it('says why a run gave nothing, and lets the moderator be asked again', async () => {
+    const { calls, dialog } = renderDialog({
+      suggestions: {
+        code_standards: { status: 'failed', failure: { kind: 'failed', resetsAt: null } },
+        ui_direction: {
+          status: 'failed',
+          failure: { kind: 'quota', resetsAt: '2026-10-03T20:30:00.000Z' },
+        },
+      },
+    });
+
+    const alerts = await within(dialog).findAllByRole('alert');
+    expect(alerts[0]).toHaveTextContent(
+      'Der Vorschlag hat nicht geklappt. Bitte versuche es noch einmal.',
+    );
+    expect(alerts[1]).toHaveTextContent(
+      /^Das KI-Kontingent ist gerade aufgebraucht und ab \d{1,2}:\d{2}(\sUhr)? wieder frei\.$/,
+    );
+    // Asking again is offered for both.
+    expect(asks(dialog)).toHaveLength(2);
+
+    fireEvent.click(asks(dialog)[0] as HTMLElement);
+
+    await waitFor(() => {
+      expect(within(dialog).getAllByRole('alert')).toHaveLength(1);
+    });
+    expect(within(dialog).getByText(/Der Moderator schreibt einen Vorschlag/)).toBeVisible();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Ausblenden' }));
+    await waitFor(() => {
+      expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
+    });
+    expect(others(calls)).toEqual([`POST ${BASE}/texts/code_standards/suggestion`, `DELETE ${UI}`]);
+  });
+
+  it('tells when the moderator could not be asked, but not when it writes already', async () => {
+    const failing = renderDialog({}, { fail: [`POST ${UI}`] });
+    await within(failing.dialog).findByLabelText('UI-Richtung');
+    fireEvent.click(asks(failing.dialog)[1] as HTMLElement);
+
+    expect(await within(failing.dialog).findByRole('alert')).toHaveTextContent(
+      'Der Vorschlag hat nicht geklappt.',
+    );
+    failing.unmount();
+
+    // Someone else asked in the same moment: the overview is loaded again and says what is true.
+    const taken = renderDialog({}, { running: [`POST ${UI}`] });
+    await within(taken.dialog).findByLabelText('UI-Richtung');
+    fireEvent.click(asks(taken.dialog)[1] as HTMLElement);
+
+    await waitFor(() => {
+      expect(taken.calls.filter((call) => call.url === BASE)).toHaveLength(2);
+    });
+    expect(within(taken.dialog).queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('tells when a suggestion could not be taken over, and keeps the field', async () => {
+    const { dialog } = renderDialog(
+      { suggestions: { code_standards: ready, ui_direction: null } },
+      { fail: [`POST ${BASE}/texts/code_standards/suggestion/accept`] },
+    );
+    const suggestion = await within(dialog).findByRole('region', {
+      name: 'Vorschlag des Moderators: Code-Standards',
+    });
+
+    fireEvent.click(within(suggestion).getByRole('button', { name: 'Übernehmen' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Der Vorschlag hat nicht geklappt.',
+    );
+    expect(within(dialog).getByLabelText('Code-Standards')).toHaveValue('TypeScript strict.');
+  });
+
+  it('shows viewers a suggestion without anything to click', async () => {
+    const { dialog } = renderDialog({
+      canEdit: false,
+      suggestions: { code_standards: ready, ui_direction: { status: 'running' } },
+    });
+    const suggestion = await within(dialog).findByRole('region', {
+      name: 'Vorschlag des Moderators: Code-Standards',
+    });
+
+    expect(within(suggestion).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/Der Moderator schreibt einen Vorschlag/)).toBeVisible();
+    expect(within(dialog).queryByRole('button', { name: 'Abbrechen' })).not.toBeInTheDocument();
+    expect(asks(dialog)).toHaveLength(0);
   });
 });

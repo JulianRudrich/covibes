@@ -924,6 +924,19 @@
           "placeholder": "z. B. ruhig und hell, viel Weißraum, eine Akzentfarbe. Texte per Du."
         }
       },
+      "suggestion": {
+        "ask": "Vorschlag vom Moderator",
+        "title": "Vorschlag",
+        "titleFor": "Vorschlag des Moderators: {{text}}",
+        "running": "Der Moderator schreibt einen Vorschlag … Das dauert etwa eine Minute.",
+        "accept": "Übernehmen",
+        "dismiss": "Verwerfen",
+        "replaces": "Ersetzt den Text im Feld.",
+        "hide": "Ausblenden",
+        "failed": "Der Vorschlag hat nicht geklappt. Bitte versuche es noch einmal.",
+        "quota": "Das KI-Kontingent ist gerade aufgebraucht. Bitte versuche es später noch einmal.",
+        "quotaUntil": "Das KI-Kontingent ist gerade aufgebraucht und ab {{time}} wieder frei."
+      },
       "files_one": "{{count}} Datei anzeigen",
       "files_other": "{{count}} Dateien anzeigen",
       "download": "Paket herunterladen"

@@ -7,7 +7,7 @@
 Build the result (M5, specs 25 to 27): the project plan with suggestions and versions, the roadmap with milestones and tasks, and the exports. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing. Next is spec 27b (the package for coding agents), which is worked out first.
+**Spec 27b the package for coding agents** (worked out on 2026-10-03): the ZIP with `CLAUDE.md`, `AGENTS.md`, context files, a feature spec per task and the diagrams, built without a model, and the export dialog with the two texts of the team. Part 27c (the moderator suggests the texts and writes the specs out) follows.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

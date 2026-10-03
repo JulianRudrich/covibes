@@ -238,9 +238,10 @@ Built in two parts (2026-10-03), because the unit is large:
 - **Design:** **required:** roadmap diagram
 
 ### 27 Exports
-Built in two parts (2026-10-03), because the unit is large:
+Built in three parts (2026-10-03), because the unit is large:
 - **27a** exporting canvas and plan: a board as PNG, SVG and Mermaid, the plan as Markdown and PDF
-- **27b** the package for coding agents as a ZIP, with the export dialog and the moderator's questions before it
+- **27b** the package for coding agents as a ZIP, built without a model: context files, a short feature spec per task of the plan, the diagrams, and the export dialog with what is missing and the two texts the plan does not hold (code standards, UI direction)
+- **27c** the moderator's part of the package: it suggests the two texts on click and writes the feature specs out, one model run per milestone
 
 - **Goal:**
   - diagrams as PNG, SVG and Mermaid

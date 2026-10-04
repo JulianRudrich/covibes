@@ -254,6 +254,10 @@ Built in four parts (2026-10-03), because the unit is large:
 ## M6: GitLab
 
 ### 28 Connecting GitLab and reading the repository
+Built in two parts (2026-10-04), because the unit is large:
+- **28a** connecting GitLab: the OAuth connection with the scope `api`, encrypted tokens with renewal, picking the repository, the connection dialog, and a local stand-in for GitLab for development and tests
+- **28b** agents read the repository, its issues and merge requests
+
 - **Goal:** a separate OAuth connection with the scope `api`, encrypted tokens with refresh and a `base_url` per connection. Agents can read repository, issues and merge requests.
 - **Needs:** 20
 - **Design:** **required:** connection dialog

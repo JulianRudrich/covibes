@@ -22,6 +22,7 @@ import {
 import { debateRoutes, handRoutes, offerRoutes, voteRoutes } from '@server/api/hands';
 import { messageRoutes } from '@server/api/messages';
 import { notificationRoutes } from '@server/api/notifications';
+import { gitCallback, gitRoutes, type GitDeps } from '@server/api/git';
 import { packageRoutes } from '@server/api/package';
 import { planRoutes } from '@server/api/plan';
 import { projectRoutes } from '@server/api/projects';
@@ -33,6 +34,10 @@ import { AUTH_BASE_PATH, gitlabLoginEnabled, type Auth } from '@server/auth/auth
 import type { BoardDocuments } from '@server/collab/collab';
 import type { Database } from '@server/db/database';
 import type { ServerEnv } from '@server/env';
+import { createGitlabClient } from '@server/integrations/gitlab/client';
+import { createGitConnections } from '@server/integrations/gitlab/connections';
+import { createGitlabStandIn } from '@server/integrations/gitlab/dev/stand-in';
+import { DEV_GITLAB_PATH, GIT_CALLBACK_PATH, gitlabSetup } from '@server/integrations/gitlab/setup';
 import {
   DEV_MAILS_PATH,
   INTERNAL_TOKEN_HEADER,
@@ -76,6 +81,11 @@ export type AppDeps = {
   files: FileStorage;
   /** Closes what someone has open in a project when their access changes (spec 21a). */
   connections: ProjectConnections;
+  /**
+   * How the server calls GitLab (spec 28a); the global `fetch` unless a test hands in its own,
+   * which reaches the stand-in without a network.
+   */
+  gitlabFetch?: typeof fetch;
 };
 
 export function createApp({
@@ -87,6 +97,7 @@ export function createApp({
   documents,
   files,
   connections,
+  gitlabFetch,
 }: AppDeps): Hono {
   const app = new Hono();
 
@@ -109,6 +120,25 @@ export function createApp({
       ? uploadLimit(c, next)
       : apiLimit(c, next);
   app.use('/api/*', limitBody);
+  // Connecting GitLab (spec 28a). In development and tests without an OAuth application, the
+  // server answers as a small GitLab itself. Its routes stand before the check of the origin:
+  // the token endpoint takes a form, as GitLab's does, and is called by this server, not by a
+  // page. Production never serves it.
+  const gitSetup = gitlabSetup(env);
+  const gitClient = createGitlabClient(gitlabFetch);
+  const git: GitDeps | undefined = gitSetup
+    ? {
+        setup: gitSetup,
+        client: gitClient,
+        connections: createGitConnections({ admin: db.admin, client: gitClient, setup: gitSetup }),
+      }
+    : undefined;
+  const standIn =
+    gitSetup?.standIn && env.NODE_ENV !== 'production'
+      ? createGitlabStandIn(gitSetup.source)
+      : undefined;
+  if (standIn) app.route(DEV_GITLAB_PATH, standIn.routes);
+
   // Form-like requests (which browsers send cross-site without asking) must come from the web app.
   // SameSite cookies stop other sites, this also stops sibling subdomains of the same site.
   app.use('/api/*', csrf({ origin: new URL(env.APP_URL).origin }));
@@ -160,6 +190,8 @@ export function createApp({
   app.route('/api/projects/:projectId/plan', planRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/roadmap', roadmapRoutes(db.app, auth, live, documents));
   app.route('/api/projects/:projectId/package', packageRoutes(db.app, auth, live, documents));
+  app.route('/api/projects/:projectId/git', gitRoutes(db.app, auth, git));
+  app.route(GIT_CALLBACK_PATH, gitCallback(db.app, auth, env.APP_URL, git));
   const invitationMailLimiter = createRateLimiter({
     limit: INVITATION_MAILS_PER_HOUR,
     windowMs: 60 * 60_000,

@@ -376,7 +376,13 @@ describe('writing the specs of a milestone out', () => {
     const heard: string[] = [];
     const listener = await test.db.adminPool.connect();
     listener.on('notification', (message) => {
-      const payload = JSON.parse(message.payload ?? '{}') as { kind?: string; projectId?: string };
+      // Other test files announce on the same channel, also things that are no JSON.
+      let payload: { kind?: string; projectId?: string };
+      try {
+        payload = JSON.parse(message.payload ?? '{}') as typeof payload;
+      } catch {
+        return;
+      }
       if (payload.projectId === projectId && payload.kind) heard.push(payload.kind);
     });
     await listener.query('listen covibes_live');

@@ -97,6 +97,7 @@ export type AiRun = z.infer<typeof aiRunSchema>;
  * - `plan`: the plan's suggestions changed, or a generation started or ended (spec 25b)
  * - `roadmap`: what the plan's roadmap shows changed (spec 26a); it is loaded again
  * - `package`: a suggestion for a text of the package started, ended or was decided (spec 27c)
+ * - `git`: the project's connection to GitLab changed (spec 28a)
  */
 export const liveEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('message'), message: chatMessageSchema }),
@@ -113,5 +114,7 @@ export const liveEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('roadmap') }),
   // A suggestion for a text of the package started, ended or was decided (spec 27c).
   z.object({ type: z.literal('package') }),
+  // The project's connection to GitLab changed (spec 28a).
+  z.object({ type: z.literal('git') }),
 ]);
 export type LiveEvent = z.infer<typeof liveEventSchema>;

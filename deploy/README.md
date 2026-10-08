@@ -60,6 +60,12 @@ Covibes only starts when at least one of the two methods is configured.
 2. Redirect URI: `<APP_URL>/api/auth/callback/gitlab`, scope: `read_user`
 3. Enter `GITLAB_CLIENT_ID` and `GITLAB_CLIENT_SECRET`.
 
+**Connecting repositories (optional):** owners connect the GitLab repository of a project.
+1. Give the same application a second redirect URI, `<APP_URL>/api/git/callback`, and the scope `api` in addition.
+2. Set `TOKEN_KEY` (generated like the other secrets). It seals the tokens of the connections in the database. Keep it: with another key every project has to connect again.
+
+Signing in asks GitLab for `read_user` only; the scope `api` is asked for when an owner connects a repository.
+
 After changing `.env`: `docker compose up -d`.
 
 ## Web server in front

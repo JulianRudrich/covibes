@@ -1,4 +1,4 @@
-import type { Phase } from '@covibes/shared';
+import type { GitReturn, Phase } from '@covibes/shared';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,9 +9,19 @@ import { WorkspaceHeader } from '@web/features/workspace/workspace-header';
 
 export type WorkspaceMember = { id: string; name: string; isCurrentUser: boolean };
 
+/** The dialog "Repository" of the project's menu (spec 28a). */
+export type WorkspaceRepository = {
+  projectId: string;
+  /** How the way back from GitLab ended; the dialog opens with it once. */
+  returned: GitReturn | undefined;
+  /** The dialog showed how it ended and was closed. */
+  onReturnSeen: () => void;
+};
+
 type WorkspaceShellProps = {
   projectName: string;
   settings: ProjectSettings;
+  repository: WorkspaceRepository;
   activePhase: Phase;
   /** Jumping to a phase and asking for the next step (spec 24); missing for viewers. */
   onSelectPhase?: (phase: Phase) => void;
@@ -34,6 +44,7 @@ type WorkspaceShellProps = {
 export function WorkspaceShell({
   projectName,
   settings,
+  repository,
   activePhase,
   onSelectPhase,
   onAskNextStep,
@@ -52,6 +63,7 @@ export function WorkspaceShell({
       <WorkspaceHeader
         projectName={projectName}
         settings={settings}
+        repository={repository}
         activePhase={activePhase}
         onSelectPhase={onSelectPhase}
         onAskNextStep={onAskNextStep}

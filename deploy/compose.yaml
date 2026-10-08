@@ -49,6 +49,8 @@ services:
       MAIL_FROM: ${MAIL_FROM:-}
       GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID:-}
       GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET:-}
+      # Seals the tokens of connected repositories; without it no project can connect one.
+      TOKEN_KEY: ${TOKEN_KEY:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Set INTERNAL_TOKEN in deploy/.env}
     volumes:

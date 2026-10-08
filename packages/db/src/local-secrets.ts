@@ -12,6 +12,8 @@ const localSecretsSchema = z.object({
   betterAuthSecret: z.string().min(32),
   /** Shared by server and worker (spec 07); added to older files on the next start. */
   internalToken: z.string().min(32),
+  /** Key for the tokens of GitLab connections (spec 28a); added to older files on the next start. */
+  tokenKey: z.string().min(32),
 });
 
 export type LocalSecrets = z.infer<typeof localSecretsSchema>;
@@ -34,6 +36,7 @@ export function loadOrCreateLocalSecrets(file = paths.localSecrets): LocalSecret
     appPassword: randomSecret(24),
     betterAuthSecret: randomSecret(32),
     internalToken: randomSecret(32),
+    tokenKey: randomSecret(32),
     ...(typeof stored === 'object' ? stored : {}),
   });
   if (JSON.stringify(secrets) !== JSON.stringify(stored)) {

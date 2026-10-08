@@ -23,6 +23,11 @@ export const serverEnvSchema = z
     GITLAB_CLIENT_SECRET: z.string().min(1).optional(),
     /** Only for a self-hosted GitLab; defaults to gitlab.com. */
     GITLAB_ISSUER: z.url().optional(),
+    /**
+     * Key for the tokens of GitLab connections (spec 28a), shared with the worker. Unset, no
+     * project can connect a repository. Changing it makes every stored token unreadable.
+     */
+    TOKEN_KEY: z.string().min(32).optional(),
     /** Mail delivery in production, e.g. `smtps://user:password@mail.example.com:465`. */
     SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
     /** Sender of all mails, e.g. `Covibes <no-reply@example.com>`. */

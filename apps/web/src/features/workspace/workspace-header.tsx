@@ -15,6 +15,7 @@ import {
 } from '@web/components/ui/dropdown-menu';
 import { Tooltip } from '@web/components/ui/tooltip';
 import { AccountMenu } from '@web/features/account/account-menu';
+import { GitDialog } from '@web/features/git/git-dialog';
 import type { SessionUser } from '@web/features/auth/session';
 import { NotificationBell } from '@web/features/notifications/notification-bell';
 import { PhaseIndicator } from '@web/features/workspace/phase-indicator';
@@ -22,12 +23,13 @@ import {
   ProjectSettingsDialog,
   type ProjectSettings,
 } from '@web/features/workspace/project-settings-dialog';
-import type { WorkspaceMember } from '@web/features/workspace/workspace-shell';
+import type { WorkspaceMember, WorkspaceRepository } from '@web/features/workspace/workspace-shell';
 import { initialsOf } from '@web/lib/format';
 
 type WorkspaceHeaderProps = {
   projectName: string;
   settings: ProjectSettings;
+  repository: WorkspaceRepository;
   activePhase: Phase;
   /** Jumping to a phase and asking for the next step (spec 24); missing for viewers. */
   onSelectPhase?: (phase: Phase) => void;
@@ -43,6 +45,7 @@ type WorkspaceHeaderProps = {
 export function WorkspaceHeader({
   projectName,
   settings,
+  repository,
   activePhase,
   onSelectPhase,
   onAskNextStep,
@@ -63,7 +66,7 @@ export function WorkspaceHeader({
         <span aria-hidden="true" className="text-display text-text-faint">
           /
         </span>
-        <ProjectMenu projectName={projectName} settings={settings} />
+        <ProjectMenu projectName={projectName} settings={settings} repository={repository} />
       </div>
 
       <div className="justify-self-center">
@@ -115,13 +118,17 @@ export function WorkspaceHeader({
 function ProjectMenu({
   projectName,
   settings,
+  repository,
 }: {
   projectName: string;
   settings: ProjectSettings;
+  repository: WorkspaceRepository;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Someone who comes back from GitLab lands in the dialog they left for it.
+  const [repositoryOpen, setRepositoryOpen] = useState(repository.returned !== undefined);
   return (
     <>
       <DropdownMenu>
@@ -147,10 +154,28 @@ function ProjectMenu({
           >
             {t('workspace.settings')}
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
+              setRepositoryOpen(true);
+            }}
+          >
+            {t('workspace.repository')}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         {settingsOpen ? <ProjectSettingsDialog settings={settings} /> : null}
+      </Dialog>
+      <Dialog
+        open={repositoryOpen}
+        onOpenChange={(open) => {
+          setRepositoryOpen(open);
+          if (!open && repository.returned !== undefined) repository.onReturnSeen();
+        }}
+      >
+        {repositoryOpen ? (
+          <GitDialog projectId={repository.projectId} returned={repository.returned} />
+        ) : null}
       </Dialog>
     </>
   );

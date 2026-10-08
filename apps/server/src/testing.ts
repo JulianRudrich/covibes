@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import type { Hono } from 'hono';
 import { afterAll, expect, inject } from 'vitest';
 
 import { createApp } from '@server/app';
@@ -23,6 +24,7 @@ export function createTestServer(overrides: Partial<Record<keyof ServerEnv, stri
     DATABASE_URL: appUrl,
     DATABASE_ADMIN_URL: adminUrl,
     BETTER_AUTH_SECRET: 'test-secret-with-at-least-32-characters',
+    TOKEN_KEY: 'test-token-key-with-at-least-32-characters',
     ...overrides,
   });
   const db = createDatabase(env);
@@ -33,7 +35,7 @@ export function createTestServer(overrides: Partial<Record<keyof ServerEnv, stri
   /** Uploaded files stay in memory. */
   const files = memoryStorage();
   /** The app with another collaboration server, e.g. one a test starts and stops itself. */
-  const appWith = (documents: BoardDocuments & Pick<Collab, 'closeUser'>) =>
+  const appWith = (documents: BoardDocuments & Pick<Collab, 'closeUser'>): Hono =>
     createApp({
       env,
       db,
@@ -43,8 +45,11 @@ export function createTestServer(overrides: Partial<Record<keyof ServerEnv, stri
       documents,
       files,
       connections: projectConnections(realtime, documents),
+      // The stand-in for GitLab is part of the app; calls to it stay in the process.
+      gitlabFetch: (input, init): Promise<Response> =>
+        Promise.resolve(app.request(input instanceof Request ? input.url : String(input), init)),
     });
-  const app = appWith(collab);
+  const app: Hono = appWith(collab);
   const { outbox } = mail;
   afterAll(async () => {
     realtime.close();

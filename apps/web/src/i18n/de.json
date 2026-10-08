@@ -74,6 +74,7 @@
     },
     "toProjects": "Zur Projektliste",
     "settings": "Einstellungen",
+    "repository": "Repository …",
     "accessLost": {
       "title": "Du bist nicht mehr in diesem Projekt",
       "text": "Ein Owner hat dich aus „{{project}}“ entfernt. Wenn das ein Versehen war, bitte um eine neue Einladung."
@@ -865,6 +866,42 @@
       "nobody": "Niemand",
       "short": "Zuweisen",
       "failed": "Die Aufgabe konnte nicht zugewiesen werden. Bitte versuche es noch einmal."
+    }
+  },
+  "git": {
+    "title": "Repository",
+    "hint": "Verbindet das Projekt mit seinem Repository in GitLab.",
+    "loadFailed": "Die Verbindung konnte nicht geladen werden. Bitte versuche es noch einmal.",
+    "unavailable": "Dieser Server ist nicht für GitLab eingerichtet. Dafür braucht er eine OAuth-Anwendung bei GitLab und einen Schlüssel für die Tokens.",
+    "returned": {
+      "denied": "Du hast den Zugriff in GitLab abgelehnt. Es wurde nichts verbunden.",
+      "failed": "Die Verbindung mit GitLab hat nicht geklappt. Bitte versuche es noch einmal."
+    },
+    "connect": {
+      "text": "Du meldest dich bei GitLab an und erlaubst Covibes den Zugriff auf die API. Danach wählst du das Repository. Die Agents lesen es mit deinem Zugriff für alle Mitglieder des Projekts.",
+      "action": "Mit GitLab verbinden",
+      "again": "Neu verbinden",
+      "ownersOnly": "Es ist noch kein Repository verbunden. Das kann ein Owner des Projekts tun.",
+      "failed": "Der Weg zu GitLab hat nicht geklappt. Bitte versuche es noch einmal."
+    },
+    "connected": {
+      "as": "Verbunden als {{name}} (@{{username}}), von {{by}}."
+    },
+    "repository": {
+      "pick": "Repository wählen",
+      "search": "Repository suchen",
+      "none": "Dieses Konto arbeitet in keinem Repository mit, in dem es Merge Requests anlegen darf.",
+      "noneFound": "Kein Repository gefunden.",
+      "listFailed": "Die Repositories konnten nicht geladen werden. Vielleicht ist der Zugriff abgelaufen.",
+      "pickFailed": "Das Repository konnte nicht gewählt werden. Bitte versuche es noch einmal.",
+      "change": "Ändern",
+      "waiting": "{{name}} wählt noch das Repository aus."
+    },
+    "disconnect": {
+      "action": "Verbindung trennen",
+      "confirm": "Wirklich trennen",
+      "hint": "Die Agents können das Repository dann nicht mehr lesen.",
+      "failed": "Die Verbindung konnte nicht getrennt werden. Bitte versuche es noch einmal."
     }
   },
   "export": {

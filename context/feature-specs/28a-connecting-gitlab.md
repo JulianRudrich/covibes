@@ -50,13 +50,51 @@ First part of spec 28.
 - Spec 21a (roles), spec 04 (login and the OAuth application's settings)
 
 ## Checklist
-- [ ] An owner connects GitLab through the consent page and comes back to the project; the connection names the account, and the tokens are stored encrypted.
-- [ ] The owner picks one of the account's repositories, with a search; every member sees the connected repository and who connected it.
-- [ ] A state that is forged, expired or made for someone else is refused; a second use of a code stores nothing.
-- [ ] The server renews a token that is about to expire, once per connection also when two calls need it at the same time.
-- [ ] Disconnecting removes connection and tokens and revokes the token; the connection also ends when its maker leaves the project or is no owner any more.
-- [ ] Editors and viewers cannot connect, pick or disconnect; no token is in any answer.
-- [ ] Development runs against the stand-in without any account; production does not serve it.
-- [ ] The derived looks were checked from screenshots and are listed in `ui-context.md`.
-- [ ] Tests for the database, the client, the store, the API and the dialog pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] An owner connects GitLab through the consent page and comes back to the project; the connection names the account, and the tokens are stored encrypted.
+- [x] The owner picks one of the account's repositories, with a search; every member sees the connected repository and who connected it.
+- [x] A state that is forged, expired or made for someone else is refused; a second use of a code stores nothing.
+- [x] The server renews a token that is about to expire, once per connection also when two calls need it at the same time.
+- [x] Disconnecting removes connection and tokens and revokes the token; the connection also ends when its maker leaves the project or is no owner any more.
+- [x] Editors and viewers cannot connect, pick or disconnect; no token is in any answer.
+- [x] Development runs against the stand-in without any account; production does not serve it.
+- [x] The derived looks were checked from screenshots and are listed in `ui-context.md`.
+- [x] Tests for the database, the client, the store, the API and the dialog pass.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-10-08)
+- **Database** (migration `0029_git_connections.sql`):
+  - `git_connections`: one row per project with the GitLab's address, the owner who connected, the account (id, username, name) and the repository once it is picked (id, path, name, address, default branch; all of them or none). Members read; nobody writes through a request of a user.
+  - `oauth_tokens`: the sealed access and refresh token with the expiry and the scope. RLS is on without a policy and without a grant: `covibes_app` cannot touch it at all.
+  - A trigger ends the connection when its maker leaves the project, is removed, or is no owner any more; it also goes with the account and with the project. Another trigger announces every change as `git` on the live channel.
+- **Secrets** (`apps/server/src/integrations/gitlab/crypto.ts`): a token is stored as `v1.nonce.ciphertext.tag` (AES-256-GCM, a fresh nonce each time). The `state` of a flow is the project, the person, an expiry of ten minutes and a nonce, signed with HMAC-SHA-256. Both use keys derived from `TOKEN_KEY`, one per purpose.
+- **Client** (`client.ts`): `authorizeUrl`, `exchangeCode`, `refresh`, `revoke`, `account`, `repositories` (the account's repositories with at least Developer access, the latest active first, 20 per search) and `repository`. Every answer is checked with zod; an error status becomes a `GitlabError`; a call ends after 15 seconds.
+- **Setup** (`setup.ts`): with `GITLAB_CLIENT_ID` and `GITLAB_CLIENT_SECRET` the server connects to `GITLAB_ISSUER` (gitlab.com by default); without them, outside of production, to its own stand-in. Without `TOKEN_KEY`, or in production without an application, projects cannot connect.
+- **Store** (`connections.ts`): `connect` (in the place of an earlier connection), `access` (the token, renewed when it ends within a minute, with the row locked so that two calls renew once; a connection GitLab refuses is removed, a GitLab that is away leaves it), `setRepository`, `disconnect` (revokes as far as that works, then removes). It is the only code that opens tokens, and it works with the admin role after its callers checked who asks.
+- **API** (`apps/server/src/api/git.ts`):
+  - `GET /api/projects/:id/git`: whether the server can connect, whether the person may manage, and the connection (address, account, who connected and when, repository).
+  - `POST …/git/connect` (owners): the address of the consent page. `GET …/git/repositories?search=` and `PUT …/git/repository` `{ repositoryId }` (owners): the list to pick from, and the pick, which must be a repository the account reaches. `DELETE …/git` (owners): the end.
+  - `GET /api/git/callback`: checks the state against the session and the owner role, trades the code, reads the account, stores the connection and sends the browser to `/p/:id?git=connected`, `denied` or `failed`; without a valid state to the start page.
+- **Stand-in** (`dev/stand-in.ts`), served under `/api/dev/gitlab` before the check of the origin: the consent page with "Zugriff erlauben" and "Ablehnen", the token endpoint (a code and a refresh token work once), revoking, the account "Olga Beispiel", three example repositories, and a page behind a repository's link. Its tokens are signed instead of remembered, so connections made in development survive a restart of the server.
+- **Web** (`apps/web/src/features/git/`): the project's menu has "Repository …". The dialog shows one of: not set up, not connected (owners: "Mit GitLab verbinden"), connected without a repository (owners: the list with a search; others: who still picks), connected (the repository with a link, "Ändern", "Verbindung trennen" with a second click). After the way back the address carries `?git=…`; the dialog opens with it once and the address is cleaned when it closes.
+- **Environment:** `TOKEN_KEY` (at least 32 characters). `pnpm dev` creates it with the other local secrets (`.data/local-secrets.json`); the Docker setup takes it from `deploy/.env` (`deploy/README.md` says how, together with the second redirect address and the scope `api`).
+- **Verified** with `pnpm dev` and the browser as olga in "Vereins-App", against the stand-in:
+  - "Repository …" opened the dialog with "Mit GitLab verbinden"; the click led to the consent page of the stand-in (scope `api`, back to `/api/git/callback`).
+  - "Zugriff erlauben" led back to the project with `?git=connected`; the dialog opened by itself with "Verbunden als Olga Beispiel (@olga.beispiel), von olga." and the three repositories.
+  - Picking "Vereins-App" showed the repository with its link (the stand-in's page answers); closing the dialog cleaned the address.
+  - A connection from before a restart of the server ended by itself at its next use while the stand-in still forgot its tokens: the dialog went back to "Mit GitLab verbinden" without a reload (the live event).
+  - The test project stays connected to the example repository, for part 28b. Not tried live: another member's view, denying the consent and disconnecting; all are covered by tests. A real GitLab was not used.
+- **Found while testing live:**
+  - The stand-in kept its tokens in memory, so every restart of the development server ended the connections two hours later. Its tokens are signed now and hold over a restart.
+  - The link of a connected example repository led to nothing; the stand-in has a page for it now.
+  - Two older tests listened on the live channel of the shared test database and broke when another test sent something that is no JSON at that moment; their listeners skip such payloads now.
+- **Decided while building:**
+  - The login's OAuth application also serves the connection, with a redirect address of its own.
+  - The state is signed, not stored: no table, and nothing to clean up.
+  - Only repositories in which the account has at least Developer access are offered, since spec 29 opens merge requests and issues with it.
+  - A new connection replaces the old one and its repository is picked anew.
+  - An own client instead of `@gitbeaker/rest` (see `architecture.md`).
+- **Known limits:**
+  - When GitLab refuses a connection at its next use, the dialog just shows "Mit GitLab verbinden" again; it does not say why.
+  - The address of the GitLab is one per server; `base_url` is stored per connection, but tokens of another GitLab cannot be renewed.
+  - If `TOKEN_KEY` changes, the stored tokens cannot be opened and every project has to connect again.
+  - A real GitLab was not part of the tests; that check is due at the latest with spec 35.

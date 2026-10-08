@@ -121,7 +121,7 @@ function useNotice() {
 function Workspace({ project, user }: { project: ProjectDetails; user: SessionUser | null }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { board: requested, view, focus } = route.useSearch();
+  const { board: requested, view, focus, git: gitReturned } = route.useSearch();
   // The project plan takes the place of the canvas while it is open (spec 25a).
   const planOpen = view === 'plan';
   const { notice, show: showNotice } = useNotice();
@@ -190,6 +190,17 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
         to: '/p/$projectId',
         params: { projectId: project.id },
         search: (previous) => ({ ...previous, focus: undefined }),
+        replace: true,
+      }),
+    [navigate, project.id],
+  );
+  // How the way back from GitLab ended is said once (spec 28a); then the address is clean again.
+  const clearGitReturn = useCallback(
+    () =>
+      void navigate({
+        to: '/p/$projectId',
+        params: { projectId: project.id },
+        search: (previous) => ({ ...previous, git: undefined }),
         replace: true,
       }),
     [navigate, project.id],
@@ -403,6 +414,11 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
           onChange: (change) => {
             updateProject.mutate(change);
           },
+        }}
+        repository={{
+          projectId: project.id,
+          returned: gitReturned,
+          onReturnSeen: clearGitReturn,
         }}
         activePhase={project.phase}
         onSelectPhase={

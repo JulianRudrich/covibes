@@ -1,3 +1,4 @@
+import { GIT_RETURNS } from '@covibes/shared';
 import type { QueryClient } from '@tanstack/react-query';
 import {
   createRootRouteWithContext,
@@ -66,11 +67,13 @@ const projectRoute = createRoute({
   path: '/p/$projectId',
   // The open board (spec 11); without one, or with one that does not exist, the main canvas.
   // `view=plan` shows the project plan in its place (spec 25a). `focus` names an element of the
-  // board to bring into view once, e.g. the roadmap (spec 26a).
+  // board to bring into view once, e.g. the roadmap (spec 26a). `git` says how the way back from
+  // GitLab ended (spec 28a); the dialog "Repository" opens with it once.
   validateSearch: z.object({
     board: z.string().optional().catch(undefined),
     view: z.enum(['plan']).optional().catch(undefined),
     focus: z.string().optional().catch(undefined),
+    git: z.enum(GIT_RETURNS).optional().catch(undefined),
   }),
   component: WorkspacePage,
 });

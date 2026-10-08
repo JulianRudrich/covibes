@@ -415,6 +415,17 @@ export {
 } from './coding-package';
 export { codingPackageTexts, type CodingPackageTexts } from './package-texts';
 export {
+  GIT_RETURNS,
+  gitRepositoryInputSchema,
+  gitRepositorySearchSchema,
+  type GitConnection,
+  type GitConnectStart,
+  type GitRepository,
+  type GitRepositoryInput,
+  type GitReturn,
+  type GitState,
+} from './git';
+export {
   planExportMarkdown,
   planExportTitle,
   withAssigneeNames,

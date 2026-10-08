@@ -74,6 +74,7 @@
     },
     "toProjects": "To the project list",
     "settings": "Settings",
+    "repository": "Repository …",
     "accessLost": {
       "title": "You are no longer in this project",
       "text": "An owner removed you from \"{{project}}\". If that was a mistake, ask for a new invitation."
@@ -865,6 +866,42 @@
       "nobody": "Nobody",
       "short": "Assign",
       "failed": "The task could not be assigned. Please try again."
+    }
+  },
+  "git": {
+    "title": "Repository",
+    "hint": "Connects the project with its repository in GitLab.",
+    "loadFailed": "The connection could not be loaded. Please try again.",
+    "unavailable": "This server is not set up for GitLab. It needs an OAuth application at GitLab and a key for the tokens.",
+    "returned": {
+      "denied": "You denied the access in GitLab. Nothing was connected.",
+      "failed": "Connecting to GitLab did not work. Please try again."
+    },
+    "connect": {
+      "text": "You sign in to GitLab and allow Covibes to use the API. Then you pick the repository. The agents read it with your access for all members of the project.",
+      "action": "Connect to GitLab",
+      "again": "Connect again",
+      "ownersOnly": "No repository is connected yet. An owner of the project can do that.",
+      "failed": "The way to GitLab did not work. Please try again."
+    },
+    "connected": {
+      "as": "Connected as {{name}} (@{{username}}), by {{by}}."
+    },
+    "repository": {
+      "pick": "Pick a repository",
+      "search": "Search repositories",
+      "none": "This account works in no repository in which it may open merge requests.",
+      "noneFound": "No repository found.",
+      "listFailed": "The repositories could not be loaded. The access may have expired.",
+      "pickFailed": "The repository could not be picked. Please try again.",
+      "change": "Change",
+      "waiting": "{{name}} is still picking the repository."
+    },
+    "disconnect": {
+      "action": "Disconnect",
+      "confirm": "Really disconnect",
+      "hint": "The agents can no longer read the repository then.",
+      "failed": "The connection could not be ended. Please try again."
     }
   },
   "export": {

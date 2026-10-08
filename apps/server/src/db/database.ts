@@ -12,7 +12,9 @@ export type Database = {
   app: AppDb;
   /**
    * Role covibes_admin, never for requests on behalf of a user: the worker, the live bridge
-   * (reading what the worker announced) and the collaboration storage.
+   * (reading what the worker announced) and the collaboration storage. The one exception are the
+   * tokens of GitLab connections (spec 28a), which no user may read: the routes check who asks
+   * and then reach them through `integrations/gitlab/connections`.
    */
   admin: AdminDb;
   /** The admin role's pool, for the login library and raw queries (LISTEN, bytea). */

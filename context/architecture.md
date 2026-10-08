@@ -43,7 +43,7 @@ Browser ── React app (static files)
 | AI layer | AI SDK (npm package `ai`), encapsulated in the `ai-gateway` module | provider-independent model calls |
 | Web search and links | a switch of the AI gateway ("this run may search"); behind it Claude's own web search (owner decision, 2026-10-01, spec 20b). Reading a link is an own tool with a guarded fetch | current facts and posted links for the agents |
 | Email | SMTP behind an interface; locally a development mailbox in the app | login links, invitations, notifications |
-| GitLab | `@gitbeaker/rest`, webhooks | repository, issues, merge requests |
+| GitLab | an own small client over `fetch` with checked answers (spec 28a; `@gitbeaker/rest` was planned and is not used, since the calls are few and one client serves GitLab and the development stand-in), webhooks | repository, issues, merge requests |
 | Monitoring | set up for the public launch | errors in web and server |
 | Exports | `html-to-image` (a board as PNG and SVG), an own Mermaid serializer in `packages/shared`, `pdfmake` (the plan as PDF); all in the browser, loaded on first use (spec 27a). `fflate` packs the package for coding agents on the server (spec 27b) | files of boards and of the plan, the package as a ZIP |
 | Tests | Vitest (also against a real test database), Playwright | logic, permissions, flows |
@@ -230,9 +230,11 @@ Every tool action of an agent goes through `rules/` and gets exactly one outcome
 An agent's instructions cannot change this table.
 
 ### GitLab
-- **Connection:** login and repository connection are separate. Only the connection, via a server endpoint, requests the `api` scope.
-  - The tokens are stored encrypted in `oauth_tokens`.
-  - The server refreshes them.
+- **Connection** (spec 28a): login and repository connection are separate. Only the connection, via a server endpoint, requests the `api` scope. A project has one connection, made by an owner; it ends when that person disconnects, leaves or is no owner any more.
+  - The way back from GitLab is tied to the person by a `state` the server signed (project, person, ten minutes).
+  - The tokens are stored encrypted in `oauth_tokens` (AES-256-GCM under `TOKEN_KEY`). No request of a user can read that table; only `integrations/gitlab/connections` opens tokens, with the admin role, after the route checked who asks.
+  - The server refreshes them shortly before they end, one renewal at a time per connection (the row is locked), because GitLab retires a refresh token with its use.
+  - In development and tests without an OAuth application the server answers as a small GitLab itself (`/api/dev/gitlab`); production never serves it.
 - **Approval flow:**
   1. A proposal of type `git_action` is created.
   2. An authorized person approves it.

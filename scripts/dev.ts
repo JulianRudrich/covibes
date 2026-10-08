@@ -30,6 +30,8 @@ const childEnv: NodeJS.ProcessEnv = {
   BETTER_AUTH_SECRET: database.secrets.betterAuthSecret,
   // Server and worker share it; the worker uses it to draw on boards for the agents.
   INTERNAL_TOKEN: database.secrets.internalToken,
+  // Server and worker share it; it seals the tokens of GitLab connections (spec 28a).
+  TOKEN_KEY: database.secrets.tokenKey,
   COLLAB_URL: 'ws://127.0.0.1:3001/api/collab',
   // Uploaded files (spec 20a) lie next to the local database.
   FILES_DIR: join(import.meta.dirname, '..', '.data', 'files'),

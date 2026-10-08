@@ -10,6 +10,7 @@ import {
   decisionsQueryKey,
   openVotesQueryKey,
 } from '@web/features/decisions/queries';
+import { gitQueryKey } from '@web/features/git/queries';
 import { handsQueryKey } from '@web/features/hands/queries';
 import { notificationsQuery } from '@web/features/notifications/queries';
 import { planStateQueryKey } from '@web/features/plan/queries';
@@ -81,6 +82,9 @@ export function useProjectLive(projectId: string, userId?: string) {
       } else if (event.type === 'roadmap') {
         // The plan changed what its roadmap shows (spec 26a).
         reload(roadmapQueryKey(projectId));
+      } else if (event.type === 'git') {
+        // The project's connection to GitLab changed (spec 28a).
+        reload(gitQueryKey(projectId));
       } else if (event.type === 'package') {
         // A suggestion for a text of the package started, ended or was decided (spec 27c); only
         // the open export dialog holds what is loaded again.

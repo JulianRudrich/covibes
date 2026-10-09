@@ -39,12 +39,15 @@ describe('sealing a token', () => {
 });
 
 describe('the state of an OAuth flow', () => {
-  const asked = { projectId: randomUUID(), userId: randomUUID() };
+  const asked = { userId: randomUUID(), projectId: randomUUID(), origin: 'repository' as const };
 
-  it('says which project and person it was signed for', () => {
+  it('says which person it was signed for, and from where', () => {
     const state = signState(KEY, asked);
+    const fromAccount = { userId: asked.userId, projectId: null, origin: 'account' as const };
 
     expect(readState(KEY, state)).toEqual(asked);
+    // A flow started outside of a project names none.
+    expect(readState(KEY, signState(KEY, fromAccount))).toEqual(fromAccount);
     // Two flows of the same person never share a state.
     expect(signState(KEY, asked)).not.toBe(state);
   });

@@ -44,7 +44,7 @@ function setUp() {
   const connections = createGitConnections({ admin: test.db.admin, client, setup: SETUP, now });
   const readers = repositoryReaders({ admin: test.db.admin, client, connections });
 
-  /** A project whose owner connected GitLab; `repositoryId` is the repository picked, if any. */
+  /** A project whose owner connected their account; `repositoryId` is the repository picked, if any. */
   async function project(repositoryId: number | null = 101) {
     const cookie = await test.signIn();
     const created = await test.app.request('/api/projects', {
@@ -58,9 +58,9 @@ function setUp() {
     const allow = /class="allow" href="([^"]+)"/.exec(await page.text())?.[1] ?? '';
     const code = new URL(allow.replaceAll('&amp;', '&')).searchParams.get('code') ?? '';
     const tokens = await client.exchangeCode(SETUP.source, code);
-    await connections.connect(
-      projectId,
-      session?.user.id ?? '',
+    const userId = session?.user.id ?? '';
+    await connections.connectAccount(
+      userId,
       await client.account(SETUP.source.baseUrl, tokens.accessToken),
       tokens,
     );
@@ -71,7 +71,7 @@ function setUp() {
         repositoryId,
       );
       if (!repository) throw new Error('The example repository is missing');
-      await connections.setRepository(projectId, repository);
+      await connections.setRepository(projectId, userId, repository);
     }
     calls.length = 0;
     return projectId;
@@ -97,7 +97,7 @@ describe('the reader of a project', () => {
     });
   });
 
-  it('does not exist without a connection, or before a repository is picked', async () => {
+  it('does not exist before a repository is picked, also when the owner has an account', async () => {
     const { readers, project } = setUp();
 
     expect(await readers('00000000-0000-4000-8000-000000000000')).toBeUndefined();

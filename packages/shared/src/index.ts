@@ -415,11 +415,17 @@ export {
 } from './coding-package';
 export { codingPackageTexts, type CodingPackageTexts } from './package-texts';
 export {
+  GIT_ORIGINS,
   GIT_RETURNS,
+  gitConnectInputSchema,
   gitRepositoryInputSchema,
   gitRepositorySearchSchema,
+  type GitAccount,
+  type GitAccountState,
   type GitConnection,
+  type GitConnectInput,
   type GitConnectStart,
+  type GitOrigin,
   type GitRepository,
   type GitRepositoryInput,
   type GitReturn,

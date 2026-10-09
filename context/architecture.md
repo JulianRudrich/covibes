@@ -230,10 +230,12 @@ Every tool action of an agent goes through `rules/` and gets exactly one outcome
 An agent's instructions cannot change this table.
 
 ### GitLab
-- **Connection** (spec 28a): login and repository connection are separate. Only the connection, via a server endpoint, requests the `api` scope. A project has one connection, made by an owner; it ends when that person disconnects, leaves or is no owner any more.
-  - The way back from GitLab is tied to the person by a `state` the server signed (project, person, ten minutes).
-  - The tokens are stored encrypted in `oauth_tokens` (AES-256-GCM under `TOKEN_KEY`). No request of a user can read that table; only `integrations/gitlab/connections` opens tokens, with the admin role, after the route checked who asks.
-  - The server refreshes them shortly before they end, one renewal at a time per connection (the row is locked), because GitLab retires a refresh token with its use.
+- **Connection** (specs 28a and 29a): login and the access to GitLab are separate. Only the access, via a server endpoint, requests the `api` scope.
+  - Every person connects one GitLab account of their own (`git_accounts`), for all projects on the server. Git actions run with the account of who approves them.
+  - A project has one repository (`git_connections`), picked by an owner with that owner's account; the agents read with that owner's access. The connection ends when an owner removes the repository, or when the person who picked it disconnects their account, leaves the project or is no owner any more.
+  - The way back from GitLab is tied to the person by a `state` the server signed (person, the project and dialog to come back to, ten minutes).
+  - The tokens are stored encrypted in `git_accounts` (AES-256-GCM under `TOKEN_KEY`). No request of a user can read that table; only `integrations/gitlab/connections` opens tokens, with the admin role, after the route checked who asks.
+  - The server refreshes them shortly before they end, one renewal at a time per account (the row is locked), because GitLab retires a refresh token with its use.
   - Agents read the repository of a connected project (spec 28b): its files, issues and merge requests, through six tools of their own, within bounds. They run in the worker, which shares the settings of the connection with the server and takes the token from the same store. Results are marked as content of the repository; it is data, not instructions (invariant 6).
   - In development and tests without an OAuth application the server answers as a small GitLab itself (`/api/dev/gitlab`); production never serves it.
 - **Approval flow:**
@@ -243,7 +245,7 @@ An agent's instructions cannot change this table.
   4. The action is recorded in the audit log `git_actions`.
   5. It carries the note "via Covibes".
 - **Webhook:** MR events arrive with a verified secret token. For MRs of Covibes issues they start the job `mr_review`.
-- **Self-managed GitLab** (later): every connection stores its own `base_url`.
+- **Self-managed GitLab** (later): every account and every connection stores its own `base_url`.
 
 ### Limits and usage
 - The `ai-gateway` checks the limits per project and user before every call.
@@ -286,7 +288,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `package_texts` | what the team gives for the package for coding agents (spec 27b): the code standards and the UI direction, one text per kind and project, with who wrote it and when |
 | `package_suggestions` | what the moderator suggests for one of the package's texts (spec 27c): the run that writes it and the text once it is written, until someone takes it over or dismisses it |
 | `package_specs`, `package_spec_runs` | the feature specs the moderator wrote out (spec 27d), one per task text, and the latest run per milestone that writes them |
-| `git_connections`, `oauth_tokens`, `git_actions` | GitLab connection, tokens (encrypted), audit log |
+| `git_accounts`, `git_connections`, `git_actions` | a person's GitLab account with its tokens (encrypted; spec 29a), the repository of a project and who picked it, audit log |
 | `notifications` | notifications per person: mentions, changed roles, removals, new members; with the names they show, when they were read and when they were mailed |
 | `notification_settings`, `member_activity` | per person the switch for mails and when the last one went out; per member when they last had the project open and when a mail last told them that something waits |
 | `away_summaries` | per member the last absence: from when to when, the moderator's summary with its status, and when the member closed it |

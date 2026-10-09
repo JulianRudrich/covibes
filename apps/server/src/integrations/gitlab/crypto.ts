@@ -7,6 +7,7 @@ import {
   timingSafeEqual,
 } from 'node:crypto';
 
+import { GIT_ORIGINS, type GitOrigin } from '@covibes/shared';
 import { z } from 'zod';
 
 // What the server keeps secret around a GitLab connection (spec 28a): the tokens as they are
@@ -54,29 +55,37 @@ export function openToken(tokenKey: string, sealed: string): string {
 export const STATE_LIFETIME_MS = 10 * 60_000;
 
 const statePayloadSchema = z.object({
-  projectId: z.uuid(),
   userId: z.uuid(),
+  projectId: z.uuid().nullable(),
+  origin: z.enum(GIT_ORIGINS),
   expiresAt: z.number(),
   nonce: z.string().min(1),
 });
+
+/**
+ * What a flow to GitLab was started for: the person, the project they were in (to come back to
+ * it), and the dialog they started it from.
+ */
+export type FlowState = { userId: string; projectId: string | null; origin: GitOrigin };
 
 function signature(tokenKey: string, payload: string): Buffer {
   return createHmac('sha256', keyFor(tokenKey, 'state')).update(payload).digest();
 }
 
 /**
- * The `state` of an OAuth flow: which project and which person it was started for, and until
- * when it holds, signed by the server. GitLab hands it back unchanged.
+ * The `state` of an OAuth flow: which person it was started for and from where, and until when
+ * it holds, signed by the server. GitLab hands it back unchanged.
  */
 export function signState(
   tokenKey: string,
-  { projectId, userId }: { projectId: string; userId: string },
+  { userId, projectId, origin }: FlowState,
   now = Date.now(),
 ): string {
   const payload = Buffer.from(
     JSON.stringify({
-      projectId,
       userId,
+      projectId,
+      origin,
       expiresAt: now + STATE_LIFETIME_MS,
       nonce: randomBytes(9).toString('base64url'),
     }),
@@ -89,7 +98,7 @@ export function readState(
   tokenKey: string,
   state: string,
   now = Date.now(),
-): { projectId: string; userId: string } | undefined {
+): FlowState | undefined {
   const [payload, signed, ...rest] = state.split('.');
   if (!payload || !signed || rest.length > 0) return undefined;
   const given = Buffer.from(signed, 'base64url');
@@ -103,5 +112,9 @@ export function readState(
   }
   const parsed = statePayloadSchema.safeParse(json);
   if (!parsed.success || parsed.data.expiresAt <= now) return undefined;
-  return { projectId: parsed.data.projectId, userId: parsed.data.userId };
+  return {
+    userId: parsed.data.userId,
+    projectId: parsed.data.projectId,
+    origin: parsed.data.origin,
+  };
 }

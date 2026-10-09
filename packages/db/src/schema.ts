@@ -204,6 +204,20 @@ export interface Files {
   uploaded_by: string | null;
 }
 
+export interface GitAccounts {
+  access_token: string;
+  account_id: Int8;
+  account_name: Generated<string>;
+  account_username: string;
+  base_url: string;
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp | null;
+  refresh_token: string | null;
+  scope: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  user_id: string;
+}
+
 export interface GitConnections {
   account_id: Int8;
   account_name: Generated<string>;
@@ -353,15 +367,6 @@ export interface NotificationSettings {
   email: Generated<boolean>;
   last_mail_at: Timestamp | null;
   user_id: string;
-}
-
-export interface OauthTokens {
-  access_token: string;
-  expires_at: Timestamp | null;
-  project_id: string;
-  refresh_token: string | null;
-  scope: Generated<string>;
-  updated_at: Generated<Timestamp>;
 }
 
 export interface Offers {
@@ -574,6 +579,7 @@ export interface DB {
   decision_log: DecisionLog;
   decisions: Decisions;
   files: Files;
+  git_accounts: GitAccounts;
   git_connections: GitConnections;
   'graphile_worker._private_job_queues': GraphileWorkerPrivateJobQueues;
   'graphile_worker._private_jobs': GraphileWorkerPrivateJobs;
@@ -587,7 +593,6 @@ export interface DB {
   messages: Messages;
   notification_settings: NotificationSettings;
   notifications: Notifications;
-  oauth_tokens: OauthTokens;
   offers: Offers;
   package_spec_runs: PackageSpecRuns;
   package_specs: PackageSpecs;

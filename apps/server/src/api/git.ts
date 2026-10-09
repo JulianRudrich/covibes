@@ -1,12 +1,13 @@
 import type { DB } from '@covibes/db';
 import {
+  gitConnectInputSchema,
   gitRepositoryInputSchema,
   gitRepositorySearchSchema,
   projectIdSchema,
+  type GitAccountState,
   type GitConnection,
   type GitConnectStart,
   type GitRepository,
-  type GitReturn,
   type GitState,
 } from '@covibes/shared';
 import { Hono, type Context } from 'hono';
@@ -35,7 +36,7 @@ function membership(trx: Transaction<DB>, projectId: string, userId: string) {
     .executeTakeFirst();
 }
 
-/** The connection of a project as members see it; no token is part of it. */
+/** The repository of a project as members see it; no token is part of it. */
 async function loadConnection(
   trx: Transaction<DB>,
   projectId: string,
@@ -58,38 +59,88 @@ async function loadConnection(
     ])
     .where('git_connections.project_id', '=', projectId)
     .executeTakeFirst();
-  if (!row) return null;
+  if (
+    !row ||
+    row.repository_id === null ||
+    row.repository_path === null ||
+    row.repository_name === null ||
+    row.repository_url === null
+  ) {
+    return null;
+  }
   return {
     baseUrl: row.base_url,
     account: { username: row.account_username, name: row.account_name },
     connectedBy: { userId: row.connected_by, name: row.connected_by_name },
     connectedAt: row.created_at.toISOString(),
-    repository:
-      row.repository_id !== null &&
-      row.repository_path !== null &&
-      row.repository_name !== null &&
-      row.repository_url !== null
-        ? {
-            id: Number(row.repository_id),
-            path: row.repository_path,
-            name: row.repository_name,
-            url: row.repository_url,
-            defaultBranch: row.repository_default_branch,
-          }
-        : null,
+    repository: {
+      id: Number(row.repository_id),
+      path: row.repository_path,
+      name: row.repository_name,
+      url: row.repository_url,
+      defaultBranch: row.repository_default_branch,
+    },
   };
 }
 
 /**
- * `/api/projects/:projectId/git` (spec 28a): the project's connection to GitLab. Members see it;
- * owners connect through OAuth, pick the repository and disconnect. The way back from GitLab ends
- * at `gitCallback`.
+ * `/api/git/account` (spec 29a): the GitLab account of the person who is signed in. Everyone
+ * connects their own through OAuth and disconnects it again. The way back from GitLab ends at
+ * `gitCallback`.
+ */
+export function gitAccountRoutes(auth: Auth, git: GitDeps | undefined) {
+  const routes = new Hono<Env>();
+  routes.use(sessionMiddleware(auth));
+
+  routes.get('/', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    return c.json<GitAccountState>({
+      available: git !== undefined,
+      account: (await git?.connections.account(user.id)) ?? null,
+    });
+  });
+
+  /** Starts the OAuth flow: the address of GitLab's consent page, with a state for this person. */
+  routes.post('/connect', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    const body: unknown = await c.req.json().catch(() => undefined);
+    const input = gitConnectInputSchema.safeParse(body);
+    if (!input.success) return apiError(c, 'invalid_input');
+    if (!git) return apiError(c, 'not_found');
+    const state = signState(git.setup.tokenKey, {
+      userId: user.id,
+      projectId: input.data.projectId ?? null,
+      origin: input.data.origin,
+    });
+    return c.json<GitConnectStart>({ url: git.client.authorizeUrl(git.setup.source, state) });
+  });
+
+  /**
+   * Ends the own account; GitLab is told that the token is no longer used. The projects whose
+   * repository the person picked are disconnected with it.
+   */
+  routes.delete('/', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    if (!git) return apiError(c, 'not_found');
+    await git.connections.disconnectAccount(user.id);
+    return c.body(null, 204);
+  });
+
+  return routes;
+}
+
+/**
+ * `/api/projects/:projectId/git` (specs 28a and 29a): the repository of a project. Members see
+ * it; an owner with a GitLab account picks it and removes it again.
  */
 export function gitRoutes(db: AppDb, auth: Auth, git: GitDeps | undefined) {
   const routes = new Hono<Env>();
   routes.use(sessionMiddleware(auth));
 
-  /** The project and the person's role in it, for a route only owners may use. */
+  /** The project and the person, for a route only owners may use. */
   async function owner(c: Context<Env>) {
     const user = c.get('user');
     if (!user) return { error: apiError(c, 'unauthorized') } as const;
@@ -107,49 +158,47 @@ export function gitRoutes(db: AppDb, auth: Auth, git: GitDeps | undefined) {
     const projectId = projectIdSchema.safeParse(c.req.param('projectId'));
     if (!projectId.success) return apiError(c, 'not_found');
 
-    const state = await withUser(db, user.id, async (trx) => {
+    const project = await withUser(db, user.id, async (trx) => {
       const member = await membership(trx, projectId.data, user.id);
       if (!member) return undefined;
       return {
-        available: git !== undefined,
         canManage: member.role === 'owner',
         connection: await loadConnection(trx, projectId.data),
-      } satisfies GitState;
+      };
     });
-    if (!state) return apiError(c, 'not_found');
-    return c.json<GitState>(state);
+    if (!project) return apiError(c, 'not_found');
+    return c.json<GitState>({
+      available: git !== undefined,
+      ...project,
+      account: (await git?.connections.account(user.id)) ?? null,
+    });
   });
 
-  /** Starts the OAuth flow: the address of GitLab's consent page, with a state for this person. */
-  routes.post('/connect', async (c) => {
-    const asked = await owner(c);
-    if ('error' in asked) return asked.error;
-    if (!git) return apiError(c, 'not_found');
-    const state = signState(git.setup.tokenKey, asked);
-    return c.json<GitConnectStart>({ url: git.client.authorizeUrl(git.setup.source, state) });
-  });
-
-  /** The repositories the connected account works in, to pick from. */
+  /** The repositories the owner's own account works in, to pick from. */
   routes.get('/repositories', async (c) => {
     const asked = await owner(c);
     if ('error' in asked) return asked.error;
     const search = gitRepositorySearchSchema.safeParse(c.req.query('search') ?? '');
     if (!search.success) return apiError(c, 'invalid_input');
-    const access = await git?.connections.access(asked.projectId);
+    const access = await git?.connections.accessOf(asked.userId);
+    // Without an account of their own the owner connects one first.
     if (!git || !access) return apiError(c, 'not_found');
     return c.json<GitRepository[]>(
       await git.client.repositories(access.baseUrl, access.token, search.data),
     );
   });
 
-  /** Picks the repository; it must be one the connected account can reach. */
+  /**
+   * Picks the repository of the project; it must be one the owner's own account can reach. The
+   * owner who picks is the one whose access the agents read with from then on.
+   */
   routes.put('/repository', async (c) => {
     const asked = await owner(c);
     if ('error' in asked) return asked.error;
     const body: unknown = await c.req.json().catch(() => undefined);
     const input = gitRepositoryInputSchema.safeParse(body);
     if (!input.success) return apiError(c, 'invalid_input');
-    const access = await git?.connections.access(asked.projectId);
+    const access = await git?.connections.accessOf(asked.userId);
     if (!git || !access) return apiError(c, 'not_found');
     const repository = await git.client.repository(
       access.baseUrl,
@@ -157,13 +206,13 @@ export function gitRoutes(db: AppDb, auth: Auth, git: GitDeps | undefined) {
       input.data.repositoryId,
     );
     if (!repository) return apiError(c, 'invalid_input');
-    if (!(await git.connections.setRepository(asked.projectId, repository))) {
+    if (!(await git.connections.setRepository(asked.projectId, asked.userId, repository))) {
       return apiError(c, 'not_found');
     }
     return c.body(null, 204);
   });
 
-  /** Ends the connection; GitLab is told that the token is no longer used. */
+  /** Removes the repository from the project; the account of who picked it stays. */
   routes.delete('/', async (c) => {
     const asked = await owner(c);
     if ('error' in asked) return asked.error;
@@ -176,12 +225,12 @@ export function gitRoutes(db: AppDb, auth: Auth, git: GitDeps | undefined) {
 }
 
 /**
- * `GET /api/git/callback` (spec 28a): where GitLab sends the person back to. The state must be
- * one this server signed for the person who is signed in, and that person must still be an owner
- * of its project. Then the code is traded for tokens and the connection is stored. The answer is
- * always a redirect into the app: to the project with how it ended, or to the start.
+ * `GET /api/git/callback` (specs 28a and 29a): where GitLab sends the person back to. The state
+ * must be one this server signed for the person who is signed in. Then the code is traded for
+ * tokens and the account is stored. The answer is always a redirect into the app: to the project
+ * or the start page the flow came from, with how it ended for the dialog it was started in.
  */
-export function gitCallback(db: AppDb, auth: Auth, appUrl: string, git: GitDeps | undefined) {
+export function gitCallback(auth: Auth, appUrl: string, git: GitDeps | undefined) {
   const routes = new Hono<Env>();
   routes.use(sessionMiddleware(auth));
   const home = appUrl.replace(/\/+$/, '');
@@ -189,13 +238,15 @@ export function gitCallback(db: AppDb, auth: Auth, appUrl: string, git: GitDeps 
   routes.get('/', async (c) => {
     const user = c.get('user');
     const asked = git ? readState(git.setup.tokenKey, c.req.query('state') ?? '') : undefined;
-    // Without a state of this server for this person there is no project to go back to.
+    // Without a state of this server for this person there is nothing to go back to.
     if (!git || !user || asked?.userId !== user.id) return c.redirect(`${home}/`, 302);
-    const back = (outcome: GitReturn) =>
-      c.redirect(`${home}/p/${asked.projectId}?git=${outcome}`, 302);
+    const back = (outcome: 'connected' | 'denied' | 'failed') => {
+      const page = asked.projectId ? `/p/${asked.projectId}` : '/';
+      // The dialog "Repository" belongs to a project; without one the account dialog answers.
+      const dialog = asked.origin === 'repository' && asked.projectId ? 'git' : 'gitAccount';
+      return c.redirect(`${home}${page}?${dialog}=${outcome}`, 302);
+    };
 
-    const member = await withUser(db, user.id, (trx) => membership(trx, asked.projectId, user.id));
-    if (member?.role !== 'owner') return c.redirect(`${home}/`, 302);
     if (c.req.query('error')) return back('denied');
     const code = c.req.query('code');
     if (!code) return back('failed');
@@ -203,7 +254,7 @@ export function gitCallback(db: AppDb, auth: Auth, appUrl: string, git: GitDeps 
     try {
       const tokens = await git.client.exchangeCode(git.setup.source, code);
       const account = await git.client.account(git.setup.source.baseUrl, tokens.accessToken);
-      await git.connections.connect(asked.projectId, user.id, account, tokens);
+      await git.connections.connectAccount(user.id, account, tokens);
       return back('connected');
     } catch (error) {
       // A code that was used before, or a GitLab that is away: nothing is stored.

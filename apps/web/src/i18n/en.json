@@ -870,38 +870,51 @@
   },
   "git": {
     "title": "Repository",
-    "hint": "Connects the project with its repository in GitLab.",
-    "loadFailed": "The connection could not be loaded. Please try again.",
+    "hint": "The repository in GitLab this project belongs to.",
+    "loadFailed": "The repository could not be loaded. Please try again.",
     "unavailable": "This server is not set up for GitLab. It needs an OAuth application at GitLab and a key for the tokens.",
     "returned": {
       "denied": "You denied the access in GitLab. Nothing was connected.",
       "failed": "Connecting to GitLab did not work. Please try again."
     },
     "connect": {
-      "text": "You sign in to GitLab and allow Covibes to use the API. Then you pick the repository. The agents read it with your access for all members of the project.",
+      "text": "Connect your GitLab account first: you sign in to GitLab and allow Covibes to use the API. Then you pick the repository. The agents read it with your access for all members of the project.",
       "action": "Connect to GitLab",
       "again": "Connect again",
       "ownersOnly": "No repository is connected yet. An owner of the project can do that.",
       "failed": "The way to GitLab did not work. Please try again."
     },
     "connected": {
-      "as": "Connected as {{name}} (@{{username}}), by {{by}}."
+      "by": "Picked by {{by}}. The agents read with the access of {{name}} (@{{username}})."
     },
     "repository": {
       "pick": "Pick a repository",
       "search": "Search repositories",
-      "none": "This account works in no repository in which it may open merge requests.",
+      "none": "Your account works in no repository in which it may open merge requests.",
       "noneFound": "No repository found.",
-      "listFailed": "The repositories could not be loaded. The access may have expired.",
+      "listFailed": "The repositories could not be loaded. Your access may have expired.",
       "pickFailed": "The repository could not be picked. Please try again.",
-      "change": "Change",
-      "waiting": "{{name}} is still picking the repository."
+      "change": "Change"
     },
-    "disconnect": {
-      "action": "Disconnect",
-      "confirm": "Really disconnect",
-      "hint": "The agents can no longer read the repository then.",
-      "failed": "The connection could not be ended. Please try again."
+    "remove": {
+      "action": "Remove repository",
+      "confirm": "Really remove",
+      "hint": "The agents can no longer read it then. Your GitLab account stays connected.",
+      "failed": "The repository could not be removed. Please try again."
+    },
+    "account": {
+      "menu": "GitLab account …",
+      "title": "GitLab account",
+      "hint": "Your own access to GitLab, for all of your projects.",
+      "loadFailed": "The account could not be loaded. Please try again.",
+      "as": "Your GitLab account: {{name}} (@{{username}}).",
+      "connect": "With your GitLab account you pick the repository of a project as its owner, and Git actions you approve run in your name. You sign in to GitLab and allow Covibes to use the API.",
+      "disconnect": {
+        "action": "Disconnect account",
+        "confirm": "Really disconnect",
+        "hint": "Projects whose repository you picked lose it.",
+        "failed": "The account could not be disconnected. Please try again."
+      }
     }
   },
   "export": {

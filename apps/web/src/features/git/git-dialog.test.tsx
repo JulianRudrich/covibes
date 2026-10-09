@@ -1,4 +1,10 @@
-import type { GitConnection, GitRepository, GitReturn, GitState } from '@covibes/shared';
+import type {
+  GitAccount,
+  GitConnection,
+  GitRepository,
+  GitReturn,
+  GitState,
+} from '@covibes/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -8,8 +14,15 @@ import { GitDialog } from '@web/features/git/git-dialog';
 
 const PROJECT_ID = '8b6a0b52-8f55-4c4e-9f6b-4ad2b3b3c0de';
 const BASE = `/api/projects/${PROJECT_ID}/git`;
+const CONNECT = '/api/git/account/connect';
 
-const REPOSITORIES: GitRepository[] = [
+const ACCOUNT: GitAccount = {
+  baseUrl: 'https://gitlab.example.com',
+  username: 'olga.beispiel',
+  name: 'Olga Beispiel',
+};
+
+const REPOSITORIES: [GitRepository, GitRepository] = [
   {
     id: 101,
     path: 'beispiel-verein/vereins-app',
@@ -30,15 +43,15 @@ const CONNECTION: GitConnection = {
   baseUrl: 'https://gitlab.example.com',
   account: { username: 'olga.beispiel', name: 'Olga Beispiel' },
   connectedBy: { userId: '8b111111-1111-4111-8111-111111111111', name: 'Olga' },
-  connectedAt: '2026-10-04T10:00:00.000Z',
-  repository: null,
+  connectedAt: '2026-10-09T10:00:00.000Z',
+  repository: REPOSITORIES[0],
 };
 
 type Call = { method: string; url: string; body: unknown };
 
 /**
- * A server that keeps the connection of the project: it answers the state, starts the flow, lists
- * and picks repositories and disconnects. `fail` names the calls that fail instead.
+ * A server that keeps the repository of the project: it answers the state, starts the way to
+ * GitLab, lists and picks repositories and removes the pick. `fail` names the calls that fail.
  */
 function stubGit(initial: GitState, fail: string[] = []) {
   const server = { state: initial };
@@ -60,7 +73,7 @@ function stubGit(initial: GitState, fail: string[] = []) {
         );
       }
       if (key === `GET ${BASE}`) return Promise.resolve(Response.json(server.state));
-      if (key === `POST ${BASE}/connect`) {
+      if (key === `POST ${CONNECT}`) {
         return Promise.resolve(
           Response.json({ url: 'https://gitlab.example.com/oauth/authorize?state=signed' }),
         );
@@ -75,12 +88,9 @@ function stubGit(initial: GitState, fail: string[] = []) {
       }
       if (key === `PUT ${BASE}/repository`) {
         const { repositoryId } = body as { repositoryId: number };
-        const repository = REPOSITORIES.find((entry) => entry.id === repositoryId) ?? null;
-        if (server.state.connection) {
-          server.state = {
-            ...server.state,
-            connection: { ...server.state.connection, repository },
-          };
+        const repository = REPOSITORIES.find((entry) => entry.id === repositoryId);
+        if (repository) {
+          server.state = { ...server.state, connection: { ...CONNECTION, repository } };
         }
         return Promise.resolve(new Response(null, { status: 204 }));
       }
@@ -98,7 +108,10 @@ function renderDialog(
   state: Partial<GitState> = {},
   { returned, fail = [] }: { returned?: GitReturn; fail?: string[] } = {},
 ) {
-  const calls = stubGit({ available: true, canManage: true, connection: null, ...state }, fail);
+  const calls = stubGit(
+    { available: true, canManage: true, account: null, connection: null, ...state },
+    fail,
+  );
   const goTo = vi.fn();
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -120,8 +133,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('GitDialog without a connection', () => {
-  it('sends an owner to GitLab to connect', async () => {
+describe('GitDialog for an owner without a repository', () => {
+  it('sends an owner without an account to GitLab, and back to this dialog', async () => {
     const { calls, goTo, dialog } = renderDialog();
 
     fireEvent.click(await within(dialog).findByRole('button', { name: 'Mit GitLab verbinden' }));
@@ -129,12 +142,18 @@ describe('GitDialog without a connection', () => {
     await waitFor(() => {
       expect(goTo).toHaveBeenCalledWith('https://gitlab.example.com/oauth/authorize?state=signed');
     });
-    expect(changes(calls)).toEqual([`POST ${BASE}/connect`]);
-    expect(dialog).toHaveTextContent('Die Agents lesen es mit deinem Zugriff für alle Mitglieder');
+    expect(changes(calls)).toEqual([`POST ${CONNECT}`]);
+    expect(calls.find((call) => call.method === 'POST')?.body).toEqual({
+      origin: 'repository',
+      projectId: PROJECT_ID,
+    });
+    expect(dialog).toHaveTextContent('Verbinde zuerst dein GitLab-Konto');
+    // Without an account there are no repositories to ask for.
+    expect(calls.some((call) => call.url.includes('/repositories'))).toBe(false);
   });
 
   it('tells when the way to GitLab could not be started', async () => {
-    const { goTo, dialog } = renderDialog({}, { fail: [`POST ${BASE}/connect`] });
+    const { goTo, dialog } = renderDialog({}, { fail: [`POST ${CONNECT}`] });
 
     fireEvent.click(await within(dialog).findByRole('button', { name: 'Mit GitLab verbinden' }));
 
@@ -144,48 +163,11 @@ describe('GitDialog without a connection', () => {
     expect(goTo).not.toHaveBeenCalled();
   });
 
-  it('tells everyone else that an owner can connect', async () => {
-    const { dialog } = renderDialog({ canManage: false });
+  it('lets an owner with an account pick from that account’s repositories', async () => {
+    const { calls, dialog } = renderDialog({ account: ACCOUNT }, { returned: 'connected' });
 
     expect(
-      await within(dialog).findByText(
-        'Es ist noch kein Repository verbunden. Das kann ein Owner des Projekts tun.',
-      ),
-    ).toBeVisible();
-    expect(within(dialog).queryByRole('button', { name: 'Mit GitLab verbinden' })).toBeNull();
-  });
-
-  it('says when the server is not set up for GitLab', async () => {
-    const { dialog } = renderDialog({ available: false });
-
-    expect(
-      await within(dialog).findByText(/Dieser Server ist nicht für GitLab eingerichtet\./),
-    ).toBeVisible();
-    expect(within(dialog).queryByRole('button', { name: 'Mit GitLab verbinden' })).toBeNull();
-  });
-
-  it('says how the way back from GitLab ended when nothing was connected', async () => {
-    const denied = renderDialog({}, { returned: 'denied' });
-    expect(await within(denied.dialog).findByRole('alert')).toHaveTextContent(
-      'Du hast den Zugriff in GitLab abgelehnt. Es wurde nichts verbunden.',
-    );
-  });
-
-  it('tells when the connection could not be loaded', async () => {
-    const { dialog } = renderDialog({}, { fail: [`GET ${BASE}`] });
-
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      'Die Verbindung konnte nicht geladen werden.',
-    );
-  });
-});
-
-describe('GitDialog with a connection', () => {
-  it('lets the owner pick the repository from the account’s repositories', async () => {
-    const { calls, dialog } = renderDialog({ connection: CONNECTION }, { returned: 'connected' });
-
-    expect(
-      await within(dialog).findByText('Verbunden als Olga Beispiel (@olga.beispiel), von Olga.'),
+      await within(dialog).findByText('Dein GitLab-Konto: Olga Beispiel (@olga.beispiel).'),
     ).toBeVisible();
     const picker = await within(dialog).findByRole('region', { name: 'Repository wählen' });
     const options = await within(picker).findAllByRole('button');
@@ -196,18 +178,22 @@ describe('GitDialog with a connection', () => {
 
     fireEvent.click(options[0] as HTMLElement);
 
-    // The connection now names the repository, with a link to it.
+    // The project now names the repository, with a link to it.
     const link = await within(dialog).findByRole('link', { name: /beispiel-verein\/vereins-app/ });
-    expect(link).toHaveAttribute('href', REPOSITORIES[0]?.url);
+    expect(link).toHaveAttribute('href', REPOSITORIES[0].url);
     expect(link).toHaveAttribute('rel', 'noreferrer');
-    expect(within(dialog).getByText('Vereins-App')).toBeVisible();
     expect(changes(calls)).toEqual([`PUT ${BASE}/repository`]);
     expect(calls.find((call) => call.method === 'PUT')?.body).toEqual({ repositoryId: 101 });
     expect(within(dialog).queryByRole('region', { name: 'Repository wählen' })).toBeNull();
+    expect(
+      within(dialog).getByText(
+        'Gewählt von Olga. Die Agents lesen mit dem Zugriff von Olga Beispiel (@olga.beispiel).',
+      ),
+    ).toBeVisible();
   });
 
   it('narrows the repositories by a search', async () => {
-    const { calls, dialog } = renderDialog({ connection: CONNECTION });
+    const { calls, dialog } = renderDialog({ account: ACCOUNT });
     const search = await within(dialog).findByRole('searchbox', { name: 'Repository suchen' });
     await within(dialog).findByText('Vereins-App');
 
@@ -225,7 +211,7 @@ describe('GitDialog with a connection', () => {
 
   it('offers to connect again when the repositories cannot be loaded', async () => {
     const { goTo, dialog } = renderDialog(
-      { connection: CONNECTION },
+      { account: ACCOUNT },
       { fail: [`GET ${BASE}/repositories`] },
     );
 
@@ -239,10 +225,18 @@ describe('GitDialog with a connection', () => {
     });
   });
 
-  it('shows the repository and lets the owner change it', async () => {
-    const { dialog } = renderDialog({
-      connection: { ...CONNECTION, repository: REPOSITORIES[0] ?? null },
-    });
+  it('says how the way back from GitLab ended when nothing was connected', async () => {
+    const { dialog } = renderDialog({}, { returned: 'denied' });
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Du hast den Zugriff in GitLab abgelehnt. Es wurde nichts verbunden.',
+    );
+  });
+});
+
+describe('GitDialog with a repository', () => {
+  it('lets an owner with an account change it', async () => {
+    const { dialog } = renderDialog({ account: ACCOUNT, connection: CONNECTION });
     await within(dialog).findByRole('link', { name: /beispiel-verein\/vereins-app/ });
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Ändern' }));
@@ -257,56 +251,90 @@ describe('GitDialog with a connection', () => {
     ).toBeVisible();
   });
 
-  it('ends the connection after a second click', async () => {
-    const { calls, dialog } = renderDialog({
-      connection: { ...CONNECTION, repository: REPOSITORIES[0] ?? null },
-    });
+  it('asks an owner without an account to connect one before changing it', async () => {
+    const { calls, dialog } = renderDialog({ connection: CONNECTION });
 
-    fireEvent.click(await within(dialog).findByRole('button', { name: 'Verbindung trennen' }));
-    expect(changes(calls)).toEqual([]);
-    expect(
-      within(dialog).getByText('Die Agents können das Repository dann nicht mehr lesen.'),
-    ).toBeVisible();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Wirklich trennen' }));
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Ändern' }));
 
     expect(
       await within(dialog).findByRole('button', { name: 'Mit GitLab verbinden' }),
     ).toBeVisible();
+    expect(calls.some((call) => call.url.includes('/repositories'))).toBe(false);
+  });
+
+  it('removes it after a second click, and says that the account stays', async () => {
+    const { calls, dialog } = renderDialog({ account: ACCOUNT, connection: CONNECTION });
+
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Repository entfernen' }));
+    expect(changes(calls)).toEqual([]);
+    expect(
+      within(dialog).getByText(
+        'Die Agents können es dann nicht mehr lesen. Dein GitLab-Konto bleibt verbunden.',
+      ),
+    ).toBeVisible();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Wirklich entfernen' }));
+
+    // Back to picking: the account is still there.
+    expect(await within(dialog).findByRole('region', { name: 'Repository wählen' })).toBeVisible();
     expect(changes(calls)).toEqual([`DELETE ${BASE}`]);
   });
 
-  it('tells when the connection could not be ended', async () => {
-    const { dialog } = renderDialog({ connection: CONNECTION }, { fail: [`DELETE ${BASE}`] });
+  it('tells when it could not be removed', async () => {
+    const { dialog } = renderDialog(
+      { account: ACCOUNT, connection: CONNECTION },
+      { fail: [`DELETE ${BASE}`] },
+    );
 
-    fireEvent.click(await within(dialog).findByRole('button', { name: 'Verbindung trennen' }));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Wirklich trennen' }));
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Repository entfernen' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Wirklich entfernen' }));
 
     expect(
-      await within(dialog).findByText(/Die Verbindung konnte nicht getrennt werden\./),
+      await within(dialog).findByText(/Das Repository konnte nicht entfernt werden\./),
     ).toBeVisible();
-    expect(within(dialog).getByRole('button', { name: 'Verbindung trennen' })).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Repository entfernen' })).toBeVisible();
   });
+});
 
-  it('shows everyone else what is connected, without anything to change', async () => {
-    const { calls, dialog } = renderDialog({
-      canManage: false,
-      connection: { ...CONNECTION, repository: REPOSITORIES[0] ?? null },
-    });
+describe('GitDialog for everyone else', () => {
+  it('shows what is connected, without anything to change', async () => {
+    const { calls, dialog } = renderDialog({ canManage: false, connection: CONNECTION });
 
     await within(dialog).findByRole('link', { name: /beispiel-verein\/vereins-app/ });
 
-    expect(within(dialog).getByText(/Verbunden als Olga Beispiel/)).toBeVisible();
+    expect(within(dialog).getByText(/Gewählt von Olga\./)).toBeVisible();
     expect(within(dialog).queryByRole('button', { name: 'Ändern' })).toBeNull();
-    expect(within(dialog).queryByRole('button', { name: 'Verbindung trennen' })).toBeNull();
-    // The repositories of the account are the owner's to see.
+    expect(within(dialog).queryByRole('button', { name: 'Repository entfernen' })).toBeNull();
     expect(calls.some((call) => call.url.includes('/repositories'))).toBe(false);
   });
 
-  it('tells everyone else that the owner still picks the repository', async () => {
-    const { calls, dialog } = renderDialog({ canManage: false, connection: CONNECTION });
+  it('says that an owner can connect a repository, also to someone with an account', async () => {
+    const { dialog } = renderDialog({ canManage: false, account: ACCOUNT });
 
-    expect(await within(dialog).findByText('Olga wählt noch das Repository aus.')).toBeVisible();
+    expect(
+      await within(dialog).findByText(
+        'Es ist noch kein Repository verbunden. Das kann ein Owner des Projekts tun.',
+      ),
+    ).toBeVisible();
+    expect(within(dialog).queryByRole('button', { name: 'Mit GitLab verbinden' })).toBeNull();
     expect(within(dialog).queryByRole('region', { name: 'Repository wählen' })).toBeNull();
-    expect(calls.some((call) => call.url.includes('/repositories'))).toBe(false);
+  });
+});
+
+describe('GitDialog when something is missing', () => {
+  it('says when the server is not set up for GitLab', async () => {
+    const { dialog } = renderDialog({ available: false });
+
+    expect(
+      await within(dialog).findByText(/Dieser Server ist nicht für GitLab eingerichtet\./),
+    ).toBeVisible();
+    expect(within(dialog).queryByRole('button', { name: 'Mit GitLab verbinden' })).toBeNull();
+  });
+
+  it('tells when the repository could not be loaded', async () => {
+    const { dialog } = renderDialog({}, { fail: [`GET ${BASE}`] });
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Das Repository konnte nicht geladen werden.',
+    );
   });
 });

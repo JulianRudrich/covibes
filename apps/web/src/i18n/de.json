@@ -870,38 +870,51 @@
   },
   "git": {
     "title": "Repository",
-    "hint": "Verbindet das Projekt mit seinem Repository in GitLab.",
-    "loadFailed": "Die Verbindung konnte nicht geladen werden. Bitte versuche es noch einmal.",
+    "hint": "Das Repository in GitLab, zu dem dieses Projekt gehört.",
+    "loadFailed": "Das Repository konnte nicht geladen werden. Bitte versuche es noch einmal.",
     "unavailable": "Dieser Server ist nicht für GitLab eingerichtet. Dafür braucht er eine OAuth-Anwendung bei GitLab und einen Schlüssel für die Tokens.",
     "returned": {
       "denied": "Du hast den Zugriff in GitLab abgelehnt. Es wurde nichts verbunden.",
       "failed": "Die Verbindung mit GitLab hat nicht geklappt. Bitte versuche es noch einmal."
     },
     "connect": {
-      "text": "Du meldest dich bei GitLab an und erlaubst Covibes den Zugriff auf die API. Danach wählst du das Repository. Die Agents lesen es mit deinem Zugriff für alle Mitglieder des Projekts.",
+      "text": "Verbinde zuerst dein GitLab-Konto: Du meldest dich bei GitLab an und erlaubst Covibes den Zugriff auf die API. Danach wählst du das Repository. Die Agents lesen es mit deinem Zugriff für alle Mitglieder des Projekts.",
       "action": "Mit GitLab verbinden",
       "again": "Neu verbinden",
       "ownersOnly": "Es ist noch kein Repository verbunden. Das kann ein Owner des Projekts tun.",
       "failed": "Der Weg zu GitLab hat nicht geklappt. Bitte versuche es noch einmal."
     },
     "connected": {
-      "as": "Verbunden als {{name}} (@{{username}}), von {{by}}."
+      "by": "Gewählt von {{by}}. Die Agents lesen mit dem Zugriff von {{name}} (@{{username}})."
     },
     "repository": {
       "pick": "Repository wählen",
       "search": "Repository suchen",
-      "none": "Dieses Konto arbeitet in keinem Repository mit, in dem es Merge Requests anlegen darf.",
+      "none": "Dein Konto arbeitet in keinem Repository mit, in dem es Merge Requests anlegen darf.",
       "noneFound": "Kein Repository gefunden.",
-      "listFailed": "Die Repositories konnten nicht geladen werden. Vielleicht ist der Zugriff abgelaufen.",
+      "listFailed": "Die Repositories konnten nicht geladen werden. Vielleicht ist dein Zugriff abgelaufen.",
       "pickFailed": "Das Repository konnte nicht gewählt werden. Bitte versuche es noch einmal.",
-      "change": "Ändern",
-      "waiting": "{{name}} wählt noch das Repository aus."
+      "change": "Ändern"
     },
-    "disconnect": {
-      "action": "Verbindung trennen",
-      "confirm": "Wirklich trennen",
-      "hint": "Die Agents können das Repository dann nicht mehr lesen.",
-      "failed": "Die Verbindung konnte nicht getrennt werden. Bitte versuche es noch einmal."
+    "remove": {
+      "action": "Repository entfernen",
+      "confirm": "Wirklich entfernen",
+      "hint": "Die Agents können es dann nicht mehr lesen. Dein GitLab-Konto bleibt verbunden.",
+      "failed": "Das Repository konnte nicht entfernt werden. Bitte versuche es noch einmal."
+    },
+    "account": {
+      "menu": "GitLab-Konto …",
+      "title": "GitLab-Konto",
+      "hint": "Dein eigener Zugriff auf GitLab, für alle deine Projekte.",
+      "loadFailed": "Das Konto konnte nicht geladen werden. Bitte versuche es noch einmal.",
+      "as": "Dein GitLab-Konto: {{name}} (@{{username}}).",
+      "connect": "Mit deinem GitLab-Konto wählst du als Owner das Repository eines Projekts, und Git-Aktionen, die du freigibst, laufen unter deinem Namen. Du meldest dich bei GitLab an und erlaubst Covibes den Zugriff auf die API.",
+      "disconnect": {
+        "action": "Konto trennen",
+        "confirm": "Wirklich trennen",
+        "hint": "Projekte, deren Repository du gewählt hast, verlieren es.",
+        "failed": "Das Konto konnte nicht getrennt werden. Bitte versuche es noch einmal."
+      }
     }
   },
   "export": {

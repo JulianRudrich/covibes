@@ -1,7 +1,17 @@
-import type { GitConnectStart, GitRepository, GitRepositoryInput, GitState } from '@covibes/shared';
+import type {
+  GitAccountState,
+  GitConnectInput,
+  GitConnectStart,
+  GitRepository,
+  GitRepositoryInput,
+  GitState,
+} from '@covibes/shared';
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@web/lib/api';
+
+/** Everything the web app holds about the person's own GitLab account. */
+export const gitAccountQueryKey = ['git', 'account'] as const;
 
 export function gitQueryKey(projectId: string) {
   return ['projects', projectId, 'git'] as const;
@@ -9,9 +19,16 @@ export function gitQueryKey(projectId: string) {
 
 const base = (projectId: string) => `/projects/${encodeURIComponent(projectId)}/git`;
 
+/** The person's own GitLab account (spec 29a). */
+export const gitAccountQuery = queryOptions({
+  queryKey: gitAccountQueryKey,
+  queryFn: () => api<GitAccountState>('/git/account'),
+  staleTime: 30_000,
+});
+
 /**
- * The project's connection to GitLab (spec 28a). The live channel loads it again whenever it
- * changed, so it never goes stale on its own.
+ * The repository of a project (specs 28a and 29a), and the person's own account to pick it with.
+ * The live channel loads it again whenever the project's connection changed.
  */
 export function gitStateQuery(projectId: string) {
   return queryOptions({
@@ -21,7 +38,7 @@ export function gitStateQuery(projectId: string) {
   });
 }
 
-/** The repositories the connected account works in, narrowed by a search, to pick from. */
+/** The repositories the person's own account works in, narrowed by a search, to pick from. */
 export function gitRepositoriesQuery(projectId: string, search: string) {
   return queryOptions({
     queryKey: [...gitQueryKey(projectId), 'repositories', search] as const,
@@ -34,9 +51,29 @@ export function gitRepositoriesQuery(projectId: string, search: string) {
 }
 
 /** Starts the OAuth flow: the address of GitLab's consent page, where the browser goes next. */
-export function useConnectGit(projectId: string) {
+export function useConnectGitAccount() {
   return useMutation({
-    mutationFn: () => api<GitConnectStart>(`${base(projectId)}/connect`, { method: 'POST' }),
+    mutationFn: (input: GitConnectInput) =>
+      api<GitConnectStart>('/git/account/connect', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+  });
+}
+
+/** Ends the own account; the projects it served are disconnected by the server. */
+export function useDisconnectGitAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<undefined>('/git/account', { method: 'DELETE' }),
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: gitAccountQueryKey }),
+        // Every project's state names the own account.
+        queryClient.invalidateQueries({
+          predicate: (query) => query.queryKey[0] === 'projects' && query.queryKey[2] === 'git',
+        }),
+      ]),
   });
 }
 
@@ -53,8 +90,8 @@ export function usePickGitRepository(projectId: string) {
   });
 }
 
-/** Ends the project's connection. */
-export function useDisconnectGit(projectId: string) {
+/** Removes the repository from the project; the account of who picked it stays. */
+export function useRemoveGitRepository(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => api<undefined>(base(projectId), { method: 'DELETE' }),

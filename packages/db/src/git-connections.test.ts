@@ -5,8 +5,8 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
 import { asUser } from './testing';
 
-// The connection of a project to GitLab (spec 28a): who reads it, who never reads the tokens, and
-// when it ends by itself.
+// GitLab accounts of people and the repository of a project (specs 28a and 29a): who reads the
+// connection, who never reads the tokens, and when a connection ends by itself.
 const { adminUrl, appUrl } = inject('database');
 const admin = new pg.Pool({ connectionString: adminUrl });
 const app = new pg.Pool({ connectionString: appUrl });
@@ -30,28 +30,41 @@ async function newProject() {
   return id;
 }
 
-/** What the server stores once an owner came back from GitLab. */
+/** What the server stores once a person came back from GitLab. */
+async function account(userId: string) {
+  await admin.query(
+    `insert into git_accounts
+       (user_id, base_url, account_id, account_username, account_name,
+        access_token, refresh_token, expires_at, scope)
+     values ($1, 'https://gitlab.example.com', 7, 'olga', 'Olga Owner',
+             'v1.sealed-access', 'v1.sealed-refresh', now() + interval '2 hours', 'api')
+     on conflict (user_id) do nothing`,
+    [userId],
+  );
+}
+
+/** What the server stores once an owner with an account picked the project's repository. */
 async function connect(projectId: string, userId = OWNER) {
+  await account(userId);
   await admin.query(
     `insert into git_connections
        (project_id, base_url, connected_by, account_id, account_username, account_name)
      values ($1, 'https://gitlab.example.com', $2, 7, 'olga', 'Olga Owner')`,
     [projectId, userId],
   );
-  await admin.query(
-    `insert into oauth_tokens (project_id, access_token, refresh_token, expires_at, scope)
-     values ($1, 'v1.sealed-access', 'v1.sealed-refresh', now() + interval '2 hours', 'api')`,
-    [projectId],
-  );
 }
 
-async function counts(projectId: string) {
-  const { rows } = await admin.query<{ connections: number; tokens: number }>(
-    `select (select count(*)::int from git_connections where project_id = $1) as connections,
-            (select count(*)::int from oauth_tokens where project_id = $1) as tokens`,
+async function connected(projectId: string) {
+  const { rows } = await admin.query<{ connected_by: string }>(
+    'select connected_by from git_connections where project_id = $1',
     [projectId],
   );
-  return rows[0];
+  return rows.map((row) => row.connected_by);
+}
+
+async function hasAccount(userId: string) {
+  const { rowCount } = await admin.query('select 1 from git_accounts where user_id = $1', [userId]);
+  return rowCount === 1;
 }
 
 beforeAll(async () => {
@@ -132,43 +145,84 @@ describe('git_connections', () => {
     expect(rows).toEqual([{ repository_path: 'verein/app' }]);
   });
 
-  it('exists once per project', async () => {
+  it('exists once per project, and only for someone with an account', async () => {
     const projectId = await newProject();
     await connect(projectId);
 
     await expect(connect(projectId, SECOND_OWNER)).rejects.toMatchObject({ code: '23505' });
+    // Without an account there are no tokens to read the repository with.
+    await expect(
+      admin.query(
+        `insert into git_connections
+           (project_id, base_url, connected_by, account_id, account_username)
+         values ($1, 'https://gitlab.example.com', $2, 9, 'vera')`,
+        [await newProject(), VIEWER],
+      ),
+    ).rejects.toMatchObject({ code: '23503' });
   });
 });
 
-describe('oauth_tokens', () => {
-  it('cannot be read or written by any user, not even the owner who connected', async () => {
-    const projectId = await newProject();
-    await connect(projectId);
-    const attempt = (sql: string) => asUser(app, OWNER, (client) => client.query(sql, [projectId]));
+describe('git_accounts', () => {
+  it('cannot be read or written by any user, not even by the person it belongs to', async () => {
+    await account(OWNER);
+    const attempt = (sql: string) => asUser(app, OWNER, (client) => client.query(sql, [OWNER]));
 
     await expect(
-      attempt('select access_token from oauth_tokens where project_id = $1'),
+      attempt('select access_token from git_accounts where user_id = $1'),
     ).rejects.toMatchObject({ code: '42501' });
     await expect(
-      attempt(`update oauth_tokens set access_token = 'mine' where project_id = $1`),
+      attempt('select account_username from git_accounts where user_id = $1'),
     ).rejects.toMatchObject({ code: '42501' });
-    await expect(attempt('delete from oauth_tokens where project_id = $1')).rejects.toMatchObject({
+    await expect(
+      attempt(`update git_accounts set access_token = 'mine' where user_id = $1`),
+    ).rejects.toMatchObject({ code: '42501' });
+    await expect(attempt('delete from git_accounts where user_id = $1')).rejects.toMatchObject({
       code: '42501',
     });
   });
 
-  it('go with their connection', async () => {
-    const projectId = await newProject();
-    await connect(projectId);
+  it('exists once per person, for all of their projects', async () => {
+    const first = await newProject();
+    const second = await newProject();
 
-    await admin.query('delete from git_connections where project_id = $1', [projectId]);
+    await connect(first);
+    await connect(second);
 
-    expect(await counts(projectId)).toEqual({ connections: 0, tokens: 0 });
+    expect(await connected(first)).toEqual([OWNER]);
+    expect(await connected(second)).toEqual([OWNER]);
+    const { rows } = await admin.query('select 1 from git_accounts where user_id = $1', [OWNER]);
+    expect(rows).toHaveLength(1);
   });
 });
 
 describe('a connection ends by itself', () => {
-  it('when the owner who connected leaves the project or is removed', async () => {
+  it('when the person disconnects their account, in every project it served', async () => {
+    const person = randomUUID();
+    await admin.query(
+      `insert into users (id, name, email, email_verified) values ($1, 'Pia Person', $2, true)`,
+      [person, `git-${person}@example.com`],
+    );
+    const first = await newProject();
+    const second = await newProject();
+    const other = await newProject();
+    for (const projectId of [first, second]) {
+      await admin.query(
+        `insert into project_members (project_id, user_id, role) values ($1, $2, 'owner')`,
+        [projectId, person],
+      );
+      await connect(projectId, person);
+    }
+    await connect(other);
+
+    await admin.query('delete from git_accounts where user_id = $1', [person]);
+
+    expect(await connected(first)).toEqual([]);
+    expect(await connected(second)).toEqual([]);
+    // Someone else's connection is not touched.
+    expect(await connected(other)).toEqual([OWNER]);
+  });
+
+  it('when the owner who connected leaves the project or is removed; the account stays', async () => {
     const projectId = await newProject();
     await connect(projectId);
 
@@ -177,13 +231,14 @@ describe('a connection ends by itself', () => {
       projectId,
       VIEWER,
     ]);
-    expect(await counts(projectId)).toEqual({ connections: 1, tokens: 1 });
+    expect(await connected(projectId)).toEqual([OWNER]);
 
     await admin.query('delete from project_members where project_id = $1 and user_id = $2', [
       projectId,
       OWNER,
     ]);
-    expect(await counts(projectId)).toEqual({ connections: 0, tokens: 0 });
+    expect(await connected(projectId)).toEqual([]);
+    expect(await hasAccount(OWNER)).toBe(true);
   });
 
   it('when the owner who connected is no owner any more', async () => {
@@ -199,13 +254,14 @@ describe('a connection ends by itself', () => {
     // Another member's role, and a change that keeps the owner an owner, change nothing.
     await setRole(VIEWER, 'editor');
     await setRole(SECOND_OWNER, 'owner');
-    expect(await counts(projectId)).toEqual({ connections: 1, tokens: 1 });
+    expect(await connected(projectId)).toEqual([SECOND_OWNER]);
 
     await setRole(SECOND_OWNER, 'editor');
-    expect(await counts(projectId)).toEqual({ connections: 0, tokens: 0 });
+    expect(await connected(projectId)).toEqual([]);
+    expect(await hasAccount(SECOND_OWNER)).toBe(true);
   });
 
-  it('when the account of the owner who connected is deleted, and with its project', async () => {
+  it('when the person or the project is deleted', async () => {
     const first = await newProject();
     const second = await newProject();
     const leaving = randomUUID();
@@ -224,27 +280,45 @@ describe('a connection ends by itself', () => {
     await admin.query('delete from users where id = $1', [leaving]);
     await admin.query('delete from projects where id = $1', [second]);
 
-    expect(await counts(first)).toEqual({ connections: 0, tokens: 0 });
-    expect(await counts(second)).toEqual({ connections: 0, tokens: 0 });
+    expect(await connected(first)).toEqual([]);
+    expect(await hasAccount(leaving)).toBe(false);
+    expect(await connected(second)).toEqual([]);
+    // The account of the owner of the deleted project is still theirs.
+    expect(await hasAccount(OWNER)).toBe(true);
   });
 });
 
 describe('a change of the connection', () => {
-  it('is announced on the live channel', async () => {
+  it('is announced on the live channel, also when it ends with an account', async () => {
+    const person = randomUUID();
+    await admin.query(
+      `insert into users (id, name, email, email_verified) values ($1, 'Ada Account', $2, true)`,
+      [person, `git-${person}@example.com`],
+    );
     const projectId = await newProject();
+    await admin.query(
+      `insert into project_members (project_id, user_id, role) values ($1, $2, 'owner')`,
+      [projectId, person],
+    );
     const heard: string[] = [];
     const listener = await admin.connect();
     listener.on('notification', (message) => {
-      const payload = JSON.parse(message.payload ?? '{}') as { kind?: string; projectId?: string };
+      // Other tests announce on the same channel.
+      let payload: { kind?: string; projectId?: string };
+      try {
+        payload = JSON.parse(message.payload ?? '{}') as typeof payload;
+      } catch {
+        return;
+      }
       if (payload.projectId === projectId && payload.kind) heard.push(payload.kind);
     });
     await listener.query('listen covibes_live');
     try {
-      await connect(projectId);
-      await admin.query(`update git_connections set account_name = 'Olga' where project_id = $1`, [
+      await connect(projectId, person);
+      await admin.query(`update git_connections set account_name = 'Ada' where project_id = $1`, [
         projectId,
       ]);
-      await admin.query('delete from git_connections where project_id = $1', [projectId]);
+      await admin.query('delete from git_accounts where user_id = $1', [person]);
       await expect.poll(() => heard).toEqual(['git', 'git', 'git']);
     } finally {
       await listener.query('unlisten covibes_live');

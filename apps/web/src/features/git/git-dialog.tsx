@@ -1,4 +1,4 @@
-import type { GitConnection, GitRepository, GitReturn } from '@covibes/shared';
+import type { GitAccount, GitConnection, GitRepository, GitReturn } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { ExternalLink, GitBranch, Search } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
@@ -10,9 +10,9 @@ import { FieldError, Input } from '@web/components/ui/input';
 import {
   gitRepositoriesQuery,
   gitStateQuery,
-  useConnectGit,
-  useDisconnectGit,
+  useConnectGitAccount,
   usePickGitRepository,
+  useRemoveGitRepository,
 } from '@web/features/git/queries';
 import { cn } from '@web/lib/cn';
 
@@ -27,10 +27,10 @@ type GitDialogProps = {
 };
 
 /**
- * The dialog "Repository" (spec 28a; derived look): whether the project is connected to GitLab,
- * with whose account and to which repository. Owners connect through GitLab's consent page, pick
- * the repository and disconnect; everyone else sees what is connected. The content of a dialog;
- * the caller opens and closes it.
+ * The dialog "Repository" (specs 28a and 29a; derived look): which repository in GitLab the
+ * project belongs to, and with whose account it is reached. An owner picks it with their own
+ * GitLab account, which they connect first if they have none, and removes it again; everyone else
+ * sees what is connected. The content of a dialog; the caller opens and closes it.
  */
 export function GitDialog({
   projectId,
@@ -41,22 +41,37 @@ export function GitDialog({
 }: GitDialogProps) {
   const { t } = useTranslation();
   const state = useQuery(gitStateQuery(projectId));
-  const connect = useConnectGit(projectId);
+  const connect = useConnectGitAccount();
   const [problem, setProblem] = useState(false);
+  /** The owner changes a repository that is picked already. */
+  const [picking, setPicking] = useState(false);
 
+  /** To GitLab and back to this dialog. */
   function start() {
     setProblem(false);
-    connect.mutate(undefined, {
-      onSuccess: ({ url }) => {
-        goTo(url);
+    connect.mutate(
+      { origin: 'repository', projectId },
+      {
+        onSuccess: ({ url }) => {
+          goTo(url);
+        },
+        onError: () => {
+          setProblem(true);
+        },
       },
-      onError: () => {
-        setProblem(true);
-      },
-    });
+    );
   }
 
   const data = state.data;
+  const connectButton = (
+    <div>
+      <Button variant="primary" disabled={connect.isPending} onClick={start}>
+        <GitBranch size={14} strokeWidth={2} aria-hidden="true" />
+        {t('git.connect.action')}
+      </Button>
+    </div>
+  );
+
   return (
     <DialogContent
       title={t('git.title')}
@@ -76,27 +91,36 @@ export function GitDialog({
               {t('common.loading')}
             </p>
           )
-        ) : data.connection ? (
+        ) : data.connection && !picking ? (
           <Connected
             projectId={projectId}
             connection={data.connection}
             canManage={data.canManage}
-            onReconnect={start}
+            onChange={() => {
+              setPicking(true);
+            }}
           />
         ) : !data.available ? (
           <p className={NOTE}>{t('git.unavailable')}</p>
-        ) : data.canManage ? (
+        ) : !data.canManage ? (
+          <p className={NOTE}>{t('git.connect.ownersOnly')}</p>
+        ) : data.account ? (
           <>
-            <p className={NOTE}>{t('git.connect.text')}</p>
-            <div>
-              <Button variant="primary" disabled={connect.isPending} onClick={start}>
-                <GitBranch size={14} strokeWidth={2} aria-hidden="true" />
-                {t('git.connect.action')}
-              </Button>
-            </div>
+            <p className={NOTE}>{t('git.account.as', accountNames(data.account))}</p>
+            <RepositoryPicker
+              projectId={projectId}
+              current={data.connection?.repository ?? null}
+              onPicked={() => {
+                setPicking(false);
+              }}
+              onReconnect={start}
+            />
           </>
         ) : (
-          <p className={NOTE}>{t('git.connect.ownersOnly')}</p>
+          <>
+            <p className={NOTE}>{t('git.connect.text')}</p>
+            {connectButton}
+          </>
         )}
 
         {problem ? <FieldError>{t('git.connect.failed')}</FieldError> : null}
@@ -111,80 +135,54 @@ export function GitDialog({
   );
 }
 
-/** A connected project: the account, the repository or the list to pick it from, and the end. */
+/** The names of an account for a text: the name if it has one, and the username. */
+function accountNames(account: Pick<GitAccount, 'username' | 'name'>) {
+  return { name: account.name || account.username, username: account.username };
+}
+
+/** A project with a repository: which one, whose access reaches it, and how it ends. */
 function Connected({
   projectId,
   connection,
   canManage,
-  onReconnect,
+  onChange,
 }: {
   projectId: string;
   connection: GitConnection;
   canManage: boolean;
-  onReconnect: () => void;
+  onChange: () => void;
 }) {
   const { t } = useTranslation();
-  const disconnect = useDisconnectGit(projectId);
-  const [picking, setPicking] = useState(false);
+  const remove = useRemoveGitRepository(projectId);
   const [confirming, setConfirming] = useState(false);
   const [problem, setProblem] = useState(false);
   const { account, connectedBy, repository } = connection;
 
   return (
     <>
-      <p className={NOTE}>
-        {t('git.connected.as', {
-          name: account.name || account.username,
-          username: account.username,
-          by: connectedBy.name,
-        })}
-      </p>
-
-      {repository && !picking ? (
-        <div className="flex items-center gap-3 rounded-card border border-border bg-bg-subtle px-3.5 py-3">
-          <GitBranch
-            size={16}
-            strokeWidth={2}
-            aria-hidden="true"
-            className="shrink-0 text-text-3"
-          />
-          <div className="flex min-w-0 flex-col">
-            <span className="truncate text-ui font-semibold text-text">{repository.name}</span>
-            <a
-              href={repository.url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex min-w-0 items-center gap-1 text-small text-text-2 underline-offset-2 hover:text-text hover:underline"
-            >
-              <span className="truncate">{repository.path}</span>
-              <ExternalLink size={11} strokeWidth={2} aria-hidden="true" className="shrink-0" />
-            </a>
-          </div>
-          {canManage ? (
-            <Button
-              size="s"
-              variant="ghost"
-              className="ml-auto"
-              onClick={() => {
-                setPicking(true);
-              }}
-            >
-              {t('git.repository.change')}
-            </Button>
-          ) : null}
+      <div className="flex items-center gap-3 rounded-card border border-border bg-bg-subtle px-3.5 py-3">
+        <GitBranch size={16} strokeWidth={2} aria-hidden="true" className="shrink-0 text-text-3" />
+        <div className="flex min-w-0 flex-col">
+          <span className="truncate text-ui font-semibold text-text">{repository.name}</span>
+          <a
+            href={repository.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-w-0 items-center gap-1 text-small text-text-2 underline-offset-2 hover:text-text hover:underline"
+          >
+            <span className="truncate">{repository.path}</span>
+            <ExternalLink size={11} strokeWidth={2} aria-hidden="true" className="shrink-0" />
+          </a>
         </div>
-      ) : canManage ? (
-        <RepositoryPicker
-          projectId={projectId}
-          current={repository}
-          onPicked={() => {
-            setPicking(false);
-          }}
-          onReconnect={onReconnect}
-        />
-      ) : (
-        <p className={NOTE}>{t('git.repository.waiting', { name: connectedBy.name })}</p>
-      )}
+        {canManage ? (
+          <Button size="s" variant="ghost" className="ml-auto" onClick={onChange}>
+            {t('git.repository.change')}
+          </Button>
+        ) : null}
+      </div>
+      <p className="m-0 text-small leading-snug text-text-3">
+        {t('git.connected.by', { ...accountNames(account), by: connectedBy.name })}
+      </p>
 
       {canManage ? (
         <div className="flex items-center gap-2">
@@ -192,10 +190,10 @@ function Connected({
             <>
               <Button
                 variant="danger"
-                disabled={disconnect.isPending}
+                disabled={remove.isPending}
                 onClick={() => {
                   setProblem(false);
-                  disconnect.mutate(undefined, {
+                  remove.mutate(undefined, {
                     onError: () => {
                       setProblem(true);
                       setConfirming(false);
@@ -203,10 +201,10 @@ function Connected({
                   });
                 }}
               >
-                {t('git.disconnect.confirm')}
+                {t('git.remove.confirm')}
               </Button>
               <span className="min-w-0 text-small leading-snug text-text-3">
-                {t('git.disconnect.hint')}
+                {t('git.remove.hint')}
               </span>
             </>
           ) : (
@@ -217,17 +215,17 @@ function Connected({
                 setConfirming(true);
               }}
             >
-              {t('git.disconnect.action')}
+              {t('git.remove.action')}
             </Button>
           )}
         </div>
       ) : null}
-      {problem ? <FieldError>{t('git.disconnect.failed')}</FieldError> : null}
+      {problem ? <FieldError>{t('git.remove.failed')}</FieldError> : null}
     </>
   );
 }
 
-/** The repositories of the connected account with a search; a click picks one. */
+/** The repositories of the owner's own account with a search; a click picks one. */
 function RepositoryPicker({
   projectId,
   current,

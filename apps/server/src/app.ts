@@ -22,7 +22,7 @@ import {
 import { debateRoutes, handRoutes, offerRoutes, voteRoutes } from '@server/api/hands';
 import { messageRoutes } from '@server/api/messages';
 import { notificationRoutes } from '@server/api/notifications';
-import { gitCallback, gitRoutes, type GitDeps } from '@server/api/git';
+import { gitAccountRoutes, gitCallback, gitRoutes, type GitDeps } from '@server/api/git';
 import { packageRoutes } from '@server/api/package';
 import { planRoutes } from '@server/api/plan';
 import { projectRoutes } from '@server/api/projects';
@@ -191,7 +191,8 @@ export function createApp({
   app.route('/api/projects/:projectId/roadmap', roadmapRoutes(db.app, auth, live, documents));
   app.route('/api/projects/:projectId/package', packageRoutes(db.app, auth, live, documents));
   app.route('/api/projects/:projectId/git', gitRoutes(db.app, auth, git));
-  app.route(GIT_CALLBACK_PATH, gitCallback(db.app, auth, env.APP_URL, git));
+  app.route('/api/git/account', gitAccountRoutes(auth, git));
+  app.route(GIT_CALLBACK_PATH, gitCallback(auth, env.APP_URL, git));
   const invitationMailLimiter = createRateLimiter({
     limit: INVITATION_MAILS_PER_HOUR,
     windowMs: 60 * 60_000,

@@ -7,7 +7,7 @@
 Bring the result into the repository (M6, specs 28 to 30): connecting GitLab and reading the repository, approvals and Git actions, webhooks and the review of merge requests. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing. Next is spec 29b (Git actions as proposals, the approval queue, the audit log, and issues from the plan); it is worked out before it is built.
+**Spec 29b Git actions and approvals** (worked out on 2026-10-09): requests for Git actions that wait for approval, approving one or several, the log of Git actions, and issues from the plan. Parts 29c (the plan package as a merge request) and 29d (merging, agents proposing) follow.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -313,7 +313,7 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   - When asked, an agent changes the canvas directly.
   - When acting on its own, it makes a proposal.
   - For alternatives, it creates variants.
-- **Git in the product:** GitLab first, GitHub afterwards. Reading is free; everything that changes something needs approval.
+- **Git in the product:** GitLab first, GitHub afterwards. Reading is free; everything that changes something needs approval. The owner confirmed on 2026-10-09 that GitHub stays after V1 and then gets everything the GitLab integration has, plus signing in with GitHub; from spec 29b on, Git actions are built so that a second host is added without changing the queue.
 - **Covibes code repository:** local only until the end, then published on GitHub with CI via GitHub Actions. The owner decided this on 2026-09-28; it is independent of the GitLab integration in the product.
 - **Repository language:** everything in the repository is English, and commits follow Conventional Commits. The owner decided this on 2026-09-28.
 - **Tech stack:**

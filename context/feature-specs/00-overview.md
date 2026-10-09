@@ -265,7 +265,7 @@ Built in two parts (2026-10-04), because the unit is large:
 ### 29 Approvals and Git actions
 Built in four parts (2026-10-09), because the unit is large:
 - **29a** GitLab access per person: everyone connects their own GitLab account; an owner picks the project's repository with it (owner decision: actions run with the access of the approving person)
-- **29b** Git actions as proposals, the approval queue with batch approval, the audit log, and issues from the plan
+- **29b** Git actions as requests that wait for approval, approving one or several, the log of Git actions, and issues from the plan
 - **29c** the plan package as a merge request
 - **29d** merging after approval, and agents that propose Git actions
 

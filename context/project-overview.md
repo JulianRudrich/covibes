@@ -229,7 +229,7 @@ These rules come from the dry run with Covibes as the project (see `context/dry-
 - **Frame:** German and English, desktop browser.
 
 ### After V1 (deliberately later)
-- GitHub integration (next)
+- GitHub integration (next): everything the GitLab integration can do, plus signing in with GitHub
 - team workspaces, together with company agents
 - connecting external agents (e.g. via A2A or webhook)
 - guests without an account

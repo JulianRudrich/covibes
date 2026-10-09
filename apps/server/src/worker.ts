@@ -12,6 +12,10 @@ import {
   streamAgentReply,
 } from '@server/ai-gateway';
 import { createBoardClient } from '@server/collab/board-client';
+import { createGitlabClient } from '@server/integrations/gitlab/client';
+import { createGitConnections } from '@server/integrations/gitlab/connections';
+import { repositoryReaders } from '@server/integrations/gitlab/repository';
+import { gitlabSetup } from '@server/integrations/gitlab/setup';
 import { createWorkerMailer } from '@server/integrations/mail/mailer';
 import { defaultFilesDir, localStorage } from '@server/storage/storage';
 import { releaseAbandonedJobs } from '@server/tasks/abandoned-jobs';
@@ -74,6 +78,18 @@ const boards = createBoardClient({
   token: env.INTERNAL_TOKEN,
 });
 
+// The repositories projects are connected to (spec 28b). The worker shares the settings of the
+// connections with the server; without them, agents read no repository.
+const gitSetup = gitlabSetup(env);
+const gitClient = createGitlabClient();
+const repository = gitSetup
+  ? repositoryReaders({
+      admin,
+      client: gitClient,
+      connections: createGitConnections({ admin, client: gitClient, setup: gitSetup }),
+    })
+  : undefined;
+
 const released = await releaseAbandonedJobs(pgPool);
 if (released > 0) {
   console.log(`Covibes worker: resumed the jobs of ${String(released)} ended worker(s)`);
@@ -91,6 +107,7 @@ const runner = await run({
       admin,
       boards,
       files: localStorage(env.FILES_DIR ?? defaultFilesDir()),
+      ...(repository ? { repository } : {}),
       reply: streamAgentReply,
       complete: completeText,
     }),

@@ -23,6 +23,18 @@ export const workerEnvSchema = z
     MAIL_FROM: z.string().min(3).optional(),
     /** Folder of the file storage (spec 20a), the same as the server's. */
     FILES_DIR: z.string().min(1).optional(),
+    /**
+     * The settings of GitLab connections (spec 28a), the same as the server's: with them the
+     * agents read a project's repository and the worker renews its token. Unset, they read none.
+     */
+    TOKEN_KEY: z.string().min(32).optional(),
+    GITLAB_CLIENT_ID: z.string().min(1).optional(),
+    GITLAB_CLIENT_SECRET: z.string().min(1).optional(),
+    GITLAB_ISSUER: z.url().optional(),
+  })
+  .refine((env) => Boolean(env.GITLAB_CLIENT_ID) === Boolean(env.GITLAB_CLIENT_SECRET), {
+    message: 'GITLAB_CLIENT_ID and GITLAB_CLIENT_SECRET must be set together',
+    path: ['GITLAB_CLIENT_SECRET'],
   })
   .refine((env) => env.NODE_ENV !== 'production' || Boolean(env.FILES_DIR), {
     message: 'Production needs FILES_DIR, the folder for uploaded files (shared with the server)',

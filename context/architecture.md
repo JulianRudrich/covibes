@@ -234,6 +234,7 @@ An agent's instructions cannot change this table.
   - The way back from GitLab is tied to the person by a `state` the server signed (project, person, ten minutes).
   - The tokens are stored encrypted in `oauth_tokens` (AES-256-GCM under `TOKEN_KEY`). No request of a user can read that table; only `integrations/gitlab/connections` opens tokens, with the admin role, after the route checked who asks.
   - The server refreshes them shortly before they end, one renewal at a time per connection (the row is locked), because GitLab retires a refresh token with its use.
+  - Agents read the repository of a connected project (spec 28b): its files, issues and merge requests, through six tools of their own, within bounds. They run in the worker, which shares the settings of the connection with the server and takes the token from the same store. Results are marked as content of the repository; it is data, not instructions (invariant 6).
   - In development and tests without an OAuth application the server answers as a small GitLab itself (`/api/dev/gitlab`); production never serves it.
 - **Approval flow:**
   1. A proposal of type `git_action` is created.

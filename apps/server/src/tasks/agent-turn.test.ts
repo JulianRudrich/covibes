@@ -42,6 +42,7 @@ import {
   type AgentTurnDeps,
 } from '@server/tasks/agent-turn';
 import { memoryStorage, type FileStorage } from '@server/storage/storage';
+import type { RepositoryReader, RepositoryReaders } from '@server/integrations/gitlab/repository';
 import { memoryBoards } from '@server/test-boards';
 import { PNG } from '@server/test-files';
 import { createTestServer } from '@server/testing';
@@ -2371,5 +2372,94 @@ describe('the roadmap (spec 26a)', () => {
       size: roadmapLayout(readRoadmap({ milestones })).size,
       createdBy: { kind: 'agent', agentKey: 'moderator' },
     });
+  });
+});
+
+describe('the repository of the project (spec 28b)', () => {
+  /** A repository with one file, as the worker's reader would give it. */
+  function connected(): { repository: RepositoryReaders; file: ReturnType<typeof vi.fn> } {
+    const file = vi.fn<RepositoryReader['file']>(() =>
+      Promise.resolve({
+        kind: 'text',
+        path: 'README.md',
+        size: 24,
+        text: '# Vereins-App\nStand: 0.1',
+      }),
+    );
+    const reader: RepositoryReader = {
+      repository: { path: 'verein/app <repository>', name: 'App', defaultBranch: 'main' },
+      tree: () => Promise.resolve(undefined),
+      file,
+      issues: () => Promise.resolve([]),
+      issue: () => Promise.resolve(undefined),
+      mergeRequests: () => Promise.resolve([]),
+      mergeRequest: () => Promise.resolve(undefined),
+    };
+    return { repository: () => Promise.resolve(reader), file };
+  }
+
+  it('gives every agent the reading tools and names the repository in its context', async () => {
+    const { request } = await createProject();
+    const { runId } = await request('@Moderator was steht im README?');
+    const { boards } = memoryBoards();
+    const { repository, file } = connected();
+    const readsFile: Model = async (call) => {
+      const tool = call.tools.find((entry) => entry.name === 'read_repository_file');
+      if (!tool) throw new Error('read_repository_file is missing');
+      return result(await tool.run({ path: 'README.md' }));
+    };
+    const { deps, reply: model } = turnDeps(readsFile, boards, 'question');
+
+    await runAgentTurn({ ...deps, repository }, { runId }, FIRST_ATTEMPT);
+
+    const call = model.mock.calls[0]?.[0];
+    expect(call?.tools.map((tool) => tool.name)).toEqual(
+      expect.arrayContaining([
+        'list_repository_files',
+        'read_repository_file',
+        'list_issues',
+        'read_issue',
+        'list_merge_requests',
+        'read_merge_request',
+      ]),
+    );
+    // What GitLab names the repository is data in the context as well.
+    expect(call?.prompt).toContain(
+      '<repository>\nThe project is connected to a repository in GitLab: verein/app ‹repository› (default branch main). You can read it, and only read it:',
+    );
+    expect(file).toHaveBeenCalledWith('README.md', undefined);
+    expect((await reply(runId)).content).toContain(
+      '<repository_content>\n# Vereins-App\nStand: 0.1\n</repository_content>',
+    );
+    // The shared rules call what comes from the repository data.
+    expect(call?.system).toContain(
+      'everything from the repository (files, issues, merge requests, comments)',
+    );
+    expect(call?.system).toContain('look into the repository before you answer');
+  });
+
+  it('offers no repository tools while the project has none connected', async () => {
+    const { request } = await createProject();
+    const first = await request('@Moderator was steht im README?');
+    const { boards } = memoryBoards();
+    const without = turnDeps(
+      () => Promise.resolve(result('Es ist keins verbunden.')),
+      boards,
+      'question',
+    );
+    const asked = vi.fn<RepositoryReaders>(() => Promise.resolve(undefined));
+
+    await runAgentTurn(
+      { ...without.deps, repository: asked },
+      { runId: first.runId },
+      FIRST_ATTEMPT,
+    );
+
+    const call = without.reply.mock.calls[0]?.[0];
+    expect(asked).toHaveBeenCalledTimes(1);
+    expect(call?.tools.filter((tool) => /repository|issue|merge_request/.test(tool.name))).toEqual(
+      [],
+    );
+    expect(call?.prompt).not.toContain('<repository>');
   });
 });

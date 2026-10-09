@@ -128,6 +128,12 @@ export function createGitlabClient(fetcher: typeof fetch = fetch, now: () => num
     });
 
   return {
+    /**
+     * One reading call of the API with a token: the answer as JSON, unchecked. The reading of a
+     * repository (spec 28b) builds on it and checks what it gets.
+     */
+    get: api,
+
     /** Where the browser goes for the consent. */
     authorizeUrl(source: GitlabSource, state: string): string {
       const query = new URLSearchParams({

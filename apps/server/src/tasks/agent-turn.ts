@@ -48,6 +48,7 @@ import {
 import { loadMessage, selectMessages, toMessage } from '@server/chat/rows';
 import type { BoardAccess } from '@server/collab/board-client';
 import { loadAssignees } from '@server/plan/assignees';
+import type { RepositoryReaders } from '@server/integrations/gitlab/repository';
 import { readStoredPlan } from '@server/plan/stored-plan';
 import { MAX_DELTA_LENGTH, notifyLive } from '@server/realtime/notifications';
 import type { Intent } from '@server/rules/decide';
@@ -79,6 +80,7 @@ import { describePosition, type CanvasToolOptions } from '@server/tools/placemen
 import { proposeVariantsTool } from '@server/tools/propose-variants';
 import { describeFile, fileReader, readFileTool, type ProjectFile } from '@server/tools/read-file';
 import { readLinkTool, type PageReader } from '@server/tools/read-link';
+import { repositoryTools } from '@server/tools/repository-tools';
 import { setPhaseTool } from '@server/tools/set-phase';
 import { startDebateTool } from '@server/tools/start-debate';
 import { updateBlockTool } from '@server/tools/update-block';
@@ -176,6 +178,11 @@ export type AgentTurnDeps = {
   files?: FileStorage;
   /** How `read_link` fetches a page (spec 20b); tests pass their own. */
   pages?: PageReader;
+  /**
+   * The repository a project is connected to (spec 28b); without it, or without a connection,
+   * agents read no repository.
+   */
+  repository?: RepositoryReaders;
   /** The gateway's `streamAgentReply`; tests pass a scripted model. */
   reply: (request: AgentReplyRequest) => Promise<AgentReplyResult>;
   /** The gateway's `completeText`, for the intent of the triggering message (spec 13). */
@@ -640,6 +647,9 @@ async function converse(
   // The web (spec 20b): the search is the gateway's, reading a link is our own tool.
   const web = turn.webAccess && !debating;
   if (web) tools.push(readLinkTool(deps.pages ? { pages: deps.pages } : {}));
+  // The project's repository in GitLab (spec 28b): files, issues and merge requests.
+  const repository = debating ? undefined : await deps.repository?.(run.projectId);
+  if (repository) tools.push(...repositoryTools(repository));
   if (board && !debating) {
     const toolOptions: CanvasToolOptions = {
       boards: deps.boards,
@@ -782,6 +792,7 @@ async function converse(
         files,
         // A debate only talks: it lists no knowledge and says nothing about the web.
         ...(debating ? {} : { knowledge, web }),
+        ...(repository ? { repository: repository.repository } : {}),
         ...conversation,
         occasion: turn.occasion,
         decisions: {
@@ -852,7 +863,7 @@ function authorName(message: ChatMessage, nameOf: NameOf): string {
 /** Chat text is data: it must not close the sections the prompt is built from. */
 function asData(text: string): string {
   return text.replace(
-    /<(\/?)(phase|team|moderation|criteria|decisions|canvas|plan|assignments|files|knowledge|chat|request)>/gi,
+    /<(\/?)(phase|team|moderation|criteria|decisions|canvas|plan|assignments|files|knowledge|repository|chat|request)>/gi,
     '‹$1$2›',
   );
 }
@@ -1103,6 +1114,8 @@ export function buildPrompt(context: {
   knowledge?: readonly KnowledgeEntry[];
   /** Whether the run may search the web and read links (spec 20b). */
   web?: boolean;
+  /** The repository the project is connected to (spec 28b), which the repository tools read. */
+  repository?: { path: string; name: string; defaultBranch: string | null };
   messages: readonly ChatMessage[];
   request: ChatMessage | undefined;
   /** A raised hand, an accepted offer or a debate, which the reply answers instead of a message. */
@@ -1173,6 +1186,11 @@ export function buildPrompt(context: {
     ...(knowledge.length > 0
       ? [
           `<knowledge>\nYour own knowledge, given to you by the person who created you. Read an entry when the question calls for it, a file with read_file and its id, a link with read_link${context.web === false ? ' (web access is switched off in this project, so links cannot be read right now)' : ''}:\n${asData(knowledge.map(describeKnowledge).join('\n'))}\n</knowledge>`,
+        ]
+      : []),
+    ...(context.repository
+      ? [
+          `<repository>\nThe project is connected to a repository in GitLab: ${asData(context.repository.path)}${context.repository.defaultBranch ? ` (default branch ${asData(context.repository.defaultBranch)})` : ''}. You can read it, and only read it: its files with list_repository_files and read_repository_file, its issues with list_issues and read_issue, its merge requests with list_merge_requests and read_merge_request. Look into it when a question is about the code or about the state of the work.\n</repository>`,
         ]
       : []),
     ...(context.web === false

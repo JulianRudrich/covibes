@@ -3,6 +3,7 @@ import { createHmac, randomBytes } from 'node:crypto';
 import { Hono } from 'hono';
 
 import type { GitlabSource } from '@server/integrations/gitlab/client';
+import { addExampleRepositoryRoutes } from '@server/integrations/gitlab/dev/example-repository';
 import { sameSecret } from '@server/secrets';
 
 // A stand-in for GitLab on the developer's machine (spec 28a), like the development mailbox: the
@@ -232,6 +233,12 @@ export function createGitlabStandIn(
     const found = DEV_REPOSITORIES.find((entry) => String(entry.id) === c.req.param('id'));
     return found ? c.json(repository(found)) : c.json({ message: '404 Project Not Found' }, 404);
   });
+
+  // What the example repositories hold: files, issues and merge requests (spec 28b).
+  addExampleRepositoryRoutes(
+    routes,
+    (id) => DEV_REPOSITORIES.find((entry) => entry.id === id)?.default_branch,
+  );
 
   /** Where the link of a connected repository leads: a page that says which one it stands for. */
   routes.get('/:namespace/:name', (c) => {

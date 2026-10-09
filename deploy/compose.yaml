@@ -76,6 +76,10 @@ services:
       # The worker draws on boards through the app's collaboration endpoint, as its own origin.
       COLLAB_URL: ws://app:3000/api/collab
       APP_URL: ${APP_URL}
+      # The agents read connected repositories; the same values as the app's.
+      GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID:-}
+      GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET:-}
+      TOKEN_KEY: ${TOKEN_KEY:-}
       # Other people use this instance, so it needs an API key; a Claude subscription must not be used.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY in deploy/.env}
       # The worker sends the notification mails; without SMTP there are none.

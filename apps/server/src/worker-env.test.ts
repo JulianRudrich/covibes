@@ -48,4 +48,25 @@ describe('loadWorkerEnv', () => {
       loadWorkerEnv({ ...required, NODE_ENV: 'production', ANTHROPIC_API_KEY: 'sk-ant-test' }),
     ).toThrow(/FILES_DIR/);
   });
+
+  it('takes the settings of GitLab connections, which it shares with the server', () => {
+    const env = loadWorkerEnv({
+      ...required,
+      TOKEN_KEY: 'k'.repeat(32),
+      GITLAB_CLIENT_ID: 'id',
+      GITLAB_CLIENT_SECRET: 'secret',
+      GITLAB_ISSUER: 'https://git.example.org',
+    });
+
+    expect(env).toMatchObject({
+      TOKEN_KEY: 'k'.repeat(32),
+      GITLAB_CLIENT_ID: 'id',
+      GITLAB_ISSUER: 'https://git.example.org',
+    });
+    expect(loadWorkerEnv(required).TOKEN_KEY).toBeUndefined();
+    expect(() => loadWorkerEnv({ ...required, TOKEN_KEY: 'short' })).toThrow(/TOKEN_KEY/);
+    expect(() => loadWorkerEnv({ ...required, GITLAB_CLIENT_ID: 'id' })).toThrow(
+      /GITLAB_CLIENT_SECRET/,
+    );
+  });
 });

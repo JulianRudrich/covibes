@@ -263,6 +263,12 @@ Built in two parts (2026-10-04), because the unit is large:
 - **Design:** **required:** connection dialog
 
 ### 29 Approvals and Git actions
+Built in four parts (2026-10-09), because the unit is large:
+- **29a** GitLab access per person: everyone connects their own GitLab account; an owner picks the project's repository with it (owner decision: actions run with the access of the approving person)
+- **29b** Git actions as proposals, the approval queue with batch approval, the audit log, and issues from the plan
+- **29c** the plan package as a merge request
+- **29d** merging after approval, and agents that propose Git actions
+
 - **Goal:** the approval queue with batch approval. Creating issues and the plan package as a merge request. Merging runs with the token of the approving person and the note "via Covibes". Every action goes into the audit log.
 - **Needs:** 22, 27, 28
 - **Design:** partly available (approval card)

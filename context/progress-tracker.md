@@ -7,7 +7,7 @@
 Bring the result into the repository (M6, specs 28 to 30): connecting GitLab and reading the repository, approvals and Git actions, webhooks and the review of merge requests. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing. Next is spec 29 (approvals and Git actions), which is worked out first.
+**Spec 29a GitLab access per person** (worked out on 2026-10-09): everyone connects their own GitLab account, and an owner picks the project's repository with it, so that Git actions can run in the name of who approves them. Parts 29b to 29d (approvals, the package as a merge request, merging) follow.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

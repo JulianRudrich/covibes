@@ -7,7 +7,7 @@
 Bring the result into the repository (M6, specs 28 to 30): connecting GitLab and reading the repository, approvals and Git actions, webhooks and the review of merge requests. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing. Next is spec 28b (agents read the repository, its issues and merge requests), which is worked out first.
+**Spec 28b agents read the repository** (worked out on 2026-10-09): with a connected repository every agent of the project reads its files, issues and merge requests through six tools, within bounds, with the access of the owner who connected; what it reads is data, not instructions. It completes spec 28.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

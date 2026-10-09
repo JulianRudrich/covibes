@@ -7,6 +7,9 @@ import { Avatar } from '@web/components/ui/avatar';
 import { Button } from '@web/components/ui/button';
 import { IconButton } from '@web/components/ui/icon-button';
 import { Tooltip } from '@web/components/ui/tooltip';
+import { AgentAvatar } from '@web/features/agents/agent-avatar';
+import { agentClass, useAgents } from '@web/features/agents/agents';
+import { AGENT_DARK_TEXT } from '@web/features/canvas/agent-look';
 import { requestProgress } from '@web/features/git/request-progress';
 import { cn } from '@web/lib/cn';
 import { formatRelativeTime, initialsOf } from '@web/lib/format';
@@ -156,6 +159,9 @@ export function GitRequestCard({
   const { canApprove, hasAccount, busy } = actions;
   const own = request.requestedBy.userId !== null && request.requestedBy.userId === actions.userId;
   const name = request.requestedBy.name || t('git.requests.someone');
+  // A request an agent made (spec 29e) shows the agent, like a proposal does.
+  const agents = useAgents();
+  const agent = request.agentKey === null ? null : agents(request.agentKey);
 
   const view = (
     <Button
@@ -187,8 +193,21 @@ export function GitRequestCard({
   return (
     <>
       <div className="flex items-center gap-1.5 text-meta text-text-3">
-        <Avatar kind="human" size={16} label={name} initials={initialsOf(name)} />
-        <span className="min-w-0 truncate font-medium text-text-body">{name}</span>
+        {agent ? (
+          <>
+            <AgentAvatar agent={agent} size={16} />
+            <span
+              className={cn('min-w-0 truncate font-medium', agentClass(AGENT_DARK_TEXT, agent))}
+            >
+              {agent.name}
+            </span>
+          </>
+        ) : (
+          <>
+            <Avatar kind="human" size={16} label={name} initials={initialsOf(name)} />
+            <span className="min-w-0 truncate font-medium text-text-body">{name}</span>
+          </>
+        )}
         <span className="shrink-0">· {t('git.requests.kind')}</span>
         <span className="ml-auto shrink-0 tabular-nums">
           {formatRelativeTime(request.createdAt, i18n.language)}

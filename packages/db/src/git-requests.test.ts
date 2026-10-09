@@ -737,3 +737,96 @@ describe('a request to merge (spec 29d)', () => {
     expect(await createMerge(EDITOR, other, [merge(7)])).toMatch(/^[0-9a-f-]{36}$/);
   });
 });
+
+describe('a request made by an agent (spec 29e)', () => {
+  /** What the worker does when the moderator proposes something. */
+  const propose = async (projectId: string, actions: unknown = [milestone(), issue()]) => {
+    const { rows } = await admin.query<{ id: string }>(
+      `select private.insert_git_request($1, 'issues', $2::jsonb, null, 'moderator') as id`,
+      [projectId, JSON.stringify(actions)],
+    );
+    return rows[0]?.id ?? '';
+  };
+
+  it('names its agent, waits like every request and is approved or rejected by people', async () => {
+    const projectId = await newProject();
+
+    const requestId = await propose(projectId);
+
+    const { rows } = await admin.query<{ agent_key: string | null }>(
+      'select agent_key from git_requests where id = $1',
+      [requestId],
+    );
+    expect(rows).toEqual([{ agent_key: 'moderator' }]);
+    expect(await request(requestId)).toMatchObject({
+      status: 'waiting',
+      requested_by: null,
+      requested_by_name: '',
+    });
+    // Nobody takes an agent's request back; who may approve decides it.
+    await expect(withdraw(OWNER, projectId, requestId)).rejects.toMatchObject({ code: '42501' });
+    await expect(withdraw(EDITOR, projectId, requestId)).rejects.toMatchObject({ code: '42501' });
+    expect(await approve(OWNER, projectId, [requestId])).toBe(1);
+    expect(await request(requestId)).toMatchObject({ status: 'approved', decided_by: OWNER });
+
+    const second = await propose(projectId);
+    await reject(APPROVER, projectId, second);
+    expect((await request(second))?.status).toBe('rejected');
+  });
+
+  it('follows the same rules as a person’s request', async () => {
+    const projectId = await newProject();
+    const bare = await newProject({ repository: null });
+    const taskId = randomUUID();
+    await create(EDITOR, projectId, [issue(taskId)]);
+
+    await expect(propose(projectId, [issue(taskId)])).rejects.toMatchObject({ code: '23505' });
+    await expect(propose(projectId, [])).rejects.toMatchObject({ code: '22023' });
+    await expect(propose(bare)).rejects.toMatchObject({ code: 'P0002' });
+    // A request of a person names no agent.
+    const { rows } = await admin.query<{ agent_key: string | null }>(
+      'select agent_key from git_requests where project_id = $1',
+      [projectId],
+    );
+    expect(rows).toEqual([{ agent_key: null }]);
+  });
+
+  it('is not for the app role to call', async () => {
+    const projectId = await newProject();
+
+    await expect(
+      asUser(app, OWNER, (client) =>
+        client.query(
+          `select private.insert_git_request($1, 'issues', $2::jsonb, null, 'moderator')`,
+          [projectId, JSON.stringify([issue()])],
+        ),
+      ),
+    ).rejects.toMatchObject({ code: '42501' });
+  });
+
+  it('counts for who may approve, and schedules their mail', async () => {
+    const projectId = await newProject();
+    const keys = [OWNER, APPROVER, EDITOR].map((id) => `notification_mail:${id}`);
+    await admin.query('delete from graphile_worker._private_jobs where key = any ($1)', [keys]);
+
+    await propose(projectId);
+
+    const count = (userId: string) =>
+      asUser(app, userId, async (client) => {
+        const { rows } = await client.query<{ waiting: number }>(
+          'select public.project_waiting_count($1) as waiting',
+          [projectId],
+        );
+        return rows[0]?.waiting;
+      });
+    expect(await count(OWNER)).toBe(1);
+    expect(await count(EDITOR)).toBe(0);
+    const jobs = await admin.query<{ key: string }>(
+      'select key from graphile_worker._private_jobs where key = any ($1) order by key',
+      [keys],
+    );
+    expect(jobs.rows.map((row) => row.key)).toEqual(
+      [`notification_mail:${OWNER}`, `notification_mail:${APPROVER}`].sort(),
+    );
+  });
+});

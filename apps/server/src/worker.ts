@@ -12,6 +12,7 @@ import {
   streamAgentReply,
 } from '@server/ai-gateway';
 import { createBoardClient } from '@server/collab/board-client';
+import { agentGitRequests } from '@server/git/agent-requests';
 import { createGitlabClient } from '@server/integrations/gitlab/client';
 import { createGitConnections } from '@server/integrations/gitlab/connections';
 import { repositoryReaders } from '@server/integrations/gitlab/repository';
@@ -109,6 +110,17 @@ const runner = await run({
       boards,
       files: localStorage(env.FILES_DIR ?? defaultFilesDir()),
       ...(repository ? { repository } : {}),
+      // The moderator proposes Git actions (spec 29e); they wait for approval like everyone's.
+      ...(gitConnections
+        ? {
+            gitRequests: agentGitRequests({
+              admin,
+              client: gitClient,
+              connections: gitConnections,
+              boards,
+            }),
+          }
+        : {}),
       reply: streamAgentReply,
       complete: completeText,
     }),

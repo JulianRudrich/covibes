@@ -19,7 +19,7 @@ import {
   type DecisionVariants,
 } from '@covibes/shared';
 import { Hono, type Context } from 'hono';
-import { sql, type Transaction } from 'kysely';
+import { sql, type Kysely, type Transaction } from 'kysely';
 import { z } from 'zod';
 
 import { apiError } from '@server/api/errors';
@@ -195,7 +195,7 @@ const logDetailsSchema = z.object({
  * result of the vote that decided and the variants it chose from. `trx` decides what is visible:
  * a member's transaction, or the one of a read-only link (spec 21b), which reads no people.
  */
-export async function loadDecisions(trx: Transaction<DB>, projectId: string): Promise<Decision[]> {
+export async function loadDecisions(trx: Kysely<DB>, projectId: string): Promise<Decision[]> {
   const rows = await trx
     .selectFrom('decisions')
     .leftJoin('users', 'users.id', 'decisions.decided_by')

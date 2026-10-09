@@ -258,6 +258,7 @@ export interface GitConnections {
 }
 
 export interface GitRequests {
+  agent_key: string | null;
   base_url: string;
   created_at: Generated<Timestamp>;
   decided_at: Timestamp | null;

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import type { GitRepository } from './git';
 
-// Git actions and their approval (specs 29b to 29d). Everything that changes something in a
+// Git actions and their approval (specs 29b to 29e). Everything that changes something in a
 // repository is a request that waits for approval; its actions are the single changes, and with
 // their outcomes they are the log. Nothing here names a host: an action says what is created, not
 // how GitLab is asked for it.
@@ -193,6 +193,8 @@ export type GitRequest = {
   /** The repository it was made for. */
   repository: { path: string; url: string };
   requestedBy: GitPerson;
+  /** The agent that made it (spec 29e); null for a request of a person. */
+  agentKey: string | null;
   /** Who approved or rejected it; null while it waits, and when its maker took it back. */
   decidedBy: GitPerson | null;
   createdAt: string;

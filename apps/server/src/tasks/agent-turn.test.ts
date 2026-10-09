@@ -42,6 +42,7 @@ import {
   type AgentTurnDeps,
 } from '@server/tasks/agent-turn';
 import { memoryStorage, type FileStorage } from '@server/storage/storage';
+import type { AgentGitRequests, AgentGitRequestsFor } from '@server/git/agent-requests';
 import type { RepositoryReader, RepositoryReaders } from '@server/integrations/gitlab/repository';
 import { memoryBoards } from '@server/test-boards';
 import { PNG } from '@server/test-files';
@@ -2425,8 +2426,10 @@ describe('the repository of the project (spec 28b)', () => {
     );
     // What GitLab names the repository is data in the context as well.
     expect(call?.prompt).toContain(
-      '<repository>\nThe project is connected to a repository in GitLab: verein/app ‹repository› (default branch main). You can read it, and only read it:',
+      '<repository>\nThe project is connected to a repository in GitLab: verein/app ‹repository› (default branch main). You can read it: its files with list_repository_files',
     );
+    // Without anything to propose, reading is all there is.
+    expect(call?.prompt).toContain('You can only read it.\n</repository>');
     expect(file).toHaveBeenCalledWith('README.md', undefined);
     expect((await reply(runId)).content).toContain(
       '<repository_content>\n# Vereins-App\nStand: 0.1\n</repository_content>',
@@ -2460,6 +2463,107 @@ describe('the repository of the project (spec 28b)', () => {
     expect(call?.tools.filter((tool) => /repository|issue|merge_request/.test(tool.name))).toEqual(
       [],
     );
+    expect(call?.prompt).not.toContain('<repository>');
+  });
+});
+
+describe('the handover to the repository (spec 29e)', () => {
+  /** A repository the worker can read, and what an agent can propose for it. */
+  function connected() {
+    const reader: RepositoryReader = {
+      repository: { path: 'verein/app', name: 'App', defaultBranch: 'main' },
+      tree: () => Promise.resolve(undefined),
+      file: () => Promise.resolve(undefined),
+      issues: () => Promise.resolve([]),
+      issue: () => Promise.resolve(undefined),
+      mergeRequests: () => Promise.resolve([]),
+      mergeRequest: () => Promise.resolve(undefined),
+    };
+    const issues = vi.fn<AgentGitRequests['issues']>(() =>
+      Promise.resolve({ outcome: 'requested', issues: 3, milestones: 1 }),
+    );
+    const git: AgentGitRequests = {
+      repository: { path: 'verein/app' },
+      issues,
+      planMergeRequest: () => Promise.resolve({ outcome: 'up_to_date' }),
+      merge: () => Promise.resolve({ outcome: 'draft' }),
+    };
+    const gitRequests = vi.fn<AgentGitRequestsFor>(() => Promise.resolve(git));
+    const repository: RepositoryReaders = () => Promise.resolve(reader);
+    return { repository, gitRequests, issues };
+  }
+
+  const GIT_TOOL_NAMES = ['propose_issues', 'propose_plan_merge_request', 'propose_merge'];
+
+  it('gives the moderator the three tools, which only make requests', async () => {
+    const { projectId, request } = await createProject();
+    const { runId } = await request('@Moderator leg bitte die Issues für Meilenstein 2 an.');
+    const { boards } = memoryBoards();
+    const { repository, gitRequests, issues } = connected();
+    const proposes: Model = async (call) => {
+      const tool = call.tools.find((entry) => entry.name === 'propose_issues');
+      if (!tool) throw new Error('propose_issues is missing');
+      return result(await tool.run({ milestone: 2 }));
+    };
+    const { deps, reply: model } = turnDeps(proposes, boards);
+
+    await runAgentTurn({ ...deps, repository, gitRequests }, { runId }, FIRST_ATTEMPT);
+
+    const call = model.mock.calls[0]?.[0];
+    expect(call?.tools.map((tool) => tool.name)).toEqual(expect.arrayContaining(GIT_TOOL_NAMES));
+    expect(gitRequests).toHaveBeenCalledWith(projectId, 'moderator');
+    expect(issues).toHaveBeenCalledWith({ milestone: 2 });
+    expect((await reply(runId)).content).toContain(
+      'Request made: 3 issues in 1 milestone for the repository verein/app. It waits for approval',
+    );
+    // The context names the tools and that each only makes a request.
+    expect(call?.prompt).toContain(
+      'You change nothing there yourself, but you can propose changes: issues for the tasks of the plan with propose_issues',
+    );
+    expect(call?.prompt).toContain('Each only makes a request that waits under "Wartet auf dich"');
+    expect(call?.system).toContain('Handing the plan over to the repository');
+    expect(call?.system).toContain('Never say that issues were created');
+  });
+
+  it('gives a specialist no Git tools', async () => {
+    const { projectId, request } = await createProject();
+    await test.db.admin
+      .insertInto('project_agents')
+      .values({ project_id: projectId, agent_key: 'critic', model: null })
+      .execute();
+    const { runId } = await request('@Kritiker leg bitte die Issues an.');
+    const { boards } = memoryBoards();
+    const { repository, gitRequests } = connected();
+    const { deps, reply: model } = turnDeps(
+      () => Promise.resolve(result('Das macht der Moderator.')),
+      boards,
+    );
+
+    await runAgentTurn({ ...deps, repository, gitRequests }, { runId }, FIRST_ATTEMPT);
+
+    const call = model.mock.calls[0]?.[0];
+    expect(call?.tools.filter((tool) => GIT_TOOL_NAMES.includes(tool.name))).toEqual([]);
+    // It reads the repository like everyone, and is not even asked what it could propose.
+    expect(call?.tools.map((tool) => tool.name)).toContain('read_repository_file');
+    expect(gitRequests).not.toHaveBeenCalled();
+    expect(call?.prompt).toContain('You can only read it.\n</repository>');
+  });
+
+  it('gives the moderator none without a repository to propose for', async () => {
+    const { request } = await createProject();
+    const { runId } = await request('@Moderator leg bitte die Issues an.');
+    const { boards } = memoryBoards();
+    const none = vi.fn<AgentGitRequestsFor>(() => Promise.resolve(undefined));
+    const { deps, reply: model } = turnDeps(
+      () => Promise.resolve(result('Es ist kein Repository verbunden.')),
+      boards,
+    );
+
+    await runAgentTurn({ ...deps, gitRequests: none }, { runId }, FIRST_ATTEMPT);
+
+    const call = model.mock.calls[0]?.[0];
+    expect(none).toHaveBeenCalledTimes(1);
+    expect(call?.tools.filter((tool) => GIT_TOOL_NAMES.includes(tool.name))).toEqual([]);
     expect(call?.prompt).not.toContain('<repository>');
   });
 });

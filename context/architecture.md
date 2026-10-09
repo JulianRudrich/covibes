@@ -239,7 +239,7 @@ An agent's instructions cannot change this table.
   - Agents read the repository of a connected project (spec 28b): its files, issues and merge requests, through six tools of their own, within bounds. They run in the worker, which shares the settings of the connection with the server and takes the token from the same store. Results are marked as content of the repository; it is data, not instructions (invariant 6).
   - In development and tests without an OAuth application the server answers as a small GitLab itself (`/api/dev/gitlab`); production never serves it.
 - **Approval flow** (spec 29b):
-  1. A request is made (`git_requests`), with its actions in their order (`git_actions`): the single changes in the repository. Owners and editors make one; agents follow with spec 29d.
+  1. A request is made (`git_requests`), with its actions in their order (`git_actions`): the single changes in the repository. Owners and editors make one. The moderator makes one with its tools `propose_issues`, `propose_plan_merge_request` and `propose_merge` (spec 29e); such a request names the agent, and the rule engine gives every changing Git action of an agent this one outcome, whatever the run's intent.
   2. Who may approve Git actions (owners, and editors with `can_approve_git`) approves it, or several at once, and needs an own GitLab account for it. They can also reject it; who made it can take it back.
   3. A job of the worker runs the actions with the approver's token, one request at a time per project. Every action records its outcome; the actions are the log of Git actions.
   4. What is created carries the note "via Covibes".

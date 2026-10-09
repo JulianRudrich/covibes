@@ -48,6 +48,7 @@ import {
 import { loadMessage, selectMessages, toMessage } from '@server/chat/rows';
 import type { BoardAccess } from '@server/collab/board-client';
 import { loadAssignees } from '@server/plan/assignees';
+import type { AgentGitRequestsFor } from '@server/git/agent-requests';
 import type { RepositoryReaders } from '@server/integrations/gitlab/repository';
 import { readStoredPlan } from '@server/plan/stored-plan';
 import { MAX_DELTA_LENGTH, notifyLive } from '@server/realtime/notifications';
@@ -80,6 +81,7 @@ import { describePosition, type CanvasToolOptions } from '@server/tools/placemen
 import { proposeVariantsTool } from '@server/tools/propose-variants';
 import { describeFile, fileReader, readFileTool, type ProjectFile } from '@server/tools/read-file';
 import { readLinkTool, type PageReader } from '@server/tools/read-link';
+import { GIT_TOOLS, gitTools } from '@server/tools/git-tools';
 import { repositoryTools } from '@server/tools/repository-tools';
 import { setPhaseTool } from '@server/tools/set-phase';
 import { startDebateTool } from '@server/tools/start-debate';
@@ -183,6 +185,11 @@ export type AgentTurnDeps = {
    * agents read no repository.
    */
   repository?: RepositoryReaders;
+  /**
+   * What an agent can propose for the repository (spec 29e); without it, agents propose no Git
+   * actions.
+   */
+  gitRequests?: AgentGitRequestsFor;
   /** The gateway's `streamAgentReply`; tests pass a scripted model. */
   reply: (request: AgentReplyRequest) => Promise<AgentReplyResult>;
   /** The gateway's `completeText`, for the intent of the triggering message (spec 13). */
@@ -650,6 +657,15 @@ async function converse(
   // The project's repository in GitLab (spec 28b): files, issues and merge requests.
   const repository = debating ? undefined : await deps.repository?.(run.projectId);
   if (repository) tools.push(...repositoryTools(repository));
+  // The handover to the repository (spec 29e): requests that wait for approval. Only an agent
+  // that has the tools gets them, and none in a debate.
+  const proposing =
+    !debating && GIT_TOOLS.some((name) => agent.tools.includes(name))
+      ? await deps.gitRequests?.(run.projectId, agent.key)
+      : undefined;
+  if (proposing) {
+    tools.push(...gitTools(proposing).filter((tool) => agent.tools.includes(tool.name)));
+  }
   if (board && !debating) {
     const toolOptions: CanvasToolOptions = {
       boards: deps.boards,
@@ -792,7 +808,9 @@ async function converse(
         files,
         // A debate only talks: it lists no knowledge and says nothing about the web.
         ...(debating ? {} : { knowledge, web }),
-        ...(repository ? { repository: repository.repository } : {}),
+        ...(repository
+          ? { repository: { ...repository.repository, proposing: proposing !== undefined } }
+          : {}),
         ...conversation,
         occasion: turn.occasion,
         decisions: {
@@ -1114,8 +1132,16 @@ export function buildPrompt(context: {
   knowledge?: readonly KnowledgeEntry[];
   /** Whether the run may search the web and read links (spec 20b). */
   web?: boolean;
-  /** The repository the project is connected to (spec 28b), which the repository tools read. */
-  repository?: { path: string; name: string; defaultBranch: string | null };
+  /**
+   * The repository the project is connected to (spec 28b), which the repository tools read.
+   * `proposing`: the agent can also propose changes to it (spec 29e).
+   */
+  repository?: {
+    path: string;
+    name: string;
+    defaultBranch: string | null;
+    proposing?: boolean;
+  };
   messages: readonly ChatMessage[];
   request: ChatMessage | undefined;
   /** A raised hand, an accepted offer or a debate, which the reply answers instead of a message. */
@@ -1190,7 +1216,7 @@ export function buildPrompt(context: {
       : []),
     ...(context.repository
       ? [
-          `<repository>\nThe project is connected to a repository in GitLab: ${asData(context.repository.path)}${context.repository.defaultBranch ? ` (default branch ${asData(context.repository.defaultBranch)})` : ''}. You can read it, and only read it: its files with list_repository_files and read_repository_file, its issues with list_issues and read_issue, its merge requests with list_merge_requests and read_merge_request. Look into it when a question is about the code or about the state of the work.\n</repository>`,
+          `<repository>\nThe project is connected to a repository in GitLab: ${asData(context.repository.path)}${context.repository.defaultBranch ? ` (default branch ${asData(context.repository.defaultBranch)})` : ''}. You can read it: its files with list_repository_files and read_repository_file, its issues with list_issues and read_issue, its merge requests with list_merge_requests and read_merge_request. Look into it when a question is about the code or about the state of the work.${context.repository.proposing ? ' You change nothing there yourself, but you can propose changes: issues for the tasks of the plan with propose_issues, the plan package as a merge request with propose_plan_merge_request, and the merging of a merge request with propose_merge. Each only makes a request that waits under "Wartet auf dich" until someone who may approve Git actions approves it.' : ' You can only read it.'}\n</repository>`,
         ]
       : []),
     ...(context.web === false

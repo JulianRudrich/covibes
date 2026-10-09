@@ -63,6 +63,10 @@ const ROLES: Readonly<
       'propose_variants',
       'start_debate',
       'set_phase',
+      // The handover to the repository (spec 29e); each only makes a request that waits.
+      'propose_issues',
+      'propose_plan_merge_request',
+      'propose_merge',
     ],
   },
   critic: {

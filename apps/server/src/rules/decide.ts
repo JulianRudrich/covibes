@@ -29,3 +29,19 @@ export function decide(situation: {
   if (situation.lockedTarget) return { kind: 'proposal', reason: 'locked' };
   return { kind: 'direct' };
 }
+
+/** What becomes of a changing Git action of an agent: a request that waits, or a refusal. */
+export type GitOutcome = { kind: 'approval' } | { kind: 'reject' };
+
+/**
+ * The rule engine for a changing Git action of an agent (spec 29e): an issue, a commit, a merge
+ * request, a merge. It always goes to the approval queue, whether the agent was told to, was
+ * asked a question or acts on its own, and whatever the project's settings say: a person who may
+ * approve Git actions decides. Only an agent that may not use the tool at all is refused.
+ */
+export function decideGit(situation: {
+  /** The agent may use this tool at all. */
+  allowed: boolean;
+}): GitOutcome {
+  return situation.allowed ? { kind: 'approval' } : { kind: 'reject' };
+}

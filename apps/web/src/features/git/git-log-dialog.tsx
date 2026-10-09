@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@web/components/ui/button';
 import { DialogClose, DialogContent } from '@web/components/ui/dialog';
 import { FieldError } from '@web/components/ui/input';
+import { useAgents } from '@web/features/agents/agents';
 import { GitActionList, GitRequestSummary } from '@web/features/git/git-request-view';
 import { requestProgress } from '@web/features/git/request-progress';
 import { gitLogQuery } from '@web/features/git/request-queries';
@@ -71,6 +72,10 @@ function LogEntry({ request }: { request: GitRequest }) {
       new Date(iso),
     );
   const someone = t('git.requests.someone');
+  const agents = useAgents();
+  // A request an agent made (spec 29e) is the agent's.
+  const requester =
+    request.agentKey === null ? request.requestedBy.name || someone : agents(request.agentKey).name;
   const decided =
     request.decidedBy && request.decidedAt
       ? t(request.status === 'rejected' ? 'git.log.rejectedBy' : 'git.log.approvedBy', {
@@ -94,7 +99,7 @@ function LogEntry({ request }: { request: GitRequest }) {
       </div>
       <p className="m-0 text-meta leading-snug text-text-3">
         {t('git.log.requestedBy', {
-          name: request.requestedBy.name || someone,
+          name: requester,
           date: at(request.createdAt),
         })}
         {decided ? ` · ${decided}` : null}

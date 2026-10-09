@@ -36,6 +36,7 @@ function request(fields: Partial<GitRequest> = {}): GitRequest {
     status: 'waiting',
     repository: { path: 'verein/vereins-app', url: REPOSITORY_URL },
     requestedBy: { userId: EDGAR, name: 'Edgar Editor' },
+    agentKey: null,
     decidedBy: null,
     createdAt: new Date().toISOString(),
     decidedAt: null,
@@ -283,6 +284,22 @@ describe('Git requests under "Wartet auf dich"', () => {
       'href',
       `${REPOSITORY_URL}/-/merge_requests/7`,
     );
+  });
+
+  it('shows the agent that made a request (spec 29e), which nobody takes back', () => {
+    const proposed = request({
+      agentKey: 'moderator',
+      requestedBy: { userId: null, name: '' },
+    });
+    const { git, section } = renderWaiting([proposed], { userId: EDGAR });
+
+    const card = within(section).getByRole('listitem');
+    expect(card).toHaveTextContent('Moderator· Freigabe');
+    expect(card).not.toHaveTextContent('Jemand');
+    expect(within(card).queryByRole('button', { name: 'Zurückziehen' })).toBeNull();
+    // Who may approve decides it like any other request.
+    fireEvent.click(within(card).getByRole('button', { name: 'Freigeben' }));
+    expect(git.onApprove).toHaveBeenCalledWith([proposed.id]);
   });
 
   it('counts what the person can decide', () => {
@@ -611,6 +628,15 @@ describe('GitLogDialog', () => {
     expect(withdrawn).toHaveTextContent('Zurückgezogen');
     expect(withdrawn).toHaveTextContent(/Vorgelegt von Jemand, /);
     expect(withdrawn).not.toHaveTextContent('Freigegeben');
+  });
+
+  it('names the agent that made a request', async () => {
+    const dialog = renderLog({
+      requests: [request({ agentKey: 'moderator', requestedBy: { userId: null, name: '' } })],
+    });
+
+    const entry = await within(dialog).findByRole('listitem');
+    expect(entry).toHaveTextContent(/Vorgelegt von Moderator, /);
   });
 
   it('says how far a failed request came', async () => {

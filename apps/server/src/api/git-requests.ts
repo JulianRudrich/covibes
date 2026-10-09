@@ -3,7 +3,6 @@ import { randomBytes } from 'node:crypto';
 import type { DB } from '@covibes/db';
 import {
   approveGitRequestsInputSchema,
-  buildCodingPackage,
   buildIssueActions,
   buildMergeRequestActions,
   GIT_ACTION_ERRORS,
@@ -11,20 +10,14 @@ import {
   GIT_ACTION_STATUSES,
   GIT_REQUEST_KINDS,
   GIT_REQUEST_STATUSES,
-  gitFilesOf,
   gitIssuesInputSchema,
-  MAX_GIT_FILES,
-  MAX_GIT_FILES_BYTES,
   mergeRequestBranch,
-  packageBytes,
   projectIdSchema,
   readRoadmap,
-  STALE_SPEC_PATTERN,
   withAssignees,
   type ApiErrorCode,
   type GitAction,
   type GitConnection,
-  type GitFileState,
   type GitIssuePlan,
   type GitIssueTask,
   type GitLog,
@@ -45,7 +38,7 @@ import { gatherPackage } from '@server/api/package';
 import type { SessionVariables } from '@server/auth/session';
 import type { BoardDocuments } from '@server/collab/collab';
 import { withUser, type AppDb } from '@server/db/database';
-import { fileStates, foldersOf, listBlobs } from '@server/integrations/gitlab/blobs';
+import { comparePackage, packageDiffers } from '@server/git/package-compare';
 import { GitlabError, type GitlabClient } from '@server/integrations/gitlab/client';
 import type { GitConnections } from '@server/integrations/gitlab/connections';
 import {
@@ -163,6 +156,7 @@ async function loadRequests(
         status: status.data,
         repository: { path: row.repository_path, url: row.repository_url },
         requestedBy: { userId: row.requested_by, name: row.requested_by_name },
+        agentKey: row.agent_key,
         decidedBy:
           decided && row.decided_at ? { userId: row.decided_by, name: row.decided_by_name } : null,
         createdAt: row.created_at.toISOString(),
@@ -205,9 +199,6 @@ type Documents = Pick<
   BoardDocuments,
   'readPlanSections' | 'giveTaskIds' | 'readBoard' | 'readPlan'
 >;
-
-/** The folder of the package's feature specs, where those of an earlier package may lie. */
-const SPECS_FOLDER = 'context/feature-specs';
 
 /**
  * Adds the routes of Git requests below `/api/projects/:projectId/git` (specs 29b to 29d): what
@@ -446,62 +437,13 @@ export function addGitRequestRoutes(
     return c.json<GitRequestCreated>({ requestId: outcome.value }, 201);
   });
 
-  /**
-   * The package of a project next to the default branch of its repository: every file with
-   * whether it is new, changed or the same there. It reads with the project's reading access and
-   * by Git's marks of the files' content, so no file is fetched.
-   */
-  async function comparePackage(projectId: string, userId: string, repository: GitConnection) {
-    type Compared =
-      | { problem: NonNullable<GitMergeRequestPlan['problem']> }
-      | {
-          problem: null;
-          projectName: string;
-          language: 'de' | 'en';
-          targetBranch: string;
-          files: ReturnType<typeof buildCodingPackage>;
-          states: { path: string; state: GitFileState }[];
-          stale: string[];
-        };
-    const gathered = await gatherPackage(db, documents, projectId, userId);
-    const files = gathered ? buildCodingPackage(gathered.input) : [];
-    if (!gathered || files.length === 0) return { problem: 'no_plan' } satisfies Compared;
-    if (files.length > MAX_GIT_FILES || packageBytes(files) > MAX_GIT_FILES_BYTES) {
-      return { problem: 'too_large' } satisfies Compared;
-    }
-    const targetBranch = repository.repository.defaultBranch;
-    if (!targetBranch) return { problem: 'no_branch' } satisfies Compared;
-
-    let blobs: Map<string, string> | undefined;
-    try {
-      const access = await git?.connections.access(projectId);
-      if (!git || !access) return { problem: 'unreachable' } satisfies Compared;
-      blobs = await listBlobs(
-        git.client,
-        { baseUrl: access.baseUrl, repositoryId: repository.repository.id },
-        access.token,
-        targetBranch,
-        // Earlier feature specs are looked for even if this package has none.
-        foldersOf([...files.map((file) => file.path), `${SPECS_FOLDER}/x`]),
-      );
-    } catch (error) {
-      if (!(error instanceof GitlabError)) throw error;
-      return { problem: 'unreachable' } satisfies Compared;
-    }
-    if (!blobs) return { problem: 'no_branch' } satisfies Compared;
-
-    const own = new Set(files.map((file) => file.path));
-    return {
-      problem: null,
-      projectName: gathered.input.projectName,
-      language: gathered.input.language,
-      targetBranch,
-      files,
-      states: fileStates(gitFilesOf(files), blobs),
-      stale: [...blobs.keys()]
-        .filter((path) => STALE_SPEC_PATTERN.test(path) && !own.has(path))
-        .sort(),
-    } satisfies Compared;
+  /** The package of a project next to its repository, read with the project's access. */
+  async function compared(projectId: string, userId: string, repository: GitConnection) {
+    return comparePackage(
+      (await gatherPackage(db, documents, projectId, userId))?.input,
+      repository.repository,
+      git && { client: git.client, access: () => git.connections.access(projectId) },
+    );
   }
 
   /** What the dialog of the package shows of the repository before a request is made. */
@@ -538,17 +480,17 @@ export function addGitRequestRoutes(
     });
     if (!stored) return apiError(c, 'not_found');
 
-    const compared = stored.repository
-      ? await comparePackage(who.projectId, who.userId, stored.repository)
+    const result = stored.repository
+      ? await compared(who.projectId, who.userId, stored.repository)
       : undefined;
     return c.json<GitMergeRequestPlan>({
       repository: stored.repository?.repository ?? null,
       canRequest: stored.row.role !== 'viewer',
       canApprove: canApprove(stored.row),
       hasAccount: await hasAccount(who.userId),
-      files: compared?.problem === null ? compared.states : null,
-      problem: compared?.problem ?? null,
-      stale: compared?.problem === null ? compared.stale : [],
+      files: result?.problem === null ? result.states : null,
+      problem: result?.problem ?? null,
+      stale: result?.problem === null ? result.stale : [],
       pending: stored.pending,
       last:
         stored.last?.result_number != null && stored.last.result_url !== null
@@ -574,22 +516,20 @@ export function addGitRequestRoutes(
     if (stored.row.role === 'viewer') return apiError(c, 'forbidden');
     if (!stored.repository) return apiError(c, 'not_found');
 
-    const compared = await comparePackage(who.projectId, who.userId, stored.repository);
-    if (compared.problem === 'too_large') return apiError(c, 'too_large');
-    if (compared.problem === 'unreachable') return apiError(c, 'internal');
-    if (compared.problem !== null) return apiError(c, 'invalid_input');
+    const result = await compared(who.projectId, who.userId, stored.repository);
+    if (result.problem === 'too_large') return apiError(c, 'too_large');
+    if (result.problem === 'unreachable') return apiError(c, 'internal');
+    if (result.problem !== null) return apiError(c, 'invalid_input');
     // A package the repository holds already needs no merge request.
-    if (compared.states.every(({ state }) => state === 'same' || state === 'kept')) {
-      return apiError(c, 'invalid_input');
-    }
+    if (!packageDiffers(result)) return apiError(c, 'invalid_input');
 
     const actions = buildMergeRequestActions({
-      projectName: compared.projectName,
-      language: compared.language,
-      files: compared.files,
+      projectName: result.projectName,
+      language: result.language,
+      files: result.files,
       branch: mergeRequestBranch(new Date(), randomBytes(3).toString('hex')),
-      targetBranch: compared.targetBranch,
-      stale: compared.stale,
+      targetBranch: result.targetBranch,
+      stale: result.stale,
     });
     const outcome = await decide(c, who.userId, async (trx) => {
       const created = await sql<{ id: string }>`

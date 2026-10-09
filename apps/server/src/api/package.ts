@@ -20,7 +20,7 @@ import {
 } from '@covibes/shared';
 import { strToU8, zipSync } from 'fflate';
 import { Hono } from 'hono';
-import { sql, type Transaction } from 'kysely';
+import { sql, type Kysely, type Transaction } from 'kysely';
 import { z } from 'zod';
 
 import { loadDecisions } from '@server/api/decisions';
@@ -94,9 +94,102 @@ function suggestionState(row: {
   };
 }
 
+/** Reads the plan and the boards of a project as they stand. */
+export type PackageReaders = Pick<BoardDocuments, 'readBoard' | 'readPlan'>;
+
+/** What the database holds of a project for its package; undefined if the project is gone. */
+async function loadPackageRows(trx: Kysely<DB>, projectId: string) {
+  const project = await trx
+    .selectFrom('projects')
+    .select(['name', 'language'])
+    .where('id', '=', projectId)
+    .executeTakeFirst();
+  if (!project) return undefined;
+  const boards = await trx
+    .selectFrom('boards')
+    .select(['id', 'title'])
+    .where('project_id', '=', projectId)
+    .orderBy('kind', 'desc') // 'main' before 'extra'
+    .orderBy('position')
+    .orderBy('created_at')
+    .execute();
+  const criteria = await trx
+    .selectFrom('criteria')
+    .select('text')
+    .where('project_id', '=', projectId)
+    .orderBy('created_at')
+    .orderBy('id')
+    .execute();
+  const texts = await trx
+    .selectFrom('package_texts')
+    .select(['kind', 'content'])
+    .where('project_id', '=', projectId)
+    .execute();
+  const specs = await trx
+    .selectFrom('package_specs')
+    .select(['task_text', 'content'])
+    .where('project_id', '=', projectId)
+    .execute();
+  return {
+    project,
+    boards,
+    criteria,
+    texts,
+    specs,
+    decisions: await loadDecisions(trx, projectId),
+    assignees: await loadAssignees(trx, projectId),
+  };
+}
+
+/**
+ * The input of a package from what the database holds and what the documents say right now. The
+ * plan and the boards are read as they stand, also while people have them open.
+ */
+async function packageInputOf(
+  rows: NonNullable<Awaited<ReturnType<typeof loadPackageRows>>>,
+  readers: PackageReaders,
+  projectId: string,
+): Promise<CodingPackageInput> {
+  const plan = await readers.readPlan(projectId);
+  const boards: CodingPackageInput['boards'][number][] = [];
+  // One after the other: a board nobody has open is read from the database.
+  for (const board of rows.boards) {
+    boards.push({ title: board.title, ...(await readers.readBoard(board.id)) });
+  }
+  const texts: PackageTexts = { code_standards: '', ui_direction: '' };
+  for (const kind of PACKAGE_TEXT_KINDS) {
+    texts[kind] = rows.texts.find((text) => text.kind === kind)?.content ?? '';
+  }
+  return {
+    projectName: rows.project.name,
+    language: rows.project.language === 'en' ? 'en' : 'de',
+    date: new Date(),
+    plan,
+    assignees: new Map([...rows.assignees].map(([taskId, assignee]) => [taskId, assignee.name])),
+    specs: new Map(rows.specs.map((spec) => [spec.task_text, spec.content])),
+    decisions: rows.decisions,
+    criteria: rows.criteria.map((criterion) => criterion.text),
+    boards,
+    texts,
+  };
+}
+
+/**
+ * The input of a project's package for the worker (spec 29e), read with the admin role; undefined
+ * if the project is gone. Who may ask is the caller's to check.
+ */
+export async function gatherPackageInput(
+  admin: Kysely<DB>,
+  readers: PackageReaders,
+  projectId: string,
+): Promise<CodingPackageInput | undefined> {
+  const rows = await loadPackageRows(admin, projectId);
+  return rows ? await packageInputOf(rows, readers, projectId) : undefined;
+}
+
 /**
  * What a project holds right now, as the package is built from it; undefined for someone who is
- * no member. The plan and the boards are read as they stand, also while people have them open.
+ * no member.
  */
 export async function gatherPackage(
   db: AppDb,
@@ -116,31 +209,8 @@ export async function gatherPackage(
   const stored = await withUser(db, userId, async (trx) => {
     const member = await membership(trx, projectId, userId);
     if (!member) return undefined;
-    const project = await trx
-      .selectFrom('projects')
-      .select(['name', 'language'])
-      .where('id', '=', projectId)
-      .executeTakeFirstOrThrow();
-    const boards = await trx
-      .selectFrom('boards')
-      .select(['id', 'title'])
-      .where('project_id', '=', projectId)
-      .orderBy('kind', 'desc') // 'main' before 'extra'
-      .orderBy('position')
-      .orderBy('created_at')
-      .execute();
-    const criteria = await trx
-      .selectFrom('criteria')
-      .select('text')
-      .where('project_id', '=', projectId)
-      .orderBy('created_at')
-      .orderBy('id')
-      .execute();
-    const texts = await trx
-      .selectFrom('package_texts')
-      .select(['kind', 'content'])
-      .where('project_id', '=', projectId)
-      .execute();
+    const rows = await loadPackageRows(trx, projectId);
+    if (!rows) return undefined;
     const suggestions = await trx
       .selectFrom('package_suggestions')
       .innerJoin('ai_runs', 'ai_runs.id', 'package_suggestions.run_id')
@@ -153,11 +223,6 @@ export async function gatherPackage(
       ])
       .where('package_suggestions.project_id', '=', projectId)
       .execute();
-    const specs = await trx
-      .selectFrom('package_specs')
-      .select(['task_text', 'content'])
-      .where('project_id', '=', projectId)
-      .execute();
     const specRuns = await trx
       .selectFrom('package_spec_runs')
       .innerJoin('ai_runs', 'ai_runs.id', 'package_spec_runs.run_id')
@@ -169,34 +234,15 @@ export async function gatherPackage(
       ])
       .where('package_spec_runs.project_id', '=', projectId)
       .execute();
-    return {
-      role: member.role,
-      project,
-      boards,
-      criteria,
-      texts,
-      suggestions,
-      specs,
-      specRuns,
-      decisions: await loadDecisions(trx, projectId),
-      assignees: await loadAssignees(trx, projectId),
-    };
+    return { role: member.role, rows, suggestions, specRuns };
   });
   if (!stored) return undefined;
 
-  const plan = await documents.readPlan(projectId);
-  const boards: CodingPackageInput['boards'][number][] = [];
-  // One after the other: a board nobody has open is read from the database.
-  for (const board of stored.boards) {
-    boards.push({ title: board.title, ...(await documents.readBoard(board.id)) });
-  }
-  const texts: PackageTexts = { code_standards: '', ui_direction: '' };
   const suggestions: CodingPackageOverview['suggestions'] = {
     code_standards: null,
     ui_direction: null,
   };
   for (const kind of PACKAGE_TEXT_KINDS) {
-    texts[kind] = stored.texts.find((text) => text.kind === kind)?.content ?? '';
     const suggestion = stored.suggestions.find((row) => row.kind === kind);
     suggestions[kind] = suggestion ? suggestionState(suggestion) : null;
   }
@@ -209,20 +255,7 @@ export async function gatherPackage(
     canEdit: stored.role !== 'viewer',
     suggestions,
     specRuns,
-    input: {
-      projectName: stored.project.name,
-      language: stored.project.language === 'en' ? 'en' : 'de',
-      date: new Date(),
-      plan,
-      assignees: new Map(
-        [...stored.assignees].map(([taskId, assignee]) => [taskId, assignee.name]),
-      ),
-      specs: new Map(stored.specs.map((spec) => [spec.task_text, spec.content])),
-      decisions: stored.decisions,
-      criteria: stored.criteria.map((criterion) => criterion.text),
-      boards,
-      texts,
-    },
+    input: await packageInputOf(stored.rows, documents, projectId),
   };
 }
 

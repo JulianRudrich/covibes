@@ -7,7 +7,7 @@
 Bring the result into the repository (M6, specs 28 to 30): connecting GitLab and reading the repository, approvals and Git actions, webhooks and the review of merge requests. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing. Next is spec 29e (agents that propose Git actions); it is worked out before it is built.
+**Spec 29e agents propose Git actions** (worked out on 2026-10-09): the moderator proposes the issues, the plan package as a merge request and the merging of a merge request; each is a Git request that waits for approval.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

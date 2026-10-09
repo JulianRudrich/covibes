@@ -268,7 +268,7 @@ Built in five parts (2026-10-09), because the unit is large:
 - **29b** Git actions as requests that wait for approval, approving one or several, the log of Git actions, and issues from the plan
 - **29c** the plan package as a merge request: one commit on a branch of its own, compared with the repository first (owner decisions: fixed folders for now; files that differ appear as changes, the progress tracker is only added when missing)
 - **29d** merging after approval: the open merge requests of the repository, merged as a Git request
-- **29e** agents that propose Git actions
+- **29e** agents that propose Git actions: the moderator makes the requests for issues, the plan package and merging, which wait for approval like everyone's
 
 - **Goal:** the approval queue with batch approval. Creating issues and the plan package as a merge request. Merging runs with the token of the approving person and the note "via Covibes". Every action goes into the audit log.
 - **Needs:** 22, 27, 28

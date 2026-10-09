@@ -266,7 +266,7 @@ Built in two parts (2026-10-04), because the unit is large:
 Built in four parts (2026-10-09), because the unit is large:
 - **29a** GitLab access per person: everyone connects their own GitLab account; an owner picks the project's repository with it (owner decision: actions run with the access of the approving person)
 - **29b** Git actions as requests that wait for approval, approving one or several, the log of Git actions, and issues from the plan
-- **29c** the plan package as a merge request
+- **29c** the plan package as a merge request: one commit on a branch of its own, compared with the repository first (owner decisions: fixed folders for now; files that differ appear as changes, the progress tracker is only added when missing)
 - **29d** merging after approval, and agents that propose Git actions
 
 - **Goal:** the approval queue with batch approval. Creating issues and the plan package as a merge request. Merging runs with the token of the approving person and the note "via Covibes". Every action goes into the audit log.

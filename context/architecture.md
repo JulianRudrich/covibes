@@ -224,7 +224,7 @@ Every tool action of an agent goes through `rules/` and gets exactly one outcome
 | question or own initiative | proposal (`proposals`) |
 | project in proposals-only mode | proposal |
 | block is locked by a human | proposal or wait |
-| changing Git action (issue, commit, push, merge, comment) | approval queue |
+| changing Git action (issue, commit, push, merge, comment) | approval queue (`git_requests`) |
 | tool not allowed for this agent | reject |
 
 An agent's instructions cannot change this table.
@@ -238,12 +238,14 @@ An agent's instructions cannot change this table.
   - The server refreshes them shortly before they end, one renewal at a time per account (the row is locked), because GitLab retires a refresh token with its use.
   - Agents read the repository of a connected project (spec 28b): its files, issues and merge requests, through six tools of their own, within bounds. They run in the worker, which shares the settings of the connection with the server and takes the token from the same store. Results are marked as content of the repository; it is data, not instructions (invariant 6).
   - In development and tests without an OAuth application the server answers as a small GitLab itself (`/api/dev/gitlab`); production never serves it.
-- **Approval flow:**
-  1. A proposal of type `git_action` is created.
-  2. An authorized person approves it.
-  3. A job runs the action with that person's token.
-  4. The action is recorded in the audit log `git_actions`.
-  5. It carries the note "via Covibes".
+- **Approval flow** (spec 29b):
+  1. A request is made (`git_requests`), with its actions in their order (`git_actions`): the single changes in the repository. Owners and editors make one; agents follow with spec 29d.
+  2. Who may approve Git actions (owners, and editors with `can_approve_git`) approves it, or several at once, and needs an own GitLab account for it. They can also reject it; who made it can take it back.
+  3. A job of the worker runs the actions with the approver's token, one request at a time per project. Every action records its outcome; the actions are the log of Git actions.
+  4. What is created carries the note "via Covibes".
+  - The database decides who may do what, through functions; the server words the actions, and only the worker writes outcomes.
+  - An action GitLab refuses fails alone. If GitLab cannot be reached, the run stops; a request that failed can be approved again, and only what is not done runs then. An action that was started without a known outcome first looks for what it would create, so nothing is created twice.
+  - Requests and actions name no host. What writing to a repository needs is one interface (`integrations/git-host.ts`), which `integrations/gitlab/writer.ts` fulfils; GitHub is added next to it after V1.
 - **Webhook:** MR events arrive with a verified secret token. For MRs of Covibes issues they start the job `mr_review`.
 - **Self-managed GitLab** (later): every account and every connection stores its own `base_url`.
 
@@ -280,7 +282,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `custom_agents`, `project_agents` | custom agents (personal or shared in a project); team per project. Catalog agents are defined in code |
 | `agent_knowledge` | the knowledge of a custom agent: files (content in the file storage) and links with a note |
 | `hand_raises`, `offers` | raised hands (open, heard, dismissed); the moderator's offers of help (open, accepted, declined) |
-| `proposals` | proposals: canvas change, variants (with the adopted one), team change, decision, plan update, Git action |
+| `proposals` | proposals: canvas change, variants (with the adopted one), team change, decision |
 | `decisions`, `criteria`, `decision_log` | decisions per topic with reasoning, alternatives and who confirmed; project criteria; the log of every decision, reopening and change of the criteria |
 | `comparisons`, `votes`, `vote_ballots` | the moderator's comparisons of options; votes with their options, result and who voted for what |
 | `debates` | debates between agents: question, participants, rounds, finished turns and status |
@@ -288,7 +290,8 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `package_texts` | what the team gives for the package for coding agents (spec 27b): the code standards and the UI direction, one text per kind and project, with who wrote it and when |
 | `package_suggestions` | what the moderator suggests for one of the package's texts (spec 27c): the run that writes it and the text once it is written, until someone takes it over or dismisses it |
 | `package_specs`, `package_spec_runs` | the feature specs the moderator wrote out (spec 27d), one per task text, and the latest run per milestone that writes them |
-| `git_accounts`, `git_connections`, `git_actions` | a person's GitLab account with its tokens (encrypted; spec 29a), the repository of a project and who picked it, audit log |
+| `git_accounts`, `git_connections` | a person's GitLab account with its tokens (encrypted; spec 29a), the repository of a project and who picked it |
+| `git_requests`, `git_actions` | requests for Git actions with who asked and who decided (spec 29b), and their actions with what each made or why it failed: the log of Git actions |
 | `notifications` | notifications per person: mentions, changed roles, removals, new members; with the names they show, when they were read and when they were mailed |
 | `notification_settings`, `member_activity` | per person the switch for mails and when the last one went out; per member when they last had the project open and when a mail last told them that something waits |
 | `away_summaries` | per member the last absence: from when to when, the moderator's summary with its status, and when the member closed it |

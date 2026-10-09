@@ -120,7 +120,7 @@ describe('PlanExportMenu', () => {
     return onFailed;
   }
 
-  it('offers the plan as files and, set apart, the package for coding agents', async () => {
+  it('offers the plan as files and, set apart, the package for coding agents and the issues', async () => {
     renderMenu();
 
     const menu = await openMenu();
@@ -129,6 +129,7 @@ describe('PlanExportMenu', () => {
       'Als Markdown',
       'Als PDF',
       'Paket für Coding-Agents …',
+      'Issues anlegen …',
     ]);
     expect(menu.querySelector('[role="separator"] + [role="menuitem"]')).toHaveTextContent(
       'Paket für Coding-Agents …',

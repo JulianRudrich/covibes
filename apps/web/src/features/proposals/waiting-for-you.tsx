@@ -3,6 +3,7 @@ import {
   type AgentKey,
   type CanvasProposal,
   type DecisionProposal,
+  type GitRequest,
   type HandRaise,
   type OpenVote,
   type Proposal,
@@ -17,6 +18,12 @@ import { Button } from '@web/components/ui/button';
 import { AgentAvatar } from '@web/features/agents/agent-avatar';
 import { agentClass, useAgents } from '@web/features/agents/agents';
 import { AGENT_DARK_TEXT } from '@web/features/canvas/agent-look';
+import {
+  GitRequestCard,
+  GitRequestSummary,
+  type GitRequestActions,
+} from '@web/features/git/git-request-view';
+import { gitRequestsToDecide } from '@web/features/git/request-progress';
 import type { HandDecision } from '@web/features/hands/queries';
 import type { DecideProposal, DecidedProposal } from '@web/features/proposals/queries';
 import { proposalSummary } from '@web/features/proposals/summary';
@@ -47,6 +54,11 @@ type WaitingForYouProps = {
   /** The moderator's open suggestions for the plan (spec 25b), decided in the plan itself. */
   planSuggestions?: number;
   onOpenPlan?: () => void;
+  /**
+   * The Git requests of the project (spec 29b): what waits, runs or failed, and what was just
+   * done; with what the user may do with them.
+   */
+  git?: GitRequestActions & { requests: readonly GitRequest[] };
 };
 
 const NO_HANDS: readonly HandRaise[] = [];
@@ -86,6 +98,7 @@ export function WaitingForYou({
   voters,
   planSuggestions = 0,
   onOpenPlan,
+  git,
 }: WaitingForYouProps) {
   const { t, i18n } = useTranslation();
   const agents = useAgents();
@@ -96,10 +109,15 @@ export function WaitingForYou({
     hands,
     votes,
     planSuggestions,
+    gitRequests: gitRequestsToDecide(git),
     canDecide,
     canConfirmDecisions,
   });
   const moderator = agents('moderator');
+  const gitOpen = (git?.requests ?? []).filter((request) => request.status !== 'done');
+  const gitDone = (git?.requests ?? []).filter((request) => request.status === 'done');
+  // Several requests are approved together (spec 29b), by who may and has a GitLab account.
+  const gitWaiting = gitOpen.filter((request) => request.status === 'waiting');
 
   return (
     <section
@@ -118,7 +136,7 @@ export function WaitingForYou({
         </span>
       </div>
 
-      {proposals.length + hands.length + votes.length + planSuggestions > 0 ? (
+      {proposals.length + hands.length + votes.length + planSuggestions + gitOpen.length > 0 ? (
         <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
           {planSuggestions > 0 ? (
             <li className={CARD}>
@@ -233,6 +251,30 @@ export function WaitingForYou({
               </li>
             );
           })}
+          {git && git.canApprove && git.hasAccount && gitWaiting.length > 1 ? (
+            <li className="flex items-center gap-2 text-meta text-text-3">
+              <span className="min-w-0 flex-1">
+                {t('git.requests.several', { count: gitWaiting.length })}
+              </span>
+              <Button
+                variant="primary"
+                size="s"
+                disabled={git.busy}
+                onClick={() => {
+                  git.onApprove(gitWaiting.map((request) => request.id));
+                }}
+              >
+                {t('git.requests.approveAll')}
+              </Button>
+            </li>
+          ) : null}
+          {git
+            ? gitOpen.map((request) => (
+                <li key={request.id} className={CARD}>
+                  <GitRequestCard request={request} actions={git} />
+                </li>
+              ))
+            : null}
           {hands.map((hand) => {
             const agent = agents(hand.agentKey);
             return (
@@ -316,8 +358,21 @@ export function WaitingForYou({
         </ul>
       ) : null}
 
-      {decided.length > 0 ? (
+      {decided.length + gitDone.length > 0 ? (
         <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+          {gitDone.map((request) => (
+            <li key={request.id} className="flex items-start gap-1.5 text-body text-text-2b">
+              <Check
+                size={14}
+                strokeWidth={2.4}
+                className="mt-[3px] shrink-0 text-success"
+                aria-hidden="true"
+              />
+              <span className="line-clamp-2 min-w-0">
+                <GitRequestSummary request={request} done />
+              </span>
+            </li>
+          ))}
           {decided.map((entry) => (
             <li key={entry.id} className="flex items-start gap-1.5 text-body text-text-2b">
               <Check

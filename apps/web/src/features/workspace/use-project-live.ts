@@ -11,6 +11,11 @@ import {
   openVotesQueryKey,
 } from '@web/features/decisions/queries';
 import { gitQueryKey } from '@web/features/git/queries';
+import {
+  gitIssuesQueryKey,
+  gitLogQueryKey,
+  gitRequestsQueryKey,
+} from '@web/features/git/request-queries';
 import { handsQueryKey } from '@web/features/hands/queries';
 import { notificationsQuery } from '@web/features/notifications/queries';
 import { planStateQueryKey } from '@web/features/plan/queries';
@@ -38,6 +43,11 @@ export function useProjectLive(projectId: string, userId?: string) {
     void queryClient
       .cancelQueries({ queryKey, exact: true })
       .then(() => queryClient.invalidateQueries({ queryKey, exact: true }));
+  }
+
+  /** For what only an open dialog holds. */
+  function reloadIfLoaded(queryKey: QueryKey) {
+    if (queryClient.getQueryState(queryKey)) reload(queryKey);
   }
 
   function reloadDecisions() {
@@ -80,11 +90,16 @@ export function useProjectLive(projectId: string, userId?: string) {
         // A generation started or ended, or a suggestion was decided (spec 25b).
         reload(planStateQueryKey(projectId));
       } else if (event.type === 'roadmap') {
-        // The plan changed what its roadmap shows (spec 26a).
+        // The plan changed what its roadmap shows (spec 26a), and so the tasks issues are for.
         reload(roadmapQueryKey(projectId));
+        reloadIfLoaded(gitIssuesQueryKey(projectId));
       } else if (event.type === 'git') {
-        // The project's connection to GitLab changed (spec 28a).
+        // The project's repository changed (spec 28a), or a Git request, its decision or one of
+        // its actions (spec 29b). The dialogs hold what is only loaded while they are open.
         reload(gitQueryKey(projectId));
+        reload(gitRequestsQueryKey(projectId));
+        reloadIfLoaded(gitIssuesQueryKey(projectId));
+        reloadIfLoaded(gitLogQueryKey(projectId));
       } else if (event.type === 'package') {
         // A suggestion for a text of the package started, ended or was decided (spec 27c); only
         // the open export dialog holds what is loaded again.
@@ -114,6 +129,7 @@ export function useProjectLive(projectId: string, userId?: string) {
       reload(openVotesQueryKey(projectId));
       reload(planStateQueryKey(projectId));
       reload(roadmapQueryKey(projectId));
+      reload(gitRequestsQueryKey(projectId));
       reloadDecisions();
     },
   });

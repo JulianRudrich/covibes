@@ -190,7 +190,7 @@ export function createApp({
   app.route('/api/projects/:projectId/plan', planRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/roadmap', roadmapRoutes(db.app, auth, live, documents));
   app.route('/api/projects/:projectId/package', packageRoutes(db.app, auth, live, documents));
-  app.route('/api/projects/:projectId/git', gitRoutes(db.app, auth, git));
+  app.route('/api/projects/:projectId/git', gitRoutes(db.app, auth, git, documents));
   app.route('/api/git/account', gitAccountRoutes(auth, git));
   app.route(GIT_CALLBACK_PATH, gitCallback(auth, env.APP_URL, git));
   const invitationMailLimiter = createRateLimiter({

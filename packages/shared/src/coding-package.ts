@@ -207,6 +207,8 @@ function specSlug(text: string): string {
 }
 
 type Spec = {
+  /** The id the task carries in the plan; null until the server gave it one. */
+  taskId: string | null;
   /** "01-02": the milestone and the task's place in it. */
   number: string;
   /** The file's name in `context/feature-specs/`. */
@@ -232,6 +234,7 @@ function specsOf(
       if (specs.length >= MAX_PACKAGE_SPECS) return specs;
       const number = `${two(milestone.number)}-${two(index + 1)}`;
       specs.push({
+        taskId: task.id,
         number,
         name: `${number}-${specSlug(task.text) || texts.taskFile}.md`,
         title: short(task.text, 80),
@@ -243,6 +246,28 @@ function specsOf(
     }
   }
   return specs;
+}
+
+/** The feature spec of a task as the package names it. */
+export type PackageSpecRef = {
+  /** The id the task carries in the plan; null until the server gave it one. */
+  taskId: string | null;
+  /** "01-02": the milestone and the task's place in it. */
+  number: string;
+  /** Where the package puts the spec, e.g. "context/feature-specs/01-02-login-bauen.md". */
+  path: string;
+};
+
+/**
+ * Where the package puts the feature spec of every task of a roadmap, in the order of the plan
+ * (spec 29b: an issue links to it).
+ */
+export function packageSpecRefs(roadmap: Roadmap, language: PlanLanguage): PackageSpecRef[] {
+  return specsOf(roadmap, undefined, undefined, codingPackageTexts(language)).map((spec) => ({
+    taskId: spec.taskId,
+    number: spec.number,
+    path: `${SPECS_DIR}/${spec.name}`,
+  }));
 }
 
 type Diagram = { title: string; path: string; content: string };

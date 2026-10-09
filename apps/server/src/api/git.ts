@@ -14,8 +14,10 @@ import { Hono, type Context } from 'hono';
 import type { Transaction } from 'kysely';
 
 import { apiError } from '@server/api/errors';
+import { addGitRequestRoutes } from '@server/api/git-requests';
 import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
+import type { BoardDocuments } from '@server/collab/collab';
 import { withUser, type AppDb } from '@server/db/database';
 import { GitlabError, type GitlabClient } from '@server/integrations/gitlab/client';
 import type { GitConnections } from '@server/integrations/gitlab/connections';
@@ -134,11 +136,23 @@ export function gitAccountRoutes(auth: Auth, git: GitDeps | undefined) {
 
 /**
  * `/api/projects/:projectId/git` (specs 28a and 29a): the repository of a project. Members see
- * it; an owner with a GitLab account picks it and removes it again.
+ * it; an owner with a GitLab account picks it and removes it again. Below it are the requests for
+ * Git actions and their log (spec 29b, `git-requests.ts`).
  */
-export function gitRoutes(db: AppDb, auth: Auth, git: GitDeps | undefined) {
+export function gitRoutes(
+  db: AppDb,
+  auth: Auth,
+  git: GitDeps | undefined,
+  documents: Pick<BoardDocuments, 'readPlanSections' | 'giveTaskIds'>,
+) {
   const routes = new Hono<Env>();
   routes.use(sessionMiddleware(auth));
+  addGitRequestRoutes(routes, {
+    db,
+    documents,
+    connections: git?.connections,
+    connection: loadConnection,
+  });
 
   /** The project and the person, for a route only owners may use. */
   async function owner(c: Context<Env>) {

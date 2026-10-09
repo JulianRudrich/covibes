@@ -78,7 +78,8 @@
     "accessLost": {
       "title": "Du bist nicht mehr in diesem Projekt",
       "text": "Ein Owner hat dich aus „{{project}}“ entfernt. Wenn das ein Versehen war, bitte um eine neue Einladung."
-    }
+    },
+    "gitLog": "Git-Protokoll …"
   },
   "share": {
     "title": "„{{project}}“ teilen",
@@ -914,6 +915,104 @@
         "confirm": "Wirklich trennen",
         "hint": "Projekte, deren Repository du gewählt hast, verlieren es.",
         "failed": "Das Konto konnte nicht getrennt werden. Bitte versuche es noch einmal."
+      }
+    },
+    "requests": {
+      "kind": "Freigabe",
+      "someone": "Jemand",
+      "summary_one": "<b>{{count}} Issue</b> in <repo>{{repository}}</repo> anlegen",
+      "summary_other": "<b>{{count}} Issues</b> in <repo>{{repository}}</repo> anlegen",
+      "done_one": "<b>{{count}} Issue</b> in <repo>{{repository}}</repo> angelegt",
+      "done_other": "<b>{{count}} Issues</b> in <repo>{{repository}}</repo> angelegt",
+      "approve": "Freigeben",
+      "approveAll": "Alle freigeben",
+      "several": "{{count}} Freigaben warten.",
+      "view": "Ansehen",
+      "hide": "Schließen",
+      "reject": "Ablehnen",
+      "withdraw": "Zurückziehen",
+      "retry": "Wiederholen",
+      "discard": "Verwerfen",
+      "waitsForApprover": "Wartet auf jemanden, der Git-Aktionen freigeben darf.",
+      "needsAccount": "Zum Freigeben brauchst du dein GitLab-Konto.",
+      "connectAccount": "Verbinden",
+      "running": "Wird ausgeführt … {{done}} von {{total}}",
+      "failed": "{{open}} von {{total}} nicht ausgeführt.",
+      "actionFailed": "Das hat nicht geklappt. Bitte versuche es noch einmal.",
+      "alreadyDecided": "Darüber wurde schon entschieden.",
+      "errors": {
+        "forbidden": "GitLab hat den Zugriff abgelehnt.",
+        "not_found": "Das Repository ist in GitLab nicht erreichbar.",
+        "invalid": "GitLab hat die Angaben nicht angenommen.",
+        "unreachable": "GitLab war nicht erreichbar.",
+        "no_account": "Das GitLab-Konto der freigebenden Person fehlt.",
+        "milestone": "Der Meilenstein fehlt.",
+        "failed": "Etwas ist schiefgegangen."
+      }
+    },
+    "actions": {
+      "created": "angelegt",
+      "existed": "gab es schon",
+      "dropped": "nicht ausgeführt",
+      "status": {
+        "waiting": "Offen",
+        "started": "Läuft",
+        "done": "Erledigt",
+        "failed": "Fehlgeschlagen",
+        "dropped": "Nicht ausgeführt"
+      }
+    },
+    "issues": {
+      "menu": "Issues anlegen …",
+      "title": "Issues aus dem Plan",
+      "hint": "Ein Issue je Aufgabe, gruppiert nach den Meilensteinen des Plans. Angelegt wird erst nach Freigabe.",
+      "loadFailed": "Die Aufgaben konnten nicht geladen werden. Bitte versuche es noch einmal.",
+      "repository": "Die Issues gehen nach <repo>{{repository}}</repo>. Jedes nennt seinen Meilenstein und verweist auf seine Feature-Spec im Repository.",
+      "noRepository": "Dieses Projekt hat noch kein Repository. Ein Owner wählt es im Projektmenü unter „Repository …“.",
+      "noTasks": "Der Plan nennt noch keine Aufgaben.",
+      "noTasksHere": "Keine Aufgaben.",
+      "milestone": "Meilenstein {{number}}: {{title}}",
+      "allOf": "Alle Aufgaben von {{title}}",
+      "count": "{{done}} von {{total}} angelegt",
+      "requested": "wartet",
+      "readOnly": "Issues legen Owner und Editoren an.",
+      "accountHint": "Zum Freigeben brauchst du dein GitLab-Konto. Du verbindest es im Konto-Menü.",
+      "limit": "Höchstens {{count}} Issues auf einmal. Wähle weniger Aufgaben.",
+      "create_one": "{{count}} Issue anlegen",
+      "create_other": "{{count}} Issues anlegen",
+      "createNone": "Issues anlegen",
+      "propose_one": "{{count}} Issue zur Freigabe vorlegen",
+      "propose_other": "{{count}} Issues zur Freigabe vorlegen",
+      "proposeNone": "Zur Freigabe vorlegen",
+      "outcome": {
+        "started": "Die Issues werden angelegt. Den Stand siehst du unter „Wartet auf dich“.",
+        "proposed": "Vorgelegt. Der Antrag wartet unter „Wartet auf dich“ auf die Freigabe.",
+        "approveFailed": "Der Antrag ist angelegt, aber die Freigabe hat nicht geklappt. Er wartet unter „Wartet auf dich“.",
+        "taken": "Für eine der Aufgaben gibt es schon ein Issue. Die Liste ist jetzt aktuell.",
+        "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+      }
+    },
+    "log": {
+      "title": "Git-Protokoll",
+      "hint": "Alles, was Covibes im Repository ändern sollte: wer es vorgelegt und wer darüber entschieden hat.",
+      "loadFailed": "Das Protokoll konnte nicht geladen werden. Bitte versuche es noch einmal.",
+      "empty": "Noch keine Git-Aktionen.",
+      "requestedBy": "Vorgelegt von {{name}}, {{date}}",
+      "approvedBy": "Freigegeben von {{name}}, {{date}}",
+      "rejectedBy": "Abgelehnt von {{name}}, {{date}}",
+      "via": "via Covibes",
+      "progress": "{{done}} von {{total}}",
+      "showActions_one": "{{count}} Aktion ansehen",
+      "showActions_other": "{{count}} Aktionen ansehen",
+      "hideActions_one": "Aktion ausblenden",
+      "hideActions_other": "Aktionen ausblenden",
+      "status": {
+        "waiting": "Wartet auf Freigabe",
+        "approved": "Wird ausgeführt",
+        "done": "Ausgeführt",
+        "failed": "Fehlgeschlagen",
+        "rejected": "Abgelehnt",
+        "withdrawn": "Zurückgezogen"
       }
     }
   },

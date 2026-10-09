@@ -13,6 +13,7 @@ import { downloadBlob, downloadText } from '@web/features/export/download';
 import { ExportMenu, type ExportOption } from '@web/features/export/export-menu';
 import { PackageDialog } from '@web/features/export/package-dialog';
 import { planPdf } from '@web/features/export/plan-pdf';
+import { IssuesDialog } from '@web/features/git/issues-dialog';
 
 /** A design token as the theme defines it, e.g. the color of text. */
 function token(name: string): string {
@@ -21,8 +22,8 @@ function token(name: string): string {
 
 /**
  * "Exportieren" in the plan's toolbar: the plan as it stands as Markdown or as PDF, named after
- * the project (spec 27a; a task someone took names them), and the package for coding agents,
- * which opens its dialog (spec 27b).
+ * the project (spec 27a; a task someone took names them), the package for coding agents, which
+ * opens its dialog (spec 27b), and the issues from the plan's tasks, which open theirs (spec 29b).
  */
 export function PlanExportMenu({
   projectId,
@@ -47,6 +48,7 @@ export function PlanExportMenu({
 }) {
   const { t } = useTranslation();
   const [packageOpen, setPackageOpen] = useState(false);
+  const [issuesOpen, setIssuesOpen] = useState(false);
   const plan = { projectName, nodes, assignees, language };
   const fileName = exportFileName(projectName, exportTexts(language).plan);
   const options: ExportOption[] = [
@@ -77,6 +79,13 @@ export function PlanExportMenu({
         setPackageOpen(true);
       },
     },
+    {
+      key: 'issues',
+      label: t('git.issues.menu'),
+      run: () => {
+        setIssuesOpen(true);
+      },
+    },
   ];
   return (
     <>
@@ -88,6 +97,9 @@ export function PlanExportMenu({
       <Dialog open={packageOpen} onOpenChange={setPackageOpen}>
         {/* Mounted only while open: the dialog loads what the package holds right then. */}
         {packageOpen ? <PackageDialog projectId={projectId} outdated={outdated} /> : null}
+      </Dialog>
+      <Dialog open={issuesOpen} onOpenChange={setIssuesOpen}>
+        {issuesOpen ? <IssuesDialog projectId={projectId} /> : null}
       </Dialog>
     </>
   );

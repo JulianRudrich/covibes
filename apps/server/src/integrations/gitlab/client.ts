@@ -32,6 +32,8 @@ export class GitlabError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** The start of what GitLab answered, which may name the reason. */
+    readonly body = '',
   ) {
     super(message);
     this.name = 'GitlabError';
@@ -96,6 +98,7 @@ export function createGitlabClient(fetcher: typeof fetch = fetch, now: () => num
       throw new GitlabError(
         response.status,
         `GitLab answered ${String(response.status)} ${detail}`,
+        detail,
       );
     }
     return response.status === 204 ? undefined : await response.json().catch(() => undefined);
@@ -133,6 +136,27 @@ export function createGitlabClient(fetcher: typeof fetch = fetch, now: () => num
      * repository (spec 28b) builds on it and checks what it gets.
      */
     get: api,
+
+    /**
+     * One writing call of the API with a token (spec 29b): the body as JSON, the answer as JSON,
+     * unchecked. Only the job of an approved Git request writes.
+     */
+    post(
+      baseUrl: string,
+      path: string,
+      accessToken: string,
+      body: Record<string, unknown>,
+    ): Promise<unknown> {
+      return call(`${baseUrl}/api/v4${path}`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          accept: 'application/json',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+    },
 
     /** Where the browser goes for the consent. */
     authorizeUrl(source: GitlabSource, state: string): string {

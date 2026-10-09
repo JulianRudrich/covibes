@@ -402,7 +402,10 @@ describe('removing the repository from a project', () => {
 describe('a server that is not set up for GitLab', () => {
   const bare = new Hono()
     .route('/api/git/account', gitAccountRoutes(test.auth, undefined))
-    .route('/api/projects/:projectId/git', gitRoutes(test.db.app, test.auth, undefined))
+    .route(
+      '/api/projects/:projectId/git',
+      gitRoutes(test.db.app, test.auth, undefined, test.collab),
+    )
     .route('/api/git/callback', gitCallback(test.auth, APP_URL, undefined));
   const ask = (path: string, cookie: string, init: RequestInit = {}) =>
     bare.request(path, {

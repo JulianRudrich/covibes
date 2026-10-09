@@ -218,6 +218,29 @@ export interface GitAccounts {
   user_id: string;
 }
 
+export interface GitActions {
+  attempts: Generated<number>;
+  created_at: Generated<Timestamp>;
+  error_code: string | null;
+  error_detail: Generated<string>;
+  executed_at: Timestamp | null;
+  executed_by: string | null;
+  id: Generated<string>;
+  kind: string;
+  payload: Json;
+  position: number;
+  project_id: string;
+  request_id: string;
+  result_existed: Generated<boolean>;
+  result_id: Int8 | null;
+  result_number: Int8 | null;
+  result_url: string | null;
+  status: Generated<string>;
+  task_id: string | null;
+  title: string;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface GitConnections {
   account_id: Int8;
   account_name: Generated<string>;
@@ -231,6 +254,25 @@ export interface GitConnections {
   repository_name: string | null;
   repository_path: string | null;
   repository_url: string | null;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface GitRequests {
+  base_url: string;
+  created_at: Generated<Timestamp>;
+  decided_at: Timestamp | null;
+  decided_by: string | null;
+  decided_by_name: Generated<string>;
+  finished_at: Timestamp | null;
+  id: Generated<string>;
+  kind: string;
+  project_id: string;
+  repository_id: Int8;
+  repository_path: string;
+  repository_url: string;
+  requested_by: string | null;
+  requested_by_name: Generated<string>;
+  status: Generated<string>;
   updated_at: Generated<Timestamp>;
 }
 
@@ -580,7 +622,9 @@ export interface DB {
   decisions: Decisions;
   files: Files;
   git_accounts: GitAccounts;
+  git_actions: GitActions;
   git_connections: GitConnections;
+  git_requests: GitRequests;
   'graphile_worker._private_job_queues': GraphileWorkerPrivateJobQueues;
   'graphile_worker._private_jobs': GraphileWorkerPrivateJobs;
   'graphile_worker._private_known_crontabs': GraphileWorkerPrivateKnownCrontabs;

@@ -16,6 +16,7 @@ import {
 import { Tooltip } from '@web/components/ui/tooltip';
 import { AccountMenu } from '@web/features/account/account-menu';
 import { GitDialog } from '@web/features/git/git-dialog';
+import { GitLogDialog } from '@web/features/git/git-log-dialog';
 import type { SessionUser } from '@web/features/auth/session';
 import { NotificationBell } from '@web/features/notifications/notification-bell';
 import { PhaseIndicator } from '@web/features/workspace/phase-indicator';
@@ -129,6 +130,7 @@ function ProjectMenu({
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Someone who comes back from GitLab lands in the dialog they left for it.
   const [repositoryOpen, setRepositoryOpen] = useState(repository.returned !== undefined);
+  const [logOpen, setLogOpen] = useState(false);
   return (
     <>
       <DropdownMenu>
@@ -161,6 +163,13 @@ function ProjectMenu({
           >
             {t('workspace.repository')}
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
+              setLogOpen(true);
+            }}
+          >
+            {t('workspace.gitLog')}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
@@ -176,6 +185,10 @@ function ProjectMenu({
         {repositoryOpen ? (
           <GitDialog projectId={repository.projectId} returned={repository.returned} />
         ) : null}
+      </Dialog>
+      <Dialog open={logOpen} onOpenChange={setLogOpen}>
+        {/* Mounted only while open: the log is loaded then. */}
+        {logOpen ? <GitLogDialog projectId={repository.projectId} /> : null}
       </Dialog>
     </>
   );

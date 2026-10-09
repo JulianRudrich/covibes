@@ -3,7 +3,10 @@ import { createHmac, randomBytes } from 'node:crypto';
 import { Hono } from 'hono';
 
 import type { GitlabSource } from '@server/integrations/gitlab/client';
-import { addExampleRepositoryRoutes } from '@server/integrations/gitlab/dev/example-repository';
+import {
+  addExampleRepositoryRoutes,
+  createExampleStore,
+} from '@server/integrations/gitlab/dev/example-repository';
 import { sameSecret } from '@server/secrets';
 
 // A stand-in for GitLab on the developer's machine (spec 28a), like the development mailbox: the
@@ -19,6 +22,8 @@ type DevRepository = {
   name: string;
   path_with_namespace: string;
   default_branch: string;
+  /** Whether the repository has issues; creating one is refused where they are switched off. */
+  issues_enabled: boolean;
 };
 
 /** The repositories the example account works in, the latest active first. */
@@ -28,18 +33,22 @@ export const DEV_REPOSITORIES: readonly DevRepository[] = [
     name: 'Vereins-App',
     path_with_namespace: 'beispiel-verein/vereins-app',
     default_branch: 'main',
+    issues_enabled: true,
   },
   {
     id: 102,
     name: 'Website',
     path_with_namespace: 'beispiel-verein/website',
     default_branch: 'main',
+    // To see a refusal: this repository takes no issues (spec 29b).
+    issues_enabled: false,
   },
   {
     id: 103,
     name: 'Notizen',
     path_with_namespace: 'olga.beispiel/notizen',
     default_branch: 'master',
+    issues_enabled: true,
   },
 ];
 
@@ -234,16 +243,81 @@ export function createGitlabStandIn(
     return found ? c.json(repository(found)) : c.json({ message: '404 Project Not Found' }, 404);
   });
 
-  // What the example repositories hold: files, issues and merge requests (spec 28b).
+  // What the example repositories hold: files, issues and merge requests (spec 28b), and the
+  // milestones and issues that were created since the stand-in started (spec 29b).
+  const store = createExampleStore(now);
   addExampleRepositoryRoutes(
     routes,
-    (id) => DEV_REPOSITORIES.find((entry) => entry.id === id)?.default_branch,
+    (id) => {
+      const found = DEV_REPOSITORIES.find((entry) => entry.id === id);
+      return found
+        ? {
+            defaultBranch: found.default_branch,
+            webUrl: repository(found).web_url,
+            issuesEnabled: found.issues_enabled,
+          }
+        : undefined;
+    },
+    store,
   );
+
+  const byPath = (namespace: string, name: string) =>
+    DEV_REPOSITORIES.find((entry) => entry.path_with_namespace === `${namespace}/${name}`);
+
+  /** Where the link of an issue leads: its title and text, as the stand-in holds them. */
+  routes.get('/:namespace/:name/-/issues/:iid', (c) => {
+    const found = byPath(c.req.param('namespace'), c.req.param('name'));
+    const issue = found
+      ? store.issuesOf(found.id).find((entry) => String(entry.iid) === c.req.param('iid'))
+      : undefined;
+    if (!found || !issue) {
+      return c.html(
+        page(
+          'Issue nicht gefunden',
+          '<p>Diesen Issue kennt der Stellvertreter nicht (mehr): Was angelegt wurde, merkt er sich nur bis zum Neustart.</p>',
+        ),
+        404,
+      );
+    }
+    return c.html(
+      page(
+        `#${String(issue.iid)} ${issue.title}`,
+        `<p><strong>${escapeHtml(found.path_with_namespace)}</strong>${
+          issue.milestone ? ` · ${escapeHtml(issue.milestone.title)}` : ''
+        } · ${escapeHtml(issue.author.name)}</p>
+      <pre style="white-space: pre-wrap; font: inherit">${escapeHtml(issue.description)}</pre>`,
+      ),
+    );
+  });
+
+  /** Where the link of a milestone leads. */
+  routes.get('/:namespace/:name/-/milestones/:iid', (c) => {
+    const found = byPath(c.req.param('namespace'), c.req.param('name'));
+    const milestone = found
+      ? store.milestonesOf(found.id).find((entry) => String(entry.iid) === c.req.param('iid'))
+      : undefined;
+    if (!found || !milestone) {
+      return c.html(
+        page(
+          'Meilenstein nicht gefunden',
+          '<p>Diesen Meilenstein kennt der Stellvertreter nicht (mehr): Was angelegt wurde, merkt er sich nur bis zum Neustart.</p>',
+        ),
+        404,
+      );
+    }
+    const issues = store.issuesOf(found.id).filter((issue) => issue.milestone?.id === milestone.id);
+    return c.html(
+      page(
+        milestone.title,
+        `<p><strong>${escapeHtml(found.path_with_namespace)}</strong> · ${String(issues.length)} Issues</p>
+      <p>${escapeHtml(milestone.description)}</p>`,
+      ),
+    );
+  });
 
   /** Where the link of a connected repository leads: a page that says which one it stands for. */
   routes.get('/:namespace/:name', (c) => {
-    const path = `${c.req.param('namespace')}/${c.req.param('name')}`;
-    const found = DEV_REPOSITORIES.find((entry) => entry.path_with_namespace === path);
+    const found = byPath(c.req.param('namespace'), c.req.param('name'));
     if (!found) return c.text('404 Not Found', 404);
     return c.html(
       page(

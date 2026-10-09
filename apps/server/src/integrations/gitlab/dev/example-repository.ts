@@ -1,8 +1,9 @@
 import type { Hono } from 'hono';
 
 // What the example repositories of the development stand-in hold (spec 28b): a few files, issues
-// and merge requests, so agents can read a repository without a GitLab. The answers have the form
-// of GitLab's API, as far as Covibes reads it.
+// and merge requests, so agents can read a repository without a GitLab. Milestones and issues can
+// be created (spec 29b); the stand-in keeps them until it restarts. The answers have the form of
+// GitLab's API, as far as Covibes reads it.
 
 type Person = { name: string; username: string };
 type Note = { body: string; system: boolean; author: Person; created_at: string };
@@ -17,6 +18,18 @@ type ExampleIssue = {
   author: Person;
   updated_at: string;
   notes: Note[];
+  /** Where its page is, and its milestone: only issues that were created name them. */
+  web_url?: string;
+  milestone?: { id: number; iid: number; title: string } | null;
+};
+
+type ExampleMilestone = {
+  id: number;
+  iid: number;
+  title: string;
+  description: string;
+  state: 'active';
+  web_url: string;
 };
 
 type ExampleMergeRequest = {
@@ -280,6 +293,74 @@ export const EXAMPLE_REPOSITORIES: Readonly<Record<number, ExampleRepository>> =
   103: readmeOnly('Notizen', 'Olgas Notizen.'),
 };
 
+/** What was created in the example repositories since the stand-in started (spec 29b). */
+export type ExampleStore = ReturnType<typeof createExampleStore>;
+
+export function createExampleStore(now: () => number = Date.now) {
+  const issues = new Map<number, ExampleIssue[]>();
+  const milestones = new Map<number, ExampleMilestone[]>();
+  // GitLab's ids of milestones count across all repositories.
+  let milestoneId = 0;
+
+  const issuesOf = (id: number): readonly ExampleIssue[] => [
+    ...(EXAMPLE_REPOSITORIES[id]?.issues ?? []),
+    ...(issues.get(id) ?? []),
+  ];
+  const milestonesOf = (id: number): readonly ExampleMilestone[] => milestones.get(id) ?? [];
+
+  return {
+    issuesOf,
+    milestonesOf,
+    addMilestone(id: number, webUrl: string, title: string, description: string) {
+      const iid = milestonesOf(id).length + 1;
+      milestoneId += 1;
+      const milestone: ExampleMilestone = {
+        id: milestoneId,
+        iid,
+        title,
+        description,
+        state: 'active',
+        web_url: `${webUrl}/-/milestones/${String(iid)}`,
+      };
+      milestones.set(id, [...milestonesOf(id), milestone]);
+      return milestone;
+    },
+    addIssue(
+      id: number,
+      webUrl: string,
+      fields: { title: string; description: string; milestone: ExampleMilestone | null },
+    ) {
+      const iid = Math.max(0, ...issuesOf(id).map((issue) => issue.iid)) + 1;
+      const issue: ExampleIssue = {
+        iid,
+        title: fields.title,
+        state: 'opened',
+        description: fields.description,
+        labels: [],
+        assignees: [],
+        author: OLGA,
+        updated_at: new Date(now()).toISOString(),
+        notes: [],
+        web_url: `${webUrl}/-/issues/${String(iid)}`,
+        milestone: fields.milestone
+          ? { id: fields.milestone.id, iid: fields.milestone.iid, title: fields.milestone.title }
+          : null,
+      };
+      issues.set(id, [...(issues.get(id) ?? []), issue]);
+      return issue;
+    },
+  };
+}
+
+/** A repository of the stand-in, as far as its content needs to know it. */
+export type ExampleTarget = {
+  defaultBranch: string;
+  /** Where its pages are. */
+  webUrl: string;
+  /** Whether it has issues at all; GitLab refuses to create one where they are switched off. */
+  issuesEnabled: boolean;
+};
+
 /** The direct children of a folder, as GitLab lists a tree; undefined for a folder that is not there. */
 function tree(files: ExampleRepository['files'], folder: string) {
   const prefix = folder ? `${folder}/` : '';
@@ -298,24 +379,32 @@ function tree(files: ExampleRepository['files'], folder: string) {
 }
 
 /**
- * Adds the reading routes of GitLab's API for the example repositories. `branches` gives the
- * refs a repository knows; anything else is a ref that does not exist.
+ * Adds the routes of GitLab's API for the content of the example repositories: reading files,
+ * issues and merge requests, and creating milestones and issues. `targetOf` says what the
+ * stand-in knows of a repository; its default branch is the one ref it has.
  */
 export function addExampleRepositoryRoutes(
   routes: Hono,
-  defaultBranchOf: (id: number) => string | undefined,
+  targetOf: (id: number) => ExampleTarget | undefined,
+  store: ExampleStore,
 ): void {
   const notFound = { message: '404 Not Found' };
 
-  /** The repository of a request, if the stand-in has it. */
+  /** The repository of a request, with what was created in it, if the stand-in has it. */
   function find(id: string | undefined, ref?: string) {
     const numeric = Number(id);
     const repository = EXAMPLE_REPOSITORIES[numeric];
-    const branch = defaultBranchOf(numeric);
-    if (!repository || branch === undefined) return undefined;
+    const target = targetOf(numeric);
+    if (!repository || !target) return undefined;
     // The examples have one branch each; `HEAD` names it too.
-    if (ref !== undefined && ref !== branch && ref !== 'HEAD') return undefined;
-    return repository;
+    if (ref !== undefined && ref !== target.defaultBranch && ref !== 'HEAD') return undefined;
+    return {
+      ...repository,
+      ...target,
+      id: numeric,
+      issues: store.issuesOf(numeric),
+      milestones: store.milestonesOf(numeric),
+    };
   }
 
   routes.get('/api/v4/projects/:id/repository/tree', (c) => {
@@ -343,16 +432,27 @@ export function addExampleRepositoryRoutes(
     });
   });
 
-  /** A list by state and search, the latest changed first, as GitLab orders it when asked to. */
-  function listed<T extends { state: string; title: string; updated_at: string }>(
+  /**
+   * A list by state and search, the latest changed first, as GitLab orders it when asked to. The
+   * search looks at the title, or where `where` says ("description").
+   */
+  function listed<
+    T extends { state: string; title: string; description: string; updated_at: string },
+  >(
     items: readonly T[],
     state: string | undefined,
     search: string | undefined,
+    where = 'title',
   ): T[] {
     const term = (search ?? '').toLowerCase();
+    const places = where.split(',');
     return items
       .filter((item) => !state || state === 'all' || item.state === state)
-      .filter((item) => item.title.toLowerCase().includes(term))
+      .filter(
+        (item) =>
+          (places.includes('title') && item.title.toLowerCase().includes(term)) ||
+          (places.includes('description') && item.description.toLowerCase().includes(term)),
+      )
       .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   }
 
@@ -373,7 +473,63 @@ export function addExampleRepositoryRoutes(
     const repository = find(c.req.param('id'));
     if (!repository) return c.json(notFound, 404);
     return c.json(
-      listed(repository.issues, c.req.query('state'), c.req.query('search')).map(withoutNotes),
+      listed(repository.issues, c.req.query('state'), c.req.query('search'), c.req.query('in')).map(
+        withoutNotes,
+      ),
+    );
+  });
+
+  /** The body of a writing call as an object; undefined if it is none. */
+  async function fields(request: { json: () => Promise<unknown> }) {
+    const body = await request.json().catch(() => undefined);
+    return typeof body === 'object' && body !== null && !Array.isArray(body)
+      ? (body as Record<string, unknown>)
+      : undefined;
+  }
+  const text = (value: unknown) => (typeof value === 'string' ? value : '');
+
+  routes.post('/api/v4/projects/:id/issues', async (c) => {
+    const repository = find(c.req.param('id'));
+    if (!repository) return c.json(notFound, 404);
+    if (!repository.issuesEnabled) return c.json({ message: '403 Forbidden' }, 403);
+    const body = await fields(c.req);
+    const title = text(body?.title).trim();
+    if (!title) return c.json({ message: { title: ["can't be blank"] } }, 400);
+    if (title.length > 255) {
+      return c.json({ message: { title: ['is too long (maximum is 255 characters)'] } }, 400);
+    }
+    const milestoneId = body?.milestone_id;
+    const milestone = repository.milestones.find((entry) => entry.id === milestoneId);
+    // Like GitLab, a milestone that does not belong to the repository is left out.
+    const issue = store.addIssue(repository.id, repository.webUrl, {
+      title,
+      description: text(body?.description),
+      milestone: milestone ?? null,
+    });
+    return c.json(withoutNotes(issue), 201);
+  });
+
+  routes.get('/api/v4/projects/:id/milestones', (c) => {
+    const repository = find(c.req.param('id'));
+    if (!repository) return c.json(notFound, 404);
+    const title = c.req.query('title');
+    return c.json(
+      repository.milestones.filter((entry) => title === undefined || entry.title === title),
+    );
+  });
+
+  routes.post('/api/v4/projects/:id/milestones', async (c) => {
+    const repository = find(c.req.param('id'));
+    if (!repository) return c.json(notFound, 404);
+    const body = await fields(c.req);
+    const title = text(body?.title).trim();
+    if (!title) return c.json({ message: { title: ["can't be blank"] } }, 400);
+    if (repository.milestones.some((entry) => entry.title === title)) {
+      return c.json({ message: { title: ['has already been taken'] } }, 400);
+    }
+    return c.json(
+      store.addMilestone(repository.id, repository.webUrl, title, text(body?.description)),
+      201,
     );
   });
 

@@ -26,6 +26,13 @@ import type { PlanTaskAssignments } from '@web/features/plan/plan-editor';
 import { PlanPanel } from '@web/features/plan/plan-panel';
 import { planStateQuery, usePlanActions } from '@web/features/plan/queries';
 import { handsQuery, useHandDecisions } from '@web/features/hands/queries';
+import { useConnectGitAccount } from '@web/features/git/queries';
+import {
+  gitRequestsQuery,
+  useApproveGitRequests,
+  useEndGitRequest,
+} from '@web/features/git/request-queries';
+import { gitRequestsToDecide } from '@web/features/git/request-progress';
 import { notificationsQuery, useMarkNotificationsRead } from '@web/features/notifications/queries';
 import { projectQuery, useSetPhase, useUpdateProject } from '@web/features/projects/queries';
 import {
@@ -332,6 +339,49 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
     showNotice(t(reason === 'already_decided' ? 'votes.alreadyClosed' : 'votes.failed'));
   });
   const waitingHands = readOnly ? NO_HANDS : hands;
+
+  // Git requests (spec 29b): what waits for approval, runs or failed. Who may approve does so
+  // here, with their own GitLab account; without one, the way leads to GitLab and back.
+  const gitRequests = useQuery(gitRequestsQuery(project.id)).data;
+  const approveGit = useApproveGitRequests(project.id);
+  const endGit = useEndGitRequest(project.id);
+  const connectGit = useConnectGitAccount();
+  const gitFailed = useCallback(
+    (error: unknown) => {
+      showNotice(
+        t(
+          error instanceof ApiError && error.code === 'already_decided'
+            ? 'git.requests.alreadyDecided'
+            : 'git.requests.actionFailed',
+        ),
+      );
+    },
+    [showNotice, t],
+  );
+  const git = gitRequests && {
+    requests: gitRequests.requests,
+    canApprove: gitRequests.canApprove,
+    hasAccount: gitRequests.hasAccount,
+    userId,
+    busy: approveGit.isPending || endGit.isPending || connectGit.isPending,
+    onApprove: (requestIds: string[]) => {
+      approveGit.mutate({ requestIds }, { onError: gitFailed });
+    },
+    onEnd: (requestId: string, how: 'reject' | 'withdraw') => {
+      endGit.mutate({ requestId, how }, { onError: gitFailed });
+    },
+    onConnect: () => {
+      connectGit.mutate(
+        { origin: 'account', projectId: project.id },
+        {
+          onSuccess: ({ url }) => {
+            window.location.assign(url);
+          },
+          onError: gitFailed,
+        },
+      );
+    },
+  };
   // Suggestions for the plan wait for owners and editors, like proposals.
   const planSuggestions = readOnly ? 0 : (planState?.suggestions.length ?? 0);
 
@@ -502,6 +552,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                   hands: waitingHands,
                   votes: votesToCast,
                   planSuggestions,
+                  gitRequests: gitRequestsToDecide(git),
                   canDecide: !readOnly,
                   canConfirmDecisions,
                 })}
@@ -517,8 +568,10 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
             decided.length > 0 ||
             waitingHands.length > 0 ||
             votesToCast.length > 0 ||
-            planSuggestions > 0 ? (
+            planSuggestions > 0 ||
+            (git?.requests.length ?? 0) > 0 ? (
               <WaitingForYou
+                git={git}
                 planSuggestions={planSuggestions}
                 onOpenPlan={planOpen ? undefined : () => void openPlan()}
                 proposals={proposals}

@@ -78,7 +78,8 @@
     "accessLost": {
       "title": "You are no longer in this project",
       "text": "An owner removed you from \"{{project}}\". If that was a mistake, ask for a new invitation."
-    }
+    },
+    "gitLog": "Git log …"
   },
   "share": {
     "title": "Share \"{{project}}\"",
@@ -914,6 +915,104 @@
         "confirm": "Really disconnect",
         "hint": "Projects whose repository you picked lose it.",
         "failed": "The account could not be disconnected. Please try again."
+      }
+    },
+    "requests": {
+      "kind": "Approval",
+      "someone": "Someone",
+      "summary_one": "Create <b>{{count}} issue</b> in <repo>{{repository}}</repo>",
+      "summary_other": "Create <b>{{count}} issues</b> in <repo>{{repository}}</repo>",
+      "done_one": "<b>{{count}} issue</b> created in <repo>{{repository}}</repo>",
+      "done_other": "<b>{{count}} issues</b> created in <repo>{{repository}}</repo>",
+      "approve": "Approve",
+      "approveAll": "Approve all",
+      "several": "{{count}} approvals are waiting.",
+      "view": "View",
+      "hide": "Close",
+      "reject": "Reject",
+      "withdraw": "Take back",
+      "retry": "Retry",
+      "discard": "Discard",
+      "waitsForApprover": "Waits for someone who may approve Git actions.",
+      "needsAccount": "To approve, you need your GitLab account.",
+      "connectAccount": "Connect",
+      "running": "Running … {{done}} of {{total}}",
+      "failed": "{{open}} of {{total}} not done.",
+      "actionFailed": "That did not work. Please try again.",
+      "alreadyDecided": "This was decided already.",
+      "errors": {
+        "forbidden": "GitLab refused the access.",
+        "not_found": "The repository cannot be reached in GitLab.",
+        "invalid": "GitLab did not accept what was sent.",
+        "unreachable": "GitLab could not be reached.",
+        "no_account": "The GitLab account of the approving person is missing.",
+        "milestone": "The milestone is missing.",
+        "failed": "Something went wrong."
+      }
+    },
+    "actions": {
+      "created": "created",
+      "existed": "was there already",
+      "dropped": "not done",
+      "status": {
+        "waiting": "Open",
+        "started": "Running",
+        "done": "Done",
+        "failed": "Failed",
+        "dropped": "Not done"
+      }
+    },
+    "issues": {
+      "menu": "Create issues …",
+      "title": "Issues from the plan",
+      "hint": "One issue per task, grouped by the milestones of the plan. They are only created after approval.",
+      "loadFailed": "The tasks could not be loaded. Please try again.",
+      "repository": "The issues go to <repo>{{repository}}</repo>. Each names its milestone and links to its feature spec in the repository.",
+      "noRepository": "This project has no repository yet. An owner picks it in the project menu under “Repository …”.",
+      "noTasks": "The plan names no tasks yet.",
+      "noTasksHere": "No tasks.",
+      "milestone": "Milestone {{number}}: {{title}}",
+      "allOf": "All tasks of {{title}}",
+      "count": "{{done}} of {{total}} created",
+      "requested": "waiting",
+      "readOnly": "Owners and editors create issues.",
+      "accountHint": "To approve, you need your GitLab account. You connect it in the account menu.",
+      "limit": "At most {{count}} issues at once. Choose fewer tasks.",
+      "create_one": "Create {{count}} issue",
+      "create_other": "Create {{count}} issues",
+      "createNone": "Create issues",
+      "propose_one": "Submit {{count}} issue for approval",
+      "propose_other": "Submit {{count}} issues for approval",
+      "proposeNone": "Submit for approval",
+      "outcome": {
+        "started": "The issues are being created. You see how far it is under “Waiting for you”.",
+        "proposed": "Submitted. The request waits for approval under “Waiting for you”.",
+        "approveFailed": "The request is made, but approving it did not work. It waits under “Waiting for you”.",
+        "taken": "One of the tasks has an issue already. The list is up to date now.",
+        "failed": "That did not work. Please try again."
+      }
+    },
+    "log": {
+      "title": "Git log",
+      "hint": "Everything Covibes was asked to change in the repository: who asked for it and who decided.",
+      "loadFailed": "The log could not be loaded. Please try again.",
+      "empty": "No Git actions yet.",
+      "requestedBy": "Asked for by {{name}}, {{date}}",
+      "approvedBy": "Approved by {{name}}, {{date}}",
+      "rejectedBy": "Rejected by {{name}}, {{date}}",
+      "via": "via Covibes",
+      "progress": "{{done}} of {{total}}",
+      "showActions_one": "View {{count}} action",
+      "showActions_other": "View {{count}} actions",
+      "hideActions_one": "Hide action",
+      "hideActions_other": "Hide actions",
+      "status": {
+        "waiting": "Waits for approval",
+        "approved": "Running",
+        "done": "Done",
+        "failed": "Failed",
+        "rejected": "Rejected",
+        "withdrawn": "Taken back"
       }
     }
   },

@@ -9,6 +9,7 @@ export function waitingCount({
   hands,
   votes,
   planSuggestions = 0,
+  gitRequests = 0,
   canDecide,
   canConfirmDecisions,
 }: {
@@ -17,6 +18,8 @@ export function waitingCount({
   votes: readonly OpenVote[];
   /** The moderator's open suggestions for the plan (spec 25b). */
   planSuggestions?: number;
+  /** The Git requests the user can approve or try again (spec 29b). */
+  gitRequests?: number;
   canDecide: boolean;
   canConfirmDecisions: boolean;
 }): number {
@@ -28,6 +31,7 @@ export function waitingCount({
     ).length +
     hands.length +
     votes.length +
-    planSuggestions
+    planSuggestions +
+    gitRequests
   );
 }

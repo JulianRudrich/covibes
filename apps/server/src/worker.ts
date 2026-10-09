@@ -16,11 +16,13 @@ import { createGitlabClient } from '@server/integrations/gitlab/client';
 import { createGitConnections } from '@server/integrations/gitlab/connections';
 import { repositoryReaders } from '@server/integrations/gitlab/repository';
 import { gitlabSetup } from '@server/integrations/gitlab/setup';
+import { gitlabWriter } from '@server/integrations/gitlab/writer';
 import { createWorkerMailer } from '@server/integrations/mail/mailer';
 import { defaultFilesDir, localStorage } from '@server/storage/storage';
 import { releaseAbandonedJobs } from '@server/tasks/abandoned-jobs';
 import { AGENT_TURN_TASK, agentTurnTask } from '@server/tasks/agent-turn';
 import { AWAY_SUMMARY_TASK, awaySummaryTask } from '@server/tasks/away-summary';
+import { GIT_REQUEST_TASK, gitRequestTask } from '@server/tasks/git-request';
 import { NOTIFICATION_MAIL_TASK, notificationMailTask } from '@server/tasks/notification-mails';
 import { OBSERVE_TASK, observeTask } from '@server/tasks/observe';
 import { PACKAGE_SPECS_TASK, packageSpecsTask } from '@server/tasks/package-specs';
@@ -79,15 +81,14 @@ const boards = createBoardClient({
 });
 
 // The repositories projects are connected to (spec 28b). The worker shares the settings of the
-// connections with the server; without them, agents read no repository.
+// connections with the server; without them, agents read no repository and no Git request runs.
 const gitSetup = gitlabSetup(env);
 const gitClient = createGitlabClient();
-const repository = gitSetup
-  ? repositoryReaders({
-      admin,
-      client: gitClient,
-      connections: createGitConnections({ admin, client: gitClient, setup: gitSetup }),
-    })
+const gitConnections = gitSetup
+  ? createGitConnections({ admin, client: gitClient, setup: gitSetup })
+  : undefined;
+const repository = gitConnections
+  ? repositoryReaders({ admin, client: gitClient, connections: gitConnections })
   : undefined;
 
 const released = await releaseAbandonedJobs(pgPool);
@@ -118,6 +119,17 @@ const runner = await run({
     [PACKAGE_SUGGEST_TASK]: packageSuggestTask({ admin, complete: completeText }),
     // The moderator writes the feature specs of a milestone out (spec 27d).
     [PACKAGE_SPECS_TASK]: packageSpecsTask({ admin, boards, complete: completeText }),
+    // An approved Git request runs with the access of who approved it (spec 29b). Without a
+    // GitLab nobody has an account, so nothing can be approved and no such job exists.
+    ...(gitConnections
+      ? {
+          [GIT_REQUEST_TASK]: gitRequestTask({
+            admin,
+            accessOf: gitConnections.accessOf,
+            writers: (target, token) => gitlabWriter(gitClient, target, token),
+          }),
+        }
+      : {}),
     // The moderator sums up the conversation for a member who comes back (spec 23).
     [AWAY_SUMMARY_TASK]: awaySummaryTask({ admin, complete: completeText }),
     // Sums up by mail what a person has not seen in the app (spec 22b).

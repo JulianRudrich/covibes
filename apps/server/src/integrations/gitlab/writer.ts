@@ -7,6 +7,10 @@ import {
 } from '@server/integrations/git-host';
 import { fileStates, foldersOf, listBlobs } from '@server/integrations/gitlab/blobs';
 import { GitlabError, type GitlabClient } from '@server/integrations/gitlab/client';
+import {
+  readMergeRequest,
+  readMergeRequestAnswer,
+} from '@server/integrations/gitlab/merge-requests';
 
 // Writing to a repository in GitLab (specs 29b and 29c): milestones, issues, commits and merge
 // requests, with one person's token. Only the job of an approved Git request calls it. Every
@@ -46,8 +50,9 @@ function failureOf(status: number): RepositoryWriteFailure {
   if (status === 401) return 'unauthorized';
   if (status === 403) return 'forbidden';
   if (status === 404) return 'not_found';
-  // What was sent is not taken as it is, also when it is too large.
-  if (status === 400 || status === 409 || status === 413 || status === 422) return 'invalid';
+  // What was sent is not taken as it is: also when it is too large, and when a merge request
+  // cannot be merged as it is (405, 406).
+  if ([400, 405, 406, 409, 413, 422].includes(status)) return 'invalid';
   // Not reachable at all, asked to wait, or a fault of its own: a later try may work.
   if (status === 0 || status === 429 || status >= 500) return 'unreachable';
   return 'failed';
@@ -216,6 +221,32 @@ export function gitlabWriter(
         );
         if (!created.success) throw new GitlabError(502, 'GitLab sent no merge request');
         return { number: created.data.iid, url: created.data.web_url, existed: false };
+      });
+    },
+
+    mergeMergeRequest({ number, sha }) {
+      return written(async () => {
+        const found = await readMergeRequest(client, target, token, number);
+        if (!found) throw new GitlabError(404, 'No such merge request', 'No such merge request');
+        if (found.state === 'merged') {
+          return { number: found.number, url: found.url, existed: true };
+        }
+        if (found.state !== 'opened') throw refuse('The merge request is closed');
+
+        const merged = readMergeRequestAnswer(
+          await client.put(
+            target.baseUrl,
+            `${base}/merge_requests/${String(number)}/merge`,
+            token,
+            {
+              // GitLab refuses if the merge request got another last commit since.
+              ...(sha === null ? {} : { sha }),
+              should_remove_source_branch: true,
+            },
+          ),
+        );
+        if (!merged) throw new GitlabError(502, 'GitLab sent no merge request');
+        return { number: merged.number, url: merged.url, existed: false };
       });
     },
   };

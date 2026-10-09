@@ -112,6 +112,8 @@ function repository({
   /** The branches that hold a commit, and the merge requests that are open, by their branch. */
   const branches = new Set<string>();
   const mergeRequests = new Map<string, number>();
+  /** The merge requests that are merged, by their number. */
+  const merged: number[] = [];
   const writer: RepositoryWriter = {
     ensureMilestone({ title }) {
       calls.push(`milestone ${title}`);
@@ -171,8 +173,20 @@ function repository({
         existed: open !== undefined,
       });
     },
+    mergeMergeRequest({ number, sha }) {
+      calls.push(`merge ${String(number)} ${String(sha)}`);
+      const failure = state.fails[`!${String(number)}`];
+      if (failure) return Promise.reject(failure);
+      const existed = merged.includes(number);
+      if (!existed) merged.push(number);
+      return Promise.resolve({
+        number,
+        url: `${GITLAB}/verein/app/-/merge_requests/${String(number)}`,
+        existed,
+      });
+    },
   };
-  return { calls, issues, milestones, targets, state, writer, branches, mergeRequests };
+  return { calls, issues, milestones, targets, state, writer, branches, mergeRequests, merged };
 }
 
 function deps(
@@ -552,5 +566,62 @@ describe('the plan package as a merge request (spec 29c)', () => {
       ['done', true],
       ['done', false],
     ]);
+  });
+});
+
+describe('merging a merge request (spec 29d)', () => {
+  const merge: GitActionDraft = {
+    kind: 'merge',
+    payload: { title: '!7 Login per Link', number: 7, sha: 'abc123' },
+  };
+
+  it('merges with the approver’s access, holding on to the commit that was approved', async () => {
+    const { requestId } = await approved([merge]);
+    const repo = repository();
+
+    expect(await runGitRequest(deps(repo), { requestId })).toBe('done');
+
+    expect(repo.calls).toEqual(['merge 7 abc123']);
+    const { actions, request } = await stored(requestId);
+    expect(request.status).toBe('done');
+    expect(
+      actions.map((action) => [
+        action.kind,
+        action.status,
+        action.result_number,
+        action.result_url,
+        action.result_existed,
+      ]),
+    ).toEqual([['merge', 'done', '7', `${GITLAB}/verein/app/-/merge_requests/7`, false]]);
+  });
+
+  it('fails with the reason when GitLab does not merge, and merges nothing twice', async () => {
+    const { requestId } = await approved([merge]);
+    const refused = 'SHA does not match HEAD of source branch';
+    const repo = repository({ fails: { '!7': refuse('invalid', refused) } });
+
+    expect(await runGitRequest(deps(repo), { requestId })).toBe('failed');
+    const failed = await stored(requestId);
+    expect(failed.outcomes).toEqual([['!7 Login per Link', 'failed', 'invalid']]);
+    expect(failed.actions[0]?.error_detail).toBe(refused);
+
+    repo.state.fails = {};
+    await approveAgain(requestId);
+    expect(await runGitRequest(deps(repo), { requestId })).toBe('done');
+    // A run after it is merged finds it merged.
+    await approveAgain(requestId);
+    await test.db.admin
+      .updateTable('git_actions')
+      .set({ status: 'started' })
+      .where('request_id', '=', requestId)
+      .execute();
+    await test.db.admin
+      .updateTable('git_requests')
+      .set({ status: 'approved' })
+      .where('id', '=', requestId)
+      .execute();
+    expect(await runGitRequest(deps(repo), { requestId })).toBe('done');
+    expect((await stored(requestId)).actions[0]?.result_existed).toBe(true);
+    expect(repo.merged).toEqual([7]);
   });
 });

@@ -44,12 +44,37 @@ Fourth part of spec 29.
 - Spec 29c, spec 28
 
 ## Checklist
-- [ ] The dialog lists the open merge requests of the repository with their branches, who opened them, and whether they are a draft or have conflicts.
-- [ ] Owners and editors ask for merging; who may approve and has a GitLab account merges in one step; a draft cannot be asked for.
-- [ ] An approved request merges with the approver's access, only if the merge request still ends with the commit it had when the request was made.
-- [ ] A refusal of GitLab fails the request with the reason; a merge request that is merged already counts as done.
-- [ ] One request waits at a time per merge request.
-- [ ] The stand-in merges; afterwards the default branch holds the files.
-- [ ] The derived looks were checked from screenshots and are listed in `ui-context.md`.
-- [ ] Tests for the database, the writer, the job, the API and the dialog pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] The dialog lists the open merge requests of the repository with their branches, who opened them, and whether they are a draft or have conflicts.
+- [x] Owners and editors ask for merging; who may approve and has a GitLab account merges in one step; a draft cannot be asked for.
+- [x] An approved request merges with the approver's access, only if the merge request still ends with the commit it had when the request was made.
+- [x] A refusal of GitLab fails the request with the reason; a merge request that is merged already counts as done.
+- [x] One request waits at a time per merge request.
+- [x] The stand-in merges; afterwards the default branch holds the files.
+- [x] The derived looks were checked from screenshots and are listed in `ui-context.md`.
+- [x] Tests for the database, the writer, the job, the API and the dialog pass.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-10-09)
+- **Shared** (`git-requests.ts`): the request kind and the action kind `merge`; a merge carries the merge request's number, its title for the list ("!7 Login per Link") and its last commit; `GitMergeRequests` for the dialog.
+- **Database** (`packages/db/migrations/0033_git_merges.sql`): the new kinds; `create_git_request` takes `merge` and refuses a request for a merge request while another one for it waits, runs or failed in the same repository.
+- **Server:**
+  - `integrations/gitlab/merge-requests.ts`: the open merge requests of a repository (the latest changed first, 50 at most) and one by its number, each with its branches, who opened it, whether it is a draft or has conflicts, and its last commit.
+  - `integrations/git-host.ts` and `gitlab/writer.ts`: `mergeMergeRequest` reads the merge request first: one that is merged counts as done, one that is closed is refused. Then `PUT …/merge_requests/:iid/merge` with `sha` and `should_remove_source_branch`. GitLab's 405 and 406 (it cannot be merged as it is) and 409 (another last commit) fail the action as "not taken", with GitLab's words.
+  - `tasks/git-request.ts`: the action `merge`.
+  - `api/git-requests.ts`: `GET /api/projects/:projectId/git/merge-requests` lists what is open, read with the project's reading access, and marks the ones a request waits for. `POST …/merge-requests/:number/merge` reads the merge request, refuses a draft and one that is not open, and makes the request with its last commit.
+- **Stand-in:** `PUT …/merge` merges a merge request that commits created: the target branch takes the files of the source branch, the source branch goes if asked. It refuses a draft (405) and another last commit (409). Merge requests answer with their address, their last commit and `has_conflicts`.
+- **Web:** `features/git/merge-requests-dialog.tsx`, opened by "Merge Requests …" in the project's menu. The card and the log read "!3 Projektplan, … in vereins-app mergen".
+- **Verified** with `pnpm dev` and the browser as olga in "Vereins-App", against the stand-in:
+  - The dialog listed "!3 Projektplan, Feature-Specs und Diagramme aus Covibes" with its branches and "Mergen", and the example's "!1 Login per E-Mail-Link" as "Entwurf" without a button.
+  - "Mergen": the request was made, approved and done within a second; the list then held only the draft, and the overview said "!3 … in vereins-app gemergt".
+  - Afterwards `CLAUDE.md` was on `main`, and the package's comparison found 41 files unchanged and the progress tracker kept: the repository holds the package.
+  - No model run was needed. A real GitLab was not used.
+- **The tests found:** the link of a merge request read "!7Login" to a screen reader; number and title have a space between them now.
+- **Decided while building:**
+  - The request holds the merge request's last commit, and GitLab is asked to merge only that; this is what "approved" means for something that can still change.
+  - Whether a merge request can be merged is GitLab's answer; Covibes only keeps drafts out, since GitLab refuses them for sure.
+  - The source branch is removed after merging.
+- **Known limits:**
+  - No squash, no "merge when the pipeline succeeds": a pipeline that still runs fails the request, and it is asked for again.
+  - The list shows 50 merge requests at most.
+  - Merging was checked against the stand-in and GitLab's documented API, not against a real GitLab.

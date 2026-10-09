@@ -15,6 +15,7 @@ import {
   gitIssuesQueryKey,
   gitLogQueryKey,
   gitMergeRequestQueryKey,
+  gitMergeRequestsQueryKey,
   gitRequestsQueryKey,
 } from '@web/features/git/request-queries';
 import { handsQueryKey } from '@web/features/hands/queries';
@@ -102,6 +103,7 @@ export function useProjectLive(projectId: string, userId?: string) {
         reloadIfLoaded(gitIssuesQueryKey(projectId));
         reloadIfLoaded(gitLogQueryKey(projectId));
         reloadIfLoaded(gitMergeRequestQueryKey(projectId));
+        reloadIfLoaded(gitMergeRequestsQueryKey(projectId));
       } else if (event.type === 'package') {
         // A suggestion for a text of the package started, ended or was decided (spec 27c); only
         // the open export dialog holds what is loaded again.

@@ -130,6 +130,23 @@ export function createGitlabClient(fetcher: typeof fetch = fetch, now: () => num
       headers: { authorization: `Bearer ${accessToken}`, accept: 'application/json' },
     });
 
+  const write = (
+    method: 'POST' | 'PUT',
+    baseUrl: string,
+    path: string,
+    accessToken: string,
+    body: Record<string, unknown>,
+  ) =>
+    call(`${baseUrl}/api/v4${path}`, {
+      method,
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
   return {
     /**
      * One reading call of the API with a token: the answer as JSON, unchecked. The reading of a
@@ -147,15 +164,17 @@ export function createGitlabClient(fetcher: typeof fetch = fetch, now: () => num
       accessToken: string,
       body: Record<string, unknown>,
     ): Promise<unknown> {
-      return call(`${baseUrl}/api/v4${path}`, {
-        method: 'POST',
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-          accept: 'application/json',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
+      return write('POST', baseUrl, path, accessToken, body);
+    },
+
+    /** Like `post`, for what GitLab changes with a PUT, e.g. merging a merge request (spec 29d). */
+    put(
+      baseUrl: string,
+      path: string,
+      accessToken: string,
+      body: Record<string, unknown>,
+    ): Promise<unknown> {
+      return write('PUT', baseUrl, path, accessToken, body);
     },
 
     /** Where the browser goes for the consent. */

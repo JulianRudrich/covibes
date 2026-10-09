@@ -17,6 +17,7 @@ import { Tooltip } from '@web/components/ui/tooltip';
 import { AccountMenu } from '@web/features/account/account-menu';
 import { GitDialog } from '@web/features/git/git-dialog';
 import { GitLogDialog } from '@web/features/git/git-log-dialog';
+import { MergeRequestsDialog } from '@web/features/git/merge-requests-dialog';
 import type { SessionUser } from '@web/features/auth/session';
 import { NotificationBell } from '@web/features/notifications/notification-bell';
 import { PhaseIndicator } from '@web/features/workspace/phase-indicator';
@@ -131,6 +132,7 @@ function ProjectMenu({
   // Someone who comes back from GitLab lands in the dialog they left for it.
   const [repositoryOpen, setRepositoryOpen] = useState(repository.returned !== undefined);
   const [logOpen, setLogOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
   return (
     <>
       <DropdownMenu>
@@ -165,6 +167,13 @@ function ProjectMenu({
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() => {
+              setMergeOpen(true);
+            }}
+          >
+            {t('workspace.mergeRequests')}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
               setLogOpen(true);
             }}
           >
@@ -185,6 +194,10 @@ function ProjectMenu({
         {repositoryOpen ? (
           <GitDialog projectId={repository.projectId} returned={repository.returned} />
         ) : null}
+      </Dialog>
+      <Dialog open={mergeOpen} onOpenChange={setMergeOpen}>
+        {/* Mounted only while open: the merge requests are read from the repository then. */}
+        {mergeOpen ? <MergeRequestsDialog projectId={repository.projectId} /> : null}
       </Dialog>
       <Dialog open={logOpen} onOpenChange={setLogOpen}>
         {/* Mounted only while open: the log is loaded then. */}

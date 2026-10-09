@@ -6,8 +6,8 @@ import { gitBlobId } from '@server/integrations/gitlab/blobs';
 
 // What the example repositories of the development stand-in hold (spec 28b): a few files, issues
 // and merge requests, so agents can read a repository without a GitLab. Milestones and issues can
-// be created (spec 29b), and so can commits on new branches and merge requests (spec 29c); the
-// stand-in keeps them until it restarts. The answers have the form of GitLab's API, as far as
+// be created (spec 29b), and so can commits on new branches and merge requests (spec 29c), which
+// can be merged (spec 29d); the stand-in keeps all of it until it restarts. The answers have the form of GitLab's API, as far as
 // Covibes reads it.
 
 type Person = { name: string; username: string };
@@ -48,8 +48,9 @@ type ExampleMergeRequest = {
   author: Person;
   updated_at: string;
   notes: Note[];
-  /** Where its page is: only merge requests that were created name it. */
+  /** Where its page is, and its last commit: only merge requests that were created name them. */
   web_url?: string;
+  sha?: string;
   diffs: {
     old_path: string;
     new_path: string;
@@ -337,7 +338,7 @@ export type ExampleCommit = {
 export type CommitAction = { action: string; file_path: string; content: string };
 
 /** A call the stand-in refuses, with GitLab's status and words. */
-type Refusal = { status: 400 | 403 | 404 | 409; message: string };
+type Refusal = { status: 400 | 403 | 404 | 405 | 409; message: string };
 
 const linesOf = (content: string | Buffer | undefined) =>
   content === undefined || Buffer.isBuffer(content) ? [] : content.replace(/\n$/, '').split('\n');
@@ -382,6 +383,10 @@ export function createExampleStore(now: () => number = Date.now) {
   const branches = new Map<number, Map<string, Files>>();
   const mergeRequests = new Map<number, ExampleMergeRequest[]>();
   const commits = new Map<string, ExampleCommit>();
+  /** The last commit of every branch that commits created, per repository. */
+  const heads = new Map<number, Map<string, string>>();
+  /** What merges made of a default branch; without one it holds the example's own files. */
+  const mains = new Map<number, Files>();
 
   /**
    * The files of a ref: the example's own for its default branch (`HEAD` names it too), what
@@ -389,7 +394,7 @@ export function createExampleStore(now: () => number = Date.now) {
    */
   function filesOf(id: number, defaultBranch: string, ref?: string): Files | undefined {
     if (ref === undefined || ref === defaultBranch || ref === 'HEAD') {
-      return EXAMPLE_REPOSITORIES[id]?.files;
+      return mains.get(id) ?? EXAMPLE_REPOSITORIES[id]?.files;
     }
     return branches.get(id)?.get(ref);
   }
@@ -474,7 +479,45 @@ export function createExampleStore(now: () => number = Date.now) {
         })),
       };
       commits.set(sha, commit);
+      heads.set(id, new Map(heads.get(id)).set(input.branch, sha));
       return commit;
+    },
+    /**
+     * Merges a merge request as GitLab's API does: an open one that is no draft, and only while
+     * `sha` is still its last commit. The target branch takes the files of the source branch.
+     */
+    merge(
+      id: number,
+      target: ExampleTarget,
+      iid: number,
+      options: { sha?: string; removeSourceBranch: boolean },
+    ): ExampleMergeRequest | Refusal {
+      const created = mergeRequests.get(id) ?? [];
+      const found = mergeRequestsOf(id).find((entry) => entry.iid === iid);
+      if (!found) return { status: 404, message: '404 Not found' };
+      const source = filesOf(id, target.defaultBranch, found.source_branch);
+      const into = filesOf(id, target.defaultBranch, found.target_branch);
+      // The examples' own merge requests have no branch here; they cannot be merged.
+      if (found.state !== 'opened' || found.draft || !source || !into || !created.includes(found)) {
+        return { status: 405, message: '405 Method Not Allowed' };
+      }
+      if (options.sha !== undefined && options.sha !== found.sha) {
+        return { status: 409, message: 'SHA does not match HEAD of source branch' };
+      }
+      const files = { ...into, ...source };
+      if (found.target_branch === target.defaultBranch) mains.set(id, files);
+      else branches.get(id)?.set(found.target_branch, files);
+      if (options.removeSourceBranch) branches.get(id)?.delete(found.source_branch);
+      const merged: ExampleMergeRequest = {
+        ...found,
+        state: 'merged',
+        updated_at: new Date(now()).toISOString(),
+      };
+      mergeRequests.set(
+        id,
+        created.map((entry) => (entry === found ? merged : entry)),
+      );
+      return merged;
     },
     /** A merge request as GitLab's API opens it: one per source branch while it is open. */
     addMergeRequest(
@@ -509,6 +552,8 @@ export function createExampleStore(now: () => number = Date.now) {
         updated_at: new Date(now()).toISOString(),
         notes: [],
         web_url: `${target.webUrl}/-/merge_requests/${String(iid)}`,
+        // Its last commit is the one of its branch; a branch without one is the default branch.
+        sha: heads.get(id)?.get(fields.sourceBranch) ?? gitBlobId(fields.sourceBranch),
         diffs: diffsBetween(source, into),
       };
       mergeRequests.set(id, [...(mergeRequests.get(id) ?? []), mergeRequest]);
@@ -764,8 +809,33 @@ export function addExampleRepositoryRoutes(
       listed(repository.mergeRequests, c.req.query('state'), undefined)
         .filter((entry) => source === undefined || entry.source_branch === source)
         .filter((entry) => into === undefined || entry.target_branch === into)
-        .map(withoutDetails),
+        .map((entry) => answered(repository.target, entry)),
     );
+  });
+
+  /**
+   * A merge request as GitLab answers it: without what it hands out in calls of its own, with
+   * where its page is, its last commit, and that its branches fit together.
+   */
+  function answered(target: ExampleTarget, entry: ExampleMergeRequest) {
+    return {
+      ...withoutDetails(entry),
+      web_url: entry.web_url ?? `${target.webUrl}/-/merge_requests/${String(entry.iid)}`,
+      sha: entry.sha ?? gitBlobId(`${entry.source_branch} ${String(entry.iid)}`),
+      has_conflicts: false,
+    };
+  }
+
+  routes.put('/api/v4/projects/:id/merge_requests/:iid/merge', async (c) => {
+    const repository = find(c.req.param('id'));
+    if (!repository) return c.json(notFound, 404);
+    const body = await fields(c.req);
+    const merged = store.merge(repository.id, repository.target, Number(c.req.param('iid')), {
+      ...(typeof body?.sha === 'string' ? { sha: body.sha } : {}),
+      removeSourceBranch: body?.should_remove_source_branch === true,
+    });
+    if ('status' in merged) return c.json({ message: merged.message }, merged.status);
+    return c.json(answered(repository.target, merged));
   });
 
   routes.post('/api/v4/projects/:id/merge_requests', async (c) => {
@@ -781,7 +851,7 @@ export function addExampleRepositoryRoutes(
       targetBranch: text(body?.target_branch),
     });
     if ('status' in created) return c.json({ message: created.message }, created.status);
-    return c.json(withoutDetails(created), 201);
+    return c.json(answered(repository.target, created), 201);
   });
 
   routes.post('/api/v4/projects/:id/repository/commits', async (c) => {
@@ -829,8 +899,9 @@ export function addExampleRepositoryRoutes(
     find(id)?.mergeRequests.find((entry) => String(entry.iid) === iid);
 
   routes.get('/api/v4/projects/:id/merge_requests/:iid', (c) => {
+    const repository = find(c.req.param('id'));
     const found = mergeRequest(c.req.param('id'), c.req.param('iid'));
-    return found ? c.json(withoutDetails(found)) : c.json(notFound, 404);
+    return repository && found ? c.json(answered(repository.target, found)) : c.json(notFound, 404);
   });
 
   routes.get('/api/v4/projects/:id/merge_requests/:iid/diffs', (c) => {

@@ -4,6 +4,7 @@ import type {
   GitIssuesInput,
   GitLog,
   GitMergeRequestPlan,
+  GitMergeRequests,
   GitRequestCreated,
   GitRequests,
   GitRequestsApproved,
@@ -30,6 +31,10 @@ export function gitLogQueryKey(projectId: string) {
 
 export function gitMergeRequestQueryKey(projectId: string) {
   return [...gitQueryKey(projectId), 'merge-request'] as const;
+}
+
+export function gitMergeRequestsQueryKey(projectId: string) {
+  return [...gitQueryKey(projectId), 'merge-requests'] as const;
 }
 
 const base = (projectId: string) => `/projects/${encodeURIComponent(projectId)}/git`;
@@ -76,12 +81,29 @@ export function gitMergeRequestQuery(projectId: string) {
   });
 }
 
-/** Loads again what a request changed: the queue, the tasks' issues, the package and the log. */
+/** The open merge requests of the repository (spec 29d); loaded whenever their dialog opens. */
+export function gitMergeRequestsQuery(projectId: string) {
+  return queryOptions({
+    queryKey: gitMergeRequestsQueryKey(projectId),
+    queryFn: () => api<GitMergeRequests>(`${base(projectId)}/merge-requests`),
+    staleTime: 0,
+    gcTime: 0,
+  });
+}
+
+/**
+ * Loads again what a request changed: the queue, the tasks' issues, the package, the open merge
+ * requests and the log.
+ */
 function reloadRequests(queryClient: QueryClient, projectId: string) {
   return Promise.all(
-    [gitRequestsQueryKey, gitIssuesQueryKey, gitLogQueryKey, gitMergeRequestQueryKey].map((key) =>
-      queryClient.invalidateQueries({ queryKey: key(projectId), exact: true }),
-    ),
+    [
+      gitRequestsQueryKey,
+      gitIssuesQueryKey,
+      gitLogQueryKey,
+      gitMergeRequestQueryKey,
+      gitMergeRequestsQueryKey,
+    ].map((key) => queryClient.invalidateQueries({ queryKey: key(projectId), exact: true })),
   );
 }
 
@@ -104,6 +126,18 @@ export function useRequestMergeRequest(projectId: string) {
   return useMutation({
     mutationFn: () =>
       api<GitRequestCreated>(`${base(projectId)}/merge-request`, { method: 'POST' }),
+    onSettled: () => reloadRequests(queryClient, projectId),
+  });
+}
+
+/** Makes the request to merge an open merge request, by its number. */
+export function useRequestMerge(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (number: number) =>
+      api<GitRequestCreated>(`${base(projectId)}/merge-requests/${String(number)}/merge`, {
+        method: 'POST',
+      }),
     onSettled: () => reloadRequests(queryClient, projectId),
   });
 }

@@ -257,6 +257,34 @@ describe('Git requests under "Wartet auf dich"', () => {
     );
   });
 
+  it('names the merge request a request merges (spec 29d)', () => {
+    const merging = request({
+      kind: 'merge',
+      actions: [
+        action({
+          kind: 'merge',
+          title: '!7 Login per Link',
+          status: 'done',
+          result: { number: 7, url: `${REPOSITORY_URL}/-/merge_requests/7`, existed: false },
+        }),
+      ],
+    });
+    const { section } = renderWaiting([
+      { ...merging, id: id(), status: 'waiting' },
+      { ...merging, status: 'done' },
+    ]);
+
+    const [card] = within(section).getAllByRole('listitem');
+    if (!card) throw new Error('The card is missing');
+    expect(card).toHaveTextContent('!7 Login per Link in vereins-app mergen');
+    expect(section).toHaveTextContent('!7 Login per Link in vereins-app gemergt');
+    fireEvent.click(within(card).getByRole('button', { name: 'Ansehen' }));
+    expect(within(card).getByRole('link', { name: '!7' })).toHaveAttribute(
+      'href',
+      `${REPOSITORY_URL}/-/merge_requests/7`,
+    );
+  });
+
   it('counts what the person can decide', () => {
     const requests = [
       request(),

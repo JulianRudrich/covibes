@@ -9,6 +9,7 @@ import {
   type GitIssuePlan,
   type GitLog,
   type GitMergeRequestPlan,
+  type GitMergeRequests,
   type GitRequestCreated,
   type GitRequests,
   type GitRequestsApproved,
@@ -650,5 +651,121 @@ describe('the plan package as a merge request (spec 29c)', () => {
       padding: 'x'.repeat(70_000),
     });
     expect(large.status).toBe(413);
+  });
+});
+
+describe('merging a merge request (spec 29d)', () => {
+  const openMergeRequests = async (git: string, cookie: string) => {
+    const response = await request(`${git}/merge-requests`, cookie);
+    expect(response.status).toBe(200);
+    return (await response.json()) as GitMergeRequests;
+  };
+
+  /** A project whose plan package is a merge request in its repository; its number there. */
+  async function packaged(repositoryId: number) {
+    const project = await createProject({ repositoryId });
+    const made = await post(`${project.git}/merge-request`, project.owner);
+    const { requestId } = (await made.json()) as GitRequestCreated;
+    await approve(project.git, project.owner, [requestId]);
+    expect(await runJob(requestId)).toBe('done');
+    const open = await openMergeRequests(project.git, project.owner);
+    const number = open.mergeRequests?.[0]?.number ?? 0;
+    return { ...project, number, merge: `${project.git}/merge-requests/${String(number)}/merge` };
+  }
+
+  it('lists the open merge requests of the repository, with what the person may do', async () => {
+    const project = await createProject();
+    const viewer = await member(project.projectId, 'viewer');
+    const stranger = await test.signIn();
+
+    const list = await openMergeRequests(project.git, project.owner);
+
+    expect(list).toMatchObject({
+      repository: { id: 101 },
+      canRequest: true,
+      canApprove: true,
+      hasAccount: true,
+    });
+    // The example's draft is always there; other tests may have opened more.
+    expect(list.mergeRequests?.find((entry) => entry.number === 1)).toMatchObject({
+      title: 'Login per E-Mail-Link',
+      draft: true,
+      conflicts: false,
+      requested: false,
+      sourceBranch: 'feature/login',
+      targetBranch: 'main',
+      author: 'Olga Beispiel',
+      url: `${APP_URL}/api/dev/gitlab/beispiel-verein/vereins-app/-/merge_requests/1`,
+    });
+    expect(await openMergeRequests(project.git, viewer)).toMatchObject({ canRequest: false });
+    expect((await request(`${project.git}/merge-requests`, stranger)).status).toBe(404);
+    expect((await request(`${project.git}/merge-requests`, null)).status).toBe(401);
+
+    const bare = await createProject({ repositoryId: null });
+    expect(await openMergeRequests(bare.git, bare.owner)).toMatchObject({
+      repository: null,
+      mergeRequests: null,
+    });
+  });
+
+  it('makes one request per merge request, and none for a draft or what is not there', async () => {
+    const project = await packaged(101);
+    const editor = await member(project.projectId, 'editor');
+    const viewer = await member(project.projectId, 'viewer');
+    const draft = await createProject();
+
+    expect((await post(project.merge, viewer)).status).toBe(403);
+    expect((await post(project.merge, null)).status).toBe(401);
+    expect((await post(`${project.git}/merge-requests/99/merge`, editor)).status).toBe(404);
+    expect((await post(`${project.git}/merge-requests/nope/merge`, editor)).status).toBe(404);
+    expect((await post(`${draft.git}/merge-requests/1/merge`, draft.owner)).status).toBe(400);
+
+    const made = await post(project.merge, editor);
+    expect(made.status).toBe(201);
+    const { requestId } = (await made.json()) as GitRequestCreated;
+    const { requests } = await requestsOf(project.git, project.owner);
+    const waiting = requests.find((entry) => entry.id === requestId);
+    expect(waiting).toMatchObject({ kind: 'merge', status: 'waiting' });
+    expect(waiting?.actions.map((action) => [action.kind, action.title])).toEqual([
+      ['merge', `!${String(project.number)} Projektplan, Feature-Specs und Diagramme aus Covibes`],
+    ]);
+    expect(
+      (await openMergeRequests(project.git, editor)).mergeRequests?.find(
+        (entry) => entry.number === project.number,
+      )?.requested,
+    ).toBe(true);
+    const again = await post(project.merge, project.owner);
+    expect(again.status).toBe(409);
+    expect((await errorOf(again)).code).toBe('already_running');
+  });
+
+  it('merges once it is approved: the default branch then holds the package', async () => {
+    // "Notizen" is the repository no other test merges into.
+    const project = await packaged(103);
+    const made = await post(project.merge, project.owner);
+    const { requestId } = (await made.json()) as GitRequestCreated;
+    await approve(project.git, project.owner, [requestId]);
+
+    expect(await runJob(requestId)).toBe('done');
+
+    const log = (await (await request(`${project.git}/log`, project.owner)).json()) as GitLog;
+    expect(log.requests[0]).toMatchObject({ kind: 'merge', status: 'done' });
+    expect(log.requests[0]?.actions[0]).toMatchObject({
+      kind: 'merge',
+      status: 'done',
+      result: { number: project.number, existed: false },
+    });
+    // It is no longer open, and the package is in the repository: nothing differs any more.
+    const open = await openMergeRequests(project.git, project.owner);
+    expect(open.mergeRequests?.map((entry) => entry.number)).not.toContain(project.number);
+    const response = await request(`${project.git}/merge-request`, project.owner);
+    const plan = (await response.json()) as GitMergeRequestPlan;
+    expect(plan.files?.every((file) => file.state === 'same' || file.state === 'kept')).toBe(true);
+    expect((await post(`${project.git}/merge-request`, project.owner)).status).toBe(400);
+    // The spec an issue links to is a file of the default branch now.
+    const spec = await test.app.request(
+      `${APP_URL}/api/dev/gitlab/olga.beispiel/notizen/-/blob/master/context/feature-specs/01-01-projekt-aufsetzen.md`,
+    );
+    expect(spec.status).toBe(200);
   });
 });

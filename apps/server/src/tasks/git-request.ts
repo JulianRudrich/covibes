@@ -3,6 +3,7 @@ import {
   gitCommitPayloadSchema,
   gitIssueMark,
   gitIssuePayloadSchema,
+  gitMergePayloadSchema,
   gitMergeRequestPayloadSchema,
   gitMilestonePayloadSchema,
   type GitActionError,
@@ -39,7 +40,7 @@ type Action = Selectable<DB['git_actions']>;
 const STOPS: readonly GitActionError[] = ['unreachable', 'no_account', 'not_found'];
 
 /**
- * Runs an approved Git request (specs 29b and 29c): its actions in their order, with the access
+ * Runs an approved Git request (specs 29b to 29d): its actions in their order, with the access
  * of the person who approved it. Every action records its outcome, which is the log of Git
  * actions.
  *
@@ -178,6 +179,9 @@ export async function runGitRequest(
           continue;
         }
         await finish(action, await writer.openMergeRequest(mergeRequest));
+      } else if (action.kind === 'merge') {
+        const merge = gitMergePayloadSchema.parse(action.payload);
+        await finish(action, await writer.mergeMergeRequest(merge));
       } else {
         await fail(action, 'invalid', 'The kind of action is unknown');
       }

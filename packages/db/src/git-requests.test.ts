@@ -233,7 +233,7 @@ describe('create_git_request', () => {
     ).rejects.toMatchObject(invalid);
     // A kind the table does not know.
     await expect(
-      create(OWNER, projectId, [{ kind: 'merge', payload: { title: 'x' } }]),
+      create(OWNER, projectId, [{ kind: 'tag', payload: { title: 'x' } }]),
     ).rejects.toMatchObject({ code: '23514' });
     await expect(
       commitAs(OWNER, (client) =>
@@ -683,5 +683,57 @@ describe('a request for the plan package (spec 29c)', () => {
         requestId,
       ]),
     ).rejects.toMatchObject({ code: '23514' });
+  });
+});
+
+describe('a request to merge (spec 29d)', () => {
+  const merge = (number: number) => ({
+    kind: 'merge',
+    payload: { title: `!${String(number)} Login per Link`, number, sha: 'abc123' },
+  });
+  const createMerge = (userId: string, projectId: string, actions: unknown) =>
+    commitAs(userId, async (client) => {
+      const { rows } = await client.query<{ id: string }>(
+        `select public.create_git_request($1, 'merge', $2::jsonb) as id`,
+        [projectId, JSON.stringify(actions)],
+      );
+      return rows[0]?.id ?? '';
+    });
+
+  it('holds the merging of one merge request as its action', async () => {
+    const projectId = await newProject();
+
+    const requestId = await createMerge(EDITOR, projectId, [merge(7)]);
+
+    expect(await request(requestId)).toMatchObject({ status: 'waiting', requested_by: EDITOR });
+    expect((await actions(requestId)).map((action) => [action.kind, action.title])).toEqual([
+      ['merge', '!7 Login per Link'],
+    ]);
+    // A merge names its merge request.
+    await expect(
+      createMerge(OWNER, projectId, [{ kind: 'merge', payload: { title: 'x' } }]),
+    ).rejects.toMatchObject({ code: '22023' });
+  });
+
+  it('waits alone per merge request, in its repository', async () => {
+    const projectId = await newProject();
+    const first = await createMerge(EDITOR, projectId, [merge(7)]);
+    const taken = { code: '23505' };
+
+    await expect(createMerge(OWNER, projectId, [merge(7)])).rejects.toMatchObject(taken);
+    // Another merge request, and the package, are not held up.
+    expect(await createMerge(OWNER, projectId, [merge(8)])).toMatch(/^[0-9a-f-]{36}$/);
+
+    // Neither while it runs, nor after it failed; once it is decided, it can be asked for again.
+    await approve(OWNER, projectId, [first]);
+    await expect(createMerge(OWNER, projectId, [merge(7)])).rejects.toMatchObject(taken);
+    await admin.query(`update git_requests set status = 'failed' where id = $1`, [first]);
+    await expect(createMerge(OWNER, projectId, [merge(7)])).rejects.toMatchObject(taken);
+    await reject(OWNER, projectId, first);
+    expect(await createMerge(OWNER, projectId, [merge(7)])).toMatch(/^[0-9a-f-]{36}$/);
+
+    // The same number in another repository is another merge request.
+    const other = await newProject({ repository: 102 });
+    expect(await createMerge(EDITOR, other, [merge(7)])).toMatch(/^[0-9a-f-]{36}$/);
   });
 });

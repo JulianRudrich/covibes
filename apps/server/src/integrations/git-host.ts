@@ -1,4 +1,4 @@
-// Writing to a repository (specs 29b and 29c), in words that name no host: what the job of a Git
+// Writing to a repository (specs 29b to 29d), in words that name no host: what the job of a Git
 // request needs from wherever the repository is. GitLab does it first (`gitlab/writer.ts`); a second host
 // is added next to it and the job stays as it is.
 
@@ -91,6 +91,11 @@ export type RepositoryWriter = {
     /** Markdown. */
     description: string;
   }): Promise<WrittenMergeRequest>;
+  /**
+   * Merges a merge request, and only while `sha` is still its last commit: what was approved is
+   * what is merged. One that is merged already counts as done (`existed`).
+   */
+  mergeMergeRequest(input: { number: number; sha: string | null }): Promise<WrittenMergeRequest>;
 };
 
 /** The writer of a repository for a person's access token. */

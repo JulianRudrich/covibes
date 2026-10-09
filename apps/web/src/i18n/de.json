@@ -79,7 +79,8 @@
       "title": "Du bist nicht mehr in diesem Projekt",
       "text": "Ein Owner hat dich aus „{{project}}“ entfernt. Wenn das ein Versehen war, bitte um eine neue Einladung."
     },
-    "gitLog": "Git-Protokoll …"
+    "gitLog": "Git-Protokoll …",
+    "mergeRequests": "Merge Requests …"
   },
   "share": {
     "title": "„{{project}}“ teilen",
@@ -951,7 +952,9 @@
         "blocked": "Ein Schritt davor hat nicht geklappt."
       },
       "summaryMergeRequest": "<b>Merge Request</b> mit dem Plan-Paket in <repo>{{repository}}</repo> anlegen",
-      "doneMergeRequest": "<b>Merge Request</b> mit dem Plan-Paket in <repo>{{repository}}</repo> angelegt"
+      "doneMergeRequest": "<b>Merge Request</b> mit dem Plan-Paket in <repo>{{repository}}</repo> angelegt",
+      "summaryMerge": "<b>{{title}}</b> in <repo>{{repository}}</repo> mergen",
+      "doneMerge": "<b>{{title}}</b> in <repo>{{repository}}</repo> gemergt"
     },
     "actions": {
       "created": "angelegt",
@@ -1057,6 +1060,29 @@
         "approveFailed": "Der Antrag ist angelegt, aber die Freigabe hat nicht geklappt. Er wartet unter „Wartet auf dich“.",
         "taken": "Ein Antrag für das Paket wartet schon.",
         "notStored": "Ein Text des Pakets ist noch nicht gespeichert. Bitte versuche es noch einmal.",
+        "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+      }
+    },
+    "merge": {
+      "title": "Merge Requests",
+      "hint": "Die offenen Merge Requests im Repository. Gemergt wird erst nach Freigabe, und nur der Stand, der beim Vorlegen da war.",
+      "loadFailed": "Die Merge Requests konnten nicht geladen werden. Bitte versuche es noch einmal.",
+      "unreachable": "Das Repository konnte nicht gelesen werden. Vielleicht ist der Zugriff abgelaufen.",
+      "noRepository": "Dieses Projekt hat noch kein Repository. Ein Owner wählt es im Projektmenü unter „Repository …“.",
+      "empty": "Im Repository ist kein Merge Request offen.",
+      "draft": "Entwurf",
+      "conflicts": "Konflikte mit dem Zielbranch",
+      "requested": "wartet auf Freigabe",
+      "merge": "Mergen",
+      "propose": "Vorlegen",
+      "mergeOne": "Merge Request !{{number}} mergen",
+      "proposeOne": "Merge Request !{{number}} zum Mergen vorlegen",
+      "readOnly": "Zum Mergen legen Owner und Editoren vor.",
+      "outcome": {
+        "started": "Wird gemergt. Den Stand siehst du unter „Wartet auf dich“.",
+        "proposed": "Vorgelegt. Der Antrag wartet unter „Wartet auf dich“ auf die Freigabe.",
+        "approveFailed": "Der Antrag ist angelegt, aber die Freigabe hat nicht geklappt. Er wartet unter „Wartet auf dich“.",
+        "taken": "Dafür wartet schon ein Antrag.",
         "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
       }
     }

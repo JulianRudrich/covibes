@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { RepositoryWriteError } from '@server/integrations/git-host';
 import { createGitlabClient } from '@server/integrations/gitlab/client';
 import { createGitlabStandIn } from '@server/integrations/gitlab/dev/stand-in';
+import {
+  listOpenMergeRequests,
+  readMergeRequest,
+} from '@server/integrations/gitlab/merge-requests';
 import { DEV_GITLAB_CLIENT } from '@server/integrations/gitlab/setup';
 import { gitlabWriter } from '@server/integrations/gitlab/writer';
 
@@ -392,5 +396,155 @@ describe('openMergeRequest', () => {
       code: 'invalid',
       detail: 'The source or the target branch does not exist',
     });
+  });
+});
+
+describe('mergeMergeRequest', () => {
+  const BRANCH = 'covibes/plan-2026-10-09-d4e5f6';
+
+  /** A merge request with one new file, as an approved request for the package leaves it. */
+  async function opened() {
+    const context = await setUp();
+    await context.writer.commitFiles({
+      branch: BRANCH,
+      startBranch: 'main',
+      message: 'Plan',
+      files: [{ path: 'CLAUDE.md', content: '# Vereins-App\n', mode: 'write' }],
+    });
+    const { number } = await context.writer.openMergeRequest({
+      sourceBranch: BRANCH,
+      targetBranch: 'main',
+      title: 'Projektplan aus Covibes',
+      description: '',
+    });
+    const target = { baseUrl: SOURCE.baseUrl, repositoryId: 101 };
+    const read = () => readMergeRequest(context.client, target, context.accessToken, number);
+    return { ...context, number, target, read };
+  }
+
+  it('merges while the merge request still ends with the commit that was approved', async () => {
+    const { writer, number, read, get, client, target, accessToken } = await opened();
+    const before = await read();
+    expect(before).toMatchObject({ state: 'opened', draft: false, conflicts: false });
+    expect(before?.sha).toMatch(/^[0-9a-f]{40}$/);
+    expect((await get('/beispiel-verein/vereins-app/-/blob/main/CLAUDE.md')).status).toBe(404);
+
+    const merged = await writer.mergeMergeRequest({ number, sha: before?.sha ?? null });
+
+    expect(merged).toEqual({
+      number,
+      url: `http://gitlab.test/beispiel-verein/vereins-app/-/merge_requests/${String(number)}`,
+      existed: false,
+    });
+    expect((await read())?.state).toBe('merged');
+    // The default branch holds the file now, and the branch is gone.
+    expect((await get('/beispiel-verein/vereins-app/-/blob/main/CLAUDE.md')).status).toBe(200);
+    expect((await get(`/beispiel-verein/vereins-app/-/blob/${BRANCH}/CLAUDE.md`)).status).toBe(404);
+    // It is no longer among the open ones.
+    const open = await listOpenMergeRequests(client, target, accessToken);
+    expect(open.map((entry) => entry.number)).not.toContain(number);
+  });
+
+  it('counts a merge request that is merged already as done', async () => {
+    const { writer, number, read, calls } = await opened();
+    const sha = (await read())?.sha ?? null;
+    await writer.mergeMergeRequest({ number, sha });
+    calls.length = 0;
+
+    expect(await writer.mergeMergeRequest({ number, sha })).toMatchObject({
+      number,
+      existed: true,
+    });
+    expect(calls.filter((call) => call.startsWith('PUT'))).toEqual([]);
+  });
+
+  it('does not merge what got another last commit since the request', async () => {
+    const { writer, number, read } = await opened();
+    const approved = (await read())?.sha ?? null;
+    // Someone pushes to the branch after the request was made.
+    await writer.commitFiles({
+      branch: BRANCH,
+      startBranch: 'main',
+      message: 'Noch etwas',
+      files: [{ path: 'AGENTS.md', content: '# Später\n', mode: 'write' }],
+    });
+
+    await expect(writer.mergeMergeRequest({ number, sha: 'a'.repeat(40) })).rejects.toMatchObject({
+      code: 'invalid',
+      detail: 'SHA does not match HEAD of source branch',
+    });
+    expect((await read())?.state).toBe('opened');
+    // Without a commit to hold on to, GitLab merges what is there.
+    expect(approved).not.toBeNull();
+    expect(await writer.mergeMergeRequest({ number, sha: null })).toMatchObject({
+      existed: false,
+    });
+  });
+
+  it('fails with GitLab’s reason for a draft, a closed and a missing merge request', async () => {
+    const { writer, answer } = await setUp();
+
+    // The example's own merge request !1 is a draft.
+    await expect(writer.mergeMergeRequest({ number: 1, sha: null })).rejects.toMatchObject({
+      code: 'invalid',
+      detail: '405 Method Not Allowed',
+    });
+    await expect(writer.mergeMergeRequest({ number: 99, sha: null })).rejects.toMatchObject({
+      code: 'not_found',
+    });
+    answer.next = Response.json({
+      iid: 5,
+      title: 'Zu',
+      state: 'closed',
+      web_url: 'http://gitlab.test/x/-/merge_requests/5',
+      source_branch: 'a',
+      target_branch: 'main',
+    });
+    await expect(writer.mergeMergeRequest({ number: 5, sha: null })).rejects.toMatchObject({
+      code: 'invalid',
+      detail: 'The merge request is closed',
+    });
+    answer.next = new Response('{"message":"403 Forbidden"}', { status: 403 });
+    await expect(writer.mergeMergeRequest({ number: 1, sha: null })).rejects.toMatchObject({
+      code: 'forbidden',
+    });
+  });
+});
+
+describe('listOpenMergeRequests', () => {
+  it('lists what is open with what merging needs, the latest changed first', async () => {
+    const { client, accessToken, writer } = await setUp();
+    const target = { baseUrl: SOURCE.baseUrl, repositoryId: 101 };
+    await writer.commitFiles({
+      branch: 'feature/x',
+      startBranch: 'main',
+      message: 'X',
+      files: [{ path: 'x.md', content: 'x\n', mode: 'write' }],
+    });
+    await writer.openMergeRequest({
+      sourceBranch: 'feature/x',
+      targetBranch: 'main',
+      title: 'X einbauen',
+      description: '',
+    });
+
+    const open = await listOpenMergeRequests(client, target, accessToken);
+
+    expect(open.map((entry) => [entry.number, entry.title, entry.draft])).toEqual([
+      [3, 'X einbauen', false],
+      [1, 'Login per E-Mail-Link', true],
+    ]);
+    expect(open[0]).toMatchObject({
+      state: 'opened',
+      url: 'http://gitlab.test/beispiel-verein/vereins-app/-/merge_requests/3',
+      sourceBranch: 'feature/x',
+      targetBranch: 'main',
+      author: 'Olga Beispiel',
+      conflicts: false,
+    });
+    expect(await readMergeRequest(client, target, accessToken, 2)).toMatchObject({
+      state: 'merged',
+    });
+    expect(await readMergeRequest(client, target, accessToken, 99)).toBeUndefined();
   });
 });

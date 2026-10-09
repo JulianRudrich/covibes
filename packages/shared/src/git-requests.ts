@@ -2,13 +2,16 @@ import { z } from 'zod';
 
 import type { GitRepository } from './git';
 
-// Git actions and their approval (specs 29b and 29c). Everything that changes something in a
+// Git actions and their approval (specs 29b to 29d). Everything that changes something in a
 // repository is a request that waits for approval; its actions are the single changes, and with
 // their outcomes they are the log. Nothing here names a host: an action says what is created, not
 // how GitLab is asked for it.
 
-/** What a request is for: issues from the plan, or the plan package as a merge request. */
-export const GIT_REQUEST_KINDS = ['issues', 'merge_request'] as const;
+/**
+ * What a request is for: issues from the plan, the plan package as a merge request, or merging a
+ * merge request.
+ */
+export const GIT_REQUEST_KINDS = ['issues', 'merge_request', 'merge'] as const;
 export type GitRequestKind = (typeof GIT_REQUEST_KINDS)[number];
 
 /**
@@ -28,9 +31,9 @@ export type GitRequestStatus = (typeof GIT_REQUEST_STATUSES)[number];
 
 /**
  * A single change in the repository: a milestone that must be there, a new issue, a commit of
- * files on a branch, or a merge request for a branch.
+ * files on a branch, a merge request for a branch, or the merging of a merge request.
  */
-export const GIT_ACTION_KINDS = ['milestone', 'issue', 'commit', 'merge_request'] as const;
+export const GIT_ACTION_KINDS = ['milestone', 'issue', 'commit', 'merge_request', 'merge'] as const;
 export type GitActionKind = (typeof GIT_ACTION_KINDS)[number];
 
 /**
@@ -134,12 +137,29 @@ export const gitMergeRequestPayloadSchema = z
   .strict();
 export type GitMergeRequestPayload = z.infer<typeof gitMergeRequestPayloadSchema>;
 
+/** The merging of a merge request, as it was when the request was made. */
+export const gitMergePayloadSchema = z
+  .object({
+    /** What the list of actions calls it: its number and title, e.g. "!7 Login per Link". */
+    title: z.string().min(1).max(255),
+    /** Its number in the repository. */
+    number: z.number().int().positive(),
+    /**
+     * Its last commit when the request was made. It is only merged while that is still its last
+     * commit: what was approved is what is merged. Null if the host named none.
+     */
+    sha: z.string().min(1).max(100).nullable(),
+  })
+  .strict();
+export type GitMergePayload = z.infer<typeof gitMergePayloadSchema>;
+
 /** An action as it is asked for, before it has an id and an outcome. */
 export const gitActionDraftSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('milestone'), payload: gitMilestonePayloadSchema }).strict(),
   z.object({ kind: z.literal('issue'), payload: gitIssuePayloadSchema }).strict(),
   z.object({ kind: z.literal('commit'), payload: gitCommitPayloadSchema }).strict(),
   z.object({ kind: z.literal('merge_request'), payload: gitMergeRequestPayloadSchema }).strict(),
+  z.object({ kind: z.literal('merge'), payload: gitMergePayloadSchema }).strict(),
 ]);
 export type GitActionDraft = z.infer<typeof gitActionDraftSchema>;
 /** The actions of a request for issues, and of one for a merge request. */
@@ -261,4 +281,35 @@ export type GitMergeRequestPlan = {
   pending: boolean;
   /** The merge request the last request opened in this repository. */
   last: { number: number; url: string } | null;
+};
+
+/** An open merge request of the repository, as the dialog "Merge Requests" lists it (spec 29d). */
+export type GitOpenMergeRequest = {
+  /** Its number in the repository, as people write it: "!7". */
+  number: number;
+  title: string;
+  /** Its address in GitLab, for a link. */
+  url: string;
+  sourceBranch: string;
+  targetBranch: string;
+  /** Who opened it. */
+  author: string;
+  updatedAt: string | null;
+  /** It is marked as not ready; a draft is not merged. */
+  draft: boolean;
+  /** GitLab says its branches cannot be merged as they are. */
+  conflicts: boolean;
+  /** A request to merge it waits, runs or failed; a second one has to wait. */
+  requested: boolean;
+};
+
+/** `GET /api/projects/:projectId/git/merge-requests`: what can be merged. */
+export type GitMergeRequests = {
+  /** The repository; null while the project has none. */
+  repository: GitRepository | null;
+  canRequest: boolean;
+  canApprove: boolean;
+  hasAccount: boolean;
+  /** The open merge requests, the latest changed first; null if they could not be read. */
+  mergeRequests: GitOpenMergeRequest[] | null;
 };

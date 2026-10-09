@@ -29,6 +29,8 @@ import {
   type GitIssueTask,
   type GitLog,
   type GitMergeRequestPlan,
+  type GitMergeRequests,
+  type GitOpenMergeRequest,
   type GitRequest,
   type GitRequestCreated,
   type GitRequests,
@@ -46,9 +48,13 @@ import { withUser, type AppDb } from '@server/db/database';
 import { fileStates, foldersOf, listBlobs } from '@server/integrations/gitlab/blobs';
 import { GitlabError, type GitlabClient } from '@server/integrations/gitlab/client';
 import type { GitConnections } from '@server/integrations/gitlab/connections';
+import {
+  listOpenMergeRequests,
+  readMergeRequest,
+} from '@server/integrations/gitlab/merge-requests';
 import { loadAssignees } from '@server/plan/assignees';
 
-// Git requests and the log of Git actions (specs 29b and 29c). The database decides who makes,
+// Git requests and the log of Git actions (specs 29b to 29d). The database decides who makes,
 // approves, rejects and takes back a request; these routes word the actions and show what there
 // is.
 
@@ -204,10 +210,10 @@ type Documents = Pick<
 const SPECS_FOLDER = 'context/feature-specs';
 
 /**
- * Adds the routes of Git requests below `/api/projects/:projectId/git` (specs 29b and 29c): what
+ * Adds the routes of Git requests below `/api/projects/:projectId/git` (specs 29b to 29d): what
  * waits, approving, rejecting and taking back; the plan's tasks with their issues and the request
  * for new ones; the package next to the repository and the request for its merge request; the
- * log. `connection` reads the repository of a project as members see it.
+ * open merge requests and the request to merge one; the log. `connection` reads the repository of a project as members see it.
  */
 export function addGitRequestRoutes(
   routes: Hono<Env>,
@@ -589,6 +595,126 @@ export function addGitRequestRoutes(
       const created = await sql<{ id: string }>`
         select public.create_git_request(
           ${who.projectId}, 'merge_request', ${JSON.stringify(actions)}::jsonb
+        ) as id`.execute(trx);
+      return created.rows[0]?.id ?? '';
+    });
+    if ('error' in outcome) return outcome.error;
+    return c.json<GitRequestCreated>({ requestId: outcome.value }, 201);
+  });
+
+  /** The open merge requests of the project's repository, to merge from (spec 29d). */
+  routes.get('/merge-requests', async (c) => {
+    const who = asked(c);
+    if ('error' in who) return who.error;
+    const stored = await withUser(db, who.userId, async (trx) => {
+      const row = await member(trx, who.projectId, who.userId);
+      if (!row) return undefined;
+      const repository = await connection(trx, who.projectId);
+      const requested = repository
+        ? await trx
+            .selectFrom('git_actions')
+            .innerJoin('git_requests', 'git_requests.id', 'git_actions.request_id')
+            .select('git_actions.payload')
+            .where('git_actions.project_id', '=', who.projectId)
+            .where('git_actions.kind', '=', 'merge')
+            .where('git_requests.status', 'in', ['waiting', 'approved', 'failed'])
+            .where('git_requests.base_url', '=', repository.baseUrl)
+            .where('git_requests.repository_id', '=', String(repository.repository.id))
+            .execute()
+        : [];
+      return { row, repository, requested };
+    });
+    if (!stored) return apiError(c, 'not_found');
+
+    const waiting = new Set(
+      stored.requested.map((action) => (action.payload as { number?: unknown }).number),
+    );
+    let mergeRequests: GitOpenMergeRequest[] | null = null;
+    if (stored.repository) {
+      try {
+        const access = await git?.connections.access(who.projectId);
+        if (git && access) {
+          const open = await listOpenMergeRequests(
+            git.client,
+            { baseUrl: access.baseUrl, repositoryId: stored.repository.repository.id },
+            access.token,
+          );
+          mergeRequests = open.map((entry) => ({
+            number: entry.number,
+            title: entry.title,
+            url: entry.url,
+            sourceBranch: entry.sourceBranch,
+            targetBranch: entry.targetBranch,
+            author: entry.author,
+            updatedAt: entry.updatedAt,
+            draft: entry.draft,
+            conflicts: entry.conflicts,
+            requested: waiting.has(entry.number),
+          }));
+        }
+      } catch (error) {
+        // The repository could not be read; the dialog says so.
+        if (!(error instanceof GitlabError)) throw error;
+      }
+    }
+    return c.json<GitMergeRequests>({
+      repository: stored.repository?.repository ?? null,
+      canRequest: stored.row.role !== 'viewer',
+      canApprove: canApprove(stored.row),
+      hasAccount: await hasAccount(who.userId),
+      mergeRequests,
+    });
+  });
+
+  /**
+   * Makes the request to merge an open merge request. It remembers the merge request's last
+   * commit as it is now: what is approved is what is merged. A draft is not merged.
+   */
+  routes.post('/merge-requests/:number/merge', async (c) => {
+    const who = asked(c);
+    if ('error' in who) return who.error;
+    const number = z.coerce.number().int().positive().safeParse(c.req.param('number'));
+    if (!number.success) return apiError(c, 'not_found');
+    const stored = await withUser(db, who.userId, async (trx) => {
+      const row = await member(trx, who.projectId, who.userId);
+      if (!row) return undefined;
+      return { row, repository: await connection(trx, who.projectId) };
+    });
+    if (!stored) return apiError(c, 'not_found');
+    if (stored.row.role === 'viewer') return apiError(c, 'forbidden');
+    if (!stored.repository) return apiError(c, 'not_found');
+
+    let found: Awaited<ReturnType<typeof readMergeRequest>>;
+    try {
+      const access = await git?.connections.access(who.projectId);
+      if (!git || !access) return apiError(c, 'not_found');
+      found = await readMergeRequest(
+        git.client,
+        { baseUrl: access.baseUrl, repositoryId: stored.repository.repository.id },
+        access.token,
+        number.data,
+      );
+    } catch (error) {
+      if (!(error instanceof GitlabError)) throw error;
+      return apiError(c, 'internal');
+    }
+    if (!found) return apiError(c, 'not_found');
+    if (found.state !== 'opened' || found.draft) return apiError(c, 'invalid_input');
+
+    const actions = [
+      {
+        kind: 'merge',
+        payload: {
+          title: `!${String(found.number)} ${found.title}`.slice(0, 255),
+          number: found.number,
+          sha: found.sha,
+        },
+      },
+    ];
+    const outcome = await decide(c, who.userId, async (trx) => {
+      const created = await sql<{ id: string }>`
+        select public.create_git_request(
+          ${who.projectId}, 'merge', ${JSON.stringify(actions)}::jsonb
         ) as id`.execute(trx);
       return created.rows[0]?.id ?? '';
     });

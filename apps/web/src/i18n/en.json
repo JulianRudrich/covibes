@@ -79,7 +79,8 @@
       "title": "You are no longer in this project",
       "text": "An owner removed you from \"{{project}}\". If that was a mistake, ask for a new invitation."
     },
-    "gitLog": "Git log …"
+    "gitLog": "Git log …",
+    "mergeRequests": "Merge requests …"
   },
   "share": {
     "title": "Share \"{{project}}\"",
@@ -951,7 +952,9 @@
         "blocked": "A step before it did not work."
       },
       "summaryMergeRequest": "Open a <b>merge request</b> with the plan package in <repo>{{repository}}</repo>",
-      "doneMergeRequest": "<b>Merge request</b> with the plan package opened in <repo>{{repository}}</repo>"
+      "doneMergeRequest": "<b>Merge request</b> with the plan package opened in <repo>{{repository}}</repo>",
+      "summaryMerge": "Merge <b>{{title}}</b> in <repo>{{repository}}</repo>",
+      "doneMerge": "<b>{{title}}</b> merged in <repo>{{repository}}</repo>"
     },
     "actions": {
       "created": "created",
@@ -1057,6 +1060,29 @@
         "approveFailed": "The request is made, but approving it did not work. It waits under “Waiting for you”.",
         "taken": "A request for the package waits already.",
         "notStored": "A text of the package is not stored yet. Please try again.",
+        "failed": "That did not work. Please try again."
+      }
+    },
+    "merge": {
+      "title": "Merge requests",
+      "hint": "The open merge requests in the repository. They are only merged after approval, and only as they were when the request was made.",
+      "loadFailed": "The merge requests could not be loaded. Please try again.",
+      "unreachable": "The repository could not be read. Maybe the access has expired.",
+      "noRepository": "This project has no repository yet. An owner picks it in the project menu under “Repository …”.",
+      "empty": "No merge request is open in the repository.",
+      "draft": "Draft",
+      "conflicts": "Conflicts with the target branch",
+      "requested": "waits for approval",
+      "merge": "Merge",
+      "propose": "Submit",
+      "mergeOne": "Merge merge request !{{number}}",
+      "proposeOne": "Submit merge request !{{number}} for merging",
+      "readOnly": "Owners and editors submit merge requests for merging.",
+      "outcome": {
+        "started": "It is being merged. You see how far it is under “Waiting for you”.",
+        "proposed": "Submitted. The request waits for approval under “Waiting for you”.",
+        "approveFailed": "The request is made, but approving it did not work. It waits under “Waiting for you”.",
+        "taken": "A request for this waits already.",
         "failed": "That did not work. Please try again."
       }
     }

@@ -143,14 +143,14 @@ export function gitRoutes(
   db: AppDb,
   auth: Auth,
   git: GitDeps | undefined,
-  documents: Pick<BoardDocuments, 'readPlanSections' | 'giveTaskIds'>,
+  documents: Pick<BoardDocuments, 'readPlanSections' | 'giveTaskIds' | 'readBoard' | 'readPlan'>,
 ) {
   const routes = new Hono<Env>();
   routes.use(sessionMiddleware(auth));
   addGitRequestRoutes(routes, {
     db,
     documents,
-    connections: git?.connections,
+    git,
     connection: loadConnection,
   });
 

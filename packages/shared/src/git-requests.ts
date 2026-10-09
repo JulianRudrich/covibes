@@ -2,13 +2,13 @@ import { z } from 'zod';
 
 import type { GitRepository } from './git';
 
-// Git actions and their approval (spec 29b). Everything that changes something in a repository is
-// a request that waits for approval; its actions are the single changes, and with their outcomes
-// they are the log. Nothing here names a host: an action says what is created, not how GitLab is
-// asked for it.
+// Git actions and their approval (specs 29b and 29c). Everything that changes something in a
+// repository is a request that waits for approval; its actions are the single changes, and with
+// their outcomes they are the log. Nothing here names a host: an action says what is created, not
+// how GitLab is asked for it.
 
-/** What a request is for. */
-export const GIT_REQUEST_KINDS = ['issues'] as const;
+/** What a request is for: issues from the plan, or the plan package as a merge request. */
+export const GIT_REQUEST_KINDS = ['issues', 'merge_request'] as const;
 export type GitRequestKind = (typeof GIT_REQUEST_KINDS)[number];
 
 /**
@@ -26,8 +26,11 @@ export const GIT_REQUEST_STATUSES = [
 ] as const;
 export type GitRequestStatus = (typeof GIT_REQUEST_STATUSES)[number];
 
-/** A single change in the repository: a milestone that must be there, or a new issue. */
-export const GIT_ACTION_KINDS = ['milestone', 'issue'] as const;
+/**
+ * A single change in the repository: a milestone that must be there, a new issue, a commit of
+ * files on a branch, or a merge request for a branch.
+ */
+export const GIT_ACTION_KINDS = ['milestone', 'issue', 'commit', 'merge_request'] as const;
 export type GitActionKind = (typeof GIT_ACTION_KINDS)[number];
 
 /**
@@ -40,7 +43,7 @@ export type GitActionStatus = (typeof GIT_ACTION_STATUSES)[number];
 /**
  * Why an action failed: the host refused the access; the repository is gone; the host did not
  * take what was sent; the host could not be reached; the approver has no account (any more); the
- * milestone of an issue was not there; anything else.
+ * milestone of an issue was not there; an action it builds on did not work; anything else.
  */
 export const GIT_ACTION_ERRORS = [
   'forbidden',
@@ -49,6 +52,7 @@ export const GIT_ACTION_ERRORS = [
   'unreachable',
   'no_account',
   'milestone',
+  'blocked',
   'failed',
 ] as const;
 export type GitActionError = (typeof GIT_ACTION_ERRORS)[number];
@@ -79,12 +83,71 @@ export const gitIssuePayloadSchema = z
   .strict();
 export type GitIssuePayload = z.infer<typeof gitIssuePayloadSchema>;
 
+/** Files one commit holds at most, and how much they weigh together as UTF-8. */
+export const MAX_GIT_FILES = 600;
+export const MAX_GIT_FILES_BYTES = 2 * 1024 * 1024;
+
+/** A path inside a repository: parts with forward slashes, none of them empty, "." or "..". */
+function isRepositoryPath(path: string): boolean {
+  return (
+    !path.includes('\\') &&
+    path.split('/').every((part) => part.trim() !== '' && part !== '.' && part !== '..')
+  );
+}
+
+/**
+ * A file of a commit. `write`: it is added, or changed where it differs. `create`: it is only
+ * added when it is missing; what the repository holds stays.
+ */
+export const gitFileSchema = z
+  .object({
+    /** Its path from the top of the repository, with forward slashes. */
+    path: z.string().min(1).max(300).refine(isRepositoryPath),
+    content: z.string(),
+    mode: z.enum(['write', 'create']),
+  })
+  .strict();
+export type GitFile = z.infer<typeof gitFileSchema>;
+
+/** A commit of files on a branch; the branch is started from another one if it is not there. */
+export const gitCommitPayloadSchema = z
+  .object({
+    /** What the list of actions calls it. */
+    title: z.string().min(1).max(255),
+    branch: z.string().min(1).max(200),
+    startBranch: z.string().min(1).max(255),
+    message: z.string().min(1).max(2000),
+    files: z.array(gitFileSchema).min(1).max(MAX_GIT_FILES),
+  })
+  .strict();
+export type GitCommitPayload = z.infer<typeof gitCommitPayloadSchema>;
+
+/** A merge request for a branch, which a commit before it made. */
+export const gitMergeRequestPayloadSchema = z
+  .object({
+    title: z.string().min(1).max(255),
+    /** Markdown. */
+    description: z.string().max(20_000),
+    sourceBranch: z.string().min(1).max(200),
+    targetBranch: z.string().min(1).max(255),
+  })
+  .strict();
+export type GitMergeRequestPayload = z.infer<typeof gitMergeRequestPayloadSchema>;
+
 /** An action as it is asked for, before it has an id and an outcome. */
 export const gitActionDraftSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('milestone'), payload: gitMilestonePayloadSchema }).strict(),
   z.object({ kind: z.literal('issue'), payload: gitIssuePayloadSchema }).strict(),
+  z.object({ kind: z.literal('commit'), payload: gitCommitPayloadSchema }).strict(),
+  z.object({ kind: z.literal('merge_request'), payload: gitMergeRequestPayloadSchema }).strict(),
 ]);
 export type GitActionDraft = z.infer<typeof gitActionDraftSchema>;
+/** The actions of a request for issues, and of one for a merge request. */
+export type GitIssueActionDraft = Extract<GitActionDraft, { kind: 'milestone' | 'issue' }>;
+export type GitMergeRequestActionDraft = Extract<
+  GitActionDraft,
+  { kind: 'commit' | 'merge_request' }
+>;
 
 /** A person as the log names them; the id is gone once the account is. */
 export type GitPerson = { userId: string | null; name: string };
@@ -170,3 +233,32 @@ export type GitRequestCreated = { requestId: string };
 
 /** `GET /api/projects/:projectId/git/log`: every request, the newest first. */
 export type GitLog = { requests: GitRequest[] };
+
+/**
+ * A file of the package next to the repository's default branch: it is not there yet; it is
+ * there in another form; it is the same; it is there and stays as it is (a file that is only
+ * added when missing).
+ */
+export type GitFileState = 'new' | 'changed' | 'same' | 'kept';
+
+/** `GET /api/projects/:projectId/git/merge-request`: the package next to the repository. */
+export type GitMergeRequestPlan = {
+  /** The repository the merge request goes to; null while the project has none. */
+  repository: GitRepository | null;
+  canRequest: boolean;
+  canApprove: boolean;
+  hasAccount: boolean;
+  /** The package's files compared with the default branch; null if there is no comparison. */
+  files: { path: string; state: GitFileState }[] | null;
+  /**
+   * Why there is no comparison: the plan is empty; the repository has no default branch; the
+   * package is too large for a request; the repository could not be read.
+   */
+  problem: 'no_plan' | 'no_branch' | 'too_large' | 'unreachable' | null;
+  /** Feature specs of an earlier package that the repository holds and this package does not. */
+  stale: string[];
+  /** A request for the package waits, runs or failed; a second one has to wait. */
+  pending: boolean;
+  /** The merge request the last request opened in this repository. */
+  last: { number: number; url: string } | null;
+};

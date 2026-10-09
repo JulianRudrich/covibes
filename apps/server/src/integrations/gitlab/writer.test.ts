@@ -209,3 +209,188 @@ describe('what GitLab refuses', () => {
     ).rejects.toMatchObject({ code: 'unreachable' });
   });
 });
+
+describe('commitFiles', () => {
+  const BRANCH = 'covibes/plan-2026-10-09-a1b2c3';
+  const overview = 'context/project-overview.md';
+  const files = [
+    { path: 'CLAUDE.md', content: '# Vereins-App\n', mode: 'write' as const },
+    { path: overview, content: '# Übersicht aus Covibes\n', mode: 'write' as const },
+    { path: 'context/progress-tracker.md', content: '# Fortschritt\n', mode: 'create' as const },
+    { path: 'docs/diagrams/haupt-canvas.md', content: '# Haupt-Canvas\n', mode: 'write' as const },
+  ];
+  const commit = {
+    branch: BRANCH,
+    startBranch: 'main',
+    message: 'Plan aus Covibes\n\nvia Covibes',
+    files,
+  };
+
+  it('commits what is new and what differs on a new branch, and leaves the default branch alone', async () => {
+    const { writer, client, accessToken, calls, get } = await setUp();
+
+    const written = await writer.commitFiles(commit);
+
+    // The example repository has an overview of its own, so that file is a change.
+    expect(written).toMatchObject({ added: 3, changed: 1, existed: false });
+    expect(written.url).toMatch(
+      /^http:\/\/gitlab\.test\/beispiel-verein\/vereins-app\/-\/commit\/[0-9a-f]{40}$/,
+    );
+    const read = async (ref: string) =>
+      (
+        (await client.get(
+          SOURCE.baseUrl,
+          `/projects/101/repository/files/${encodeURIComponent(overview)}?ref=${encodeURIComponent(ref)}`,
+          accessToken,
+        )) as { content: string }
+      ).content;
+    expect(Buffer.from(await read(BRANCH), 'base64').toString()).toBe('# Übersicht aus Covibes\n');
+    expect(Buffer.from(await read('main'), 'base64').toString()).toContain('# Projektübersicht');
+    // One writing call, with the branch it starts from.
+    expect(calls.filter((call) => call.startsWith('POST'))).toEqual([
+      'POST /api/v4/projects/101/repository/commits',
+    ]);
+    const page = await get(new URL(written.url ?? '').pathname);
+    expect(await page.text()).toContain('Plan aus Covibes');
+    // The file of the branch has a page; on the default branch it is not there yet.
+    expect((await get(`/beispiel-verein/vereins-app/-/blob/${BRANCH}/CLAUDE.md`)).status).toBe(200);
+    expect((await get('/beispiel-verein/vereins-app/-/blob/main/CLAUDE.md')).status).toBe(404);
+    expect((await get('/beispiel-verein/vereins-app/-/blob/main/README.md')).status).toBe(200);
+  });
+
+  it('finds nothing left to do on a second run, and commits only what changed since', async () => {
+    const { writer, calls } = await setUp();
+    await writer.commitFiles(commit);
+    calls.length = 0;
+
+    expect(await writer.commitFiles(commit)).toEqual({
+      url: null,
+      added: 0,
+      changed: 0,
+      existed: true,
+    });
+    expect(calls.filter((call) => call.startsWith('POST'))).toEqual([]);
+
+    // A file that is only added when missing stays as the branch holds it.
+    const again = await writer.commitFiles({
+      ...commit,
+      files: [
+        { path: 'CLAUDE.md', content: '# Neu\n', mode: 'write' },
+        { path: 'context/progress-tracker.md', content: '# Anders\n', mode: 'create' },
+      ],
+    });
+    expect(again).toMatchObject({ added: 0, changed: 1, existed: false });
+  });
+
+  it('refuses when nothing differs from the branch to start from, or that branch is missing', async () => {
+    const { writer, client, accessToken } = await setUp();
+    const readme = (
+      (await client.get(
+        SOURCE.baseUrl,
+        '/projects/101/repository/files/README.md?ref=main',
+        accessToken,
+      )) as { content: string }
+    ).content;
+
+    await expect(
+      writer.commitFiles({
+        ...commit,
+        files: [
+          {
+            path: 'README.md',
+            content: Buffer.from(readme, 'base64').toString(),
+            mode: 'write',
+          },
+        ],
+      }),
+    ).rejects.toMatchObject({
+      code: 'invalid',
+      detail: 'Nothing to commit: the repository holds these files already',
+    });
+    await expect(writer.commitFiles({ ...commit, startBranch: 'nope' })).rejects.toMatchObject({
+      code: 'invalid',
+      detail: 'The branch to start from does not exist',
+    });
+  });
+});
+
+describe('openMergeRequest', () => {
+  const BRANCH = 'covibes/plan-2026-10-09-a1b2c3';
+  const mergeRequest = {
+    sourceBranch: BRANCH,
+    targetBranch: 'main',
+    title: 'Projektplan aus Covibes',
+    description: 'Das Plan-Paket.\n\n*via Covibes*',
+  };
+
+  it('opens a merge request for the branch, which agents that read then see', async () => {
+    const { writer, client, accessToken, get } = await setUp();
+    await writer.commitFiles({
+      branch: BRANCH,
+      startBranch: 'main',
+      message: 'Plan',
+      files: [
+        { path: 'CLAUDE.md', content: '# Vereins-App\n', mode: 'write' },
+        { path: 'context/project-overview.md', content: '# Neu\n', mode: 'write' },
+      ],
+    });
+
+    const opened = await writer.openMergeRequest(mergeRequest);
+
+    // The example repository has two merge requests already.
+    expect(opened).toEqual({
+      number: 3,
+      url: 'http://gitlab.test/beispiel-verein/vereins-app/-/merge_requests/3',
+      existed: false,
+    });
+    const read = (await client.get(
+      SOURCE.baseUrl,
+      '/projects/101/merge_requests/3',
+      accessToken,
+    )) as { title: string; state: string; source_branch: string; target_branch: string };
+    expect(read).toMatchObject({
+      title: 'Projektplan aus Covibes',
+      state: 'opened',
+      source_branch: BRANCH,
+      target_branch: 'main',
+    });
+    const diffs = (await client.get(
+      SOURCE.baseUrl,
+      '/projects/101/merge_requests/3/diffs',
+      accessToken,
+    )) as { new_path: string; new_file: boolean }[];
+    expect(diffs.map((diff) => [diff.new_path, diff.new_file])).toEqual([
+      ['CLAUDE.md', true],
+      ['context/project-overview.md', false],
+    ]);
+    const page = await get('/beispiel-verein/vereins-app/-/merge_requests/3');
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain('!3 Projektplan aus Covibes');
+  });
+
+  it('uses the merge request that is open for the branch already', async () => {
+    const { writer, calls } = await setUp();
+    await writer.commitFiles({
+      branch: BRANCH,
+      startBranch: 'main',
+      message: 'Plan',
+      files: [{ path: 'CLAUDE.md', content: '# Vereins-App\n', mode: 'write' }],
+    });
+    const first = await writer.openMergeRequest(mergeRequest);
+    calls.length = 0;
+
+    expect(await writer.openMergeRequest(mergeRequest)).toEqual({ ...first, existed: true });
+    expect(calls).toEqual([
+      'GET /api/v4/projects/101/merge_requests?state=opened&source_branch=covibes%2Fplan-2026-10-09-a1b2c3&target_branch=main&per_page=5',
+    ]);
+  });
+
+  it('fails with the reason when the branch is not there', async () => {
+    const { writer } = await setUp();
+
+    await expect(writer.openMergeRequest(mergeRequest)).rejects.toMatchObject({
+      code: 'invalid',
+      detail: 'The source or the target branch does not exist',
+    });
+  });
+});

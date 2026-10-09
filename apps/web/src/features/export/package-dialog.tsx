@@ -26,6 +26,8 @@ import {
 } from '@web/features/export/package-queries';
 import { PackageSpecsSection } from '@web/features/export/package-specs';
 import { PackageSuggestionNote } from '@web/features/export/package-suggestion';
+import { MergeRequestSection } from '@web/features/git/merge-request-section';
+import { gitMergeRequestQueryKey } from '@web/features/git/request-queries';
 import { ApiError } from '@web/lib/api';
 import { cn } from '@web/lib/cn';
 
@@ -47,7 +49,8 @@ type PackageDialogProps = {
  * The export dialog of the package for coding agents (specs 27b to 27d; derived look): what the
  * package holds and what is still missing, the two texts the plan does not hold with the
  * moderator's suggestions for them, the feature specs it writes out per milestone, the list of
- * the files and the download. The content of a dialog; the caller opens and closes it.
+ * the files, the way into the repository as a merge request (spec 29c) and the download. The
+ * content of a dialog; the caller opens and closes it.
  */
 export function PackageDialog({ projectId, outdated }: PackageDialogProps) {
   const { t } = useTranslation();
@@ -124,6 +127,8 @@ function PackageBody({
         await save.mutateAsync({ kind, content });
         stored.current = { ...stored.current, [kind]: content };
         setSaving((state) => ({ ...state, [kind]: 'saved' }));
+        // The package differs from before, and so does its comparison with the repository.
+        void queryClient.invalidateQueries({ queryKey: gitMergeRequestQueryKey(projectId) });
         return true;
       } catch {
         setSaving((state) => ({ ...state, [kind]: 'failed' }));
@@ -214,18 +219,22 @@ function PackageBody({
     });
   }
 
+  /**
+   * Stores what the fields show, also when a field was never left: the package holds it then.
+   * Whether everything is stored; a field that is not says so itself.
+   */
+  async function storeDrafts(): Promise<boolean> {
+    if (!overview.canEdit) return true;
+    const results = await Promise.all(PACKAGE_TEXT_KINDS.map((kind) => store(kind, drafts[kind])));
+    return !results.includes(false);
+  }
+
   async function download() {
     setFailed(false);
     setDownloading(true);
     try {
-      if (overview.canEdit) {
-        // The package holds what the fields show, also when a field was never left.
-        const results = await Promise.all(
-          PACKAGE_TEXT_KINDS.map((kind) => store(kind, drafts[kind])),
-        );
-        // The field says that its text is not stored; the package would miss it.
-        if (results.includes(false)) return;
-      }
+      // The package would miss a text that is not stored.
+      if (!(await storeDrafts())) return;
       await downloadPackage(projectId);
     } catch {
       setFailed(true);
@@ -443,6 +452,10 @@ function PackageBody({
               ))}
             </ul>
           </details>
+        ) : null}
+
+        {overview.hasPlan ? (
+          <MergeRequestSection projectId={projectId} beforeRequest={storeDrafts} />
         ) : null}
       </div>
 

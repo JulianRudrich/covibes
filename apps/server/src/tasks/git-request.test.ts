@@ -109,6 +109,9 @@ function repository({
   }[] = [];
   const targets: { baseUrl: string; repositoryId: number; token: string }[] = [];
   const state = { fails, lost };
+  /** The branches that hold a commit, and the merge requests that are open, by their branch. */
+  const branches = new Set<string>();
+  const mergeRequests = new Map<string, number>();
   const writer: RepositoryWriter = {
     ensureMilestone({ title }) {
       calls.push(`milestone ${title}`);
@@ -142,8 +145,34 @@ function repository({
         },
       );
     },
+    commitFiles({ branch, files }) {
+      calls.push(`commit ${branch} ${String(files.length)}`);
+      const failure = state.fails[branch];
+      if (failure) return Promise.reject(failure);
+      const existed = branches.has(branch);
+      branches.add(branch);
+      return Promise.resolve({
+        url: existed ? null : `${GITLAB}/verein/app/-/commit/abc`,
+        added: existed ? 0 : files.length,
+        changed: 0,
+        existed,
+      });
+    },
+    openMergeRequest({ sourceBranch, title }) {
+      calls.push(`merge request ${sourceBranch}`);
+      const failure = state.fails[title];
+      if (failure) return Promise.reject(failure);
+      const open = mergeRequests.get(sourceBranch);
+      const number = open ?? mergeRequests.size + 7;
+      mergeRequests.set(sourceBranch, number);
+      return Promise.resolve({
+        number,
+        url: `${GITLAB}/verein/app/-/merge_requests/${String(number)}`,
+        existed: open !== undefined,
+      });
+    },
   };
-  return { calls, issues, milestones, targets, state, writer };
+  return { calls, issues, milestones, targets, state, writer, branches, mergeRequests };
 }
 
 function deps(
@@ -415,6 +444,113 @@ describe('runGitRequest', () => {
     expect((await stored(requestId)).outcomes).toEqual([
       ['Aufsetzen', 'failed', 'invalid'],
       ['Login', 'done', null],
+    ]);
+  });
+});
+
+describe('the plan package as a merge request (spec 29c)', () => {
+  const BRANCH = 'covibes/plan-2026-10-09-a1b2c3';
+  const TITLE = 'Projektplan aus Covibes';
+  const commit: GitActionDraft = {
+    kind: 'commit',
+    payload: {
+      title: `Plan-Paket auf dem Branch ${BRANCH} (2 Dateien)`,
+      branch: BRANCH,
+      startBranch: 'main',
+      message: TITLE,
+      files: [
+        { path: 'CLAUDE.md', content: '# Vereins-App\n', mode: 'write' },
+        { path: 'context/progress-tracker.md', content: '# Fortschritt\n', mode: 'create' },
+      ],
+    },
+  };
+  const mergeRequest: GitActionDraft = {
+    kind: 'merge_request',
+    payload: {
+      title: TITLE,
+      description: 'Das Paket.',
+      sourceBranch: BRANCH,
+      targetBranch: 'main',
+    },
+  };
+
+  it('commits the files on the branch, then opens the merge request for it', async () => {
+    const { requestId } = await approved([commit, mergeRequest]);
+    const repo = repository();
+
+    expect(await runGitRequest(deps(repo), { requestId })).toBe('done');
+
+    expect(repo.calls).toEqual([`commit ${BRANCH} 2`, `merge request ${BRANCH}`]);
+    const { actions, request } = await stored(requestId);
+    expect(request.status).toBe('done');
+    expect(
+      actions.map((action) => [
+        action.kind,
+        action.status,
+        action.result_number,
+        action.result_url,
+        action.result_existed,
+      ]),
+    ).toEqual([
+      ['commit', 'done', null, `${GITLAB}/verein/app/-/commit/abc`, false],
+      ['merge_request', 'done', '7', `${GITLAB}/verein/app/-/merge_requests/7`, false],
+    ]);
+  });
+
+  it('opens no merge request when its commit did not work', async () => {
+    const { requestId } = await approved([commit, mergeRequest]);
+    const nothing = 'Nothing to commit: the repository holds these files already';
+    const repo = repository({ fails: { [BRANCH]: refuse('invalid', nothing) } });
+
+    expect(await runGitRequest(deps(repo), { requestId })).toBe('failed');
+
+    const { actions, outcomes } = await stored(requestId);
+    expect(outcomes.map(([, status, code]) => [status, code])).toEqual([
+      ['failed', 'invalid'],
+      ['failed', 'blocked'],
+    ]);
+    expect(actions[0]?.error_detail).toBe(nothing);
+    expect(repo.calls).toEqual([`commit ${BRANCH} 2`]);
+  });
+
+  it('creates no second commit and no second merge request when it runs again', async () => {
+    const { requestId } = await approved([commit, mergeRequest]);
+    const repo = repository({ fails: { [TITLE]: refuse('unreachable', '502') } });
+    expect(await runGitRequest(deps(repo), { requestId })).toBe('failed');
+    expect((await stored(requestId)).outcomes.map(([, status]) => status)).toEqual([
+      'done',
+      'failed',
+    ]);
+    repo.state.fails = {};
+    repo.calls.length = 0;
+    await approveAgain(requestId);
+
+    expect(await runGitRequest(deps(repo), { requestId })).toBe('done');
+
+    // The commit is done and not asked for again; its merge request follows.
+    expect(repo.calls).toEqual([`merge request ${BRANCH}`]);
+    expect(repo.branches.size).toBe(1);
+    expect(repo.mergeRequests.size).toBe(1);
+  });
+
+  it('continues a commit whose answer was lost: the branch is compared, not created anew', async () => {
+    const { requestId } = await approved([commit, mergeRequest]);
+    const repo = repository();
+    // The branch is there, as after a commit whose answer never arrived.
+    repo.branches.add(BRANCH);
+    await test.db.admin
+      .updateTable('git_actions')
+      .set({ status: 'started', attempts: 1 })
+      .where('request_id', '=', requestId)
+      .where('position', '=', 0)
+      .execute();
+
+    expect(await runGitRequest(deps(repo), { requestId })).toBe('done');
+
+    const { actions } = await stored(requestId);
+    expect(actions.map((action) => [action.status, action.result_existed])).toEqual([
+      ['done', true],
+      ['done', false],
     ]);
   });
 });

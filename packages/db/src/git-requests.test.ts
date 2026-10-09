@@ -590,3 +590,98 @@ describe('what waits for whom', () => {
     }
   });
 });
+
+describe('a request for the plan package (spec 29c)', () => {
+  const commit = {
+    kind: 'commit',
+    payload: {
+      title: 'Plan-Paket auf dem Branch covibes/plan-1',
+      branch: 'covibes/plan-1',
+      startBranch: 'main',
+      message: 'Projektplan aus Covibes',
+      files: [{ path: 'CLAUDE.md', content: '# Vereins-App\n', mode: 'write' }],
+    },
+  };
+  const mergeRequest = {
+    kind: 'merge_request',
+    payload: {
+      title: 'Projektplan aus Covibes',
+      description: '',
+      sourceBranch: 'covibes/plan-1',
+      targetBranch: 'main',
+    },
+  };
+  const createPackage = (userId: string, projectId: string) =>
+    commitAs(userId, async (client) => {
+      const { rows } = await client.query<{ id: string }>(
+        `select public.create_git_request($1, 'merge_request', $2::jsonb) as id`,
+        [projectId, JSON.stringify([commit, mergeRequest])],
+      );
+      return rows[0]?.id ?? '';
+    });
+
+  it('holds the commit and the merge request as its actions', async () => {
+    const projectId = await newProject();
+
+    const requestId = await createPackage(EDITOR, projectId);
+
+    expect(await request(requestId)).toMatchObject({ status: 'waiting', requested_by: EDITOR });
+    expect(
+      (await actions(requestId)).map((action) => [action.kind, action.title, action.task_id]),
+    ).toEqual([
+      ['commit', 'Plan-Paket auf dem Branch covibes/plan-1', null],
+      ['merge_request', 'Projektplan aus Covibes', null],
+    ]);
+    // The files of the commit are kept with it: what is approved is what was shown.
+    const { rows } = await admin.query<{ path: string }>(
+      `select payload -> 'files' -> 0 ->> 'path' as path from git_actions
+       where request_id = $1 and kind = 'commit'`,
+      [requestId],
+    );
+    expect(rows).toEqual([{ path: 'CLAUDE.md' }]);
+  });
+
+  it('waits alone: a second one is refused until the first is decided', async () => {
+    const projectId = await newProject();
+    const other = await newProject();
+    const first = await createPackage(EDITOR, projectId);
+    const taken = { code: '23505' };
+
+    await expect(createPackage(OWNER, projectId)).rejects.toMatchObject(taken);
+    // Issues, and the package of another project, are not held up.
+    expect(await create(EDITOR, projectId)).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await createPackage(EDITOR, other)).toMatch(/^[0-9a-f-]{36}$/);
+
+    // Neither while it runs, nor after it failed.
+    await approve(OWNER, projectId, [first]);
+    await expect(createPackage(OWNER, projectId)).rejects.toMatchObject(taken);
+    await admin.query(`update git_requests set status = 'failed' where id = $1`, [first]);
+    await expect(createPackage(OWNER, projectId)).rejects.toMatchObject(taken);
+
+    await reject(OWNER, projectId, first);
+    const second = await createPackage(OWNER, projectId);
+    await admin.query(`update git_requests set status = 'done' where id = $1`, [second]);
+    expect(await createPackage(OWNER, projectId)).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('records a merge request that could not follow its commit', async () => {
+    const projectId = await newProject();
+    const requestId = await createPackage(EDITOR, projectId);
+
+    await admin.query(
+      `update git_actions set status = 'failed', error_code = 'blocked'
+       where request_id = $1 and kind = 'merge_request'`,
+      [requestId],
+    );
+
+    expect((await actions(requestId)).map((action) => action.error_code)).toEqual([
+      null,
+      'blocked',
+    ]);
+    await expect(
+      admin.query(`update git_actions set error_code = 'whatever' where request_id = $1`, [
+        requestId,
+      ]),
+    ).rejects.toMatchObject({ code: '23514' });
+  });
+});

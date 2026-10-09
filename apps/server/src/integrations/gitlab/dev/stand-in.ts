@@ -290,6 +290,108 @@ export function createGitlabStandIn(
     );
   });
 
+  /** Where the link of a merge request leads: what it says and which files it changes. */
+  routes.get('/:namespace/:name/-/merge_requests/:iid', (c) => {
+    const found = byPath(c.req.param('namespace'), c.req.param('name'));
+    const mergeRequest = found
+      ? store.mergeRequestsOf(found.id).find((entry) => String(entry.iid) === c.req.param('iid'))
+      : undefined;
+    if (!found || !mergeRequest) {
+      return c.html(
+        page(
+          'Merge Request nicht gefunden',
+          '<p>Diesen Merge Request kennt der Stellvertreter nicht (mehr): Was angelegt wurde, merkt er sich nur bis zum Neustart.</p>',
+        ),
+        404,
+      );
+    }
+    return c.html(
+      page(
+        `!${String(mergeRequest.iid)} ${mergeRequest.title}`,
+        `<p><strong>${escapeHtml(found.path_with_namespace)}</strong> · <code>${escapeHtml(
+          mergeRequest.source_branch,
+        )}</code> → <code>${escapeHtml(mergeRequest.target_branch)}</code> · ${escapeHtml(
+          mergeRequest.author.name,
+        )} · ${escapeHtml(mergeRequest.state)}</p>
+      <pre style="white-space: pre-wrap; font: inherit">${escapeHtml(mergeRequest.description)}</pre>
+      <p>${String(mergeRequest.diffs.length)} Dateien:</p>
+      <ul>${mergeRequest.diffs
+        .map(
+          (diff) =>
+            `<li><code>${escapeHtml(diff.new_path)}</code> ${diff.new_file ? '(neu)' : '(geändert)'}</li>`,
+        )
+        .join('')}</ul>`,
+      ),
+    );
+  });
+
+  /** Where the link of a commit leads. */
+  routes.get('/:namespace/:name/-/commit/:sha', (c) => {
+    const found = byPath(c.req.param('namespace'), c.req.param('name'));
+    const commit = found ? store.commitOf(c.req.param('sha')) : undefined;
+    if (!found || !commit) {
+      return c.html(
+        page(
+          'Commit nicht gefunden',
+          '<p>Diesen Commit kennt der Stellvertreter nicht (mehr): Was angelegt wurde, merkt er sich nur bis zum Neustart.</p>',
+        ),
+        404,
+      );
+    }
+    return c.html(
+      page(
+        `Commit ${commit.id.slice(0, 8)}`,
+        `<p><strong>${escapeHtml(found.path_with_namespace)}</strong> · <code>${escapeHtml(
+          commit.branch,
+        )}</code></p>
+      <pre style="white-space: pre-wrap; font: inherit">${escapeHtml(commit.message)}</pre>
+      <ul>${commit.files
+        .map(
+          (file) =>
+            `<li><code>${escapeHtml(file.path)}</code> ${file.added ? '(neu)' : '(geändert)'}</li>`,
+        )
+        .join('')}</ul>`,
+      ),
+    );
+  });
+
+  /** Where the link of a file on a branch leads, e.g. the feature spec an issue names. */
+  routes.get('/:namespace/:name/-/blob/:rest{.+}', (c) => {
+    const found = byPath(c.req.param('namespace'), c.req.param('name'));
+    const rest = c.req.param('rest');
+    // A branch's name may hold slashes: the longest branch the address starts with is meant.
+    const branch = found
+      ? store
+          .branchesOf(found.id, found.default_branch)
+          .concat('HEAD')
+          .filter((name) => rest.startsWith(`${name}/`))
+          .sort((a, b) => b.length - a.length)[0]
+      : undefined;
+    const path = branch === undefined ? '' : rest.slice(branch.length + 1);
+    const content =
+      found && branch !== undefined
+        ? store.filesOf(found.id, found.default_branch, branch)?.[path]
+        : undefined;
+    if (!found || branch === undefined || content === undefined) {
+      return c.html(
+        page(
+          'Datei nicht gefunden',
+          '<p>Diese Datei gibt es auf diesem Branch nicht. Dateien eines Merge Requests liegen erst nach dem Mergen auf dem Standard-Branch.</p>',
+        ),
+        404,
+      );
+    }
+    return c.html(
+      page(
+        path,
+        `<p><strong>${escapeHtml(found.path_with_namespace)}</strong> · <code>${escapeHtml(branch)}</code></p>
+      <pre style="white-space: pre-wrap">${
+        Buffer.isBuffer(content) ? '(keine Textdatei)' : escapeHtml(content)
+      }</pre>`,
+      ),
+    );
+  });
+
   /** Where the link of a milestone leads. */
   routes.get('/:namespace/:name/-/milestones/:iid', (c) => {
     const found = byPath(c.req.param('namespace'), c.req.param('name'));

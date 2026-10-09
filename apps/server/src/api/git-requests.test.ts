@@ -8,6 +8,7 @@ import {
   type GitConnectStart,
   type GitIssuePlan,
   type GitLog,
+  type GitMergeRequestPlan,
   type GitRequestCreated,
   type GitRequests,
   type GitRequestsApproved,
@@ -87,7 +88,11 @@ async function member(
 }
 
 /** A project with a plan whose owner has an account and, unless told otherwise, a repository. */
-async function createProject({ repositoryId = 101 }: { repositoryId?: number | null } = {}) {
+async function createProject({
+  repositoryId = 101,
+  plan = true,
+  scope = PLAN.scope ?? '',
+}: { repositoryId?: number | null; plan?: boolean; scope?: string } = {}) {
   const owner = await test.signIn();
   const created = await post('/api/projects', owner, { name: 'Vereins-App' });
   const projectId = ((await created.json()) as ProjectSummary).id;
@@ -95,12 +100,14 @@ async function createProject({ repositoryId = 101 }: { repositoryId?: number | n
     'Olga',
     await userIdOf(owner),
   ]);
-  await test.collab.changePlan(projectId, (doc) => {
-    for (const [section, markdown] of Object.entries(PLAN)) {
-      writePlanSection(doc, section as PlanSection, planNodesFromMarkdown(markdown), 'de');
-    }
-    ensureTaskIds(doc);
-  });
+  if (plan) {
+    await test.collab.changePlan(projectId, (doc) => {
+      for (const [section, markdown] of Object.entries({ ...PLAN, scope })) {
+        writePlanSection(doc, section as PlanSection, planNodesFromMarkdown(markdown), 'de');
+      }
+      ensureTaskIds(doc);
+    });
+  }
   const git = `/api/projects/${projectId}/git`;
   await connectAccount(owner);
   if (repositoryId !== null) {
@@ -479,5 +486,169 @@ describe('an approved request', () => {
     expect((await issuePlan(project.git, project.owner)).milestones[0]?.tasks[0]?.state).toBe(
       'free',
     );
+  });
+});
+
+describe('the plan package as a merge request (spec 29c)', () => {
+  const mergeRequestPlan = async (git: string, cookie: string) => {
+    const response = await request(`${git}/merge-request`, cookie);
+    expect(response.status).toBe(200);
+    return (await response.json()) as GitMergeRequestPlan;
+  };
+  const states = (plan: GitMergeRequestPlan) =>
+    Object.fromEntries((plan.files ?? []).map((file) => [file.path, file.state]));
+
+  it('compares the package with the default branch: what is new, changed and the same', async () => {
+    const project = await createProject();
+    const viewer = await member(project.projectId, 'viewer');
+
+    const plan = await mergeRequestPlan(project.git, project.owner);
+
+    expect(plan).toMatchObject({
+      repository: { id: 101, path: 'beispiel-verein/vereins-app', defaultBranch: 'main' },
+      canRequest: true,
+      canApprove: true,
+      hasAccount: true,
+      problem: null,
+      stale: [],
+      pending: false,
+      last: null,
+    });
+    // The example repository has an overview of its own; everything else is new there.
+    expect(states(plan)).toMatchObject({
+      'CLAUDE.md': 'new',
+      'AGENTS.md': 'new',
+      'context/project-overview.md': 'changed',
+      'context/project-plan.md': 'new',
+      'context/progress-tracker.md': 'new',
+      'context/feature-specs/01-01-projekt-aufsetzen.md': 'new',
+    });
+    expect(plan.files?.filter((file) => file.state === 'changed')).toHaveLength(1);
+    expect(await mergeRequestPlan(project.git, viewer)).toMatchObject({
+      canRequest: false,
+      canApprove: false,
+      hasAccount: false,
+    });
+  });
+
+  it('leaves the progress tracker of the repository alone, and names earlier feature specs', async () => {
+    // The repository "Website" of the stand-in holds a tracker and a spec of an earlier package.
+    const project = await createProject({ repositoryId: 102 });
+
+    const plan = await mergeRequestPlan(project.git, project.owner);
+
+    expect(states(plan)['context/progress-tracker.md']).toBe('kept');
+    expect(plan.stale).toEqual(['context/feature-specs/01-09-alte-spec.md']);
+  });
+
+  it('says what is missing: a repository, a plan, and is there for members only', async () => {
+    const bare = await createProject({ repositoryId: null });
+    const empty = await createProject({ plan: false });
+    const stranger = await test.signIn();
+
+    expect(await mergeRequestPlan(bare.git, bare.owner)).toMatchObject({
+      repository: null,
+      files: null,
+      problem: null,
+    });
+    expect(await mergeRequestPlan(empty.git, empty.owner)).toMatchObject({
+      files: null,
+      problem: 'no_plan',
+    });
+    expect((await request(`${bare.git}/merge-request`, stranger)).status).toBe(404);
+    expect((await request(`${bare.git}/merge-request`, null)).status).toBe(401);
+    expect((await post(`${bare.git}/merge-request`, bare.owner)).status).toBe(404);
+    expect((await post(`${empty.git}/merge-request`, empty.owner)).status).toBe(400);
+    expect((await post(`${bare.git}/merge-request`, stranger)).status).toBe(404);
+    expect((await post(`${bare.git}/merge-request`, null)).status).toBe(401);
+  });
+
+  it('makes one request with the commit and the merge request, and a second one waits', async () => {
+    const project = await createProject();
+    const editor = await member(project.projectId, 'editor');
+    const viewer = await member(project.projectId, 'viewer');
+
+    expect((await post(`${project.git}/merge-request`, viewer)).status).toBe(403);
+    const made = await post(`${project.git}/merge-request`, editor);
+
+    expect(made.status).toBe(201);
+    const { requestId } = (await made.json()) as GitRequestCreated;
+    const { requests } = await requestsOf(project.git, project.owner);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({ id: requestId, kind: 'merge_request', status: 'waiting' });
+    expect(requests[0]?.actions.map((action) => [action.kind, action.status])).toEqual([
+      ['commit', 'waiting'],
+      ['merge_request', 'waiting'],
+    ]);
+    expect(requests[0]?.actions[0]?.title).toMatch(
+      /^Plan-Paket auf dem Branch covibes\/plan-\d{4}-\d{2}-\d{2}-[0-9a-f]{6} \(\d+ Dateien\)$/,
+    );
+    expect(requests[0]?.actions[1]?.title).toBe(
+      'Projektplan, Feature-Specs und Diagramme aus Covibes',
+    );
+    // No answer holds the files of the commit.
+    expect(JSON.stringify(requests)).not.toContain('# Vereins-App');
+
+    expect((await mergeRequestPlan(project.git, editor)).pending).toBe(true);
+    const again = await post(`${project.git}/merge-request`, project.owner);
+    expect(again.status).toBe(409);
+    expect((await errorOf(again)).code).toBe('already_running');
+  });
+
+  it('brings the package into the repository as a merge request once it is approved', async () => {
+    const project = await createProject();
+    const made = await post(`${project.git}/merge-request`, project.owner);
+    const { requestId } = (await made.json()) as GitRequestCreated;
+    await approve(project.git, project.owner, [requestId]);
+
+    expect(await runJob(requestId)).toBe('done');
+
+    const plan = await mergeRequestPlan(project.git, project.owner);
+    expect(plan.pending).toBe(false);
+    expect(plan.last?.url).toMatch(
+      new RegExp(`^${APP_URL}/api/dev/gitlab/beispiel-verein/vereins-app/-/merge_requests/\\d+$`),
+    );
+    // Nothing changed on the default branch: the package is still new there.
+    expect(states(plan)['CLAUDE.md']).toBe('new');
+
+    const log = (await (await request(`${project.git}/log`, project.owner)).json()) as GitLog;
+    const [commit, mergeRequest] = log.requests[0]?.actions ?? [];
+    expect(log.requests[0]).toMatchObject({ kind: 'merge_request', status: 'done' });
+    expect(commit).toMatchObject({ kind: 'commit', status: 'done' });
+    expect(commit?.result?.url).toContain('/-/commit/');
+    expect(mergeRequest).toMatchObject({ kind: 'merge_request', status: 'done' });
+    expect(mergeRequest?.result?.number).toBe(plan.last?.number);
+
+    // The merge request as GitLab holds it: by the approver's account, with what the package
+    // holds and the note.
+    const page = await test.app.request(plan.last?.url ?? '');
+    const html = await page.text();
+    expect(html).toContain('Projektplan, Feature-Specs und Diagramme aus Covibes');
+    expect(html).toContain('Olga Beispiel');
+    expect(html).toContain('Das Plan-Paket von „Vereins-App“');
+    expect(html).toContain('<code>context/feature-specs/01-02-login-per-link.md</code> (neu)');
+    expect(html).toContain('<code>context/project-overview.md</code> (geändert)');
+    expect(html).toContain('Angelegt via Covibes aus dem Projektplan von „Vereins-App“.');
+
+    // After it is done, the package can be asked for again.
+    expect((await post(`${project.git}/merge-request`, project.owner)).status).toBe(201);
+  });
+
+  it('commits a package that is larger than what the API takes from a browser', async () => {
+    // The worker sends the commit to GitLab, here the stand-in inside the app; a plan of a
+    // real project is larger than the 64 KB a page may send.
+    const project = await createProject({ scope: 'Mitglieder verwalten. '.repeat(6000) });
+    const made = await post(`${project.git}/merge-request`, project.owner);
+    const { requestId } = (await made.json()) as GitRequestCreated;
+    await approve(project.git, project.owner, [requestId]);
+
+    expect(await runJob(requestId)).toBe('done');
+
+    // A page still cannot send that much to the API itself.
+    const large = await post(`${project.git}/issues`, project.owner, {
+      taskIds: [],
+      padding: 'x'.repeat(70_000),
+    });
+    expect(large.status).toBe(413);
   });
 });

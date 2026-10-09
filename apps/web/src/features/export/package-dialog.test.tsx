@@ -1,4 +1,4 @@
-import type { CodingPackageOverview } from '@covibes/shared';
+import type { CodingPackageOverview, GitMergeRequestPlan } from '@covibes/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -34,12 +34,33 @@ const SUGGESTED = '## Stil\n\n- Ruhig und hell';
 
 type Call = { method: string; url: string; body: unknown };
 
+const GIT = `/api/projects/${PROJECT_ID}/git`;
+const REQUEST_ID = '7b000000-0000-4000-8000-0000000000aa';
+
+/** A project without a repository: the section "Ins Repository" only points to it. */
+const NO_REPOSITORY: GitMergeRequestPlan = {
+  repository: null,
+  canRequest: true,
+  canApprove: true,
+  hasAccount: true,
+  files: null,
+  problem: null,
+  stale: [],
+  pending: false,
+  last: null,
+};
+
 /**
  * Answers the package's API: the overview given, "no content" for a stored text and a ZIP for the
  * download; a suggestion is asked for, taken over with its text and dismissed. `fail` names the
  * calls that fail instead, `running` the ones the server refuses because a run is on its way.
  */
-function stubPackage(overview: CodingPackageOverview, fail: string[] = [], running: string[] = []) {
+function stubPackage(
+  overview: CodingPackageOverview,
+  fail: string[] = [],
+  running: string[] = [],
+  repository: GitMergeRequestPlan = NO_REPOSITORY,
+) {
   const calls: Call[] = [];
   vi.stubGlobal(
     'fetch',
@@ -68,6 +89,13 @@ function stubPackage(overview: CodingPackageOverview, fail: string[] = [], runni
         );
       }
       if (key === `GET ${BASE}`) return Promise.resolve(Response.json(overview));
+      if (key === `GET ${GIT}/merge-request`) return Promise.resolve(Response.json(repository));
+      if (key === `POST ${GIT}/merge-request`) {
+        return Promise.resolve(Response.json({ requestId: REQUEST_ID }, { status: 201 }));
+      }
+      if (key === `POST ${GIT}/requests/approve`) {
+        return Promise.resolve(Response.json({ approved: 1 }));
+      }
       if (method === 'PUT') return Promise.resolve(new Response(null, { status: 204 }));
       if (method === 'DELETE') return Promise.resolve(new Response(null, { status: 204 }));
       if (method === 'POST' && (url.endsWith('/suggestion') || url.includes('/specs/'))) {
@@ -94,9 +122,14 @@ function stubPackage(overview: CodingPackageOverview, fail: string[] = [], runni
 
 function renderDialog(
   overview: Partial<CodingPackageOverview> = {},
-  { outdated = false, fail = [] as string[], running = [] as string[] } = {},
+  {
+    outdated = false,
+    fail = [] as string[],
+    running = [] as string[],
+    repository = NO_REPOSITORY,
+  } = {},
 ) {
-  const calls = stubPackage({ ...OVERVIEW, ...overview }, fail, running);
+  const calls = stubPackage({ ...OVERVIEW, ...overview }, fail, running, repository);
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -704,5 +737,66 @@ describe('the feature specs in the PackageDialog (spec 27d)', () => {
     await within(dialog).findByLabelText('UI-Richtung');
 
     expect(within(dialog).queryByRole('region', { name: 'Feature-Specs' })).not.toBeInTheDocument();
+  });
+});
+
+describe('the way into the repository in the PackageDialog (spec 29c)', () => {
+  const CONNECTED: GitMergeRequestPlan = {
+    ...NO_REPOSITORY,
+    repository: {
+      id: 101,
+      path: 'verein/vereins-app',
+      name: 'Vereins-App',
+      url: 'https://gitlab.example.com/verein/vereins-app',
+      defaultBranch: 'main',
+    },
+    files: [
+      { path: 'CLAUDE.md', state: 'new' },
+      { path: 'context/ui-context.md', state: 'changed' },
+    ],
+  };
+
+  it('points to the repository while the project has none', async () => {
+    const { dialog } = renderDialog();
+
+    const section = await within(dialog).findByRole('region', { name: 'Ins Repository' });
+    expect(
+      await within(section).findByText(
+        /Mit einem Repository kommt das Paket auch als Merge Request/,
+      ),
+    ).toBeVisible();
+    expect(within(section).queryByRole('button')).toBeNull();
+  });
+
+  it('stores what the fields show, then makes the request and approves it', async () => {
+    const { calls, dialog } = renderDialog({}, { repository: CONNECTED });
+    const section = await within(dialog).findByRole('region', { name: 'Ins Repository' });
+    expect(await within(section).findByText('1 neu · 1 geändert')).toBeVisible();
+
+    // A text that was typed and never left is part of the package.
+    fireEvent.change(within(dialog).getByLabelText('UI-Richtung'), {
+      target: { value: 'Ruhig und hell.' },
+    });
+    fireEvent.click(within(section).getByRole('button', { name: 'Merge Request anlegen' }));
+
+    expect(await within(section).findByText(/Der Merge Request wird angelegt\./)).toBeVisible();
+    const writes = calls
+      .filter((call) => call.method !== 'GET')
+      .map((call) => `${call.method} ${call.url}`);
+    expect(writes).toEqual([
+      `PUT ${BASE}/texts/ui_direction`,
+      `POST ${GIT}/merge-request`,
+      `POST ${GIT}/requests/approve`,
+    ]);
+    expect(calls.find((call) => call.url === `${GIT}/requests/approve`)?.body).toEqual({
+      requestIds: [REQUEST_ID],
+    });
+  });
+
+  it('has no way into the repository without a plan', async () => {
+    const { dialog } = renderDialog({ hasPlan: false, files: [] }, { repository: CONNECTED });
+
+    await rows(dialog);
+    expect(within(dialog).queryByRole('region', { name: 'Ins Repository' })).toBeNull();
   });
 });

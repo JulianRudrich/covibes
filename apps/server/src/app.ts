@@ -66,6 +66,12 @@ export const API_BODY_LIMIT = 64 * 1024;
 /** An upload (spec 20a): the largest file plus the envelope of the form around it. */
 export const UPLOAD_BODY_LIMIT = MAX_FILE_BYTES + 64 * 1024;
 
+/**
+ * What the development stand-in for GitLab takes in one call: the commit of a plan package
+ * (spec 29c), which the worker sends it like it would send it to GitLab.
+ */
+export const DEV_GITLAB_BODY_LIMIT = 8 * 1024 * 1024;
+
 /** `POST /api/projects/:projectId/files`, the only route that takes a file. */
 const UPLOAD_PATH = /^\/api\/(projects\/[^/]+\/files|agents\/[^/]+\/knowledge\/files)\/?$/;
 
@@ -115,16 +121,24 @@ export function createApp({
     maxSize: UPLOAD_BODY_LIMIT,
     onError: (c) => apiError(c, 'too_large'),
   });
+  // Connecting GitLab (spec 28a). In development and tests without an OAuth application, the
+  // server answers as a small GitLab itself. Production never serves it.
+  const gitSetup = gitlabSetup(env);
+  const servesStandIn = gitSetup?.standIn === true && env.NODE_ENV !== 'production';
+  const standInLimit = bodyLimit({
+    maxSize: DEV_GITLAB_BODY_LIMIT,
+    onError: (c) => apiError(c, 'too_large'),
+  });
   const limitBody: MiddlewareHandler = (c, next) =>
     c.req.method === 'POST' && UPLOAD_PATH.test(c.req.path)
       ? uploadLimit(c, next)
-      : apiLimit(c, next);
+      : servesStandIn && c.req.path.startsWith(`${DEV_GITLAB_PATH}/`)
+        ? // The stand-in takes what a GitLab takes, e.g. a commit of many files.
+          standInLimit(c, next)
+        : apiLimit(c, next);
   app.use('/api/*', limitBody);
-  // Connecting GitLab (spec 28a). In development and tests without an OAuth application, the
-  // server answers as a small GitLab itself. Its routes stand before the check of the origin:
-  // the token endpoint takes a form, as GitLab's does, and is called by this server, not by a
-  // page. Production never serves it.
-  const gitSetup = gitlabSetup(env);
+  // The stand-in's routes stand before the check of the origin: the token endpoint takes a form,
+  // as GitLab's does, and is called by this server, not by a page.
   const gitClient = createGitlabClient(gitlabFetch);
   const git: GitDeps | undefined = gitSetup
     ? {
@@ -133,10 +147,7 @@ export function createApp({
         connections: createGitConnections({ admin: db.admin, client: gitClient, setup: gitSetup }),
       }
     : undefined;
-  const standIn =
-    gitSetup?.standIn && env.NODE_ENV !== 'production'
-      ? createGitlabStandIn(gitSetup.source)
-      : undefined;
+  const standIn = gitSetup && servesStandIn ? createGitlabStandIn(gitSetup.source) : undefined;
   if (standIn) app.route(DEV_GITLAB_PATH, standIn.routes);
 
   // Form-like requests (which browsers send cross-site without asking) must come from the web app.

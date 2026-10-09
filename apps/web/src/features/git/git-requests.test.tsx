@@ -218,6 +218,45 @@ describe('Git requests under "Wartet auf dich"', () => {
     expect(within(section).queryByRole('button')).toBeNull();
   });
 
+  it('names the plan package as a merge request, and links what it opened', () => {
+    const packaged = request({
+      kind: 'merge_request',
+      actions: [
+        action({
+          kind: 'commit',
+          title: 'Plan-Paket auf dem Branch covibes/plan-2026-10-09-a1b2c3 (45 Dateien)',
+          status: 'done',
+          result: { number: null, url: `${REPOSITORY_URL}/-/commit/abc`, existed: false },
+        }),
+        action({
+          kind: 'merge_request',
+          title: 'Projektplan, Feature-Specs und Diagramme aus Covibes',
+          status: 'done',
+          result: { number: 3, url: `${REPOSITORY_URL}/-/merge_requests/3`, existed: false },
+        }),
+      ],
+    });
+    const { section } = renderWaiting([
+      { ...packaged, id: id(), status: 'waiting' },
+      { ...packaged, status: 'done' },
+    ]);
+
+    const [card] = within(section).getAllByRole('listitem');
+    if (!card) throw new Error('The card is missing');
+    expect(card).toHaveTextContent('Merge Request mit dem Plan-Paket in vereins-app anlegen');
+    expect(section).toHaveTextContent('Merge Request mit dem Plan-Paket in vereins-app angelegt');
+    fireEvent.click(within(card).getByRole('button', { name: 'Ansehen' }));
+    // A merge request is written with "!", and a commit links to itself.
+    expect(within(card).getByRole('link', { name: '!3' })).toHaveAttribute(
+      'href',
+      `${REPOSITORY_URL}/-/merge_requests/3`,
+    );
+    expect(within(card).getByRole('link', { name: 'angelegt' })).toHaveAttribute(
+      'href',
+      `${REPOSITORY_URL}/-/commit/abc`,
+    );
+  });
+
   it('counts what the person can decide', () => {
     const requests = [
       request(),

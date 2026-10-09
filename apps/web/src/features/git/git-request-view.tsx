@@ -27,9 +27,19 @@ export function GitRequestSummary({
   request,
   done = false,
 }: {
-  request: Pick<GitRequest, 'actions' | 'repository'>;
+  request: Pick<GitRequest, 'actions' | 'repository' | 'kind'>;
   done?: boolean;
 }) {
+  // The plan package as a merge request (spec 29c) is one thing, whatever it holds.
+  if (request.kind === 'merge_request') {
+    return (
+      <Trans
+        i18nKey={done ? 'git.requests.doneMergeRequest' : 'git.requests.summaryMergeRequest'}
+        values={{ repository: repositoryName(request.repository.path) }}
+        components={{ b: BOLD, repo: REPOSITORY }}
+      />
+    );
+  }
   return (
     <Trans
       i18nKey={done ? 'git.requests.done' : 'git.requests.summary'}
@@ -69,7 +79,7 @@ export function GitActionList({ actions }: { actions: readonly GitAction[] }) {
               >
                 {action.result.number === null
                   ? t(action.result.existed ? 'git.actions.existed' : 'git.actions.created')
-                  : `#${String(action.result.number)}`}
+                  : `${action.kind === 'merge_request' ? '!' : '#'}${String(action.result.number)}`}
                 <ExternalLink size={11} strokeWidth={2} aria-hidden="true" />
               </a>
             ) : (

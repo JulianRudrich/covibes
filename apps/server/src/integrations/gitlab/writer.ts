@@ -5,10 +5,12 @@ import {
   type RepositoryWriteFailure,
   type RepositoryWriter,
 } from '@server/integrations/git-host';
+import { fileStates, foldersOf, listBlobs } from '@server/integrations/gitlab/blobs';
 import { GitlabError, type GitlabClient } from '@server/integrations/gitlab/client';
 
-// Writing to a repository in GitLab (spec 29b): milestones and issues, with one person's token.
-// Only the job of an approved Git request calls it. Every answer is checked.
+// Writing to a repository in GitLab (specs 29b and 29c): milestones, issues, commits and merge
+// requests, with one person's token. Only the job of an approved Git request calls it. Every
+// answer is checked.
 
 /** An address the web app may link to: nothing but a page on the web. */
 const pageUrl = z.string().regex(/^https?:\/\//i);
@@ -26,12 +28,26 @@ const issueSchema = z.object({
   description: z.string().nullish(),
 });
 
+const commitSchema = z.object({
+  id: z.string().min(1),
+  web_url: pageUrl.nullish().catch(null),
+});
+
+const mergeRequestSchema = z.object({
+  iid: z.number().int().positive(),
+  web_url: pageUrl,
+});
+
+/** A refusal of our own, worded like one of GitLab so it reaches the log the same way. */
+const refuse = (reason: string) => new GitlabError(400, reason, reason);
+
 /** What kind of failure a status of GitLab is. */
 function failureOf(status: number): RepositoryWriteFailure {
   if (status === 401) return 'unauthorized';
   if (status === 403) return 'forbidden';
   if (status === 404) return 'not_found';
-  if (status === 400 || status === 409 || status === 422) return 'invalid';
+  // What was sent is not taken as it is, also when it is too large.
+  if (status === 400 || status === 409 || status === 413 || status === 422) return 'invalid';
   // Not reachable at all, asked to wait, or a fault of its own: a later try may work.
   if (status === 0 || status === 429 || status >= 500) return 'unreachable';
   return 'failed';
@@ -122,6 +138,84 @@ export function gitlabWriter(
           // The search is GitLab's; whether the mark is really there is checked here.
           .find((issue) => issue.description?.includes(mark));
         return found ? { number: found.iid, url: found.web_url } : undefined;
+      });
+    },
+
+    commitFiles({ branch, startBranch, message, files }) {
+      return written(async () => {
+        const folders = foldersOf(files.map((file) => file.path));
+        // A branch that is there already (a second run) is compared and continued; a new one
+        // starts from the branch it will be merged into.
+        const onBranch = await listBlobs(client, target, token, branch, folders);
+        const held = onBranch ?? (await listBlobs(client, target, token, startBranch, folders));
+        if (!held) throw refuse('The branch to start from does not exist');
+
+        const states = fileStates(files, held);
+        const actions = files.flatMap((file, index) => {
+          const state = states[index]?.state;
+          if (state !== 'new' && state !== 'changed') return [];
+          return [
+            {
+              action: state === 'new' ? 'create' : 'update',
+              file_path: file.path,
+              content: file.content,
+            },
+          ];
+        });
+        if (actions.length === 0) {
+          if (onBranch) return { url: null, added: 0, changed: 0, existed: true };
+          throw refuse('Nothing to commit: the repository holds these files already');
+        }
+
+        const created = commitSchema.safeParse(
+          await client.post(target.baseUrl, `${base}/repository/commits`, token, {
+            branch,
+            ...(onBranch ? {} : { start_branch: startBranch }),
+            commit_message: message,
+            actions,
+          }),
+        );
+        if (!created.success) throw new GitlabError(502, 'GitLab sent no commit');
+        const added = actions.filter((entry) => entry.action === 'create').length;
+        return {
+          url: created.data.web_url ?? null,
+          added,
+          changed: actions.length - added,
+          existed: false,
+        };
+      });
+    },
+
+    openMergeRequest({ sourceBranch, targetBranch, title, description }) {
+      return written(async () => {
+        const query = new URLSearchParams({
+          state: 'opened',
+          source_branch: sourceBranch,
+          target_branch: targetBranch,
+          per_page: '5',
+        });
+        const listed = z
+          .array(z.unknown())
+          .safeParse(
+            await client.get(target.baseUrl, `${base}/merge_requests?${query.toString()}`, token),
+          );
+        const open = (listed.success ? listed.data : []).flatMap((entry) => {
+          const mergeRequest = mergeRequestSchema.safeParse(entry);
+          return mergeRequest.success ? [mergeRequest.data] : [];
+        })[0];
+        if (open) return { number: open.iid, url: open.web_url, existed: true };
+
+        const created = mergeRequestSchema.safeParse(
+          await client.post(target.baseUrl, `${base}/merge_requests`, token, {
+            source_branch: sourceBranch,
+            target_branch: targetBranch,
+            title,
+            description,
+            remove_source_branch: true,
+          }),
+        );
+        if (!created.success) throw new GitlabError(502, 'GitLab sent no merge request');
+        return { number: created.data.iid, url: created.data.web_url, existed: false };
       });
     },
   };

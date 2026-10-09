@@ -947,8 +947,11 @@
         "unreachable": "GitLab war nicht erreichbar.",
         "no_account": "Das GitLab-Konto der freigebenden Person fehlt.",
         "milestone": "Der Meilenstein fehlt.",
-        "failed": "Etwas ist schiefgegangen."
-      }
+        "failed": "Etwas ist schiefgegangen.",
+        "blocked": "Ein Schritt davor hat nicht geklappt."
+      },
+      "summaryMergeRequest": "<b>Merge Request</b> mit dem Plan-Paket in <repo>{{repository}}</repo> anlegen",
+      "doneMergeRequest": "<b>Merge Request</b> mit dem Plan-Paket in <repo>{{repository}}</repo> angelegt"
     },
     "actions": {
       "created": "angelegt",
@@ -1013,6 +1016,48 @@
         "failed": "Fehlgeschlagen",
         "rejected": "Abgelehnt",
         "withdrawn": "Zurückgezogen"
+      }
+    },
+    "mergeRequest": {
+      "title": "Ins Repository",
+      "hint": "Als Merge Request nach <repo>{{repository}}</repo>: ein Commit auf einem eigenen Branch. Am Standard-Branch ändert sich nichts, bevor jemand mergt.",
+      "noRepository": "Mit einem Repository kommt das Paket auch als Merge Request dorthin. Ein Owner wählt es im Projektmenü unter „Repository …“.",
+      "comparing": "Vergleiche mit dem Repository …",
+      "loadFailed": "Der Vergleich mit dem Repository hat nicht geklappt. Bitte versuche es noch einmal.",
+      "problems": {
+        "no_plan": "Der Plan ist noch leer.",
+        "no_branch": "Das Repository hat noch keinen Standard-Branch, es ist leer. Lege dort zuerst einen ersten Commit an.",
+        "too_large": "Das Paket ist zu groß für einen Merge Request.",
+        "unreachable": "Das Repository konnte nicht gelesen werden. Vielleicht ist der Zugriff abgelaufen."
+      },
+      "count": {
+        "new": "{{count}} neu",
+        "changed": "{{count}} geändert",
+        "same": "{{count}} unverändert",
+        "kept_one": "{{count}} bleibt, wie sie ist",
+        "kept_other": "{{count}} bleiben, wie sie sind"
+      },
+      "upToDate": "Das Repository ist schon auf dem Stand des Pakets.",
+      "files": "Dateien anzeigen",
+      "state": {
+        "new": "neu",
+        "changed": "geändert",
+        "same": "unverändert",
+        "kept": "bleibt"
+      },
+      "stale": "Im Repository, aber nicht mehr im Paket (Feature-Specs aus einem früheren Stand):",
+      "last": "Zuletzt angelegt: <mr>Merge Request !{{number}}<icon/></mr>",
+      "pending": "Ein Antrag für das Paket wartet schon unter „Wartet auf dich“.",
+      "readOnly": "Den Merge Request legen Owner und Editoren an.",
+      "create": "Merge Request anlegen",
+      "propose": "Zur Freigabe vorlegen",
+      "outcome": {
+        "started": "Der Merge Request wird angelegt. Den Stand siehst du unter „Wartet auf dich“.",
+        "proposed": "Vorgelegt. Der Antrag wartet unter „Wartet auf dich“ auf die Freigabe.",
+        "approveFailed": "Der Antrag ist angelegt, aber die Freigabe hat nicht geklappt. Er wartet unter „Wartet auf dich“.",
+        "taken": "Ein Antrag für das Paket wartet schon.",
+        "notStored": "Ein Text des Pakets ist noch nicht gespeichert. Bitte versuche es noch einmal.",
+        "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
       }
     }
   },

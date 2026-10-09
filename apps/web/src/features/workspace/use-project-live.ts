@@ -14,6 +14,7 @@ import { gitQueryKey } from '@web/features/git/queries';
 import {
   gitIssuesQueryKey,
   gitLogQueryKey,
+  gitMergeRequestQueryKey,
   gitRequestsQueryKey,
 } from '@web/features/git/request-queries';
 import { handsQueryKey } from '@web/features/hands/queries';
@@ -100,10 +101,13 @@ export function useProjectLive(projectId: string, userId?: string) {
         reload(gitRequestsQueryKey(projectId));
         reloadIfLoaded(gitIssuesQueryKey(projectId));
         reloadIfLoaded(gitLogQueryKey(projectId));
+        reloadIfLoaded(gitMergeRequestQueryKey(projectId));
       } else if (event.type === 'package') {
         // A suggestion for a text of the package started, ended or was decided (spec 27c); only
         // the open export dialog holds what is loaded again.
         reload(packageQueryKey(projectId));
+        // What the package holds changed, and so its comparison with the repository (spec 29c).
+        reloadIfLoaded(gitMergeRequestQueryKey(projectId));
       } else {
         applyLiveEvent(queryClient, projectId, event);
         // A vote started, got a ballot or ended: "Wartet auf dich" lists the open ones (spec 22a).

@@ -1,7 +1,7 @@
 import { packageSpecRefs } from './coding-package';
 import { markdownLine } from './export-texts';
 import type { GitRepository } from './git';
-import type { GitActionDraft } from './git-requests';
+import type { GitIssueActionDraft } from './git-requests';
 import { codingPackageTexts } from './package-texts';
 import type { PlanLanguage } from './plan';
 import type { Roadmap } from './plan-roadmap';
@@ -42,6 +42,11 @@ const TEXTS: Readonly<Record<PlanLanguage, IssueTexts>> = {
   },
 };
 
+/** The note everything ends with that Covibes creates in a repository, in the project's language. */
+export function gitViaNote(language: PlanLanguage, projectName: string): string {
+  return TEXTS[language].via(projectName);
+}
+
 /** A text as one line of at most `max` characters, for a title. */
 function short(text: string, max: number): string {
   const line = text.replace(/\s+/g, ' ').trim();
@@ -78,7 +83,7 @@ export function buildIssueActions({
   roadmap,
   taskIds,
   repository,
-}: IssueActionsInput): GitActionDraft[] {
+}: IssueActionsInput): GitIssueActionDraft[] {
   const texts = TEXTS[language];
   const packageTexts = codingPackageTexts(language);
   const specs = new Map(
@@ -86,7 +91,7 @@ export function buildIssueActions({
       spec.taskId ? [[spec.taskId, spec] as const] : [],
     ),
   );
-  const actions: GitActionDraft[] = [];
+  const actions: GitIssueActionDraft[] = [];
   for (const milestone of roadmap.milestones) {
     const chosen = milestone.tasks.filter((task) => task.id !== null && taskIds.has(task.id));
     if (chosen.length === 0) continue;

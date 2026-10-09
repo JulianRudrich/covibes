@@ -947,8 +947,11 @@
         "unreachable": "GitLab could not be reached.",
         "no_account": "The GitLab account of the approving person is missing.",
         "milestone": "The milestone is missing.",
-        "failed": "Something went wrong."
-      }
+        "failed": "Something went wrong.",
+        "blocked": "A step before it did not work."
+      },
+      "summaryMergeRequest": "Open a <b>merge request</b> with the plan package in <repo>{{repository}}</repo>",
+      "doneMergeRequest": "<b>Merge request</b> with the plan package opened in <repo>{{repository}}</repo>"
     },
     "actions": {
       "created": "created",
@@ -1013,6 +1016,48 @@
         "failed": "Failed",
         "rejected": "Rejected",
         "withdrawn": "Taken back"
+      }
+    },
+    "mergeRequest": {
+      "title": "Into the repository",
+      "hint": "As a merge request to <repo>{{repository}}</repo>: one commit on a branch of its own. Nothing changes on the default branch before someone merges.",
+      "noRepository": "With a repository, the package also goes there as a merge request. An owner picks it in the project menu under “Repository …”.",
+      "comparing": "Comparing with the repository …",
+      "loadFailed": "Comparing with the repository did not work. Please try again.",
+      "problems": {
+        "no_plan": "The plan is still empty.",
+        "no_branch": "The repository has no default branch yet, it is empty. Make a first commit there.",
+        "too_large": "The package is too large for a merge request.",
+        "unreachable": "The repository could not be read. Maybe the access has expired."
+      },
+      "count": {
+        "new": "{{count}} new",
+        "changed": "{{count}} changed",
+        "same": "{{count}} unchanged",
+        "kept_one": "{{count}} stays as it is",
+        "kept_other": "{{count}} stay as they are"
+      },
+      "upToDate": "The repository holds the package already.",
+      "files": "Show files",
+      "state": {
+        "new": "new",
+        "changed": "changed",
+        "same": "unchanged",
+        "kept": "stays"
+      },
+      "stale": "In the repository, but no longer in the package (feature specs of an earlier state):",
+      "last": "Last opened: <mr>merge request !{{number}}<icon/></mr>",
+      "pending": "A request for the package waits already under “Waiting for you”.",
+      "readOnly": "Owners and editors open the merge request.",
+      "create": "Open merge request",
+      "propose": "Submit for approval",
+      "outcome": {
+        "started": "The merge request is being opened. You see how far it is under “Waiting for you”.",
+        "proposed": "Submitted. The request waits for approval under “Waiting for you”.",
+        "approveFailed": "The request is made, but approving it did not work. It waits under “Waiting for you”.",
+        "taken": "A request for the package waits already.",
+        "notStored": "A text of the package is not stored yet. Please try again.",
+        "failed": "That did not work. Please try again."
       }
     }
   },

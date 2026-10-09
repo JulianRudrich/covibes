@@ -245,6 +245,7 @@ An agent's instructions cannot change this table.
   4. What is created carries the note "via Covibes".
   - The database decides who may do what, through functions; the server words the actions, and only the worker writes outcomes.
   - An action GitLab refuses fails alone. If GitLab cannot be reached, the run stops; a request that failed can be approved again, and only what is not done runs then. An action that was started without a known outcome first looks for what it would create, so nothing is created twice.
+  - The plan package comes into the repository the same way (spec 29c): a request with a commit of its files on a branch of its own and the merge request for it. The commit compares the files with the branch by Git's ids of their content, adds what is new and changes what differs, and deletes nothing; the progress tracker is only added when it is missing. Before the request, the same comparison with the default branch shows what would change.
   - Requests and actions name no host. What writing to a repository needs is one interface (`integrations/git-host.ts`), which `integrations/gitlab/writer.ts` fulfils; GitHub is added next to it after V1.
 - **Webhook:** MR events arrive with a verified secret token. For MRs of Covibes issues they start the job `mr_review`.
 - **Self-managed GitLab** (later): every account and every connection stores its own `base_url`.

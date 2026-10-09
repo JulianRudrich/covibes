@@ -3,6 +3,7 @@ import type {
   GitIssuePlan,
   GitIssuesInput,
   GitLog,
+  GitMergeRequestPlan,
   GitRequestCreated,
   GitRequests,
   GitRequestsApproved,
@@ -25,6 +26,10 @@ export function gitIssuesQueryKey(projectId: string) {
 
 export function gitLogQueryKey(projectId: string) {
   return [...gitQueryKey(projectId), 'log'] as const;
+}
+
+export function gitMergeRequestQueryKey(projectId: string) {
+  return [...gitQueryKey(projectId), 'merge-request'] as const;
 }
 
 const base = (projectId: string) => `/projects/${encodeURIComponent(projectId)}/git`;
@@ -58,10 +63,23 @@ export function gitLogQuery(projectId: string) {
   });
 }
 
-/** Loads again what a request changed: the queue, the tasks' issues and the log. */
+/**
+ * The package next to the repository's default branch (spec 29c); loaded whenever the dialog of
+ * the package opens, and again when the package or the repository changed.
+ */
+export function gitMergeRequestQuery(projectId: string) {
+  return queryOptions({
+    queryKey: gitMergeRequestQueryKey(projectId),
+    queryFn: () => api<GitMergeRequestPlan>(`${base(projectId)}/merge-request`),
+    staleTime: 0,
+    gcTime: 0,
+  });
+}
+
+/** Loads again what a request changed: the queue, the tasks' issues, the package and the log. */
 function reloadRequests(queryClient: QueryClient, projectId: string) {
   return Promise.all(
-    [gitRequestsQueryKey, gitIssuesQueryKey, gitLogQueryKey].map((key) =>
+    [gitRequestsQueryKey, gitIssuesQueryKey, gitLogQueryKey, gitMergeRequestQueryKey].map((key) =>
       queryClient.invalidateQueries({ queryKey: key(projectId), exact: true }),
     ),
   );
@@ -76,6 +94,16 @@ export function useRequestGitIssues(projectId: string) {
         method: 'POST',
         body: JSON.stringify(input),
       }),
+    onSettled: () => reloadRequests(queryClient, projectId),
+  });
+}
+
+/** Makes the request that brings the package into the repository as a merge request. */
+export function useRequestMergeRequest(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<GitRequestCreated>(`${base(projectId)}/merge-request`, { method: 'POST' }),
     onSettled: () => reloadRequests(queryClient, projectId),
   });
 }

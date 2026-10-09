@@ -98,7 +98,7 @@ function suggestionState(row: {
  * What a project holds right now, as the package is built from it; undefined for someone who is
  * no member. The plan and the boards are read as they stand, also while people have them open.
  */
-async function gather(
+export async function gatherPackage(
   db: AppDb,
   documents: Documents,
   projectId: string,
@@ -242,7 +242,7 @@ export function packageRoutes(db: AppDb, auth: Auth, live: LivePublisher, docume
     const projectId = projectIdSchema.safeParse(c.req.param('projectId'));
     if (!projectId.success) return apiError(c, 'not_found');
 
-    const project = await gather(db, documents, projectId.data, user.id);
+    const project = await gatherPackage(db, documents, projectId.data, user.id);
     if (!project) return apiError(c, 'not_found');
     const summary = codingPackageSummary(project.input);
     return c.json<CodingPackageOverview>({
@@ -422,7 +422,7 @@ export function packageRoutes(db: AppDb, auth: Auth, live: LivePublisher, docume
     const projectId = projectIdSchema.safeParse(c.req.param('projectId'));
     if (!projectId.success) return apiError(c, 'not_found');
 
-    const project = await gather(db, documents, projectId.data, user.id);
+    const project = await gatherPackage(db, documents, projectId.data, user.id);
     if (!project) return apiError(c, 'not_found');
     const files = buildCodingPackage(project.input);
     // Without a plan there is no package.

@@ -1,9 +1,14 @@
+import { createHash } from 'node:crypto';
+
 import type { Hono } from 'hono';
+
+import { gitBlobId } from '@server/integrations/gitlab/blobs';
 
 // What the example repositories of the development stand-in hold (spec 28b): a few files, issues
 // and merge requests, so agents can read a repository without a GitLab. Milestones and issues can
-// be created (spec 29b); the stand-in keeps them until it restarts. The answers have the form of
-// GitLab's API, as far as Covibes reads it.
+// be created (spec 29b), and so can commits on new branches and merge requests (spec 29c); the
+// stand-in keeps them until it restarts. The answers have the form of GitLab's API, as far as
+// Covibes reads it.
 
 type Person = { name: string; username: string };
 type Note = { body: string; system: boolean; author: Person; created_at: string };
@@ -43,6 +48,8 @@ type ExampleMergeRequest = {
   author: Person;
   updated_at: string;
   notes: Note[];
+  /** Where its page is: only merge requests that were created name it. */
+  web_url?: string;
   diffs: {
     old_path: string;
     new_path: string;
@@ -286,14 +293,84 @@ const readmeOnly = (title: string, text: string): ExampleRepository => ({
   mergeRequests: [],
 });
 
+/**
+ * The website: it holds a progress tracker and a feature spec of an earlier plan package, so a
+ * new package shows what stays and what is left over (spec 29c).
+ */
+const WEBSITE: ExampleRepository = {
+  files: {
+    'README.md': '# Website\n\nDie öffentliche Website des Vereins.\n',
+    'context/progress-tracker.md': [
+      '# Fortschritt',
+      '',
+      '## In Arbeit',
+      '',
+      'Startseite (seit 2026-10-01)',
+      '',
+    ].join('\n'),
+    'context/feature-specs/01-09-alte-spec.md': '# 01-09 Alte Spec\n\nAus einem früheren Paket.\n',
+  },
+  issues: [],
+  mergeRequests: [],
+};
+
 /** The content of the example repositories by their id in the stand-in. */
 export const EXAMPLE_REPOSITORIES: Readonly<Record<number, ExampleRepository>> = {
   101: VEREINS_APP,
-  102: readmeOnly('Website', 'Die öffentliche Website des Vereins.'),
+  102: WEBSITE,
   103: readmeOnly('Notizen', 'Olgas Notizen.'),
 };
 
-/** What was created in the example repositories since the stand-in started (spec 29b). */
+/** The files of a branch by their path; a Buffer is a file that is no text. */
+type Files = Readonly<Record<string, string | Buffer>>;
+
+/** A commit the stand-in took, for its page. */
+export type ExampleCommit = {
+  id: string;
+  message: string;
+  branch: string;
+  web_url: string;
+  files: { path: string; added: boolean }[];
+};
+
+/** One change of a commit, as GitLab's API takes it. */
+export type CommitAction = { action: string; file_path: string; content: string };
+
+/** A call the stand-in refuses, with GitLab's status and words. */
+type Refusal = { status: 400 | 403 | 404 | 409; message: string };
+
+const linesOf = (content: string | Buffer | undefined) =>
+  content === undefined || Buffer.isBuffer(content) ? [] : content.replace(/\n$/, '').split('\n');
+
+/** The changes between two branches as GitLab hands them out; a rough diff is enough here. */
+function diffsBetween(source: Files, target: Files): ExampleMergeRequest['diffs'] {
+  return Object.keys(source)
+    .filter((path) => {
+      const before = target[path];
+      const after = source[path];
+      return before === undefined || after === undefined || gitBlobId(before) !== gitBlobId(after);
+    })
+    .sort()
+    .map((path) => {
+      const before = linesOf(target[path]);
+      const after = linesOf(source[path]);
+      return {
+        old_path: path,
+        new_path: path,
+        new_file: target[path] === undefined,
+        deleted_file: false,
+        renamed_file: false,
+        diff: [
+          `@@ -${before.length > 0 ? '1' : '0'},${String(before.length)} +1,${String(after.length)} @@`,
+          ...before.map((line) => `-${line}`),
+          ...after.map((line) => `+${line}`),
+          '',
+        ].join('\n'),
+      };
+    });
+}
+
+/** What was created in the example repositories since the stand-in started (specs 29b and 29c). */
 export type ExampleStore = ReturnType<typeof createExampleStore>;
 
 export function createExampleStore(now: () => number = Date.now) {
@@ -301,6 +378,25 @@ export function createExampleStore(now: () => number = Date.now) {
   const milestones = new Map<number, ExampleMilestone[]>();
   // GitLab's ids of milestones count across all repositories.
   let milestoneId = 0;
+  /** The branches that commits created, per repository, with the files each holds. */
+  const branches = new Map<number, Map<string, Files>>();
+  const mergeRequests = new Map<number, ExampleMergeRequest[]>();
+  const commits = new Map<string, ExampleCommit>();
+
+  /**
+   * The files of a ref: the example's own for its default branch (`HEAD` names it too), what
+   * commits made of a branch they created, and nothing for a ref that does not exist.
+   */
+  function filesOf(id: number, defaultBranch: string, ref?: string): Files | undefined {
+    if (ref === undefined || ref === defaultBranch || ref === 'HEAD') {
+      return EXAMPLE_REPOSITORIES[id]?.files;
+    }
+    return branches.get(id)?.get(ref);
+  }
+  const mergeRequestsOf = (id: number): readonly ExampleMergeRequest[] => [
+    ...(EXAMPLE_REPOSITORIES[id]?.mergeRequests ?? []),
+    ...(mergeRequests.get(id) ?? []),
+  ];
 
   const issuesOf = (id: number): readonly ExampleIssue[] => [
     ...(EXAMPLE_REPOSITORIES[id]?.issues ?? []),
@@ -311,6 +407,113 @@ export function createExampleStore(now: () => number = Date.now) {
   return {
     issuesOf,
     milestonesOf,
+    filesOf,
+    mergeRequestsOf,
+    /** The branches of a repository: its default branch and what commits created. */
+    branchesOf: (id: number, defaultBranch: string) => [
+      defaultBranch,
+      ...(branches.get(id)?.keys() ?? []),
+    ],
+    commitOf: (sha: string) => commits.get(sha),
+    /**
+     * A commit as GitLab's API takes it: on a branch that commits created, or on a new one that
+     * starts from another. The default branch is protected, as it usually is.
+     */
+    commit(
+      id: number,
+      target: ExampleTarget,
+      input: { branch: string; startBranch?: string; message: string; actions: CommitAction[] },
+    ): ExampleCommit | Refusal {
+      const own = branches.get(id) ?? new Map<string, Files>();
+      const existing = own.get(input.branch);
+      if (input.branch === target.defaultBranch) {
+        return { status: 403, message: 'You are not allowed to push into this branch' };
+      }
+      if (existing && input.startBranch !== undefined) {
+        return { status: 400, message: `A branch called '${input.branch}' already exists` };
+      }
+      const start =
+        existing ??
+        (input.startBranch === undefined
+          ? undefined
+          : filesOf(id, target.defaultBranch, input.startBranch));
+      if (!start) {
+        return {
+          status: 400,
+          message: 'You can only create or edit files when you are on a branch',
+        };
+      }
+      if (input.actions.length === 0) return { status: 400, message: 'actions is empty' };
+      const files: Record<string, string | Buffer> = { ...start };
+      for (const action of input.actions) {
+        const held = files[action.file_path] !== undefined;
+        if (action.action === 'create' && held) {
+          return { status: 400, message: 'A file with this name already exists' };
+        }
+        if (action.action === 'update' && !held) {
+          return { status: 400, message: "A file with this name doesn't exist" };
+        }
+        if (action.action !== 'create' && action.action !== 'update') {
+          return { status: 400, message: 'actions[action] does not have a valid value' };
+        }
+        files[action.file_path] = action.content;
+      }
+      own.set(input.branch, files);
+      branches.set(id, own);
+      const sha = createHash('sha1')
+        .update(`${String(id)} ${input.branch} ${String(now())} ${String(commits.size)}`)
+        .digest('hex');
+      const commit: ExampleCommit = {
+        id: sha,
+        message: input.message,
+        branch: input.branch,
+        web_url: `${target.webUrl}/-/commit/${sha}`,
+        files: input.actions.map((action) => ({
+          path: action.file_path,
+          added: action.action === 'create',
+        })),
+      };
+      commits.set(sha, commit);
+      return commit;
+    },
+    /** A merge request as GitLab's API opens it: one per source branch while it is open. */
+    addMergeRequest(
+      id: number,
+      target: ExampleTarget,
+      fields: { title: string; description: string; sourceBranch: string; targetBranch: string },
+    ): ExampleMergeRequest | Refusal {
+      const source = filesOf(id, target.defaultBranch, fields.sourceBranch);
+      const into = filesOf(id, target.defaultBranch, fields.targetBranch);
+      if (!source || !into) {
+        return { status: 400, message: 'The source or the target branch does not exist' };
+      }
+      const open = mergeRequestsOf(id).find(
+        (entry) => entry.state === 'opened' && entry.source_branch === fields.sourceBranch,
+      );
+      if (open) {
+        return {
+          status: 409,
+          message: `Another open merge request already exists for this source branch: !${String(open.iid)}`,
+        };
+      }
+      const iid = Math.max(0, ...mergeRequestsOf(id).map((entry) => entry.iid)) + 1;
+      const mergeRequest: ExampleMergeRequest = {
+        iid,
+        title: fields.title,
+        state: 'opened',
+        draft: false,
+        description: fields.description,
+        source_branch: fields.sourceBranch,
+        target_branch: fields.targetBranch,
+        author: OLGA,
+        updated_at: new Date(now()).toISOString(),
+        notes: [],
+        web_url: `${target.webUrl}/-/merge_requests/${String(iid)}`,
+        diffs: diffsBetween(source, into),
+      };
+      mergeRequests.set(id, [...(mergeRequests.get(id) ?? []), mergeRequest]);
+      return mergeRequest;
+    },
     addMilestone(id: number, webUrl: string, title: string, description: string) {
       const iid = milestonesOf(id).length + 1;
       milestoneId += 1;
@@ -368,8 +571,10 @@ function tree(files: ExampleRepository['files'], folder: string) {
   for (const path of Object.keys(files)) {
     if (!path.startsWith(prefix)) continue;
     const [name = '', ...rest] = path.slice(prefix.length).split('/');
+    const content = files[path];
     entries.set(name, {
-      id: `${prefix}${name}`,
+      // A file carries Git's mark of its content, as GitLab hands it out.
+      id: rest.length > 0 || content === undefined ? `${prefix}${name}` : gitBlobId(content),
       name,
       type: rest.length > 0 ? 'tree' : 'blob',
       path: `${prefix}${name}`,
@@ -380,8 +585,8 @@ function tree(files: ExampleRepository['files'], folder: string) {
 
 /**
  * Adds the routes of GitLab's API for the content of the example repositories: reading files,
- * issues and merge requests, and creating milestones and issues. `targetOf` says what the
- * stand-in knows of a repository; its default branch is the one ref it has.
+ * issues and merge requests, and creating milestones, issues, commits and merge requests.
+ * `targetOf` says what the stand-in knows of a repository.
  */
 export function addExampleRepositoryRoutes(
   routes: Hono,
@@ -396,14 +601,17 @@ export function addExampleRepositoryRoutes(
     const repository = EXAMPLE_REPOSITORIES[numeric];
     const target = targetOf(numeric);
     if (!repository || !target) return undefined;
-    // The examples have one branch each; `HEAD` names it too.
-    if (ref !== undefined && ref !== target.defaultBranch && ref !== 'HEAD') return undefined;
+    // An example has its default branch, and the branches that commits created.
+    const files = store.filesOf(numeric, target.defaultBranch, ref);
+    if (!files) return undefined;
     return {
-      ...repository,
       ...target,
+      target,
       id: numeric,
+      files,
       issues: store.issuesOf(numeric),
       milestones: store.milestonesOf(numeric),
+      mergeRequests: store.mergeRequestsOf(numeric),
     };
   }
 
@@ -550,8 +758,70 @@ export function addExampleRepositoryRoutes(
   routes.get('/api/v4/projects/:id/merge_requests', (c) => {
     const repository = find(c.req.param('id'));
     if (!repository) return c.json(notFound, 404);
+    const source = c.req.query('source_branch');
+    const into = c.req.query('target_branch');
     return c.json(
-      listed(repository.mergeRequests, c.req.query('state'), undefined).map(withoutDetails),
+      listed(repository.mergeRequests, c.req.query('state'), undefined)
+        .filter((entry) => source === undefined || entry.source_branch === source)
+        .filter((entry) => into === undefined || entry.target_branch === into)
+        .map(withoutDetails),
+    );
+  });
+
+  routes.post('/api/v4/projects/:id/merge_requests', async (c) => {
+    const repository = find(c.req.param('id'));
+    if (!repository) return c.json(notFound, 404);
+    const body = await fields(c.req);
+    const title = text(body?.title).trim();
+    if (!title) return c.json({ message: { title: ["can't be blank"] } }, 400);
+    const created = store.addMergeRequest(repository.id, repository.target, {
+      title,
+      description: text(body?.description),
+      sourceBranch: text(body?.source_branch),
+      targetBranch: text(body?.target_branch),
+    });
+    if ('status' in created) return c.json({ message: created.message }, created.status);
+    return c.json(withoutDetails(created), 201);
+  });
+
+  routes.post('/api/v4/projects/:id/repository/commits', async (c) => {
+    const repository = find(c.req.param('id'));
+    if (!repository) return c.json(notFound, 404);
+    const body = await fields(c.req);
+    const branch = text(body?.branch);
+    const message = text(body?.commit_message);
+    if (!branch || !message) {
+      return c.json({ message: 'branch is missing, commit_message is missing' }, 400);
+    }
+    const actions = (Array.isArray(body?.actions) ? (body.actions as unknown[]) : []).map(
+      (entry) => {
+        const action = (typeof entry === 'object' && entry !== null ? entry : {}) as Record<
+          string,
+          unknown
+        >;
+        return {
+          action: text(action.action),
+          file_path: text(action.file_path),
+          content: text(action.content),
+        };
+      },
+    );
+    const created = store.commit(repository.id, repository.target, {
+      branch,
+      ...(typeof body?.start_branch === 'string' ? { startBranch: body.start_branch } : {}),
+      message,
+      actions,
+    });
+    if ('status' in created) return c.json({ message: created.message }, created.status);
+    return c.json(
+      {
+        id: created.id,
+        short_id: created.id.slice(0, 8),
+        title: created.message.split('\n')[0],
+        message: created.message,
+        web_url: created.web_url,
+      },
+      201,
     );
   });
 

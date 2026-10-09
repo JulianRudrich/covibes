@@ -1,7 +1,9 @@
 import type { DB } from '@covibes/db';
 import {
+  gitCommitPayloadSchema,
   gitIssueMark,
   gitIssuePayloadSchema,
+  gitMergeRequestPayloadSchema,
   gitMilestonePayloadSchema,
   type GitActionError,
 } from '@covibes/shared';
@@ -37,15 +39,17 @@ type Action = Selectable<DB['git_actions']>;
 const STOPS: readonly GitActionError[] = ['unreachable', 'no_account', 'not_found'];
 
 /**
- * Runs an approved Git request (spec 29b): its actions in their order, with the access of the
- * person who approved it. Every action records its outcome, which is the log of Git actions.
+ * Runs an approved Git request (specs 29b and 29c): its actions in their order, with the access
+ * of the person who approved it. Every action records its outcome, which is the log of Git
+ * actions.
  *
  * - An action the host refuses fails with the reason, and the others go on. An issue whose
- *   milestone is not there fails without a call.
+ *   milestone is not there, and a merge request whose commit did not work, fail without a call.
  * - If the host cannot be reached, the repository is gone or the approver has no account any
  *   more, the run stops: the action at hand fails, the rest waits for another approval.
- * - What is done is not done again. An action that was started before (the worker ended in
- *   between) first looks for its issue by the mark in its description.
+ * - What is done is not done again. An issue that was started before (the worker ended in
+ *   between) is first looked for by the mark in its description. A commit compares its files
+ *   with its branch, and a merge request is looked up by its branch, before anything is created.
  */
 export async function runGitRequest(
   { admin, accessOf, writers, now = Date.now }: GitRequestDeps,
@@ -90,13 +94,34 @@ export async function runGitRequest(
         )
       : undefined;
 
+  /** What an action made, or found. */
+  const finish = (
+    action: Action,
+    result: { id?: number; number?: number; url?: string | null; existed?: boolean },
+  ) =>
+    admin
+      .updateTable('git_actions')
+      .set({
+        status: 'done',
+        result_id: result.id === undefined ? null : String(result.id),
+        result_number: result.number === undefined ? null : String(result.number),
+        result_url: result.url ?? null,
+        result_existed: result.existed ?? false,
+      })
+      .where('id', '=', action.id)
+      .execute();
+
   /** The milestones that are there, by their title, with the host's id of each. */
   const milestones = new Map<string, number>();
+  /** The request commits files, and whether that commit is there: its merge request needs it. */
+  const commits = actions.some((action) => action.kind === 'commit');
+  let committed = false;
   for (const action of actions) {
     if (action.status === 'done') {
       if (action.kind === 'milestone' && action.result_id !== null) {
         milestones.set(action.title, Number(action.result_id));
       }
+      if (action.kind === 'commit') committed = true;
       continue;
     }
     if (action.status === 'dropped') continue;
@@ -121,17 +146,8 @@ export async function runGitRequest(
         const milestone = gitMilestonePayloadSchema.parse(action.payload);
         const written = await writer.ensureMilestone(milestone);
         milestones.set(milestone.title, written.id);
-        await admin
-          .updateTable('git_actions')
-          .set({
-            status: 'done',
-            result_id: String(written.id),
-            result_url: written.url,
-            result_existed: written.existed,
-          })
-          .where('id', '=', action.id)
-          .execute();
-      } else {
+        await finish(action, written);
+      } else if (action.kind === 'issue') {
         const issue = gitIssuePayloadSchema.parse(action.payload);
         const milestoneId = issue.milestone === null ? null : milestones.get(issue.milestone);
         if (milestoneId === undefined) {
@@ -144,18 +160,26 @@ export async function runGitRequest(
           before ??
           (await writer.createIssue({
             title: issue.title,
-            description: `${issue.description}\n\n<!-- ${mark} -->`,
+            description: `${issue.description}
+
+<!-- ${mark} -->`,
             milestoneId,
           }));
-        await admin
-          .updateTable('git_actions')
-          .set({
-            status: 'done',
-            result_number: String(written.number),
-            result_url: written.url,
-          })
-          .where('id', '=', action.id)
-          .execute();
+        await finish(action, written);
+      } else if (action.kind === 'commit') {
+        const commit = gitCommitPayloadSchema.parse(action.payload);
+        const written = await writer.commitFiles(commit);
+        committed = true;
+        await finish(action, written);
+      } else if (action.kind === 'merge_request') {
+        const mergeRequest = gitMergeRequestPayloadSchema.parse(action.payload);
+        if (commits && !committed) {
+          await fail(action, 'blocked');
+          continue;
+        }
+        await finish(action, await writer.openMergeRequest(mergeRequest));
+      } else {
+        await fail(action, 'invalid', 'The kind of action is unknown');
       }
     } catch (error) {
       if (error instanceof z.ZodError) {

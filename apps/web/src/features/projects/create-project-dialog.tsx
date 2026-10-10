@@ -1,4 +1,9 @@
-import { PROJECT_NAME_MAX_LENGTH, projectNameSchema } from '@covibes/shared';
+import {
+  LANGUAGE_NAMES,
+  LANGUAGES,
+  PROJECT_NAME_MAX_LENGTH,
+  projectNameSchema,
+} from '@covibes/shared';
 import { useNavigate } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { useState, type SubmitEvent } from 'react';
@@ -9,6 +14,7 @@ import { Notice } from '@web/components/ui/card';
 import { Dialog, DialogClose, DialogContent, DialogTrigger } from '@web/components/ui/dialog';
 import { FieldError, Input, Label } from '@web/components/ui/input';
 import { useCreateProject } from '@web/features/projects/queries';
+import { currentLanguage } from '@web/i18n/language';
 
 export function CreateProjectDialog() {
   const { t } = useTranslation();
@@ -17,9 +23,13 @@ export function CreateProjectDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [invalid, setInvalid] = useState(false);
+  // The language the project is written in (spec 32b): proposed is the one the person reads
+  // the app in.
+  const [language, setLanguage] = useState(currentLanguage);
 
   function changeOpen(next: boolean) {
     setOpen(next);
+    if (next) setLanguage(currentLanguage());
     if (!next) {
       setName('');
       setInvalid(false);
@@ -35,7 +45,7 @@ export function CreateProjectDialog() {
       return;
     }
     createProject.mutate(
-      { name: parsed.data },
+      { name: parsed.data, language },
       {
         onSuccess: (project) => {
           changeOpen(false);
@@ -77,6 +87,34 @@ export function CreateProjectDialog() {
               {t('projects.dialog.nameInvalid', { max: PROJECT_NAME_MAX_LENGTH })}
             </FieldError>
           ) : null}
+          <fieldset className="m-0 mt-2 grid min-w-0 gap-1.5 border-0 p-0">
+            <legend className="mb-1.5 p-0 text-ui font-medium text-text">
+              {t('projects.dialog.language')}
+            </legend>
+            <div className="flex gap-5">
+              {LANGUAGES.map((option) => (
+                <label
+                  key={option}
+                  className="flex cursor-pointer items-center gap-2 text-ui text-text-body"
+                >
+                  <input
+                    type="radio"
+                    name="project-language"
+                    checked={language === option}
+                    aria-describedby="project-language-hint"
+                    className="size-3.5 shrink-0 cursor-pointer accent-ink"
+                    onChange={() => {
+                      setLanguage(option);
+                    }}
+                  />
+                  <span lang={option}>{LANGUAGE_NAMES[option]}</span>
+                </label>
+              ))}
+            </div>
+            <p id="project-language-hint" className="m-0 text-small leading-snug text-text-3">
+              {t('projects.dialog.languageHint')}
+            </p>
+          </fieldset>
           {createProject.isError ? (
             <Notice tone="danger">{t('projects.dialog.error')}</Notice>
           ) : null}

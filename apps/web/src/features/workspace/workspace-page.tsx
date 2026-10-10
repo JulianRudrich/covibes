@@ -1,4 +1,5 @@
 import {
+  boardExportTitle,
   exportFileName,
   type HandRaise,
   type OpenVote,
@@ -224,8 +225,9 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
   const boardExports = useMemo<BoardExports | undefined>(
     () =>
       activeBoard && {
-        title: activeBoard.title,
-        fileName: exportFileName(project.name, activeBoard.title),
+        // The main canvas by its name in the project's language (spec 32b).
+        title: boardExportTitle(activeBoard, project.language),
+        fileName: exportFileName(project.name, boardExportTitle(activeBoard, project.language)),
         language: project.language,
         onFailed: exportFailed,
       },
@@ -481,6 +483,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
           proposalsOnly: project.proposalsOnly,
           observer: project.observer,
           webAccess: project.webAccess,
+          language: project.language,
           canChange: project.role === 'owner',
           onChange: (change) => {
             updateProject.mutate(change);

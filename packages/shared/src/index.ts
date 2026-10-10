@@ -388,6 +388,7 @@ export {
 export { boardToMermaid, type BoardExport } from './canvas/mermaid';
 export {
   exportFileName,
+  boardExportTitle,
   exportTexts,
   fileSlug,
   markdownLine,

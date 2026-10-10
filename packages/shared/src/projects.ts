@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { agentKeySchema, type CustomAgentSummary } from './agents/custom';
 import { AGENT_MODELS, type AgentModel } from './agents/keys';
 import type { Phase } from './phases';
+import { languageSchema } from './language';
 import type { PlanLanguage } from './plan';
 
 /** Same limits as the check constraint on `projects.name` (packages/db/migrations). */
@@ -16,7 +17,14 @@ export const projectIdSchema = z.uuid();
 export const PROJECT_ROLES = ['viewer', 'editor', 'owner'] as const;
 export type ProjectRole = (typeof PROJECT_ROLES)[number];
 
-export const createProjectInputSchema = z.object({ name: projectNameSchema });
+/**
+ * `POST /api/projects`. `language` is the language the project is written in (spec 32b);
+ * without one it is the language of the creator's account.
+ */
+export const createProjectInputSchema = z.object({
+  name: projectNameSchema,
+  language: languageSchema.optional(),
+});
 
 /** `PATCH /api/projects/:projectId` (owners): the settings that exist so far. */
 /**
@@ -41,6 +49,8 @@ export const updateProjectInputSchema = z
     webAccess: z.boolean().optional(),
     stance: z.enum(MODERATOR_STANCES).optional(),
     decisionProcess: z.enum(DECISION_PROCESSES).optional(),
+    /** The language the project is written in from now on (spec 32b). */
+    language: languageSchema.optional(),
   })
   // At least one setting: keys that are not given are not part of the parsed input.
   .refine((input) => Object.keys(input).length > 0);

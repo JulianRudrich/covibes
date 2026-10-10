@@ -74,10 +74,21 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
     if (!input.success) return apiError(c, 'invalid_input');
 
     const row = await withUser(db, user.id, async (trx) => {
-      // Creates project, owner membership and main board in one step (migration 0002).
+      // Without a language the project is written in the language of who creates it.
+      const language =
+        input.data.language ??
+        (
+          await trx
+            .selectFrom('users')
+            .select('locale')
+            .where('id', '=', user.id)
+            .executeTakeFirst()
+        )?.locale ??
+        'de';
+      // Creates project, owner membership and main board in one step (migrations 0002, 0039).
       const created = await sql<{
         id: string;
-      }>`select id from public.create_project(${input.data.name})`.execute(trx);
+      }>`select id from public.create_project(${input.data.name}, ${language})`.execute(trx);
       const id = created.rows[0]?.id;
       if (!id) throw new Error('create_project returned no project');
       return summaries(trx, user.id).where('projects.id', '=', id).executeTakeFirstOrThrow();
@@ -196,7 +207,8 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
   });
 
   // The project's settings (spec 13: the proposals-only mode, spec 15: the observer, spec 16b: the
-  // moderator's stance and the decision process); only owners change them.
+  // moderator's stance and the decision process, spec 32b: the language); only owners change
+  // them.
   routes.patch('/:projectId', async (c) => {
     const user = c.get('user');
     if (!user) return apiError(c, 'unauthorized');
@@ -212,11 +224,16 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
         .executeTakeFirst();
       if (!project) return 'not_found' as const;
       if (project.role !== 'owner') return 'forbidden' as const;
+      // The language is a column of its own; what is written in the old one stays as it is.
+      const { language, ...settings } = input.data;
       // Merged into the stored settings, so the other settings stay as they are; settings that
       // are not given are undefined and left out of the JSON.
       await trx
         .updateTable('projects')
-        .set({ settings: sql`settings || ${JSON.stringify(input.data)}::jsonb` })
+        .set({
+          settings: sql`settings || ${JSON.stringify(settings)}::jsonb`,
+          ...(language ? { language } : {}),
+        })
         .where('id', '=', projectId.data)
         .execute();
       return 'updated' as const;

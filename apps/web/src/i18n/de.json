@@ -51,13 +51,15 @@
     },
     "dialog": {
       "title": "Neues Projekt",
-      "description": "Den Namen kannst du später noch ändern.",
+      "description": "Name und Sprache kannst du später ändern.",
       "nameLabel": "Name",
       "namePlaceholder": "z. B. Covibes V1",
       "nameInvalid": "Bitte gib einen Namen mit 1 bis {{max}} Zeichen ein.",
       "submit": "Anlegen",
       "creating": "Wird angelegt …",
-      "error": "Das Projekt konnte nicht angelegt werden. Bitte versuch es noch einmal."
+      "error": "Das Projekt konnte nicht angelegt werden. Bitte versuch es noch einmal.",
+      "language": "Sprache des Projekts",
+      "languageHint": "In dieser Sprache entstehen der Plan, die Exporte und alles, was Covibes ins Repository schreibt. Die Agents antworten in der Sprache der Nachricht."
     },
     "waiting_one": "{{count}} wartet auf dich",
     "waiting_other": "{{count}} warten auf dich"
@@ -702,6 +704,12 @@
         "label": "Web-Zugriff",
         "text": "Agents dürfen im Web suchen und Links lesen."
       }
+    },
+    "language": {
+      "title": "Sprache des Projekts",
+      "de": "Plan, Exporte und Git-Texte entstehen auf Deutsch.",
+      "en": "Plan, Exporte und Git-Texte entstehen auf Englisch.",
+      "note": "Was schon geschrieben ist, bleibt, wie es ist. Die Agents antworten weiter in der Sprache der Nachricht."
     }
   },
   "overview": {

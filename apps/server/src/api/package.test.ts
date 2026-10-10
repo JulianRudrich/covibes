@@ -556,4 +556,29 @@ describe('the written-out feature specs (spec 27d)', () => {
       '(01-01-projekt-aufsetzen.md) (Gerüst)',
     );
   });
+
+  it('names the main canvas in the language the project has now (spec 32b)', async () => {
+    const project = await plannedProject();
+    const german = await unzip(await request(`${project.package}/download`, project.owner));
+    expect(german['context/architecture.md']).toContain(
+      '- [Haupt-Canvas](../docs/diagrams/haupt-canvas.md)',
+    );
+
+    const changed = await request(`/api/projects/${project.projectId}`, project.owner, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ language: 'en' }),
+    });
+    expect(changed.status).toBe(204);
+    const english = await unzip(await request(`${project.package}/download`, project.owner));
+
+    expect(english['context/architecture.md']).toContain(
+      '- [Main canvas](../docs/diagrams/main-canvas.md)',
+    );
+    expect(english['docs/diagrams/main-canvas.md']).toBeDefined();
+    expect(english['docs/diagrams/haupt-canvas.md']).toBeUndefined();
+    // What Covibes adds is English now; what the team wrote stays as written.
+    expect(english['context/decisions.md']).toContain('PostgreSQL');
+    expect(english['context/decisions.md']).not.toContain('**Entscheidung:**');
+  });
 });

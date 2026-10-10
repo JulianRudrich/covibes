@@ -18,6 +18,8 @@ export type ExportTexts = {
   connections: string;
   notes: string;
   emptyBoard: string;
+  /** The name of a project's main canvas. */
+  mainBoard: string;
 };
 
 const TEXTS: Readonly<Record<PlanLanguage, ExportTexts>> = {
@@ -31,6 +33,7 @@ const TEXTS: Readonly<Record<PlanLanguage, ExportTexts>> = {
     connections: 'Verbindungen zwischen Diagrammen',
     notes: 'Notizen',
     emptyBoard: 'Dieses Board ist leer.',
+    mainBoard: 'Haupt-Canvas',
   },
   en: {
     plan: 'Project plan',
@@ -42,11 +45,24 @@ const TEXTS: Readonly<Record<PlanLanguage, ExportTexts>> = {
     connections: 'Connections between diagrams',
     notes: 'Notes',
     emptyBoard: 'This board is empty.',
+    mainBoard: 'Main canvas',
   },
 };
 
 export function exportTexts(language: PlanLanguage): ExportTexts {
   return TEXTS[language];
+}
+
+/**
+ * The title of a board where Covibes writes it out (spec 32b): the main canvas is named in the
+ * project's language, whatever it was called when the project was created; every other board
+ * has the title its people gave it.
+ */
+export function boardExportTitle(
+  board: { title: string; kind: string },
+  language: PlanLanguage,
+): string {
+  return board.kind === 'main' ? TEXTS[language].mainBoard : board.title;
 }
 
 /**

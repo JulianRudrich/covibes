@@ -117,6 +117,61 @@ describe('create_project', () => {
       asUser(app, null, (client) => client.query("select public.create_project('Anonym')")),
     ).rejects.toMatchObject({ code: '42501' });
   });
+
+  it('creates the project in the language it is given, German unless told (spec 32b)', async () => {
+    await asUser(app, OWNER, async (client) => {
+      const created = async (call: string) => {
+        const { rows } = await client.query<{ id: string; language: string }>(
+          `select id, language from ${call}`,
+        );
+        const board = await client.query<{ title: string }>(
+          `select title from boards where project_id = $1 and kind = 'main'`,
+          [rows[0]?.id],
+        );
+        return { language: rows[0]?.language, mainBoard: board.rows[0]?.title };
+      };
+
+      expect(await created("public.create_project('Club app', 'en')")).toEqual({
+        language: 'en',
+        mainBoard: 'Main canvas',
+      });
+      expect(await created("public.create_project('Vereins-App', 'de')")).toEqual({
+        language: 'de',
+        mainBoard: 'Haupt-Canvas',
+      });
+      expect(await created("public.create_project('Ohne Angabe')")).toEqual({
+        language: 'de',
+        mainBoard: 'Haupt-Canvas',
+      });
+    });
+  });
+
+  it('refuses a language the app does not speak', async () => {
+    for (const language of ["'fr'", "'EN'", "''", 'null']) {
+      await expect(
+        asUser(app, OWNER, (client) =>
+          client.query(`select public.create_project('Sprache', ${language})`),
+        ),
+        language,
+      ).rejects.toMatchObject({ code: expect.stringMatching(/^(23514|23502)$/) as string });
+    }
+  });
+
+  it('lets owners change the language, and nobody else', async () => {
+    const change = (userId: string) =>
+      asUser(app, userId, async (client) => {
+        const updated = await client.query(
+          `update projects set language = 'en' where id = $1 returning language`,
+          [projectId],
+        );
+        return updated.rowCount;
+      });
+
+    // Row level security shows editors and viewers no row to update.
+    expect(await change(EDITOR)).toBe(0);
+    expect(await change(VIEWER)).toBe(0);
+    expect(await change(OWNER)).toBe(1);
+  });
 });
 
 describe('stranger', () => {

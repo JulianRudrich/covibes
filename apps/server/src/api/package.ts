@@ -1,5 +1,6 @@
 import type { DB } from '@covibes/db';
 import {
+  boardExportTitle,
   buildCodingPackage,
   codingPackageSummary,
   codingPackageTexts,
@@ -107,7 +108,7 @@ async function loadPackageRows(trx: Kysely<DB>, projectId: string) {
   if (!project) return undefined;
   const boards = await trx
     .selectFrom('boards')
-    .select(['id', 'title'])
+    .select(['id', 'title', 'kind'])
     .where('project_id', '=', projectId)
     .orderBy('kind', 'desc') // 'main' before 'extra'
     .orderBy('position')
@@ -151,10 +152,15 @@ async function packageInputOf(
   projectId: string,
 ): Promise<CodingPackageInput> {
   const plan = await readers.readPlan(projectId);
+  const language = rows.project.language === 'en' ? 'en' : 'de';
   const boards: CodingPackageInput['boards'][number][] = [];
   // One after the other: a board nobody has open is read from the database.
   for (const board of rows.boards) {
-    boards.push({ title: board.title, ...(await readers.readBoard(board.id)) });
+    boards.push({
+      // The main canvas by its name in the project's language (spec 32b).
+      title: boardExportTitle(board, language),
+      ...(await readers.readBoard(board.id)),
+    });
   }
   const texts: PackageTexts = { code_standards: '', ui_direction: '' };
   for (const kind of PACKAGE_TEXT_KINDS) {
@@ -162,7 +168,7 @@ async function packageInputOf(
   }
   return {
     projectName: rows.project.name,
-    language: rows.project.language === 'en' ? 'en' : 'de',
+    language,
     date: new Date(),
     plan,
     assignees: new Map([...rows.assignees].map(([taskId, assignee]) => [taskId, assignee.name])),

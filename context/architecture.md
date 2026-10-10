@@ -258,7 +258,7 @@ An agent's instructions cannot change this table.
 ### Languages
 - Covibes speaks German and English (`packages/shared/src/language.ts`). The interface follows the person: `users.locale` is the language of an account, set by its owner through the login library and stored only as one of the two (spec 32a). A new account takes the language its browser prefers; the mails Covibes writes to a person are in that language, and the login mail in the language of the page that asked for it.
 - Signed out, the web app shows what the device showed last, else what its browser prefers (German or English, else English). A language picked while signed out goes into the account at the next sign-in; otherwise the account decides.
-- What a project writes (plan, exports, Git texts, invitations) follows `projects.language`, not the reader. Agents answer in the language of the message; nothing people wrote is translated.
+- What a project writes (plan, exports, Git texts, invitations) follows `projects.language`, not the reader. Its creator chooses it, and owners change it among the project settings (spec 32b); a change translates nothing. Where Covibes writes out the main canvas, it names it in the project's language (`boardExportTitle`). Agents answer in the language of the message; nothing people wrote is translated.
 
 ### Limits and usage
 - Every run stores its model, tokens and estimated cost in `ai_runs`, and the person it is for (`user_id`): who caused it, also through an agent that works for them; nobody for what runs by itself.

@@ -186,3 +186,126 @@ describe('the phase of a project (spec 24)', () => {
     }
   });
 });
+
+describe('the language of a project (spec 32b)', () => {
+  const change = (cookie: string | undefined, projectId: string, body: unknown) =>
+    request(`/api/projects/${projectId}`, cookie, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  async function detailsOf(cookie: string, projectId: string) {
+    const details = await request(`/api/projects/${projectId}`, cookie);
+    return (await details.json()) as ProjectDetails;
+  }
+
+  /** Signs someone in whose account has this language. */
+  async function signInWith(locale: 'de' | 'en') {
+    const cookie = await signIn();
+    const session = await auth.api.getSession({ headers: new Headers({ cookie }) });
+    await db.adminPool.query('update users set locale = $1 where id = $2', [
+      locale,
+      session?.user.id,
+    ]);
+    return cookie;
+  }
+
+  /** Signs someone in and adds them to the project. */
+  async function member(projectId: string, role: 'editor' | 'viewer') {
+    const cookie = await signIn();
+    const session = await auth.api.getSession({ headers: new Headers({ cookie }) });
+    await db.adminPool.query(
+      'insert into project_members (project_id, user_id, role) values ($1, $2, $3)',
+      [projectId, session?.user.id, role],
+    );
+    return cookie;
+  }
+
+  it('is what the creator chooses, and names the main canvas', async () => {
+    const owner = await signInWith('de');
+
+    const english = (await (
+      await create(owner, { name: 'Club app', language: 'en' })
+    ).json()) as ProjectSummary;
+    const german = (await (
+      await create(owner, { name: 'Vereins-App', language: 'de' })
+    ).json()) as ProjectSummary;
+
+    const first = await detailsOf(owner, english.id);
+    expect(first.language).toBe('en');
+    expect(first.boards).toEqual([expect.objectContaining({ title: 'Main canvas', kind: 'main' })]);
+    const second = await detailsOf(owner, german.id);
+    expect(second.language).toBe('de');
+    expect(second.boards[0]).toMatchObject({ title: 'Haupt-Canvas', kind: 'main' });
+  });
+
+  it('is the language of the creator’s account when none is named', async () => {
+    const english = await signInWith('en');
+    const german = await signInWith('de');
+
+    const one = (await (await create(english, { name: 'Club app' })).json()) as ProjectSummary;
+    const two = (await (await create(german, { name: 'Vereins-App' })).json()) as ProjectSummary;
+
+    expect((await detailsOf(english, one.id)).language).toBe('en');
+    expect((await detailsOf(german, two.id)).language).toBe('de');
+  });
+
+  it('is one of the two languages, at creation and later', async () => {
+    const owner = await signIn();
+    for (const language of ['fr', 'EN', '', 7, null]) {
+      const response = await create(owner, { name: 'Sprache', language });
+      expect(response.status, JSON.stringify(language)).toBe(400);
+      expect(await errorCode(response)).toBe('invalid_input');
+    }
+    const { id } = (await (await create(owner, { name: 'Sprache' })).json()) as ProjectSummary;
+
+    for (const language of ['fr', 'EN', '', 7, null]) {
+      const response = await change(owner, id, { language });
+      expect(response.status, JSON.stringify(language)).toBe(400);
+    }
+    expect((await detailsOf(owner, id)).language).toBe('de');
+  });
+
+  it('is changed by owners, and leaves the other settings and the boards as they are', async () => {
+    const owner = await signIn();
+    const { id } = (await (await create(owner, { name: 'Vereins-App' })).json()) as ProjectSummary;
+    expect((await change(owner, id, { proposalsOnly: true, stance: 'strict' })).status).toBe(204);
+
+    const changed = await change(owner, id, { language: 'en' });
+
+    expect(changed.status).toBe(204);
+    const details = await detailsOf(owner, id);
+    expect(details).toMatchObject({ language: 'en', proposalsOnly: true, stance: 'strict' });
+    // The board keeps the name it has; the app and the exports name the main canvas themselves.
+    expect(details.boards[0]).toMatchObject({ title: 'Haupt-Canvas', kind: 'main' });
+    // The language is no setting among the stored settings.
+    const stored = await db.adminPool.query<{ settings: Record<string, unknown> }>(
+      'select settings from projects where id = $1',
+      [id],
+    );
+    expect(stored.rows[0]?.settings).not.toHaveProperty('language');
+
+    // Together with a setting, and back again.
+    expect((await change(owner, id, { language: 'de', observer: false })).status).toBe(204);
+    expect(await detailsOf(owner, id)).toMatchObject({ language: 'de', observer: false });
+  });
+
+  it('is read by every member and changed by nobody but owners', async () => {
+    const owner = await signIn();
+    const { id } = (await (
+      await create(owner, { name: 'Club app', language: 'en' })
+    ).json()) as ProjectSummary;
+    const editor = await member(id, 'editor');
+    const viewer = await member(id, 'viewer');
+
+    for (const cookie of [editor, viewer]) {
+      expect((await detailsOf(cookie, id)).language).toBe('en');
+      const refused = await change(cookie, id, { language: 'de' });
+      expect(refused.status).toBe(403);
+    }
+    expect((await change(await signIn(), id, { language: 'de' })).status).toBe(404);
+    expect((await change(undefined, id, { language: 'de' })).status).toBe(401);
+    expect((await detailsOf(owner, id)).language).toBe('en');
+  });
+});

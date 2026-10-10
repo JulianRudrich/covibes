@@ -1,13 +1,15 @@
 import { z } from 'zod';
 
+import type { Language } from './language';
+
 // The project plan (spec 25a): one shared document per project, written with Tiptap on a Y.Doc.
 
 /** The sections of a plan, in their order (`project-overview.md`, "Project plan and export"). */
 export const PLAN_SECTIONS = ['scope', 'milestones', 'tech', 'risks', 'costs'] as const;
 export type PlanSection = (typeof PLAN_SECTIONS)[number];
 
-/** The languages a plan is written in: the project's language. */
-export type PlanLanguage = 'de' | 'en';
+/** The language a plan is written in: the project's language (spec 32b). */
+export type PlanLanguage = Language;
 
 /**
  * The Y.XmlFragment of the plan's Y.Doc that holds the document; Tiptap's collaboration extension

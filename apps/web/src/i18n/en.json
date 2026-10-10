@@ -51,13 +51,15 @@
     },
     "dialog": {
       "title": "New project",
-      "description": "You can change the name later.",
+      "description": "You can change the name and the language later.",
       "nameLabel": "Name",
       "namePlaceholder": "e.g. Covibes V1",
       "nameInvalid": "Please enter a name with 1 to {{max}} characters.",
       "submit": "Create",
       "creating": "Creating …",
-      "error": "The project could not be created. Please try again."
+      "error": "The project could not be created. Please try again.",
+      "language": "Language of the project",
+      "languageHint": "The plan, the exports and everything Covibes writes into the repository are written in this language. The agents answer in the language of the message."
     },
     "waiting_one": "{{count}} waiting for you",
     "waiting_other": "{{count}} waiting for you"
@@ -702,6 +704,12 @@
         "label": "Web access",
         "text": "Agents may search the web and read links."
       }
+    },
+    "language": {
+      "title": "Language of the project",
+      "de": "The plan, exports and Git texts are written in German.",
+      "en": "The plan, exports and Git texts are written in English.",
+      "note": "What is already written stays as it is. The agents keep answering in the language of the message."
     }
   },
   "overview": {

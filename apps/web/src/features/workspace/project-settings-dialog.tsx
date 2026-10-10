@@ -1,7 +1,10 @@
 import {
   DECISION_PROCESSES,
+  LANGUAGE_NAMES,
+  LANGUAGES,
   MODERATOR_STANCES,
   type DecisionProcess,
+  type Language,
   type ModeratorStance,
   type UpdateProjectInput,
 } from '@covibes/shared';
@@ -12,23 +15,35 @@ import { Button } from '@web/components/ui/button';
 import { DialogClose, DialogContent } from '@web/components/ui/dialog';
 import { cn } from '@web/lib/cn';
 
-/** The settings of a project that its owners change (specs 13, 15, 16b and 20b). */
+/** The settings of a project that its owners change (specs 13, 15, 16b, 20b and 32b). */
 export type ProjectSettings = {
   stance: ModeratorStance;
   decisionProcess: DecisionProcess;
   proposalsOnly: boolean;
   observer: boolean;
   webAccess: boolean;
+  /** The language the project is written in: plan, exports, Git texts. */
+  language: Language;
   /** Only owners change the settings; everyone else sees them. */
   canChange: boolean;
   onChange: (change: UpdateProjectInput) => void;
 };
 
-function Group({ title, children }: { title: string; children: ReactNode }) {
+function Group({
+  title,
+  note,
+  children,
+}: {
+  title: string;
+  /** What holds for the whole group, below its choices. */
+  note?: string;
+  children: ReactNode;
+}) {
   return (
     <fieldset className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0">
       <legend className="mb-1 p-0 text-ui font-semibold text-text">{title}</legend>
       {children}
+      {note ? <p className="m-0 px-1.5 text-small leading-snug text-text-3">{note}</p> : null}
     </fieldset>
   );
 }
@@ -78,13 +93,14 @@ function Choice({
 
 /**
  * The project settings (spec 16b, derived look): the moderator's stance, how the project decides,
- * and the switches for agents. Every change applies at once; owners change them, everyone else
- * sees them.
+ * the switches for agents, and the language the project is written in (spec 32b). Every change
+ * applies at once; owners change them, everyone else sees them.
  */
 export function ProjectSettingsDialog({ settings }: { settings: ProjectSettings }) {
   const { t } = useTranslation();
   const stanceName = useId();
   const processName = useId();
+  const languageName = useId();
   const disabled = !settings.canChange;
 
   return (
@@ -160,6 +176,22 @@ export function ProjectSettingsDialog({ settings }: { settings: ProjectSettings 
               settings.onChange({ webAccess });
             }}
           />
+        </Group>
+        <Group title={t('settings.language.title')} note={t('settings.language.note')}>
+          {LANGUAGES.map((language) => (
+            <Choice
+              key={language}
+              type="radio"
+              name={languageName}
+              checked={settings.language === language}
+              disabled={disabled}
+              label={LANGUAGE_NAMES[language]}
+              text={t(`settings.language.${language}`)}
+              onChange={() => {
+                settings.onChange({ language });
+              }}
+            />
+          ))}
         </Group>
       </div>
       <div className="mt-4 flex justify-end">

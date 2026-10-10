@@ -580,7 +580,39 @@ describe('with a session', () => {
       expect(router.state.location.pathname).toBe(`/p/${PROJECT.id}`);
     });
     const post = api.mock.calls.find(([, init]) => init?.method === 'POST');
-    expect(post?.[1]?.body).toBe(JSON.stringify({ name: 'Covibes V1' }));
+    // The project is written in the language of the interface unless the person says otherwise.
+    expect(post?.[1]?.body).toBe(JSON.stringify({ name: 'Covibes V1', language: 'de' }));
+  });
+
+  it('asks in which language the project is written, and proposes the one of the interface (spec 32b)', async () => {
+    signedIn({ ...OLGA, locale: 'en' });
+    const api = stubApi({
+      'GET /api/projects': () => ({ body: [] }),
+      'POST /api/projects': () => ({ status: 201, body: PROJECT }),
+      [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+    });
+    renderApp('/');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Create project' }));
+    const dialog = await screen.findByRole('dialog', { name: 'New project' });
+    const languages = within(
+      within(dialog).getByRole('group', { name: 'Language of the project' }),
+    );
+    // The account is English, so is the proposal.
+    expect(languages.getByRole('radio', { name: 'English' })).toBeChecked();
+    expect(languages.getByRole('radio', { name: 'Deutsch' })).not.toBeChecked();
+    expect(languages.getByRole('radio', { name: 'Deutsch' })).toHaveAccessibleDescription(
+      /written in this language/,
+    );
+
+    fireEvent.click(languages.getByRole('radio', { name: 'Deutsch' }));
+    fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: 'Vereins-App' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      const post = api.mock.calls.find(([, init]) => init?.method === 'POST');
+      expect(post?.[1]?.body).toBe(JSON.stringify({ name: 'Vereins-App', language: 'de' }));
+    });
   });
 
   it('opens the workspace with the real members, the own one as "Du"', async () => {
@@ -714,6 +746,12 @@ describe('with a session', () => {
     expect(webAccess).toHaveAccessibleDescription('Agents dürfen im Web suchen und Links lesen.');
     fireEvent.click(webAccess);
     await patched({ webAccess: false });
+    // The language the project is written in (spec 32b).
+    const languages = within(within(dialog).getByRole('group', { name: 'Sprache des Projekts' }));
+    expect(languages.getByRole('radio', { name: /Deutsch/ })).toBeChecked();
+    fireEvent.click(languages.getByRole('radio', { name: /English/ }));
+    await patched({ language: 'en' });
+    expect(within(dialog).getByText(/Was schon geschrieben ist, bleibt/)).toBeInTheDocument();
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Schließen' }));
     fireEvent.keyDown(menu, { key: 'Enter' });
@@ -773,7 +811,13 @@ describe('with a session', () => {
   it('shows editors the project settings without letting them change anything', async () => {
     stubApi({
       [`GET /api/projects/${PROJECT.id}`]: () => ({
-        body: { ...DETAILS, role: 'editor', proposalsOnly: true, decisionProcess: 'owner' },
+        body: {
+          ...DETAILS,
+          role: 'editor',
+          proposalsOnly: true,
+          decisionProcess: 'owner',
+          language: 'en',
+        },
       }),
     });
     renderApp(`/p/${PROJECT.id}`);
@@ -785,6 +829,7 @@ describe('with a session', () => {
     expect(dialog).toHaveTextContent('Nur Owner ändern die Einstellungen.');
     expect(within(dialog).getByRole('radio', { name: /Owner entscheidet/ })).toBeChecked();
     expect(within(dialog).getByRole('checkbox', { name: /Nur Vorschläge/ })).toBeChecked();
+    expect(within(dialog).getByRole('radio', { name: /English/ })).toBeChecked();
     for (const control of [
       ...within(dialog).getAllByRole('radio'),
       ...within(dialog).getAllByRole('checkbox'),
@@ -1152,6 +1197,20 @@ describe('with a session', () => {
   });
 
   describe('exports (spec 27a)', () => {
+    it('names the main canvas in the language of the project, whatever it was called (spec 32b)', async () => {
+      stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({ body: { ...DETAILS, language: 'en' } }),
+      });
+      renderApp(`/p/${PROJECT.id}`);
+
+      // The interface is German and the board was created as "Haupt-Canvas": the export is
+      // the project's, and the project is English.
+      expect(await screen.findByTestId('canvas-panel')).toHaveAttribute(
+        'data-export',
+        'covibes-v1-main-canvas|Main canvas|en',
+      );
+    });
+
     it('names the files of a board after the project and the board, also for viewers', async () => {
       stubApi({
         [`GET /api/projects/${PROJECT.id}`]: () => ({

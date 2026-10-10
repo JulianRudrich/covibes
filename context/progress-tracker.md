@@ -9,7 +9,7 @@
 Polish the product (M7, specs 31 to 36): limits and usage first. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing at the moment. Spec 31a (usage and limits) is done; part 31b (the usage overview for owners) is next.
+**Spec 31b usage overview** (worked out on 2026-10-10): owners read what the AI cost in their project in a month: the total against the limit, per agent, per person and per day, as a share and as an estimated amount in USD, in a dialog of the project's menu. It is the last part of spec 31.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

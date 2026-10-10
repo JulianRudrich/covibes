@@ -1,4 +1,4 @@
-import type { GitAccount, GitConnection, GitRepository, GitReturn } from '@covibes/shared';
+import type { GitAccount, GitConnection, GitRepository, GitReturn, GitSync } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { ExternalLink, GitBranch, Search } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
@@ -14,6 +14,7 @@ import {
   usePickGitRepository,
   useRemoveGitRepository,
 } from '@web/features/git/queries';
+import { SyncSection } from '@web/features/git/sync-section';
 import { cn } from '@web/lib/cn';
 
 const NOTE = 'm-0 text-ui leading-snug text-text-2';
@@ -96,6 +97,9 @@ export function GitDialog({
             projectId={projectId}
             connection={data.connection}
             canManage={data.canManage}
+            sync={data.sync}
+            loadedAt={state.dataUpdatedAt}
+            canSetUpWebhook={data.canManage && data.available}
             onChange={() => {
               setPicking(true);
             }}
@@ -140,16 +144,25 @@ function accountNames(account: Pick<GitAccount, 'username' | 'name'>) {
   return { name: account.name || account.username, username: account.username };
 }
 
-/** A project with a repository: which one, whose access reaches it, and how it ends. */
+/**
+ * A project with a repository: which one, whose access reaches it, when its state was last read
+ * (spec 30a), and how it ends.
+ */
 function Connected({
   projectId,
   connection,
   canManage,
+  sync,
+  loadedAt,
+  canSetUpWebhook,
   onChange,
 }: {
   projectId: string;
   connection: GitConnection;
   canManage: boolean;
+  sync: GitSync | null;
+  loadedAt: number;
+  canSetUpWebhook: boolean;
   onChange: () => void;
 }) {
   const { t } = useTranslation();
@@ -183,6 +196,13 @@ function Connected({
       <p className="m-0 text-small leading-snug text-text-3">
         {t('git.connected.by', { ...accountNames(account), by: connectedBy.name })}
       </p>
+
+      <SyncSection
+        projectId={projectId}
+        sync={sync}
+        loadedAt={loadedAt}
+        canSetUpWebhook={canSetUpWebhook}
+      />
 
       {canManage ? (
         <div className="flex items-center gap-2">

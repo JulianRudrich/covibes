@@ -43,7 +43,7 @@ Browser ── React app (static files)
 | AI layer | AI SDK (npm package `ai`), encapsulated in the `ai-gateway` module | provider-independent model calls |
 | Web search and links | a switch of the AI gateway ("this run may search"); behind it Claude's own web search (owner decision, 2026-10-01, spec 20b). Reading a link is an own tool with a guarded fetch | current facts and posted links for the agents |
 | Email | SMTP behind an interface; locally a development mailbox in the app | login links, invitations, notifications |
-| GitLab | an own small client over `fetch` with checked answers (spec 28a; `@gitbeaker/rest` was planned and is not used, since the calls are few and one client serves GitLab and the development stand-in), webhooks | repository, issues, merge requests |
+| GitLab | an own small client over `fetch` with checked answers (spec 28a; `@gitbeaker/rest` was planned and is not used, since the calls are few and one client serves GitLab and the development stand-in), a webhook per project as an accelerator (spec 30a) | repository, issues, merge requests |
 | Monitoring | set up for the public launch | errors in web and server |
 | Exports | `html-to-image` (a board as PNG and SVG), an own Mermaid serializer in `packages/shared`, `pdfmake` (the plan as PDF); all in the browser, loaded on first use (spec 27a). `fflate` packs the package for coding agents on the server (spec 27b) | files of boards and of the plan, the package as a ZIP |
 | Tests | Vitest (also against a real test database), Playwright | logic, permissions, flows |
@@ -248,7 +248,10 @@ An agent's instructions cannot change this table.
   - The plan package comes into the repository the same way (spec 29c): a request with a commit of its files on a branch of its own and the merge request for it. The commit compares the files with the branch by Git's ids of their content, adds what is new and changes what differs, and deletes nothing; the progress tracker is only added when it is missing. Before the request, the same comparison with the default branch shows what would change.
   - Merging is a request too (spec 29d): it names an open merge request and its last commit, and GitLab is asked to merge only that commit, so what was approved is what is merged.
   - Requests and actions name no host. What writing to a repository needs is one interface (`integrations/git-host.ts`), which `integrations/gitlab/writer.ts` fulfils; GitHub is added next to it after V1.
-- **Webhook:** MR events arrive with a verified secret token. For MRs of Covibes issues they start the job `mr_review`.
+- **The repository's state (spec 30a):** Covibes reads it itself. The job `git_sync` reads, with the project's reading access, whether the issues Covibes created are open or closed, and stores that (`git_issue_states`, `git_sync`); it changes nothing in GitLab. After the handover GitLab owns the status of a task: a task is done when its issue is closed, and the roadmap and the plan show that.
+  - What starts the job: opening a project, every five minutes while a member has it open in a visible tab, a click in the dialog "Repository", and the webhook. The database limits it to one reading every two minutes per project, ten seconds for a click, and turns a burst into one job.
+  - **Webhook:** `POST /api/git/webhook/:projectId` with the project's secret in GitLab's header `X-Gitlab-Token` starts the same job at once. What the call carries is not read, so it is no input (invariant 6). The secret is made by the server, stored sealed like the tokens (`git_webhooks`, which no request of a user reads), and shown to owners, who enter it in GitLab themselves. A wrong secret and an unknown project get the same answer. So Covibes works without an address GitLab can reach, and the webhook only saves the wait.
+  - Part 30b lets the same job look at the merge requests: one that belongs to an issue Covibes created is reviewed once per state of its commits (job `mr_review`), others on a click.
 - **Self-managed GitLab** (later): every account and every connection stores its own `base_url`.
 
 ### Limits and usage
@@ -294,6 +297,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `package_specs`, `package_spec_runs` | the feature specs the moderator wrote out (spec 27d), one per task text, and the latest run per milestone that writes them |
 | `git_accounts`, `git_connections` | a person's GitLab account with its tokens (encrypted; spec 29a), the repository of a project and who picked it |
 | `git_requests`, `git_actions` | requests for Git actions with who asked and who decided (spec 29b), and their actions with what each made or why it failed: the log of Git actions |
+| `git_issue_states`, `git_sync`, `git_webhooks` | whether the issues Covibes created are open or closed and when that was last read (spec 30a), and the encrypted secret of a project's webhook |
 | `notifications` | notifications per person: mentions, changed roles, removals, new members; with the names they show, when they were read and when they were mailed |
 | `notification_settings`, `member_activity` | per person the switch for mails and when the last one went out; per member when they last had the project open and when a mail last told them that something waits |
 | `away_summaries` | per member the last absence: from when to when, the moderator's summary with its status, and when the member closed it |

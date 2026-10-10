@@ -23,6 +23,7 @@ import { debateRoutes, handRoutes, offerRoutes, voteRoutes } from '@server/api/h
 import { messageRoutes } from '@server/api/messages';
 import { notificationRoutes } from '@server/api/notifications';
 import { gitAccountRoutes, gitCallback, gitRoutes, type GitDeps } from '@server/api/git';
+import { GIT_WEBHOOK_PATH, gitWebhook, WEBHOOK_CALLS_PER_MINUTE } from '@server/api/git-sync';
 import { packageRoutes } from '@server/api/package';
 import { planRoutes } from '@server/api/plan';
 import { projectRoutes } from '@server/api/projects';
@@ -71,6 +72,12 @@ export const UPLOAD_BODY_LIMIT = MAX_FILE_BYTES + 64 * 1024;
  * (spec 29c), which the worker sends it like it would send it to GitLab.
  */
 export const DEV_GITLAB_BODY_LIMIT = 8 * 1024 * 1024;
+
+/**
+ * What a webhook call of GitLab may carry (spec 30a). Covibes reads none of it, but GitLab's
+ * events are larger than what a page sends.
+ */
+export const WEBHOOK_BODY_LIMIT = 2 * 1024 * 1024;
 
 /** `POST /api/projects/:projectId/files`, the only route that takes a file. */
 const UPLOAD_PATH = /^\/api\/(projects\/[^/]+\/files|agents\/[^/]+\/knowledge\/files)\/?$/;
@@ -129,13 +136,19 @@ export function createApp({
     maxSize: DEV_GITLAB_BODY_LIMIT,
     onError: (c) => apiError(c, 'too_large'),
   });
+  const webhookLimit = bodyLimit({
+    maxSize: WEBHOOK_BODY_LIMIT,
+    onError: (c) => apiError(c, 'too_large'),
+  });
   const limitBody: MiddlewareHandler = (c, next) =>
     c.req.method === 'POST' && UPLOAD_PATH.test(c.req.path)
       ? uploadLimit(c, next)
       : servesStandIn && c.req.path.startsWith(`${DEV_GITLAB_PATH}/`)
         ? // The stand-in takes what a GitLab takes, e.g. a commit of many files.
           standInLimit(c, next)
-        : apiLimit(c, next);
+        : c.req.path.startsWith(`${GIT_WEBHOOK_PATH}/`)
+          ? webhookLimit(c, next)
+          : apiLimit(c, next);
   app.use('/api/*', limitBody);
   // The stand-in's routes stand before the check of the origin: the token endpoint takes a form,
   // as GitLab's does, and is called by this server, not by a page.
@@ -201,7 +214,14 @@ export function createApp({
   app.route('/api/projects/:projectId/plan', planRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/roadmap', roadmapRoutes(db.app, auth, live, documents));
   app.route('/api/projects/:projectId/package', packageRoutes(db.app, auth, live, documents));
-  app.route('/api/projects/:projectId/git', gitRoutes(db.app, auth, git, documents));
+  app.route(
+    '/api/projects/:projectId/git',
+    gitRoutes(db.app, auth, git, documents, { admin: db.admin, appUrl: env.APP_URL }),
+  );
+  // GitLab says that something changed (spec 30a); the call proves itself with the project's
+  // secret and carries no session.
+  const webhookLimiter = createRateLimiter({ limit: WEBHOOK_CALLS_PER_MINUTE, windowMs: 60_000 });
+  app.route(GIT_WEBHOOK_PATH, gitWebhook(db.admin, gitSetup?.tokenKey, webhookLimiter));
   app.route('/api/git/account', gitAccountRoutes(auth, git));
   app.route(GIT_CALLBACK_PATH, gitCallback(auth, env.APP_URL, git));
   const invitationMailLimiter = createRateLimiter({

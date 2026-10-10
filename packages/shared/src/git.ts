@@ -42,6 +42,35 @@ export type GitConnection = {
   repository: GitRepository;
 };
 
+/**
+ * When the repository's state was last read (spec 30a): the issues Covibes created, and from part
+ * 30b on its merge requests.
+ */
+export type GitSync = {
+  /** When a reading last worked; null if none did yet. */
+  syncedAt: string | null;
+  /** The last reading did not work. */
+  failed: boolean;
+};
+
+/** `POST /api/projects/:projectId/git/sync`: asks for a reading; `force` is a person's click. */
+export const gitSyncInputSchema = z.object({ force: z.boolean().optional() }).strict();
+export type GitSyncInput = z.infer<typeof gitSyncInputSchema>;
+
+/** The answer: whether a reading was queued; not if one ran a moment ago. */
+export type GitSyncRequested = { queued: boolean };
+
+/**
+ * `GET /api/projects/:projectId/git/webhook`, for owners: what to enter in GitLab so it says at
+ * once when something changed.
+ */
+export type GitWebhook = {
+  /** The address GitLab calls. */
+  url: string;
+  /** The secret GitLab sends with every call ("Secret token" there). */
+  secret: string;
+};
+
 /** `GET /api/projects/:projectId/git`. */
 export type GitState = {
   /** The server can reach a GitLab: an OAuth application is set up, or the development stand-in. */
@@ -51,6 +80,8 @@ export type GitState = {
   /** The person's own GitLab account, with which an owner picks the repository. */
   account: GitAccount | null;
   connection: GitConnection | null;
+  /** When the repository's state was last read; null before the first reading. */
+  sync: GitSync | null;
 };
 
 /** Where a flow to GitLab was started from, and so where it leads back to. */

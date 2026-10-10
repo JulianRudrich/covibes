@@ -257,6 +257,15 @@ export interface GitConnections {
   updated_at: Generated<Timestamp>;
 }
 
+export interface GitIssueStates {
+  base_url: string;
+  number: Int8;
+  project_id: string;
+  repository_id: Int8;
+  state: string;
+  synced_at: Generated<Timestamp>;
+}
+
 export interface GitRequests {
   agent_key: string | null;
   base_url: string;
@@ -275,6 +284,19 @@ export interface GitRequests {
   requested_by_name: Generated<string>;
   status: Generated<string>;
   updated_at: Generated<Timestamp>;
+}
+
+export interface GitSync {
+  failed: Generated<boolean>;
+  project_id: string;
+  requested_at: Timestamp | null;
+  synced_at: Timestamp | null;
+}
+
+export interface GitWebhooks {
+  created_at: Generated<Timestamp>;
+  project_id: string;
+  secret: string;
 }
 
 export interface GraphileWorkerJobs {
@@ -625,7 +647,10 @@ export interface DB {
   git_accounts: GitAccounts;
   git_actions: GitActions;
   git_connections: GitConnections;
+  git_issue_states: GitIssueStates;
   git_requests: GitRequests;
+  git_sync: GitSync;
+  git_webhooks: GitWebhooks;
   'graphile_worker._private_job_queues': GraphileWorkerPrivateJobQueues;
   'graphile_worker._private_jobs': GraphileWorkerPrivateJobs;
   'graphile_worker._private_known_crontabs': GraphileWorkerPrivateKnownCrontabs;

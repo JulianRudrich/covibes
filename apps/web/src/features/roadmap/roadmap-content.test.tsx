@@ -216,3 +216,107 @@ describe('tasks on the roadmap (spec 26b)', () => {
     expect(screen.getByRole('img', { name: 'Zugewiesen an Teammitglied' })).toHaveTextContent('·');
   });
 });
+
+describe('the status of tasks from the repository (spec 30a)', () => {
+  const issue = (number: number, closed: boolean) => ({
+    number,
+    url: `https://gitlab.example.com/verein/app/-/issues/${String(number)}`,
+    closed,
+  });
+  const task = (number: number, text: string, closed: boolean | null) => ({
+    id: `7a000000-0000-4000-8000-00000000000${String(number)}`,
+    text,
+    assignee: null,
+    issue: closed === null ? null : issue(number, closed),
+  });
+  const HANDED_OVER: Roadmap = {
+    milestones: [
+      {
+        number: 1,
+        title: 'Grundgerüst',
+        goal: '',
+        duration: { text: '2 Wochen', weeks: 2 },
+        tasks: [
+          task(4, 'Projekt aufsetzen', true),
+          task(5, 'Login per Link', false),
+          task(6, 'Abnahme', null),
+        ],
+      },
+      {
+        number: 2,
+        title: 'Mitglieder',
+        goal: '',
+        duration: { text: '1 Woche', weeks: 1 },
+        tasks: [task(7, 'Mitgliederliste', true)],
+      },
+      {
+        number: 3,
+        title: 'Beiträge',
+        goal: '',
+        duration: { text: '1 Woche', weeks: 1 },
+        tasks: [task(8, 'Beitragsstatus', null)],
+      },
+    ],
+  };
+  const columnsOf = () =>
+    within(screen.getByRole('list', { name: 'Roadmap mit 3 Meilensteinen' })).getAllByRole(
+      'listitem',
+      { name: /^Meilenstein/ },
+    );
+
+  it('links the issue of a task and marks a closed one as done', () => {
+    renderContent(HANDED_OVER);
+    const [first] = columnsOf();
+    if (!first) throw new Error('The column is missing');
+    const [setup, login, review] = within(
+      within(first).getByRole('list', { name: 'Aufgaben' }),
+    ).getAllByRole('listitem');
+    if (!setup || !login || !review) throw new Error('The tasks are missing');
+
+    const closed = within(setup).getByRole('link', { name: 'Issue #4, geschlossen' });
+    expect(closed).toHaveTextContent('#4');
+    expect(closed).toHaveAttribute('href', 'https://gitlab.example.com/verein/app/-/issues/4');
+    expect(closed).toHaveAttribute('target', '_blank');
+    // The link is inside a frame of the canvas, which must not move when it is clicked.
+    expect(closed).toHaveClass('nodrag');
+    expect(within(setup).getByText('Projekt aufsetzen')).toHaveClass('line-through');
+    expect(setup.querySelector('svg')).toHaveClass('text-success');
+
+    expect(within(login).getByRole('link', { name: 'Issue #5, offen' })).toBeVisible();
+    expect(within(login).getByText('Login per Link')).not.toHaveClass('line-through');
+    expect(login.querySelector('svg')).toBeNull();
+
+    // A task without an issue shows as before.
+    expect(within(review).queryByRole('link')).toBeNull();
+    expect(within(review).getByText('Abnahme')).not.toHaveClass('line-through');
+  });
+
+  it('counts per milestone how many of its tasks are done', () => {
+    renderContent(HANDED_OVER);
+    const [first, second, third] = columnsOf();
+    if (!first || !second || !third) throw new Error('The columns are missing');
+
+    // A task without an issue is not done.
+    const some = within(first).getByText('1/3 erledigt');
+    expect(some).toHaveAttribute(
+      'title',
+      '1 von 3 Aufgaben erledigt. Erledigt heißt: Das Issue ist geschlossen. 2 Aufgaben haben ein Issue.',
+    );
+    expect(some).not.toHaveClass('text-success');
+    // The time stays where it was.
+    expect(within(first).getByText('2 Wochen · W1–2')).toBeVisible();
+
+    expect(within(second).getByText('1/1 erledigt')).toHaveClass('text-success');
+    // Nothing was handed over here yet.
+    expect(within(third).queryByText(/erledigt/)).toBeNull();
+  });
+
+  it('keeps the place of every task, with or without an issue', () => {
+    const { container } = renderContent(HANDED_OVER);
+
+    const heights = [...container.querySelectorAll('ul[aria-label="Aufgaben"] > li')].map(
+      (item) => (item as HTMLElement).style.height,
+    );
+    expect(new Set(heights)).toEqual(new Set([`${String(ROADMAP.task)}px`]));
+  });
+});

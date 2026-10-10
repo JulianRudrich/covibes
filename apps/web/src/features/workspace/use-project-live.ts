@@ -100,6 +100,9 @@ export function useProjectLive(projectId: string, userId?: string) {
         // its actions (spec 29b). The dialogs hold what is only loaded while they are open.
         reload(gitQueryKey(projectId));
         reload(gitRequestsQueryKey(projectId));
+        // A task got its issue, or the repository's state was read (spec 30a): the roadmap and
+        // the plan show the status of the tasks.
+        reload(roadmapQueryKey(projectId));
         reloadIfLoaded(gitIssuesQueryKey(projectId));
         reloadIfLoaded(gitLogQueryKey(projectId));
         reloadIfLoaded(gitMergeRequestQueryKey(projectId));

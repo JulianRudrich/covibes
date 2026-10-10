@@ -19,11 +19,24 @@ export type RoadmapDuration = z.infer<typeof roadmapDurationSchema>;
 export const roadmapAssigneeSchema = z.object({ userId: z.uuid(), name: z.string() });
 export type RoadmapAssignee = z.infer<typeof roadmapAssigneeSchema>;
 
+/**
+ * The issue of a task in the project's repository (specs 29b and 30a): its number and address
+ * there, and whether it is closed, as far as the repository's state was read.
+ */
+export const roadmapIssueSchema = z.object({
+  number: z.number().int().positive(),
+  url: z.string(),
+  closed: z.boolean(),
+});
+export type RoadmapIssue = z.infer<typeof roadmapIssueSchema>;
+
 export const roadmapTaskSchema = z.object({
   /** The id the task carries in the plan; null until the server gave it one (spec 26b). */
   id: z.uuid().nullable(),
   text: z.string(),
   assignee: roadmapAssigneeSchema.nullable(),
+  /** Its issue; missing or null without one, and always for the read-only view. */
+  issue: roadmapIssueSchema.nullable().optional(),
 });
 export type RoadmapTask = z.infer<typeof roadmapTaskSchema>;
 
@@ -252,6 +265,40 @@ export function withAssignees(
         assignee: (task.id ? assignees.get(task.id) : undefined) ?? null,
       })),
     })),
+  };
+}
+
+/**
+ * The roadmap with the issues of its tasks (spec 30a): `issues` by the id of the task. After the
+ * handover the repository owns the status: a task is done when its issue is closed.
+ */
+export function withIssues(roadmap: Roadmap, issues: ReadonlyMap<string, RoadmapIssue>): Roadmap {
+  if (issues.size === 0) return roadmap;
+  return {
+    milestones: roadmap.milestones.map((milestone) => ({
+      ...milestone,
+      tasks: milestone.tasks.map((task) => ({
+        ...task,
+        issue: (task.id ? issues.get(task.id) : undefined) ?? null,
+      })),
+    })),
+  };
+}
+
+/**
+ * How far a milestone is (spec 30a): how many tasks it has, how many of them have an issue, and
+ * how many are done. A task is done when its issue is closed; one without an issue has no status.
+ */
+export function milestoneProgress(milestone: Pick<RoadmapMilestone, 'tasks'>): {
+  tasks: number;
+  issues: number;
+  done: number;
+} {
+  const issues = milestone.tasks.flatMap((task) => task.issue ?? []);
+  return {
+    tasks: milestone.tasks.length,
+    issues: issues.length,
+    done: issues.filter((issue) => issue.closed).length,
   };
 }
 

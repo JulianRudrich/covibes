@@ -46,6 +46,7 @@ import {
   readMergeRequest,
 } from '@server/integrations/gitlab/merge-requests';
 import { loadAssignees } from '@server/plan/assignees';
+import { loadTaskIssues } from '@server/plan/task-issues';
 
 // Git requests and the log of Git actions (specs 29b to 29d). The database decides who makes,
 // approves, rejects and takes back a request; these routes word the actions and show what there
@@ -343,7 +344,7 @@ export function addGitRequestRoutes(
             .where('git_requests.repository_id', '=', String(repository.repository.id))
             .execute()
         : [];
-      return { row, repository, issues };
+      return { row, repository, issues, known: await loadTaskIssues(trx, who.projectId) };
     });
     if (!stored) return apiError(c, 'not_found');
 
@@ -366,7 +367,11 @@ export function addGitRequestRoutes(
           const issue = task.id === null ? undefined : byTask.get(task.id);
           const created =
             issue?.status === 'done' && issue.result_number !== null && issue.result_url !== null
-              ? { number: Number(issue.result_number), url: issue.result_url }
+              ? {
+                  number: Number(issue.result_number),
+                  url: issue.result_url,
+                  closed: (task.id ? stored.known.get(task.id)?.closed : undefined) ?? false,
+                }
               : null;
           return {
             id: task.id,

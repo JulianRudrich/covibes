@@ -1,6 +1,6 @@
 import { MAX_GIT_ISSUES, type GitIssuePlan, type GitIssueTask } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink } from 'lucide-react';
+import { CircleCheck, ExternalLink } from 'lucide-react';
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
@@ -313,8 +313,14 @@ function TaskRow({
           href={task.issue.url}
           target="_blank"
           rel="noreferrer"
+          aria-label={t(task.issue.closed ? 'roadmap.issue.closed' : 'roadmap.issue.open', {
+            number: task.issue.number,
+          })}
           className="inline-flex shrink-0 items-center gap-1 text-small text-text-2 underline-offset-2 hover:text-text hover:underline"
         >
+          {task.issue.closed ? (
+            <CircleCheck size={13} strokeWidth={2} aria-hidden="true" className="text-success" />
+          ) : null}
           #{task.issue.number}
           <ExternalLink size={11} strokeWidth={2} aria-hidden="true" />
         </a>

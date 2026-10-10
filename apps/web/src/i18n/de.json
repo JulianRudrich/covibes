@@ -868,6 +868,13 @@
       "nobody": "Niemand",
       "short": "Zuweisen",
       "failed": "Die Aufgabe konnte nicht zugewiesen werden. Bitte versuche es noch einmal."
+    },
+    "progress": "{{done}}/{{tasks}} erledigt",
+    "progressLong_one": "{{done}} von {{tasks}} Aufgaben erledigt. Erledigt heißt: Das Issue ist geschlossen. {{count}} Aufgabe hat ein Issue.",
+    "progressLong_other": "{{done}} von {{tasks}} Aufgaben erledigt. Erledigt heißt: Das Issue ist geschlossen. {{count}} Aufgaben haben ein Issue.",
+    "issue": {
+      "open": "Issue #{{number}}, offen",
+      "closed": "Issue #{{number}}, geschlossen"
     }
   },
   "git": {
@@ -1085,6 +1092,34 @@
         "taken": "Dafür wartet schon ein Antrag.",
         "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
       }
+    },
+    "sync": {
+      "title": "Stand aus GitLab",
+      "text": "Covibes liest, ob die Issues der Aufgaben offen oder geschlossen sind: wenn du das Projekt öffnest und danach alle paar Minuten.",
+      "never": "Noch nicht abgeglichen.",
+      "at": "Zuletzt abgeglichen: {{when}}.",
+      "running": "Wird abgeglichen …",
+      "failed": "Der Abgleich hat nicht geklappt. Vielleicht ist der Zugriff auf GitLab abgelaufen.",
+      "failedSince": "Der letzte Abgleich hat nicht geklappt. Der Stand ist von {{when}}.",
+      "now": "Jetzt abgleichen",
+      "justNow": "Der Stand wurde gerade erst abgeglichen.",
+      "requestFailed": "Der Abgleich konnte nicht gestartet werden. Bitte versuche es noch einmal."
+    },
+    "webhook": {
+      "show": "Webhook einrichten …",
+      "title": "Webhook",
+      "text": "Mit einem Webhook sagt GitLab sofort Bescheid, wenn sich etwas ändert. Trage Adresse und Secret-Token im Repository unter „Einstellungen → Webhooks“ ein und wähle die Ereignisse für Issues und Merge Requests. GitLab muss diesen Server dafür erreichen können.",
+      "url": "Adresse",
+      "secret": "Secret-Token",
+      "copy": "{{label}} kopieren",
+      "copied": "{{label}} kopiert",
+      "reveal": "Secret-Token anzeigen",
+      "hide": "Secret-Token verbergen",
+      "renew": "Secret-Token neu erzeugen",
+      "renewConfirm": "Wirklich neu erzeugen",
+      "renewHint": "Das alte gilt dann nicht mehr. Trage das neue in GitLab ein.",
+      "renewFailed": "Das Secret-Token konnte nicht neu erzeugt werden. Bitte versuche es noch einmal.",
+      "loadFailed": "Der Webhook konnte nicht geladen werden. Bitte versuche es noch einmal."
     }
   },
   "export": {

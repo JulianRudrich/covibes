@@ -231,7 +231,8 @@ export type GitIssueTask = {
    * its issue.
    */
   state: 'free' | 'requested' | 'done';
-  issue: { number: number; url: string } | null;
+  /** Its issue, and whether that is closed in the repository (spec 30a). */
+  issue: { number: number; url: string; closed: boolean } | null;
 };
 
 /** `GET /api/projects/:projectId/git/issues`: the plan's tasks with their issues. */

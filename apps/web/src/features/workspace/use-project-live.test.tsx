@@ -367,4 +367,24 @@ describe('useProjectLive', () => {
       expect(invalidated()).toBe(true);
     });
   });
+
+  it('loads the roadmap again when the repository’s state was read (spec 30a)', async () => {
+    stubApi({
+      [`GET ${PROJECT_URL}`]: () => ({ body: DETAILS }),
+      [`GET ${PROJECT_URL}/roadmap`]: () => ({ body: { milestones: [] } }),
+    });
+    const queryClient = renderLive();
+    await queryClient.query(roadmapQuery(PROJECT_ID));
+
+    // A task got its issue, or an issue was closed: the roadmap shows the status.
+    act(() => {
+      live.handlers?.onEvent({ type: 'git' });
+    });
+
+    await waitFor(() => {
+      expect(queryClient.getQueryState(roadmapQuery(PROJECT_ID).queryKey)?.isInvalidated).toBe(
+        true,
+      );
+    });
+  });
 });

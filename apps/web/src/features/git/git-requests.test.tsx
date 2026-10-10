@@ -385,7 +385,7 @@ const PLAN: GitIssuePlan = {
           id: SETUP,
           text: 'Projekt aufsetzen',
           state: 'done',
-          issue: { number: 4, url: `${REPOSITORY_URL}/-/issues/4` },
+          issue: { number: 4, url: `${REPOSITORY_URL}/-/issues/4`, closed: false },
         },
         { id: LOGIN, text: 'Login per Link', state: 'free', issue: null },
       ],
@@ -421,7 +421,7 @@ describe('IssuesDialog', () => {
     const first = within(dialog).getByRole('region', { name: 'Meilenstein 1: Grundgerüst' });
     const second = within(dialog).getByRole('region', { name: 'Meilenstein 2: Mitglieder' });
     expect(first).toHaveTextContent('1 von 2 angelegt');
-    expect(within(first).getByRole('link', { name: '#4' })).toHaveAttribute(
+    expect(within(first).getByRole('link', { name: 'Issue #4, offen' })).toHaveAttribute(
       'href',
       `${REPOSITORY_URL}/-/issues/4`,
     );
@@ -530,7 +530,24 @@ describe('IssuesDialog', () => {
     expect(await within(dialog).findByText('Issues legen Owner und Editoren an.')).toBeVisible();
     expect(within(dialog).queryByRole('checkbox')).toBeNull();
     expect(within(dialog).queryByRole('button', { name: /anlegen|vorlegen/ })).toBeNull();
-    expect(within(dialog).getByRole('link', { name: '#4' })).toBeVisible();
+    expect(within(dialog).getByRole('link', { name: 'Issue #4, offen' })).toBeVisible();
+  });
+
+  it('marks an issue that was closed in the repository (spec 30a)', async () => {
+    const [first, ...others] = PLAN.milestones;
+    const [setup, ...tasks] = first?.tasks ?? [];
+    if (!first || !setup?.issue) throw new Error('The task with its issue is missing');
+    const { dialog } = renderDialog({
+      ...PLAN,
+      milestones: [
+        { ...first, tasks: [{ ...setup, issue: { ...setup.issue, closed: true } }, ...tasks] },
+        ...others,
+      ],
+    });
+
+    const link = await within(dialog).findByRole('link', { name: 'Issue #4, geschlossen' });
+    expect(link).toHaveTextContent('#4');
+    expect(link.querySelector('svg.text-success')).not.toBeNull();
   });
 
   it('says what is missing: a repository, tasks, or the answer of the server', async () => {

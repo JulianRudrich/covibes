@@ -7,7 +7,7 @@
 Bring the result into the repository (M6, specs 28 to 30): connecting GitLab and reading the repository, approvals and Git actions, webhooks and the review of merge requests. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-**Spec 30a task status from the repository** (worked out on 2026-10-10): Covibes reads the state of the issues it created (on opening, regularly, on a click and through a webhook) and shows the progress in the plan and on the roadmap. Parts 30b (review of merge requests) and 30c (the review as a comment after approval) follow.
+Nothing at the moment. Spec 30a (task status from the repository) is done; part 30b (the review of merge requests against the architecture) is next.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -300,11 +300,17 @@ Bring the result into the repository (M6, specs 28 to 30): connecting GitLab and
   - what cannot be asked for comes back to the moderator as a sentence to pass on
 
   Lint, type check, format, 1973 tests and build pass; verified with `pnpm dev` against the stand-in and one real run. Spec 29 is complete with it.
+- [x] **Spec 30a task status from the repository:**
+  - a job reads whether the issues Covibes created are open or closed: when a project opens, every five minutes while it is open, on "Jetzt abgleichen", and when GitLab calls the project's webhook
+  - the roadmap, the plan and the dialog of the issues show the issue of a task and whether it is closed; a milestone counts its done tasks
+  - the dialog "Repository" says when the state was last read, and gives owners the webhook's address and secret
+
+  Lint, type check, format, 2029 tests and build pass; verified with `pnpm dev` against the stand-in.
 
 ## Next
 **Guideline since 2026-09-28:** Covibes is developed locally. `pnpm dev` starts everything; there are no external services. The Git repository is local only and is published at the very end. A private instance can be self-hosted with Docker (spec 02b).
 
-1. **M5 (result):** M4 (collaboration) is complete with spec 24. Spec 25 (project plan) is split into three parts: 25a (the plan as a shared document with its editor) is done; 25b (generating the plan as suggestions per section) is done; 25c ("plan outdated", updates and versions) is done. Spec 26 (roadmap, milestones and tasks) is split into two parts: 26a (the roadmap on the canvas) is done; 26b (assigning tasks to members) is done. Spec 27 (exports) is split into four parts: 27a (a board as PNG, SVG and Mermaid, the plan as Markdown and PDF) is done; 27b (the package for coding agents, built without a model) is done; 27c (the moderator suggests the two texts) is done; 27d (the moderator writes the feature specs out) is done. M5 is complete. M6 (GitLab, specs 28 to 30) has begun: 28 (connecting GitLab and reading the repository, in two parts) is done; 29 (approvals and Git actions) is split into five parts: 29a (GitLab access per person) is done; 29b (Git actions as requests that wait for approval, the log, issues from the plan) is done; 29c (the plan package as a merge request) is done; 29d (merging after approval) is done; 29e (agents proposing Git actions) is done. 30 (webhooks and MR review) is next. Their looks are derived from the prototype design until the design pass (spec 36).
+1. **M5 (result):** M4 (collaboration) is complete with spec 24. Spec 25 (project plan) is split into three parts: 25a (the plan as a shared document with its editor) is done; 25b (generating the plan as suggestions per section) is done; 25c ("plan outdated", updates and versions) is done. Spec 26 (roadmap, milestones and tasks) is split into two parts: 26a (the roadmap on the canvas) is done; 26b (assigning tasks to members) is done. Spec 27 (exports) is split into four parts: 27a (a board as PNG, SVG and Mermaid, the plan as Markdown and PDF) is done; 27b (the package for coding agents, built without a model) is done; 27c (the moderator suggests the two texts) is done; 27d (the moderator writes the feature specs out) is done. M5 is complete. M6 (GitLab, specs 28 to 30) has begun: 28 (connecting GitLab and reading the repository, in two parts) is done; 29 (approvals and Git actions) is split into five parts: 29a (GitLab access per person) is done; 29b (Git actions as requests that wait for approval, the log, issues from the plan) is done; 29c (the plan package as a merge request) is done; 29d (merging after approval) is done; 29e (agents proposing Git actions) is done. 30 (the repository's state and MR review) is split into three parts: 30a (the status of tasks from the repository, with the reading and the webhook) is done; 30b (the review of merge requests against the architecture) is next; 30c (the review as a comment in GitLab after approval) follows. Their looks are derived from the prototype design until the design pass (spec 36).
 2. What the owner contributes while building:
    - **for spec 36 (design pass at the end):** designs in Claude Design for everything listed in `ui-context.md` under "Derived looks" and "Still to be designed"
    - keep the Claude subscription's monthly Agent SDK credit active; the agents run on it locally
@@ -351,6 +357,7 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   - Languages: German and English.
 
 ## Session notes
+- **2026-10-10, spec 30a implemented.** Details are in the spec under "Implementation notes". The owner decided that Covibes reads the repository's state itself (on opening, regularly and on a click) and that a webhook only speeds that up, and that merge requests of Covibes issues are reviewed once per state of their commits (part 30b). The coding agent split spec 30 into three parts and decided that the webhook call is not read at all, the limits (a reading every two minutes per project, every ten seconds on a click, 60 webhook calls per minute), that the secret is shown to owners whenever they ask, that a new repository starts without a state, and that a milestone counts its done tasks against all its tasks. The live test showed that counting only the tasks with an issue read "2/2 erledigt" for a milestone with ten tasks; it now reads "2/10 erledigt".
 - **2026-09-27:** planning conversation completed. The tech stack was deliberately left open because the owner wanted to plan the whole product first. Look & feel is decided based on visual drafts, not by text questions.
 - **2026-09-27, addendum:** following the owner's feedback, custom agents were added to V1. External agents and company agents come right after V1.
 - **2026-09-27, dry run:** Covibes was played through as a test project, revealing 21 gaps.

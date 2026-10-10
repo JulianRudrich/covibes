@@ -6,6 +6,7 @@ import {
   type AwarenessUser,
   type PlanLanguage,
   type RoadmapAssignee,
+  type RoadmapIssue,
 } from '@covibes/shared';
 import { Collaboration } from '@tiptap/extension-collaboration';
 import { CollaborationCaret } from '@tiptap/extension-collaboration-caret';
@@ -40,10 +41,13 @@ import type { TaskAssigning } from '@web/features/roadmap/roadmap-context';
 export type PlanTaskAssignments = {
   /** The tasks by their id; null: nobody took it. */
   assignees: ReadonlyMap<string, RoadmapAssignee | null>;
+  /** The issues of tasks in the repository (spec 30a); missing where there are none. */
+  issues?: ReadonlyMap<string, RoadmapIssue>;
   assigning?: TaskAssigning;
 };
 
 const NO_TASKS: PlanTaskAssignments['assignees'] = new Map();
+const NO_ISSUES: ReadonlyMap<string, RoadmapIssue> = new Map();
 
 type PlanEditorProps = {
   projectId: string;
@@ -176,20 +180,26 @@ function PlanDocument({
 
   // The tasks show who took them; the editor draws them anew whenever that changes.
   const assignees = tasks?.assignees ?? NO_TASKS;
+  const issues = tasks?.issues ?? NO_ISSUES;
   const canAssign = tasks?.assigning !== undefined;
   useEffect(() => {
     if (editor.isDestroyed) return;
     taskState.current = {
       assignees,
+      issues,
       onPick: canAssign ? pick : null,
       labels: {
         assign: t('roadmap.assign.short'),
         assignedTo: (name) => t('roadmap.assign.assignedTo', { name }),
         teamMember: t('shareView.teamMember'),
+        issue: (issue) =>
+          t(issue.closed ? 'roadmap.issue.closed' : 'roadmap.issue.open', {
+            number: issue.number,
+          }),
       },
     };
     editor.view.dispatch(editor.state.tr.setMeta(planTasksKey, true));
-  }, [editor, assignees, canAssign, pick, t]);
+  }, [editor, assignees, issues, canAssign, pick, t]);
 
   const empty = useEditorState({ editor, selector: ({ editor: current }) => current.isEmpty });
   const plan = usePlanText(connection.doc);

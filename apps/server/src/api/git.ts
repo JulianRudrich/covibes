@@ -11,10 +11,11 @@ import {
   type GitState,
 } from '@covibes/shared';
 import { Hono, type Context } from 'hono';
-import type { Transaction } from 'kysely';
+import type { Kysely, Transaction } from 'kysely';
 
 import { apiError } from '@server/api/errors';
 import { addGitRequestRoutes } from '@server/api/git-requests';
+import { addGitSyncRoutes, loadSync } from '@server/api/git-sync';
 import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
 import type { BoardDocuments } from '@server/collab/collab';
@@ -144,9 +145,12 @@ export function gitRoutes(
   auth: Auth,
   git: GitDeps | undefined,
   documents: Pick<BoardDocuments, 'readPlanSections' | 'giveTaskIds' | 'readBoard' | 'readPlan'>,
+  /** For the webhook (spec 30a): where the app is, and the role that keeps its secret. */
+  webhook: { admin: Kysely<DB>; appUrl: string },
 ) {
   const routes = new Hono<Env>();
   routes.use(sessionMiddleware(auth));
+  addGitSyncRoutes(routes, { db, ...webhook, tokenKey: git?.setup.tokenKey });
   addGitRequestRoutes(routes, {
     db,
     documents,
@@ -175,9 +179,12 @@ export function gitRoutes(
     const project = await withUser(db, user.id, async (trx) => {
       const member = await membership(trx, projectId.data, user.id);
       if (!member) return undefined;
+      const connection = await loadConnection(trx, projectId.data);
       return {
         canManage: member.role === 'owner',
-        connection: await loadConnection(trx, projectId.data),
+        connection,
+        // A project without a repository has nothing to read.
+        sync: connection ? await loadSync(trx, projectId.data) : null,
       };
     });
     if (!project) return apiError(c, 'not_found');

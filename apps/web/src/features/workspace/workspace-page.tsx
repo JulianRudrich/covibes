@@ -27,6 +27,7 @@ import { PlanPanel } from '@web/features/plan/plan-panel';
 import { planStateQuery, usePlanActions } from '@web/features/plan/queries';
 import { handsQuery, useHandDecisions } from '@web/features/hands/queries';
 import { useConnectGitAccount } from '@web/features/git/queries';
+import { useGitSync } from '@web/features/git/use-git-sync';
 import {
   gitRequestsQuery,
   useApproveGitRequests,
@@ -133,6 +134,8 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
   const planOpen = view === 'plan';
   const { notice, show: showNotice } = useNotice();
   useProjectLive(project.id, user?.id);
+  // The status of the tasks comes from the repository (spec 30a).
+  useGitSync(project.id);
   useProjectSeen(project.id);
 
   // The main canvas comes first; it is open unless the address names another board.
@@ -260,6 +263,13 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
         assignees: new Map(
           planRoadmap.milestones.flatMap((milestone) =>
             milestone.tasks.flatMap((task) => (task.id ? [[task.id, task.assignee] as const] : [])),
+          ),
+        ),
+        issues: new Map(
+          planRoadmap.milestones.flatMap((milestone) =>
+            milestone.tasks.flatMap((task) =>
+              task.id && task.issue ? [[task.id, task.issue] as const] : [],
+            ),
           ),
         ),
         assigning,

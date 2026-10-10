@@ -752,9 +752,12 @@ describe('with a session', () => {
       `/api/projects/${PROJECT.id}/phase`,
       expect.objectContaining({ method: 'PUT', body: JSON.stringify({ phase: 'architecture' }) }),
     );
-    expect(screen.getByTestId('canvas-panel')).toHaveTextContent(
-      'Das Projekt ist jetzt in der Phase „Architektur“.',
-    );
+    // The note follows the change a moment later.
+    await waitFor(() => {
+      expect(screen.getByTestId('canvas-panel')).toHaveTextContent(
+        'Das Projekt ist jetzt in der Phase „Architektur“.',
+      );
+    });
   });
 
   it('takes the phase back with a note when the server refuses the change', async () => {

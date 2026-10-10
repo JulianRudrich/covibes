@@ -109,7 +109,7 @@ function renderDialog(
   { returned, fail = [] }: { returned?: GitReturn; fail?: string[] } = {},
 ) {
   const calls = stubGit(
-    { available: true, canManage: true, account: null, connection: null, ...state },
+    { available: true, canManage: true, account: null, connection: null, sync: null, ...state },
     fail,
   );
   const goTo = vi.fn();

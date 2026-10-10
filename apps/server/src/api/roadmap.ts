@@ -13,6 +13,7 @@ import {
   ROADMAP_TITLE,
   roadmapLayout,
   withAssignees,
+  withIssues,
   type Roadmap,
   type RoadmapPlace,
 } from '@covibes/shared';
@@ -26,6 +27,7 @@ import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
 import type { BoardDocuments } from '@server/collab/collab';
 import { withUser, type AppDb } from '@server/db/database';
 import { loadAssignees } from '@server/plan/assignees';
+import { loadTaskIssues } from '@server/plan/task-issues';
 import type { LivePublisher } from '@server/realtime/realtime';
 import { centerOfNodes } from '@server/tools/placement';
 
@@ -64,11 +66,15 @@ export function roadmapRoutes(
     const projectId = projectIdSchema.safeParse(c.req.param('projectId'));
     if (!projectId.success) return apiError(c, 'not_found');
 
-    const assignees = await withUser(db, user.id, async (trx) => {
+    const stored = await withUser(db, user.id, async (trx) => {
       if (!(await membership(trx, projectId.data, user.id))) return undefined;
-      return await loadAssignees(trx, projectId.data);
+      return {
+        assignees: await loadAssignees(trx, projectId.data),
+        // After the handover the repository owns the status of a task (spec 30a).
+        issues: await loadTaskIssues(trx, projectId.data),
+      };
     });
-    if (!assignees) return apiError(c, 'not_found');
+    if (!stored) return apiError(c, 'not_found');
     const roadmap = readRoadmap(await documents.readPlanSections(projectId.data));
     // A task without an id cannot be assigned. The server gives ids after it stored a plan; a
     // plan from before that, or one nobody changed since, gets them now, and the roadmap is
@@ -76,7 +82,7 @@ export function roadmapRoutes(
     if (roadmap.milestones.some((milestone) => milestone.tasks.some((task) => task.id === null))) {
       documents.giveTaskIds?.(projectId.data);
     }
-    return c.json<Roadmap>(withAssignees(roadmap, assignees));
+    return c.json<Roadmap>(withIssues(withAssignees(roadmap, stored.assignees), stored.issues));
   });
 
   /**

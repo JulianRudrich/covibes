@@ -868,6 +868,13 @@
       "nobody": "Nobody",
       "short": "Assign",
       "failed": "The task could not be assigned. Please try again."
+    },
+    "progress": "{{done}}/{{tasks}} done",
+    "progressLong_one": "{{done}} of {{tasks}} tasks done. Done means: the issue is closed. {{count}} task has an issue.",
+    "progressLong_other": "{{done}} of {{tasks}} tasks done. Done means: the issue is closed. {{count}} tasks have an issue.",
+    "issue": {
+      "open": "Issue #{{number}}, open",
+      "closed": "Issue #{{number}}, closed"
     }
   },
   "git": {
@@ -1085,6 +1092,34 @@
         "taken": "A request for this waits already.",
         "failed": "That did not work. Please try again."
       }
+    },
+    "sync": {
+      "title": "State from GitLab",
+      "text": "Covibes reads whether the issues of the tasks are open or closed: when you open the project and every few minutes after that.",
+      "never": "Not synced yet.",
+      "at": "Last synced: {{when}}.",
+      "running": "Syncing …",
+      "failed": "Syncing failed. The access to GitLab may have expired.",
+      "failedSince": "The last sync failed. The state is from {{when}}.",
+      "now": "Sync now",
+      "justNow": "The state was synced just now.",
+      "requestFailed": "The sync could not be started. Please try again."
+    },
+    "webhook": {
+      "show": "Set up webhook …",
+      "title": "Webhook",
+      "text": "With a webhook, GitLab says at once when something changes. Enter the address and the secret token in the repository under “Settings → Webhooks” and pick the events for issues and merge requests. GitLab must be able to reach this server for that.",
+      "url": "Address",
+      "secret": "Secret token",
+      "copy": "Copy {{label}}",
+      "copied": "{{label}} copied",
+      "reveal": "Show secret token",
+      "hide": "Hide secret token",
+      "renew": "Create a new secret token",
+      "renewConfirm": "Really create a new one",
+      "renewHint": "The old one stops working. Enter the new one in GitLab.",
+      "renewFailed": "The secret token could not be created anew. Please try again.",
+      "loadFailed": "The webhook could not be loaded. Please try again."
     }
   },
   "export": {

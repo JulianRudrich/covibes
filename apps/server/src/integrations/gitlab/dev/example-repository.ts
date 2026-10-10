@@ -387,6 +387,8 @@ export function createExampleStore(now: () => number = Date.now) {
   const heads = new Map<number, Map<string, string>>();
   /** What merges made of a default branch; without one it holds the example's own files. */
   const mains = new Map<number, Files>();
+  /** Issues that were closed or opened again since the start (spec 30a), per repository. */
+  const issueStates = new Map<number, Map<number, { state: ExampleIssue['state']; at: string }>>();
 
   /**
    * The files of a ref: the example's own for its default branch (`HEAD` names it too), what
@@ -403,10 +405,11 @@ export function createExampleStore(now: () => number = Date.now) {
     ...(mergeRequests.get(id) ?? []),
   ];
 
-  const issuesOf = (id: number): readonly ExampleIssue[] => [
-    ...(EXAMPLE_REPOSITORIES[id]?.issues ?? []),
-    ...(issues.get(id) ?? []),
-  ];
+  const issuesOf = (id: number): readonly ExampleIssue[] =>
+    [...(EXAMPLE_REPOSITORIES[id]?.issues ?? []), ...(issues.get(id) ?? [])].map((issue) => {
+      const changed = issueStates.get(id)?.get(issue.iid);
+      return changed ? { ...issue, state: changed.state, updated_at: changed.at } : issue;
+    });
   const milestonesOf = (id: number): readonly ExampleMilestone[] => milestones.get(id) ?? [];
 
   return {
@@ -597,6 +600,14 @@ export function createExampleStore(now: () => number = Date.now) {
       issues.set(id, [...(issues.get(id) ?? []), issue]);
       return issue;
     },
+    /** Closes an issue or opens it again (spec 30a); undefined for an issue that is not there. */
+    setIssueState(id: number, iid: number, state: ExampleIssue['state']) {
+      if (!issuesOf(id).some((issue) => issue.iid === iid)) return undefined;
+      const states = issueStates.get(id) ?? new Map<number, { state: typeof state; at: string }>();
+      states.set(iid, { state, at: new Date(now()).toISOString() });
+      issueStates.set(id, states);
+      return issuesOf(id).find((issue) => issue.iid === iid);
+    },
   };
 }
 
@@ -725,10 +736,12 @@ export function addExampleRepositoryRoutes(
   routes.get('/api/v4/projects/:id/issues', (c) => {
     const repository = find(c.req.param('id'));
     if (!repository) return c.json(notFound, 404);
+    // `iids[]` narrows the list to the issues with these numbers, as GitLab does (spec 30a).
+    const numbers = c.req.queries('iids[]');
     return c.json(
-      listed(repository.issues, c.req.query('state'), c.req.query('search'), c.req.query('in')).map(
-        withoutNotes,
-      ),
+      listed(repository.issues, c.req.query('state'), c.req.query('search'), c.req.query('in'))
+        .filter((issue) => !numbers || numbers.includes(String(issue.iid)))
+        .map(withoutNotes),
     );
   });
 

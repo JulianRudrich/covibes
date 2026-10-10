@@ -4,12 +4,15 @@ import { planNodesFromMarkdown } from './plan-markdown';
 import {
   MAX_MILESTONE_WEEKS,
   MAX_MILESTONES,
+  milestoneProgress,
   parseDuration,
   readRoadmap,
   ROADMAP,
   roadmapLayout,
   roadmapWeeks,
+  withIssues,
   type Roadmap,
+  type RoadmapIssue,
   type RoadmapMilestone,
 } from './plan-roadmap';
 
@@ -325,5 +328,79 @@ describe('roadmapWeeks and roadmapLayout', () => {
     const small = roadmapLayout({ milestones: [milestone(1, null)] }).size;
     expect(small.width).toBeGreaterThanOrEqual(240);
     expect(small.height).toBeGreaterThanOrEqual(160);
+  });
+});
+
+describe('withIssues and milestoneProgress', () => {
+  const SETUP = '7a000000-0000-4000-8000-000000000001';
+  const LOGIN = '7a000000-0000-4000-8000-000000000002';
+  const LIST = '7a000000-0000-4000-8000-000000000003';
+  const issue = (number: number, closed: boolean): RoadmapIssue => ({
+    number,
+    url: `https://gitlab.example.com/verein/app/-/issues/${String(number)}`,
+    closed,
+  });
+  const roadmap: Roadmap = {
+    milestones: [
+      {
+        number: 1,
+        title: 'Grundgerüst',
+        goal: '',
+        duration: null,
+        tasks: [
+          { id: SETUP, text: 'Projekt aufsetzen', assignee: null },
+          { id: LOGIN, text: 'Login per Link', assignee: null },
+          // Written a moment ago: without an id it cannot have an issue.
+          { id: null, text: 'Abnahme', assignee: null },
+        ],
+      },
+      {
+        number: 2,
+        title: 'Mitglieder',
+        goal: '',
+        duration: null,
+        tasks: [{ id: LIST, text: 'Mitgliederliste', assignee: null }],
+      },
+    ],
+  };
+
+  it('puts every issue at its task, and null where there is none', () => {
+    const withThem = withIssues(
+      roadmap,
+      new Map([
+        [SETUP, issue(4, true)],
+        [LOGIN, issue(5, false)],
+      ]),
+    );
+
+    expect(withThem.milestones.map((entry) => entry.tasks.map((task) => task.issue))).toEqual([
+      [issue(4, true), issue(5, false), null],
+      [null],
+    ]);
+    // Everything else stays as it was.
+    expect(withThem.milestones[0]?.tasks[0]).toMatchObject({ id: SETUP, assignee: null });
+  });
+
+  it('leaves a roadmap without issues as it is', () => {
+    expect(withIssues(roadmap, new Map())).toBe(roadmap);
+  });
+
+  it('counts the tasks of a milestone, their issues and how many are done', () => {
+    const withThem = withIssues(
+      roadmap,
+      new Map([
+        [SETUP, issue(4, true)],
+        [LOGIN, issue(5, false)],
+      ]),
+    );
+
+    // A task without an issue has no status: it counts as a task, and not as done.
+    expect(withThem.milestones.map(milestoneProgress)).toEqual([
+      { tasks: 3, issues: 2, done: 1 },
+      { tasks: 1, issues: 0, done: 0 },
+    ]);
+    const [first] = roadmap.milestones;
+    if (!first) throw new Error('The milestone is missing');
+    expect(milestoneProgress(first)).toEqual({ tasks: 3, issues: 0, done: 0 });
   });
 });

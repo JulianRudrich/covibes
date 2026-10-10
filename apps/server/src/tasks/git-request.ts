@@ -167,6 +167,18 @@ export async function runGitRequest(
             milestoneId,
           }));
         await finish(action, written);
+        // A new issue is open; its state is known without asking (spec 30a).
+        await admin
+          .insertInto('git_issue_states')
+          .values({
+            project_id: request.project_id,
+            base_url: request.base_url,
+            repository_id: request.repository_id,
+            number: String(written.number),
+            state: 'opened',
+          })
+          .onConflict((conflict) => conflict.doNothing())
+          .execute();
       } else if (action.kind === 'commit') {
         const commit = gitCommitPayloadSchema.parse(action.payload);
         const written = await writer.commitFiles(commit);

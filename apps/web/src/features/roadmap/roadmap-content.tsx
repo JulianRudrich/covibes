@@ -1,10 +1,12 @@
 import {
+  milestoneProgress,
   ROADMAP,
   roadmapLayout,
   roadmapWeeks,
   type Roadmap,
   type RoadmapColumn,
 } from '@covibes/shared';
+import { CircleCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
@@ -129,6 +131,9 @@ function Milestone({
         .join(' · ')
     : t('roadmap.noTime');
   const name = t('roadmap.milestone', { number: milestone.number, title: milestone.title });
+  // After the handover the repository owns the status (spec 30a): a task is done when its issue
+  // is closed. A milestone without issues was not handed over and shows no count.
+  const progress = milestoneProgress(milestone);
 
   return (
     <li
@@ -147,12 +152,23 @@ function Milestone({
           {milestone.title}
         </span>
       </div>
-      <span
-        className="truncate text-meta text-text-3"
+      <div
+        className="flex items-center gap-2 text-meta text-text-3"
         style={{ height: ROADMAP.meta, lineHeight: `${String(ROADMAP.meta)}px` }}
       >
-        {time}
-      </span>
+        <span className="min-w-0 flex-1 truncate">{time}</span>
+        {progress.issues > 0 ? (
+          <span
+            title={t('roadmap.progressLong', { ...progress, count: progress.issues })}
+            className={cn(
+              'shrink-0 tabular-nums',
+              progress.done === progress.tasks && 'font-medium text-success',
+            )}
+          >
+            {t('roadmap.progress', progress)}
+          </span>
+        ) : null}
+      </div>
       {hasGoals ? (
         <p
           title={milestone.goal || undefined}
@@ -176,12 +192,36 @@ function Milestone({
               className="flex items-center gap-1.5 rounded-md border border-border bg-bg-panel py-1.5 pr-1.5 pl-2"
               style={{ height: ROADMAP.task }}
             >
+              {task.issue?.closed ? (
+                <CircleCheck
+                  size={14}
+                  strokeWidth={2}
+                  aria-hidden="true"
+                  className="shrink-0 text-success"
+                />
+              ) : null}
               <span
                 title={task.text}
-                className="line-clamp-2 min-w-0 flex-1 text-small leading-snug text-text-body"
+                className={cn(
+                  'line-clamp-2 min-w-0 flex-1 text-small leading-snug',
+                  task.issue?.closed ? 'text-text-3 line-through' : 'text-text-body',
+                )}
               >
                 {task.text}
               </span>
+              {task.issue ? (
+                <a
+                  href={task.issue.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={t(task.issue.closed ? 'roadmap.issue.closed' : 'roadmap.issue.open', {
+                    number: task.issue.number,
+                  })}
+                  className="nodrag nopan shrink-0 rounded-xs text-meta text-text-3 tabular-nums underline-offset-2 hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                >
+                  #{task.issue.number}
+                </a>
+              ) : null}
               <TaskAssignee task={task} assigning={assigning} />
             </li>
           ))}

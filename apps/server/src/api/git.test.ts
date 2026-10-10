@@ -244,12 +244,14 @@ describe('GET /api/projects/:projectId/git', () => {
         name: 'Olga Beispiel',
       },
       connection: null,
+      sync: null,
     });
     expect(await stateOf(project.git, viewer)).toEqual({
       available: true,
       canManage: false,
       account: null,
       connection: null,
+      sync: null,
     });
   });
 
@@ -404,7 +406,10 @@ describe('a server that is not set up for GitLab', () => {
     .route('/api/git/account', gitAccountRoutes(test.auth, undefined))
     .route(
       '/api/projects/:projectId/git',
-      gitRoutes(test.db.app, test.auth, undefined, test.collab),
+      gitRoutes(test.db.app, test.auth, undefined, test.collab, {
+        admin: test.db.admin,
+        appUrl: APP_URL,
+      }),
     )
     .route('/api/git/callback', gitCallback(test.auth, APP_URL, undefined));
   const ask = (path: string, cookie: string, init: RequestInit = {}) =>
@@ -425,6 +430,7 @@ describe('a server that is not set up for GitLab', () => {
       canManage: true,
       account: null,
       connection: null,
+      sync: null,
     });
     const start = await ask(`${ACCOUNT}/connect`, project.owner, {
       method: 'POST',

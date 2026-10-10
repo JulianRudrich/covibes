@@ -82,7 +82,7 @@ function page(title: string, body: string): string {
       h1 { margin: 0 0 4px; font-size: 18px; }
       p { margin: 8px 0; }
       .actions { display: flex; gap: 12px; margin-top: 16px; }
-      a { padding: 6px 14px; border: 1px solid; border-radius: 8px; color: inherit; text-decoration: none; }
+      a, button { padding: 6px 14px; border: 1px solid; border-radius: 8px; background: none; color: inherit; font: inherit; text-decoration: none; cursor: pointer; }
       a.allow { font-weight: 600; }
       small { opacity: 0.7; }
     </style>
@@ -284,10 +284,26 @@ export function createGitlabStandIn(
         `#${String(issue.iid)} ${issue.title}`,
         `<p><strong>${escapeHtml(found.path_with_namespace)}</strong>${
           issue.milestone ? ` · ${escapeHtml(issue.milestone.title)}` : ''
-        } · ${escapeHtml(issue.author.name)}</p>
-      <pre style="white-space: pre-wrap; font: inherit">${escapeHtml(issue.description)}</pre>`,
+        } · ${escapeHtml(issue.author.name)} · ${issue.state === 'closed' ? 'geschlossen' : 'offen'}</p>
+      <pre style="white-space: pre-wrap; font: inherit">${escapeHtml(issue.description)}</pre>
+      <form method="post" action="${escapeHtml(c.req.path)}/state" class="actions">
+        <button type="submit">${issue.state === 'closed' ? 'Wieder öffnen' : 'Issue schließen'}</button>
+      </form>`,
       ),
     );
+  });
+
+  /**
+   * The button of an issue's page (spec 30a): closes the issue or opens it again, as someone
+   * would in GitLab, so the way its state reaches Covibes can be tried without one.
+   */
+  routes.post('/:namespace/:name/-/issues/:iid/state', (c) => {
+    const found = byPath(c.req.param('namespace'), c.req.param('name'));
+    const iid = Number(c.req.param('iid'));
+    const issue = found ? store.issuesOf(found.id).find((entry) => entry.iid === iid) : undefined;
+    if (!found || !issue) return c.json({ message: '404 Not Found' }, 404);
+    store.setIssueState(found.id, iid, issue.state === 'closed' ? 'opened' : 'closed');
+    return c.redirect(c.req.path.replace(/\/state$/, ''), 303);
   });
 
   /** Where the link of a merge request leads: what it says and which files it changes. */

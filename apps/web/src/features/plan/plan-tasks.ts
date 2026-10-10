@@ -1,4 +1,9 @@
-import { NO_USER_ID, PLAN_TASK_ATTRIBUTE, type RoadmapAssignee } from '@covibes/shared';
+import {
+  NO_USER_ID,
+  PLAN_TASK_ATTRIBUTE,
+  type RoadmapAssignee,
+  type RoadmapIssue,
+} from '@covibes/shared';
 import type { Node } from '@tiptap/pm/model';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
@@ -15,17 +20,30 @@ export const planTasksKey = new PluginKey('planTasks');
 export type PlanTasksState = {
   /** The tasks of the plan by their id, with who took them; null: nobody. */
   assignees: ReadonlyMap<string, RoadmapAssignee | null>;
+  /** The issues of tasks in the repository, and whether they are closed (spec 30a). */
+  issues: ReadonlyMap<string, RoadmapIssue>;
   /** Owners and editors get a button to assign; null for those who only read. */
   onPick: ((taskId: string, anchor: HTMLElement) => void) | null;
   /** The texts of the controls, in the language of the app. */
-  labels: { assign: string; assignedTo: (name: string) => string; teamMember: string };
+  labels: {
+    assign: string;
+    assignedTo: (name: string) => string;
+    teamMember: string;
+    issue: (issue: RoadmapIssue) => string;
+  };
 };
 
 /** Nothing to show: the state of an editor before its owner said what its tasks are. */
 export const NO_PLAN_TASKS: PlanTasksState = {
   assignees: new Map(),
+  issues: new Map(),
   onPick: null,
-  labels: { assign: '', assignedTo: (name) => name, teamMember: '' },
+  labels: {
+    assign: '',
+    assignedTo: (name) => name,
+    teamMember: '',
+    issue: (issue) => `#${String(issue.number)}`,
+  },
 };
 
 export type PlanTasksOptions = {
@@ -74,6 +92,35 @@ function control(taskId: string, state: PlanTasksState): HTMLElement | null {
   return element;
 }
 
+const SVG = 'http://www.w3.org/2000/svg';
+
+/** The link to the issue of a task: its number, with a check once it is closed (spec 30a). */
+function issueLink(issue: RoadmapIssue, labels: PlanTasksState['labels']): HTMLElement {
+  const link = document.createElement('a');
+  link.className = issue.closed ? 'plan-task-issue plan-task-issue-closed' : 'plan-task-issue';
+  link.setAttribute('contenteditable', 'false');
+  link.href = issue.url;
+  link.target = '_blank';
+  link.rel = 'noreferrer';
+  link.setAttribute('aria-label', labels.issue(issue));
+  link.title = labels.issue(issue);
+  if (issue.closed) {
+    const check = document.createElementNS(SVG, 'svg');
+    check.setAttribute('viewBox', '0 0 24 24');
+    check.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS(SVG, 'path');
+    path.setAttribute('d', 'M20 6 9 17l-5-5');
+    check.append(path);
+    link.append(check);
+  }
+  link.append(`#${String(issue.number)}`);
+  // The caret stays where it is; the click opens the issue.
+  link.addEventListener('mousedown', (event) => {
+    event.preventDefault();
+  });
+  return link;
+}
+
 /** Where the control of a task goes: the end of the first paragraph of its list item. */
 function controlPosition(item: Node, position: number): number | null {
   const first = item.firstChild;
@@ -83,7 +130,8 @@ function controlPosition(item: Node, position: number): number | null {
 /**
  * Tasks in the plan (spec 26b). A list item keeps the id the server gave it: the attribute stays
  * on the item while its text changes, and a new item made by splitting one does not inherit it.
- * Every task the roadmap knows shows who took it at the end of its line, or the button to assign.
+ * Every task the roadmap knows shows who took it at the end of its line, or the button to assign,
+ * and before that its issue in the repository, if it has one (spec 30a).
  */
 export const PlanTasks = Extension.create<PlanTasksOptions>({
   name: 'planTasks',
@@ -127,12 +175,24 @@ export const PlanTasks = Extension.create<PlanTasksOptions>({
               if (typeof id !== 'string' || !state.assignees.has(id)) return true;
               const at = controlPosition(node, position);
               if (at === null) return true;
+              const issue = state.issues.get(id);
+              if (issue) {
+                decorations.push(
+                  Decoration.widget(at, () => issueLink(issue, state.labels), {
+                    side: 1,
+                    key: `${id}:issue:${String(issue.number)}:${issue.closed ? 'closed' : 'open'}:${issue.url}`,
+                    ignoreSelection: true,
+                    stopEvent: () => true,
+                  }),
+                );
+              }
               const assignee = state.assignees.get(id) ?? null;
-              // Nobody on it and nobody to assign it: nothing to show.
+              // Nobody on it and nobody to assign it: nothing more to show.
               if (!assignee && !state.onPick) return true;
               decorations.push(
                 Decoration.widget(at, () => control(id, state) ?? document.createTextNode(''), {
-                  side: 1,
+                  // After the issue.
+                  side: 2,
                   // A control is built anew when what it shows changes.
                   key: `${id}:${assignee?.userId ?? ''}:${assignee?.name ?? ''}:${state.onPick ? 'pick' : 'read'}`,
                   ignoreSelection: true,

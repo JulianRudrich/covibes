@@ -7,7 +7,8 @@ import { asUser } from './testing';
 const { adminUrl, appUrl } = inject('database');
 const admin = new pg.Pool({ connectionString: adminUrl });
 const app = new pg.Pool({ connectionString: appUrl });
-const USER = '11111111-1111-4111-8111-111111111111';
+// An id of its own: the test files share one database and run side by side.
+const USER = '0d000000-0000-4000-8000-000000000001';
 
 afterAll(async () => {
   await Promise.all([admin.end(), app.end()]);

@@ -376,6 +376,85 @@ describe('tasks in the plan (spec 26b)', () => {
     );
   });
 
+  it('names the issue of a task, and marks a closed one (spec 30a)', async () => {
+    writeTasks();
+    const issue = (number: number, closed: boolean) => ({
+      number,
+      url: `https://gitlab.example.com/verein/app/-/issues/${String(number)}`,
+      closed,
+    });
+    const tasks = (closed: boolean) => ({
+      assignees: new Map([
+        [LOGIN, ALEX],
+        [EXPORT, null],
+      ]),
+      issues: new Map([
+        [LOGIN, issue(4, closed)],
+        [EXPORT, issue(5, false)],
+      ]),
+      assigning: { members: [ALEX, SAM], onAssign: vi.fn() },
+    });
+    const view = renderPlan({ tasks: tasks(false) });
+    const document = await screen.findByRole('textbox', { name: 'Projektplan' });
+
+    // The issue stands before who took the task.
+    await waitFor(() => {
+      expect(items(document)).toEqual(['Login bauen#4ABAlex Berg', 'Export#5Zuweisen', 'Notiz']);
+    });
+    const open = within(document).getByRole('link', { name: 'Issue #4, offen' });
+    expect(open).toHaveAttribute('href', 'https://gitlab.example.com/verein/app/-/issues/4');
+    expect(open).toHaveAttribute('target', '_blank');
+    expect(open).toHaveAttribute('contenteditable', 'false');
+    expect(open).not.toHaveClass('plan-task-issue-closed');
+    expect(open.querySelector('svg')).toBeNull();
+    // The link is no text of the plan.
+    expect(stored()).not.toContain('#4');
+
+    // Someone closed the issue in GitLab; the state was read again.
+    view.rerender(
+      <TooltipProvider>
+        <PlanEditor
+          projectId={PROJECT}
+          user={OLGA}
+          readOnly={false}
+          language="de"
+          tasks={tasks(true)}
+        />
+      </TooltipProvider>,
+    );
+
+    const closed = await within(document).findByRole('link', { name: 'Issue #4, geschlossen' });
+    expect(closed).toHaveClass('plan-task-issue-closed');
+    expect(closed.querySelector('svg')).not.toBeNull();
+    expect(within(document).getByRole('link', { name: 'Issue #5, offen' })).toBeVisible();
+    expect(within(document).queryByRole('link', { name: 'Issue #4, offen' })).toBeNull();
+  });
+
+  it('shows viewers the issue of a task nobody took', async () => {
+    writeTasks();
+    renderPlan({
+      readOnly: true,
+      tasks: {
+        assignees: new Map([
+          [LOGIN, null],
+          [EXPORT, null],
+        ]),
+        issues: new Map([
+          [
+            LOGIN,
+            { number: 4, url: 'https://gitlab.example.com/verein/app/-/issues/4', closed: true },
+          ],
+        ]),
+      },
+    });
+    const document = await screen.findByRole('textbox', { name: 'Projektplan' });
+
+    await waitFor(() => {
+      expect(items(document)).toEqual(['Login bauen#4', 'Export', 'Notiz']);
+    });
+    expect(within(document).getByRole('link', { name: 'Issue #4, geschlossen' })).toBeVisible();
+  });
+
   it('follows when the assignee changes', async () => {
     writeTasks();
     const tasks = (assignee: typeof ALEX | null) => ({

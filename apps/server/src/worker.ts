@@ -24,6 +24,7 @@ import { releaseAbandonedJobs } from '@server/tasks/abandoned-jobs';
 import { AGENT_TURN_TASK, agentTurnTask } from '@server/tasks/agent-turn';
 import { AWAY_SUMMARY_TASK, awaySummaryTask } from '@server/tasks/away-summary';
 import { GIT_REQUEST_TASK, gitRequestTask } from '@server/tasks/git-request';
+import { GIT_SYNC_TASK, gitSyncTask } from '@server/tasks/git-sync';
 import { NOTIFICATION_MAIL_TASK, notificationMailTask } from '@server/tasks/notification-mails';
 import { OBSERVE_TASK, observeTask } from '@server/tasks/observe';
 import { PACKAGE_SPECS_TASK, packageSpecsTask } from '@server/tasks/package-specs';
@@ -139,6 +140,12 @@ const runner = await run({
             admin,
             accessOf: gitConnections.accessOf,
             writers: (target, token) => gitlabWriter(gitClient, target, token),
+          }),
+          // Reads the state of a project's repository (spec 30a).
+          [GIT_SYNC_TASK]: gitSyncTask({
+            admin,
+            client: gitClient,
+            connections: gitConnections,
           }),
         }
       : {}),

@@ -403,9 +403,9 @@ describe('an approved request', () => {
     expect(
       tasksOf(await issuePlan(project.git, viewer)).map((task) => [task.state, task.issue]),
     ).toEqual([
-      ['done', { number: 4, url: issue(4) }],
-      ['done', { number: 5, url: issue(5) }],
-      ['done', { number: 6, url: issue(6) }],
+      ['done', { number: 4, url: issue(4), closed: false }],
+      ['done', { number: 5, url: issue(5), closed: false }],
+      ['done', { number: 6, url: issue(6), closed: false }],
     ]);
     // Every member reads the log.
     const log = (await (await request(`${project.git}/log`, viewer)).json()) as GitLog;

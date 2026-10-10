@@ -29,7 +29,9 @@ import { handsQuery, useHandDecisions } from '@web/features/hands/queries';
 import { useConnectGitAccount } from '@web/features/git/queries';
 import { useGitSync } from '@web/features/git/use-git-sync';
 import {
+  deviatingReviews,
   gitRequestsQuery,
+  gitReviewsQuery,
   useApproveGitRequests,
   useEndGitRequest,
 } from '@web/features/git/request-queries';
@@ -353,6 +355,13 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
   // Git requests (spec 29b): what waits for approval, runs or failed. Who may approve does so
   // here, with their own GitLab account; without one, the way leads to GitLab and back.
   const gitRequests = useQuery(gitRequestsQuery(project.id)).data;
+  // Merge requests that go against the architecture (spec 30b), and the review that is open.
+  const reviewList = useQuery(gitReviewsQuery(project.id)).data?.reviews;
+  const reviews = useMemo(() => deviatingReviews(reviewList), [reviewList]);
+  const [openReview, setOpenReview] = useState<string | null>(null);
+  const closeReview = useCallback(() => {
+    setOpenReview(null);
+  }, []);
   const approveGit = useApproveGitRequests(project.id);
   const endGit = useEndGitRequest(project.id);
   const connectGit = useConnectGitAccount();
@@ -479,6 +488,8 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
           projectId: project.id,
           returned: gitReturned,
           onReturnSeen: clearGitReturn,
+          reviewId: openReview,
+          onReviewClosed: closeReview,
         }}
         activePhase={project.phase}
         onSelectPhase={
@@ -579,9 +590,12 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
             waitingHands.length > 0 ||
             votesToCast.length > 0 ||
             planSuggestions > 0 ||
-            (git?.requests.length ?? 0) > 0 ? (
+            (git?.requests.length ?? 0) > 0 ||
+            reviews.length > 0 ? (
               <WaitingForYou
                 git={git}
+                reviews={reviews}
+                onOpenReview={setOpenReview}
                 planSuggestions={planSuggestions}
                 onOpenPlan={planOpen ? undefined : () => void openPlan()}
                 proposals={proposals}

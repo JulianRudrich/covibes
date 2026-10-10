@@ -97,6 +97,25 @@ function page(title: string, body: string): string {
 </html>`;
 }
 
+/** The file of the example merge request: a change as a coding agent could make it. */
+function exampleChange(title: string, again: string | null): string {
+  return [
+    `// ${title}`,
+    '// Änderungen kommen live über Socket.io bei allen an.',
+    "import { Server } from 'socket.io';",
+    '',
+    'export function startRealtime(httpServer: import("node:http").Server) {',
+    "  const io = new Server(httpServer, { cors: { origin: '*' } });",
+    "  io.on('connection', (socket) => {",
+    "    socket.on('change', (change) => socket.broadcast.emit('change', change));",
+    '  });',
+    '  return io;',
+    '}',
+    ...(again ? ['', `// Überarbeitet: ${again}`] : []),
+    '',
+  ].join('\n');
+}
+
 export type GitlabStandIn = ReturnType<typeof createGitlabStandIn>;
 
 /**
@@ -286,9 +305,15 @@ export function createGitlabStandIn(
           issue.milestone ? ` · ${escapeHtml(issue.milestone.title)}` : ''
         } · ${escapeHtml(issue.author.name)} · ${issue.state === 'closed' ? 'geschlossen' : 'offen'}</p>
       <pre style="white-space: pre-wrap; font: inherit">${escapeHtml(issue.description)}</pre>
-      <form method="post" action="${escapeHtml(c.req.path)}/state" class="actions">
-        <button type="submit">${issue.state === 'closed' ? 'Wieder öffnen' : 'Issue schließen'}</button>
-      </form>`,
+      <div class="actions">
+        <form method="post" action="${escapeHtml(c.req.path)}/state">
+          <button type="submit">${issue.state === 'closed' ? 'Wieder öffnen' : 'Issue schließen'}</button>
+        </form>
+        <form method="post" action="${escapeHtml(c.req.path)}/merge-request">
+          <button type="submit">Beispiel-Merge-Request</button>
+        </form>
+      </div>
+      <small>Der Beispiel-Merge-Request ändert eine Datei auf einem Branch zu diesem Issue; jeder weitere Klick ist ein neuer Commit.</small>`,
       ),
     );
   });
@@ -304,6 +329,58 @@ export function createGitlabStandIn(
     if (!found || !issue) return c.json({ message: '404 Not Found' }, 404);
     store.setIssueState(found.id, iid, issue.state === 'closed' ? 'opened' : 'closed');
     return c.redirect(c.req.path.replace(/\/state$/, ''), 303);
+  });
+
+  /**
+   * The second button of an issue's page (spec 30b): what a coding agent would do for the issue.
+   * It commits a change on a branch named after the issue and opens a merge request for it; a
+   * further click is a further commit. The change brings a real-time library of its own choice,
+   * so a review against the architecture has something to say.
+   */
+  routes.post('/:namespace/:name/-/issues/:iid/merge-request', (c) => {
+    const found = byPath(c.req.param('namespace'), c.req.param('name'));
+    const iid = Number(c.req.param('iid'));
+    const issue = found ? store.issuesOf(found.id).find((entry) => entry.iid === iid) : undefined;
+    if (!found || !issue) return c.json({ message: '404 Not Found' }, 404);
+    const target = {
+      defaultBranch: found.default_branch,
+      webUrl: repository(found).web_url,
+      issuesEnabled: found.issues_enabled,
+    };
+    const branch = `${String(iid)}-beispiel`;
+    const exists = store.branchesOf(found.id, found.default_branch).includes(branch);
+    const open = store
+      .mergeRequestsOf(found.id)
+      .find((entry) => entry.state === 'opened' && entry.source_branch === branch);
+    const committed = store.commit(found.id, target, {
+      branch,
+      ...(exists ? {} : { startBranch: found.default_branch }),
+      message: `Live-Aktualisierung für #${String(iid)}`,
+      actions: [
+        {
+          action: exists ? 'update' : 'create',
+          file_path: 'src/realtime/socket.ts',
+          content: exampleChange(issue.title, exists ? new Date(now()).toISOString() : null),
+        },
+      ],
+    });
+    const opened =
+      'status' in committed
+        ? committed
+        : (open ??
+          store.addMergeRequest(found.id, target, {
+            title: issue.title,
+            description: `Closes #${String(iid)}\n\nLädt Änderungen live über Socket.io nach.`,
+            sourceBranch: branch,
+            targetBranch: found.default_branch,
+          }));
+    if ('status' in opened) {
+      return c.html(page('Das ging nicht', `<p>${escapeHtml(opened.message)}</p>`), 400);
+    }
+    return c.redirect(
+      c.req.path.replace(/\/issues\/\d+\/merge-request$/, `/merge_requests/${String(opened.iid)}`),
+      303,
+    );
   });
 
   /** Where the link of a merge request leads: what it says and which files it changes. */

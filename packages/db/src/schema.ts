@@ -286,6 +286,29 @@ export interface GitRequests {
   updated_at: Generated<Timestamp>;
 }
 
+export interface GitReviews {
+  author: string;
+  base_url: string;
+  created_at: Generated<Timestamp>;
+  findings: Generated<Json>;
+  finished_at: Timestamp | null;
+  id: Generated<string>;
+  issue_number: Int8 | null;
+  mr_open: Generated<boolean>;
+  number: Int8;
+  project_id: string;
+  repository_id: Int8;
+  requested_by: string | null;
+  run_id: string;
+  sha: string;
+  source_branch: string;
+  summary: string | null;
+  title: string;
+  trigger: string;
+  url: string;
+  verdict: string | null;
+}
+
 export interface GitSync {
   failed: Generated<boolean>;
   project_id: string;
@@ -649,6 +672,7 @@ export interface DB {
   git_connections: GitConnections;
   git_issue_states: GitIssueStates;
   git_requests: GitRequests;
+  git_reviews: GitReviews;
   git_sync: GitSync;
   git_webhooks: GitWebhooks;
   'graphile_worker._private_job_queues': GraphileWorkerPrivateJobQueues;

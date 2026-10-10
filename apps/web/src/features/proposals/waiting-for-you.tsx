@@ -4,6 +4,7 @@ import {
   type CanvasProposal,
   type DecisionProposal,
   type GitRequest,
+  type GitReview,
   type HandRaise,
   type OpenVote,
   type Proposal,
@@ -24,6 +25,7 @@ import {
   type GitRequestActions,
 } from '@web/features/git/git-request-view';
 import { gitRequestsToDecide } from '@web/features/git/request-progress';
+import { ReviewCard } from '@web/features/git/review-view';
 import type { HandDecision } from '@web/features/hands/queries';
 import type { DecideProposal, DecidedProposal } from '@web/features/proposals/queries';
 import { proposalSummary } from '@web/features/proposals/summary';
@@ -59,10 +61,17 @@ type WaitingForYouProps = {
    * done; with what the user may do with them.
    */
   git?: GitRequestActions & { requests: readonly GitRequest[] };
+  /**
+   * The reviews that say an open merge request goes against the architecture (spec 30b). They
+   * show for everyone and are not counted: nothing is to be decided in Covibes.
+   */
+  reviews?: readonly GitReview[];
+  onOpenReview?: (reviewId: string) => void;
 };
 
 const NO_HANDS: readonly HandRaise[] = [];
 const NO_VOTES: readonly OpenVote[] = [];
+const NO_REVIEWS: readonly GitReview[] = [];
 
 const CARD = 'flex flex-col gap-2.5 rounded-card border border-border bg-bg-panel p-3 shadow-panel';
 
@@ -99,6 +108,8 @@ export function WaitingForYou({
   planSuggestions = 0,
   onOpenPlan,
   git,
+  reviews = NO_REVIEWS,
+  onOpenReview,
 }: WaitingForYouProps) {
   const { t, i18n } = useTranslation();
   const agents = useAgents();
@@ -136,7 +147,13 @@ export function WaitingForYou({
         </span>
       </div>
 
-      {proposals.length + hands.length + votes.length + planSuggestions + gitOpen.length > 0 ? (
+      {proposals.length +
+        hands.length +
+        votes.length +
+        planSuggestions +
+        gitOpen.length +
+        reviews.length >
+      0 ? (
         <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
           {planSuggestions > 0 ? (
             <li className={CARD}>
@@ -275,6 +292,16 @@ export function WaitingForYou({
                 </li>
               ))
             : null}
+          {reviews.map((review) => (
+            <li key={review.id} className={CARD}>
+              <ReviewCard
+                review={review}
+                onOpen={() => {
+                  onOpenReview?.(review.id);
+                }}
+              />
+            </li>
+          ))}
           {hands.map((hand) => {
             const agent = agents(hand.agentKey);
             return (

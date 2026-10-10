@@ -483,6 +483,21 @@ export function createExampleStore(now: () => number = Date.now) {
       };
       commits.set(sha, commit);
       heads.set(id, new Map(heads.get(id)).set(input.branch, sha));
+      // An open merge request follows its branch: its last commit and its changes (spec 30b).
+      mergeRequests.set(
+        id,
+        (mergeRequests.get(id) ?? []).map((entry) => {
+          const into = filesOf(id, target.defaultBranch, entry.target_branch);
+          return entry.state === 'opened' && entry.source_branch === input.branch && into
+            ? {
+                ...entry,
+                sha,
+                diffs: diffsBetween(files, into),
+                updated_at: new Date(now()).toISOString(),
+              }
+            : entry;
+        }),
+      );
       return commit;
     },
     /**

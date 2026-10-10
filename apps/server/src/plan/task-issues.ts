@@ -50,3 +50,35 @@ export async function loadTaskIssues(
   }
   return issues;
 }
+
+/**
+ * The task an issue of the project's repository was created for (spec 30b): the id it carries in
+ * the plan, or null if Covibes created no issue of that number there. Should two tasks carry the
+ * number, the issue that was created last counts: it is the one the repository holds.
+ */
+export async function loadIssueTask(
+  db: Kysely<DB>,
+  projectId: string,
+  number: number,
+): Promise<string | null> {
+  const row = await db
+    .selectFrom('git_actions')
+    .innerJoin('git_requests', 'git_requests.id', 'git_actions.request_id')
+    .innerJoin('git_connections', (join) =>
+      join
+        .onRef('git_connections.project_id', '=', 'git_actions.project_id')
+        .onRef('git_connections.base_url', '=', 'git_requests.base_url')
+        .onRef('git_connections.repository_id', '=', 'git_requests.repository_id'),
+    )
+    .select('git_actions.task_id')
+    .where('git_actions.project_id', '=', projectId)
+    .where('git_actions.kind', '=', 'issue')
+    .where('git_actions.status', '=', 'done')
+    .where('git_actions.result_number', '=', String(number))
+    .where('git_actions.task_id', 'is not', null)
+    .orderBy('git_actions.executed_at', (order) => order.desc().nullsLast())
+    .orderBy('git_actions.created_at', 'desc')
+    .limit(1)
+    .executeTakeFirst();
+  return row?.task_id ?? null;
+}

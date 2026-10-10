@@ -16,6 +16,10 @@ export type WorkspaceRepository = {
   returned: GitReturn | undefined;
   /** The dialog showed how it ended and was closed. */
   onReturnSeen: () => void;
+  /** The review to show (spec 30b): the dialog "Merge Requests" opens with it. */
+  reviewId?: string | null;
+  /** That dialog was closed. */
+  onReviewClosed?: () => void;
 };
 
 type WorkspaceShellProps = {

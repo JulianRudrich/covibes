@@ -234,6 +234,8 @@ describe('merge requests', () => {
         description: expect.stringContaining('Erster Teil von #1') as string,
         author: 'Olga Beispiel',
         updatedAt: '2026-10-02T09:40:00.000Z',
+        // Its last commit, which a review is for (spec 30b).
+        sha: expect.stringMatching(/^[0-9a-f]{40}$/) as string,
       },
     ]);
     expect(

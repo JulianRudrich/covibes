@@ -53,6 +53,8 @@ export type RepositoryMergeRequest = {
   description: string;
   author: string;
   updatedAt: string | null;
+  /** Its last commit; null if GitLab named none. */
+  sha: string | null;
 };
 
 export type RepositoryDiff = {
@@ -145,6 +147,7 @@ const mergeRequestSchema = z.object({
   target_branch: z.string(),
   author: personSchema.nullish(),
   updated_at: z.string().nullish(),
+  sha: z.string().nullish(),
 });
 
 const diffSchema = z.object({
@@ -190,6 +193,7 @@ function toMergeRequest(request: z.infer<typeof mergeRequestSchema>): Repository
     description: request.description ?? '',
     author: nameOf(request.author),
     updatedAt: request.updated_at ?? null,
+    sha: request.sha || null,
   };
 }
 

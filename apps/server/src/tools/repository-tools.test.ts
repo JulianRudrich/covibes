@@ -42,6 +42,7 @@ const MERGE_REQUEST: RepositoryMergeRequest = {
   description: 'Erster Teil von #1.',
   author: 'Olga Beispiel',
   updatedAt: '2026-10-02T09:40:00.000Z',
+  sha: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678',
 };
 
 function diff(path: string, text: string, change: RepositoryDiff['change'] = 'changed') {

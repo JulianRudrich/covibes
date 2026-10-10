@@ -1,11 +1,16 @@
 import type { DB } from '@covibes/db';
 import type { Task } from 'graphile-worker';
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import { z } from 'zod';
 
+import { issueOfMergeRequest } from '@server/git/merge-request-issue';
 import { GitlabError, type GitlabClient } from '@server/integrations/gitlab/client';
 import type { GitConnections } from '@server/integrations/gitlab/connections';
 import { readIssueStates } from '@server/integrations/gitlab/issues';
+import {
+  listOpenMergeRequests,
+  MAX_OPEN_MERGE_REQUESTS,
+} from '@server/integrations/gitlab/merge-requests';
 import { notifyLive } from '@server/realtime/notifications';
 
 /** Name of the job the database queues to read a repository's state (migration 0035). */
@@ -25,11 +30,18 @@ export type GitSyncDeps = {
 /** `gone`: the project has no repository (any more). */
 export type GitSyncOutcome = 'gone' | 'done' | 'failed';
 
+/** A commit as GitLab names it; the review of a merge request is for one. */
+const COMMIT = /^[0-9a-f]{7,64}$/;
+
 /**
  * Reads the state of a project's repository (spec 30a): whether the issues Covibes created are
  * open or closed. It reads with the project's reading access and changes nothing in GitLab. What
  * it reads is stored, with when; a reading that did not work is recorded as failed, and the
  * states of before stay. Everyone with the project open learns that it ran.
+ *
+ * It also looks at the open merge requests (spec 30b): one that belongs to an issue Covibes
+ * created gets a review of the state its commits have now, unless that state has one; drafts
+ * wait. Reviews of merge requests that are no longer open are marked so.
  */
 export async function runGitSync(
   { admin, client, connections, now = Date.now }: GitSyncDeps,
@@ -57,18 +69,28 @@ export async function runGitSync(
     .where('git_requests.repository_id', '=', repositoryId)
     .execute();
   const numbers = [...new Set(created.map((action) => Number(action.result_number)))];
+  // Whether a review of this repository still counts its merge request as open.
+  const reviewed = await admin
+    .selectFrom('git_reviews')
+    .select('id')
+    .where('project_id', '=', projectId)
+    .where('base_url', '=', connection.base_url)
+    .where('repository_id', '=', repositoryId)
+    .where('mr_open', '=', true)
+    .limit(1)
+    .executeTakeFirst();
 
   let failed = false;
-  if (numbers.length > 0) {
+  // Without issues of its own and without reviews, the repository says nothing Covibes shows.
+  if (numbers.length > 0 || reviewed) {
     try {
       const access = await connections.access(projectId);
       if (access) {
-        const states = await readIssueStates(
-          client,
-          { baseUrl: access.baseUrl, repositoryId: Number(repositoryId) },
-          access.token,
-          numbers,
-        );
+        const target = { baseUrl: access.baseUrl, repositoryId: Number(repositoryId) };
+        const states =
+          numbers.length > 0
+            ? await readIssueStates(client, target, access.token, numbers)
+            : new Map<number, never>();
         if (states.size > 0) {
           await admin
             .insertInto('git_issue_states')
@@ -91,6 +113,43 @@ export async function runGitSync(
                 })),
             )
             .execute();
+        }
+
+        const open = await listOpenMergeRequests(client, target, access.token);
+        const ofRepository = admin
+          .updateTable('git_reviews')
+          .where('project_id', '=', projectId)
+          .where('base_url', '=', connection.base_url)
+          .where('repository_id', '=', repositoryId);
+        const openNumbers = open.map((mergeRequest) => String(mergeRequest.number));
+        // The list is whole unless it is full; then one that is not in it may still be open.
+        if (open.length < MAX_OPEN_MERGE_REQUESTS) {
+          let closed = ofRepository.set({ mr_open: false }).where('mr_open', '=', true);
+          if (openNumbers.length > 0) closed = closed.where('number', 'not in', openNumbers);
+          await closed.execute();
+        }
+        if (openNumbers.length > 0) {
+          // One that was opened again counts as open again.
+          await ofRepository
+            .set({ mr_open: true })
+            .where('mr_open', '=', false)
+            .where('number', 'in', openNumbers)
+            .execute();
+        }
+
+        const ownIssues = new Set(numbers);
+        for (const mergeRequest of open) {
+          if (mergeRequest.draft || mergeRequest.sha === null) continue;
+          if (!COMMIT.test(mergeRequest.sha)) continue;
+          const issue = issueOfMergeRequest(mergeRequest, ownIssues);
+          if (issue === null) continue;
+          // The database starts it once per state, within the bounds of a day.
+          await sql`
+            select private.start_git_review(
+              ${projectId}, ${mergeRequest.number}, ${mergeRequest.sha},
+              ${mergeRequest.title || `!${String(mergeRequest.number)}`}, ${mergeRequest.url},
+              ${mergeRequest.sourceBranch}, ${mergeRequest.author}, ${issue}, 'auto', null
+            )`.execute(admin);
         }
       } else {
         failed = true;

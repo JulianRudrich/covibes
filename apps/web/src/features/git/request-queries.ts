@@ -8,6 +8,9 @@ import type {
   GitRequestCreated,
   GitRequests,
   GitRequestsApproved,
+  GitReview,
+  GitReviews,
+  GitReviewStarted,
 } from '@covibes/shared';
 import { queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
@@ -35,6 +38,10 @@ export function gitMergeRequestQueryKey(projectId: string) {
 
 export function gitMergeRequestsQueryKey(projectId: string) {
   return [...gitQueryKey(projectId), 'merge-requests'] as const;
+}
+
+export function gitReviewsQueryKey(projectId: string) {
+  return [...gitQueryKey(projectId), 'reviews'] as const;
 }
 
 const base = (projectId: string) => `/projects/${encodeURIComponent(projectId)}/git`;
@@ -88,6 +95,42 @@ export function gitMergeRequestsQuery(projectId: string) {
     queryFn: () => api<GitMergeRequests>(`${base(projectId)}/merge-requests`),
     staleTime: 0,
     gcTime: 0,
+  });
+}
+
+/**
+ * The latest review of every open merge request (spec 30b). The live channel loads it again
+ * whenever a review started, ended or the repository's state was read.
+ */
+export function gitReviewsQuery(projectId: string) {
+  return queryOptions({
+    queryKey: gitReviewsQueryKey(projectId),
+    queryFn: () => api<GitReviews>(`${base(projectId)}/reviews`),
+    staleTime: Infinity,
+  });
+}
+
+/** The reviews that say a merge request goes against the architecture: what the overview shows. */
+export function deviatingReviews(reviews: readonly GitReview[] | undefined): GitReview[] {
+  return (reviews ?? []).filter(
+    (review) => review.open && review.status === 'done' && review.verdict === 'deviates',
+  );
+}
+
+/** Starts the review of an open merge request at the state its commits have now. */
+export function useRequestReview(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (number: number) =>
+      api<GitReviewStarted>(`${base(projectId)}/merge-requests/${String(number)}/review`, {
+        method: 'POST',
+      }),
+    onSettled: () =>
+      Promise.all(
+        [gitMergeRequestsQueryKey, gitReviewsQueryKey].map((key) =>
+          queryClient.invalidateQueries({ queryKey: key(projectId), exact: true }),
+        ),
+      ),
   });
 }
 

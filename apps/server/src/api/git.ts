@@ -15,6 +15,7 @@ import type { Kysely, Transaction } from 'kysely';
 
 import { apiError } from '@server/api/errors';
 import { addGitRequestRoutes } from '@server/api/git-requests';
+import { addGitReviewRoutes } from '@server/api/git-reviews';
 import { addGitSyncRoutes, loadSync } from '@server/api/git-sync';
 import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
@@ -157,6 +158,7 @@ export function gitRoutes(
     git,
     connection: loadConnection,
   });
+  addGitReviewRoutes(routes, { db, git, connection: loadConnection });
 
   /** The project and the person, for a route only owners may use. */
   async function owner(c: Context<Env>) {

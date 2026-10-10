@@ -17,6 +17,7 @@ import {
   gitMergeRequestQueryKey,
   gitMergeRequestsQueryKey,
   gitRequestsQueryKey,
+  gitReviewsQueryKey,
 } from '@web/features/git/request-queries';
 import { handsQueryKey } from '@web/features/hands/queries';
 import { notificationsQuery } from '@web/features/notifications/queries';
@@ -100,6 +101,8 @@ export function useProjectLive(projectId: string, userId?: string) {
         // its actions (spec 29b). The dialogs hold what is only loaded while they are open.
         reload(gitQueryKey(projectId));
         reload(gitRequestsQueryKey(projectId));
+        // A review started or ended, or its merge request was closed (spec 30b).
+        reload(gitReviewsQueryKey(projectId));
         // A task got its issue, or the repository's state was read (spec 30a): the roadmap and
         // the plan show the status of the tasks.
         reload(roadmapQueryKey(projectId));
@@ -139,6 +142,7 @@ export function useProjectLive(projectId: string, userId?: string) {
       reload(planStateQueryKey(projectId));
       reload(roadmapQueryKey(projectId));
       reload(gitRequestsQueryKey(projectId));
+      reload(gitReviewsQueryKey(projectId));
       reloadDecisions();
     },
   });

@@ -46,6 +46,8 @@ import {
   readMergeRequest,
 } from '@server/integrations/gitlab/merge-requests';
 import { loadAssignees } from '@server/plan/assignees';
+import { loadLatestReviews, reviewSummary } from '@server/api/git-reviews';
+import { issueOfMergeRequest } from '@server/git/merge-request-issue';
 import { loadTaskIssues } from '@server/plan/task-issues';
 
 // Git requests and the log of Git actions (specs 29b to 29d). The database decides who makes,
@@ -567,13 +569,23 @@ export function addGitRequestRoutes(
             .where('git_requests.repository_id', '=', String(repository.repository.id))
             .execute()
         : [];
-      return { row, repository, requested };
+      return {
+        row,
+        repository,
+        requested,
+        // Reviews against the architecture (spec 30b), and the issues a merge request can be for.
+        reviews: repository
+          ? await loadLatestReviews(trx, who.projectId, repository)
+          : new Map<number, never>(),
+        issues: await loadTaskIssues(trx, who.projectId),
+      };
     });
     if (!stored) return apiError(c, 'not_found');
 
     const waiting = new Set(
       stored.requested.map((action) => (action.payload as { number?: unknown }).number),
     );
+    const created = new Set([...stored.issues.values()].map((issue) => issue.number));
     let mergeRequests: GitOpenMergeRequest[] | null = null;
     if (stored.repository) {
       try {
@@ -584,18 +596,24 @@ export function addGitRequestRoutes(
             { baseUrl: access.baseUrl, repositoryId: stored.repository.repository.id },
             access.token,
           );
-          mergeRequests = open.map((entry) => ({
-            number: entry.number,
-            title: entry.title,
-            url: entry.url,
-            sourceBranch: entry.sourceBranch,
-            targetBranch: entry.targetBranch,
-            author: entry.author,
-            updatedAt: entry.updatedAt,
-            draft: entry.draft,
-            conflicts: entry.conflicts,
-            requested: waiting.has(entry.number),
-          }));
+          mergeRequests = open.map((entry) => {
+            const review = stored.reviews.get(entry.number);
+            return {
+              number: entry.number,
+              title: entry.title,
+              url: entry.url,
+              sourceBranch: entry.sourceBranch,
+              targetBranch: entry.targetBranch,
+              author: entry.author,
+              updatedAt: entry.updatedAt,
+              draft: entry.draft,
+              conflicts: entry.conflicts,
+              requested: waiting.has(entry.number),
+              issueNumber: issueOfMergeRequest(entry, created),
+              review: review ? reviewSummary(review) : null,
+              reviewCurrent: review !== undefined && review.sha === entry.sha,
+            };
+          });
         }
       } catch (error) {
         // The repository could not be read; the dialog says so.
@@ -607,6 +625,7 @@ export function addGitRequestRoutes(
       canRequest: stored.row.role !== 'viewer',
       canApprove: canApprove(stored.row),
       hasAccount: await hasAccount(who.userId),
+      canReview: stored.row.role !== 'viewer',
       mergeRequests,
     });
   });

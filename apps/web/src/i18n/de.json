@@ -1120,6 +1120,43 @@
       "renewHint": "Das alte gilt dann nicht mehr. Trage das neue in GitLab ein.",
       "renewFailed": "Das Secret-Token konnte nicht neu erzeugt werden. Bitte versuche es noch einmal.",
       "loadFailed": "Der Webhook konnte nicht geladen werden. Bitte versuche es noch einmal."
+    },
+    "review": {
+      "title": "Review",
+      "hint": "Der Merge Request im Vergleich mit der Architektur, wie Covibes sie jetzt hält.",
+      "kind": "Review",
+      "label": "Review von !{{number}}",
+      "check": "Prüfen",
+      "checkOne": "!{{number}} gegen die Architektur prüfen",
+      "again": "Erneut prüfen",
+      "running": "Review läuft …",
+      "fits": "Passt zur Architektur",
+      "deviates_one": "{{count}} Abweichung von der Architektur",
+      "deviates_other": "{{count}} Abweichungen von der Architektur",
+      "failed": "Das Review hat nicht geklappt.",
+      "older": "Älterer Stand:",
+      "open": "Review von !{{number}} ansehen",
+      "view": "Ansehen",
+      "more_one": "+ {{count}} weitere",
+      "more_other": "+ {{count}} weitere",
+      "card_one": "<b>!{{number}} {{title}}</b> weicht von der Architektur ab: {{count}} Abweichung.",
+      "card_other": "<b>!{{number}} {{title}}</b> weicht von der Architektur ab: {{count}} Abweichungen.",
+      "outcome": {
+        "taken": "Dieser Stand ist schon geprüft oder wird gerade geprüft.",
+        "limit": "Für heute sind die Reviews dieses Projekts aufgebraucht.",
+        "failed": "Das Review konnte nicht gestartet werden. Bitte versuche es noch einmal."
+      },
+      "back": "Alle Merge Requests",
+      "state": "Stand {{sha}}",
+      "auto": "automatisch geprüft",
+      "by": "geprüft auf Wunsch von {{name}}",
+      "issue": "gehört zu Issue #{{number}}",
+      "findings": "Abweichungen",
+      "basis": "Architektur",
+      "file": "Datei",
+      "note": "Das Review hat ein Modell geschrieben; es steht nur in Covibes. Verglichen wird mit den Entscheidungen, der Architektur und der Feature-Spec der Aufgabe, wie Covibes sie jetzt hält.",
+      "gone": "Dieses Review gibt es nicht mehr: Der Merge Request wurde gemergt oder geschlossen, oder er hat neue Commits bekommen.",
+      "loadFailed": "Das Review konnte nicht geladen werden. Bitte versuche es noch einmal."
     }
   },
   "export": {

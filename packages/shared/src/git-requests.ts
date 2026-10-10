@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import type { GitRepository } from './git';
+import type { GitReviewSummary } from './git-reviews';
 
 // Git actions and their approval (specs 29b to 29e). Everything that changes something in a
 // repository is a request that waits for approval; its actions are the single changes, and with
@@ -304,6 +305,12 @@ export type GitOpenMergeRequest = {
   conflicts: boolean;
   /** A request to merge it waits, runs or failed; a second one has to wait. */
   requested: boolean;
+  /** The issue Covibes created that it belongs to (spec 30b); null for someone's own. */
+  issueNumber: number | null;
+  /** Its latest review against the architecture; null if it has none. */
+  review: GitReviewSummary | null;
+  /** The review is about the commits the merge request has now. */
+  reviewCurrent: boolean;
 };
 
 /** `GET /api/projects/:projectId/git/merge-requests`: what can be merged. */
@@ -313,6 +320,8 @@ export type GitMergeRequests = {
   canRequest: boolean;
   canApprove: boolean;
   hasAccount: boolean;
+  /** The person starts reviews: owners and editors (spec 30b). */
+  canReview: boolean;
   /** The open merge requests, the latest changed first; null if they could not be read. */
   mergeRequests: GitOpenMergeRequest[] | null;
 };

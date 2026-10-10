@@ -133,6 +133,8 @@ function ProjectMenu({
   const [repositoryOpen, setRepositoryOpen] = useState(repository.returned !== undefined);
   const [logOpen, setLogOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
+  // "Ansehen" at a review under "Wartet auf dich" opens the merge requests with that review.
+  const reviewId = repository.reviewId ?? null;
   return (
     <>
       <DropdownMenu>
@@ -195,9 +197,22 @@ function ProjectMenu({
           <GitDialog projectId={repository.projectId} returned={repository.returned} />
         ) : null}
       </Dialog>
-      <Dialog open={mergeOpen} onOpenChange={setMergeOpen}>
+      <Dialog
+        open={mergeOpen || reviewId !== null}
+        onOpenChange={(open) => {
+          setMergeOpen(open);
+          if (!open) repository.onReviewClosed?.();
+        }}
+      >
         {/* Mounted only while open: the merge requests are read from the repository then. */}
-        {mergeOpen ? <MergeRequestsDialog projectId={repository.projectId} /> : null}
+        {mergeOpen || reviewId !== null ? (
+          <MergeRequestsDialog
+            // Another review is another view of the dialog.
+            key={reviewId ?? 'list'}
+            projectId={repository.projectId}
+            reviewId={reviewId}
+          />
+        ) : null}
       </Dialog>
       <Dialog open={logOpen} onOpenChange={setLogOpen}>
         {/* Mounted only while open: the log is loaded then. */}

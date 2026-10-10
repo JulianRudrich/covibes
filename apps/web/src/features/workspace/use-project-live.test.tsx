@@ -8,6 +8,7 @@ import { planStateQuery } from '@web/features/plan/queries';
 import { runsQuery } from '@web/features/chat/runs';
 import { projectQuery } from '@web/features/projects/queries';
 import { proposalsQuery } from '@web/features/proposals/queries';
+import { gitReviewsQuery } from '@web/features/git/request-queries';
 import { roadmapQuery } from '@web/features/roadmap/queries';
 import { openVotesQuery } from '@web/features/decisions/queries';
 import { notificationsQuery } from '@web/features/notifications/queries';
@@ -383,6 +384,25 @@ describe('useProjectLive', () => {
 
     await waitFor(() => {
       expect(queryClient.getQueryState(roadmapQuery(PROJECT_ID).queryKey)?.isInvalidated).toBe(
+        true,
+      );
+    });
+  });
+
+  it('loads the reviews again when one started or ended (spec 30b)', async () => {
+    stubApi({
+      [`GET ${PROJECT_URL}`]: () => ({ body: DETAILS }),
+      [`GET ${PROJECT_URL}/git/reviews`]: () => ({ body: { reviews: [] } }),
+    });
+    const queryClient = renderLive();
+    await queryClient.query(gitReviewsQuery(PROJECT_ID));
+
+    act(() => {
+      live.handlers?.onEvent({ type: 'git' });
+    });
+
+    await waitFor(() => {
+      expect(queryClient.getQueryState(gitReviewsQuery(PROJECT_ID).queryKey)?.isInvalidated).toBe(
         true,
       );
     });

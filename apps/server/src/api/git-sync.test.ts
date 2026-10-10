@@ -206,6 +206,24 @@ describe('the status of tasks from the repository', () => {
     );
   });
 
+  it('takes a new issue as open, whatever was read for its number before', async () => {
+    const project = await createProject();
+    // The stand-in gives the numbers out again after a restart; a GitLab never does.
+    await test.db.adminPool.query(
+      `insert into git_issue_states (project_id, base_url, repository_id, number, state)
+       select $1, $2, 101, number, 'closed' from generate_series(1, 30) as number`,
+      [project.projectId, `${APP_URL}/api/dev/gitlab`],
+    );
+
+    await createIssues(project);
+
+    expect(tasksOf(await roadmapOf(project)).map((task) => task.issue?.closed)).toEqual([
+      false,
+      false,
+      false,
+    ]);
+  });
+
   it('follows an issue that was closed in GitLab, and one that was opened again', async () => {
     const project = await createProject();
     const viewer = await member(project.projectId, 'viewer');

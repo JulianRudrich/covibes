@@ -12,6 +12,8 @@ export const MAX_OPEN_MERGE_REQUESTS = 50;
 export type GitlabMergeRequest = {
   number: number;
   title: string;
+  /** What its author wrote about it; empty if nothing. */
+  description: string;
   /** `opened`, `merged`, `closed` or `locked`, as GitLab names it. */
   state: string;
   url: string;
@@ -31,6 +33,7 @@ const pageUrl = z.string().regex(/^https?:\/\//i);
 const mergeRequestSchema = z.object({
   iid: z.number().int().positive(),
   title: z.string(),
+  description: z.string().nullish(),
   state: z.string(),
   web_url: pageUrl,
   source_branch: z.string(),
@@ -47,6 +50,7 @@ function toMergeRequest(entry: z.infer<typeof mergeRequestSchema>): GitlabMergeR
   return {
     number: entry.iid,
     title: entry.title,
+    description: entry.description ?? '',
     state: entry.state,
     url: entry.web_url,
     sourceBranch: entry.source_branch,

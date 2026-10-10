@@ -1120,6 +1120,43 @@
       "renewHint": "The old one stops working. Enter the new one in GitLab.",
       "renewFailed": "The secret token could not be created anew. Please try again.",
       "loadFailed": "The webhook could not be loaded. Please try again."
+    },
+    "review": {
+      "title": "Review",
+      "hint": "The merge request compared with the architecture as Covibes holds it now.",
+      "kind": "Review",
+      "label": "Review of !{{number}}",
+      "check": "Review",
+      "checkOne": "Review !{{number}} against the architecture",
+      "again": "Review again",
+      "running": "Reviewing …",
+      "fits": "Fits the architecture",
+      "deviates_one": "{{count}} deviation from the architecture",
+      "deviates_other": "{{count}} deviations from the architecture",
+      "failed": "The review failed.",
+      "older": "Older state:",
+      "open": "View the review of !{{number}}",
+      "view": "View",
+      "more_one": "+ {{count}} more",
+      "more_other": "+ {{count}} more",
+      "card_one": "<b>!{{number}} {{title}}</b> deviates from the architecture: {{count}} deviation.",
+      "card_other": "<b>!{{number}} {{title}}</b> deviates from the architecture: {{count}} deviations.",
+      "outcome": {
+        "taken": "This state was reviewed already or is being reviewed.",
+        "limit": "Today's reviews of this project are used up.",
+        "failed": "The review could not be started. Please try again."
+      },
+      "back": "All merge requests",
+      "state": "State {{sha}}",
+      "auto": "reviewed automatically",
+      "by": "reviewed at the request of {{name}}",
+      "issue": "belongs to issue #{{number}}",
+      "findings": "Deviations",
+      "basis": "Architecture",
+      "file": "File",
+      "note": "A model wrote this review; it is in Covibes only. It compares with the decisions, the architecture and the feature spec of the task as Covibes holds them now.",
+      "gone": "This review is gone: the merge request was merged or closed, or it got new commits.",
+      "loadFailed": "The review could not be loaded. Please try again."
     }
   },
   "export": {

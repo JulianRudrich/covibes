@@ -1,5 +1,5 @@
 import type { DB } from '@covibes/db';
-import { EnvValidationError } from '@covibes/shared';
+import { EnvValidationError, readEdges, readNodes, readPlan } from '@covibes/shared';
 import { run } from 'graphile-worker';
 import { Kysely, PostgresDialect } from 'kysely';
 import pg from 'pg';
@@ -11,6 +11,7 @@ import {
   GatewayConfigError,
   streamAgentReply,
 } from '@server/ai-gateway';
+import { gatherPackageInput, type PackageReaders } from '@server/api/package';
 import { createBoardClient } from '@server/collab/board-client';
 import { agentGitRequests } from '@server/git/agent-requests';
 import { createGitlabClient } from '@server/integrations/gitlab/client';
@@ -19,12 +20,14 @@ import { repositoryReaders } from '@server/integrations/gitlab/repository';
 import { gitlabSetup } from '@server/integrations/gitlab/setup';
 import { gitlabWriter } from '@server/integrations/gitlab/writer';
 import { createWorkerMailer } from '@server/integrations/mail/mailer';
+import { readStoredPlan } from '@server/plan/stored-plan';
 import { defaultFilesDir, localStorage } from '@server/storage/storage';
 import { releaseAbandonedJobs } from '@server/tasks/abandoned-jobs';
 import { AGENT_TURN_TASK, agentTurnTask } from '@server/tasks/agent-turn';
 import { AWAY_SUMMARY_TASK, awaySummaryTask } from '@server/tasks/away-summary';
 import { GIT_REQUEST_TASK, gitRequestTask } from '@server/tasks/git-request';
 import { GIT_SYNC_TASK, gitSyncTask } from '@server/tasks/git-sync';
+import { MR_REVIEW_TASK, mrReviewTask } from '@server/tasks/mr-review';
 import { NOTIFICATION_MAIL_TASK, notificationMailTask } from '@server/tasks/notification-mails';
 import { OBSERVE_TASK, observeTask } from '@server/tasks/observe';
 import { PACKAGE_SPECS_TASK, packageSpecsTask } from '@server/tasks/package-specs';
@@ -93,6 +96,13 @@ const repository = gitConnections
   ? repositoryReaders({ admin, client: gitClient, connections: gitConnections })
   : undefined;
 
+// The plan and the boards as the package for coding agents is built from them.
+const packageReaders: PackageReaders = {
+  readPlan: (projectId) => readStoredPlan(admin, projectId, (doc) => readPlan(doc)),
+  readBoard: (boardId) =>
+    boards.withBoard(boardId, (doc) => ({ nodes: readNodes(doc), edges: readEdges(doc) })),
+};
+
 const released = await releaseAbandonedJobs(pgPool);
 if (released > 0) {
   console.log(`Covibes worker: resumed the jobs of ${String(released)} ended worker(s)`);
@@ -146,6 +156,18 @@ const runner = await run({
             admin,
             client: gitClient,
             connections: gitConnections,
+          }),
+        }
+      : {}),
+    // The review of a merge request against the architecture (spec 30b): it reads the repository
+    // and writes into Covibes only.
+    ...(repository
+      ? {
+          [MR_REVIEW_TASK]: mrReviewTask({
+            admin,
+            repository,
+            packageInput: (projectId) => gatherPackageInput(admin, packageReaders, projectId),
+            complete: completeText,
           }),
         }
       : {}),

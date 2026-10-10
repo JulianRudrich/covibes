@@ -167,7 +167,8 @@ export async function runGitRequest(
             milestoneId,
           }));
         await finish(action, written);
-        // A new issue is open; its state is known without asking (spec 30a).
+        // A new issue is open; its state is known without asking (spec 30a). One that an earlier
+        // try created keeps the state that was read for it since.
         await admin
           .insertInto('git_issue_states')
           .values({
@@ -177,7 +178,13 @@ export async function runGitRequest(
             number: String(written.number),
             state: 'opened',
           })
-          .onConflict((conflict) => conflict.doNothing())
+          .onConflict((conflict) =>
+            before
+              ? conflict.doNothing()
+              : conflict
+                  .columns(['project_id', 'base_url', 'repository_id', 'number'])
+                  .doUpdateSet({ state: 'opened', synced_at: new Date() }),
+          )
           .execute();
       } else if (action.kind === 'commit') {
         const commit = gitCommitPayloadSchema.parse(action.payload);

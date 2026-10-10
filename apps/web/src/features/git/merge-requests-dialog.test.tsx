@@ -23,6 +23,9 @@ function mergeRequest(fields: Partial<GitOpenMergeRequest> = {}): GitOpenMergeRe
     draft: false,
     conflicts: false,
     requested: false,
+    issueNumber: null,
+    review: null,
+    reviewCurrent: false,
     ...fields,
   };
 }
@@ -38,6 +41,7 @@ const LIST: GitMergeRequests = {
   canRequest: true,
   canApprove: true,
   hasAccount: true,
+  canReview: true,
   mergeRequests: [
     mergeRequest(),
     mergeRequest({ number: 1, title: 'Login per E-Mail-Link', draft: true, conflicts: true }),
@@ -97,9 +101,9 @@ describe('MergeRequestsDialog', () => {
     expect(within(plan).getByRole('button', { name: 'Merge Request !7 mergen' })).toBeEnabled();
     // A draft is not merged; a merge request that waits is not asked for again.
     expect(draft).toHaveTextContent('Entwurf · Konflikte mit dem Zielbranch');
-    expect(within(draft).queryByRole('button')).toBeNull();
+    expect(within(draft).queryByRole('button', { name: /mergen|vorlegen/ })).toBeNull();
     expect(waiting).toHaveTextContent('wartet auf Freigabe');
-    expect(within(waiting).queryByRole('button')).toBeNull();
+    expect(within(waiting).queryByRole('button', { name: /mergen|vorlegen/ })).toBeNull();
   });
 
   it('merges in one step for who may approve', async () => {

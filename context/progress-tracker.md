@@ -7,7 +7,7 @@
 Bring the result into the repository (M6, specs 28 to 30): connecting GitLab and reading the repository, approvals and Git actions, webhooks and the review of merge requests. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing at the moment. Spec 30b (the review of merge requests) is done; part 30c (the review as a comment in GitLab after approval) is next.
+**Spec 30c the review as a comment** (worked out on 2026-10-10): a review of a merge request is posted as a comment in GitLab by a Git request that waits for approval. The moderator lays it before the approvers when an automatic review deviates; owners and editors do it with a click. What the model wrote is posted as plain text. It is the last part of spec 30.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

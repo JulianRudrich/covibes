@@ -633,4 +633,11 @@ export {
   type UpdateProjectAgentInput,
   type UpdateProjectInput,
 } from './projects';
-export type { UsageLimitState, UsageState } from './usage';
+export {
+  usageMonthSchema,
+  type UsageAmount,
+  type UsageLimitState,
+  type UsageOverview,
+  type UsageSource,
+  type UsageState,
+} from './usage';

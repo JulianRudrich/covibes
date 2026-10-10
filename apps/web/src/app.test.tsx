@@ -692,6 +692,53 @@ describe('with a session', () => {
     });
   });
 
+  it('offers owners the usage in the project menu, and nobody else (spec 31b)', async () => {
+    const api = stubApi({
+      [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+      [`GET /api/projects/${PROJECT.id}/usage`]: () => ({
+        body: {
+          month: '2026-10',
+          current: true,
+          limits: { projectMonthUsd: 100, userDayUsd: 15 },
+          endsAt: '2026-11-01T00:00:00.000Z',
+          total: { costUsd: 6.17, runs: 42, inputTokens: 1000, outputTokens: 200 },
+          byAgent: [],
+          bySource: [],
+          byDay: [],
+        },
+      }),
+    });
+    renderApp(`/p/${PROJECT.id}`);
+    const asked = () =>
+      api.mock.calls.some(
+        ([input]) =>
+          (input instanceof Request ? input.url : input.toString()) ===
+          `/api/projects/${PROJECT.id}/usage`,
+      );
+
+    fireEvent.keyDown(await screen.findByRole('button', { name: /Covibes V1/ }), { key: 'Enter' });
+    const entry = await screen.findByRole('menuitem', { name: 'Verbrauch …' });
+    // Loaded only once the dialog opens.
+    expect(asked()).toBe(false);
+    fireEvent.click(entry);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Verbrauch' });
+    expect(await within(dialog).findByRole('region', { name: 'Gesamt' })).toHaveTextContent(
+      '6,17 $',
+    );
+    expect(asked()).toBe(true);
+  });
+
+  it.each(['editor', 'viewer'] as const)('keeps the usage from the menu of a %s', async (role) => {
+    stubApi({ [`GET /api/projects/${PROJECT.id}`]: () => ({ body: { ...DETAILS, role } }) });
+    renderApp(`/p/${PROJECT.id}`);
+
+    fireEvent.keyDown(await screen.findByRole('button', { name: /Covibes V1/ }), { key: 'Enter' });
+
+    expect(await screen.findByRole('menuitem', { name: 'Einstellungen' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Verbrauch …' })).not.toBeInTheDocument();
+  });
+
   it('shows editors the project settings without letting them change anything', async () => {
     stubApi({
       [`GET /api/projects/${PROJECT.id}`]: () => ({

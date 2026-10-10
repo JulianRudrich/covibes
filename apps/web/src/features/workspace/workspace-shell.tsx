@@ -26,6 +26,8 @@ type WorkspaceShellProps = {
   projectName: string;
   settings: ProjectSettings;
   repository: WorkspaceRepository;
+  /** The project's menu offers the usage (spec 31b): for owners. */
+  showUsage?: boolean;
   activePhase: Phase;
   /** Jumping to a phase and asking for the next step (spec 24); missing for viewers. */
   onSelectPhase?: (phase: Phase) => void;
@@ -49,6 +51,7 @@ export function WorkspaceShell({
   projectName,
   settings,
   repository,
+  showUsage,
   activePhase,
   onSelectPhase,
   onAskNextStep,
@@ -68,6 +71,7 @@ export function WorkspaceShell({
         projectName={projectName}
         settings={settings}
         repository={repository}
+        showUsage={showUsage}
         activePhase={activePhase}
         onSelectPhase={onSelectPhase}
         onAskNextStep={onAskNextStep}

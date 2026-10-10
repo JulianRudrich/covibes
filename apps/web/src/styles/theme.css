@@ -60,6 +60,9 @@
   --color-link: #2346b0;
   --color-link-hover: #16317f;
   --color-focus-soft: #d5dde6;
+  /* Derived for the usage overview (spec 31b): the marks of a chart, a step lighter than ink so
+     the figure above them stays the loudest; spec 36 revisits it. */
+  --color-chart: #4a5565;
 
   /* Agents: base (avatar, border), dark (text), tint (background), border */
   --color-agent-moderator: #0f7f8a;

@@ -493,6 +493,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
           reviewId: openReview,
           onReviewClosed: closeReview,
         }}
+        showUsage={project.role === 'owner'}
         activePhase={project.phase}
         onSelectPhase={
           readOnly

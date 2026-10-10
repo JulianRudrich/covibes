@@ -80,7 +80,8 @@
       "text": "Ein Owner hat dich aus „{{project}}“ entfernt. Wenn das ein Versehen war, bitte um eine neue Einladung."
     },
     "gitLog": "Git-Protokoll …",
-    "mergeRequests": "Merge Requests …"
+    "mergeRequests": "Merge Requests …",
+    "usage": "Verbrauch …"
   },
   "share": {
     "title": "„{{project}}“ teilen",
@@ -1270,6 +1271,41 @@
     "limit": {
       "project": "Das KI-Limit dieses Projekts für diesen Monat ist erreicht. Die Agents antworten wieder ab {{time}}; alles andere geht weiter.",
       "user": "Dein KI-Limit für heute ist erreicht. Die Agents antworten dir wieder ab {{time}}; alles andere geht weiter."
-    }
+    },
+    "title": "Verbrauch",
+    "hint": "Was die KI in diesem Projekt gekostet hat.",
+    "month": "Monat",
+    "loadFailed": "Der Verbrauch konnte nicht geladen werden.",
+    "empty": "In diesem Monat ist kein Verbrauch angefallen.",
+    "runs_one": "{{count}} Lauf",
+    "runs_other": "{{count}} Läufe",
+    "total": {
+      "label": "Gesamt",
+      "of": "von {{limit}}",
+      "meter": "Anteil am Monatslimit des Projekts",
+      "meterValue": "{{amount}} von {{limit}}, {{share}}",
+      "reached": "Limit erreicht. Die Agents antworten wieder ab {{time}}.",
+      "resets": "Der Monat zählt neu ab {{time}}.",
+      "noLimit": "Für Projekte ist kein Monatslimit gesetzt. Der Monat zählt neu ab {{time}}.",
+      "runs": "Läufe",
+      "inputTokens": "Eingabe-Tokens",
+      "outputTokens": "Ausgabe-Tokens"
+    },
+    "byAgent": "Je Agent",
+    "bySource": "Je Person",
+    "sources": {
+      "someone": "Jemand",
+      "nobody": "Automatisch",
+      "left": "Nicht mehr im Projekt"
+    },
+    "days": {
+      "title": "Je Tag",
+      "chart": "Kosten je Tag",
+      "day": "{{day}}: {{amount}} · {{runs}}",
+      "peak": "Höchster Tag: {{day}} mit {{amount}}"
+    },
+    "note": "Die Beträge sind Schätzungen zu Listenpreisen. Tage und Monate zählen in UTC.",
+    "noteUserLimit": "Je Person gilt außerdem ein Tageslimit von {{amount}} über alle Projekte; hier steht nur, was in diesem Projekt verbraucht wurde.",
+    "noteNobody": "„Automatisch“ ist, was ohne Auftrag einer Person lief, etwa ein Angebot des Moderators oder ein automatisches Review, und der Verbrauch gelöschter Konten."
   }
 }

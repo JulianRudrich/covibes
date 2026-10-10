@@ -80,7 +80,8 @@
       "text": "An owner removed you from \"{{project}}\". If that was a mistake, ask for a new invitation."
     },
     "gitLog": "Git log …",
-    "mergeRequests": "Merge requests …"
+    "mergeRequests": "Merge requests …",
+    "usage": "Usage …"
   },
   "share": {
     "title": "Share \"{{project}}\"",
@@ -1270,6 +1271,41 @@
     "limit": {
       "project": "This project has reached its AI limit for this month. The agents answer again from {{time}}; everything else keeps working.",
       "user": "You have reached your AI limit for today. The agents answer you again from {{time}}; everything else keeps working."
-    }
+    },
+    "title": "Usage",
+    "hint": "What the AI cost in this project.",
+    "month": "Month",
+    "loadFailed": "The usage could not be loaded.",
+    "empty": "Nothing was used in this month.",
+    "runs_one": "{{count}} run",
+    "runs_other": "{{count}} runs",
+    "total": {
+      "label": "Total",
+      "of": "of {{limit}}",
+      "meter": "Share of the project's monthly limit",
+      "meterValue": "{{amount}} of {{limit}}, {{share}}",
+      "reached": "Limit reached. The agents answer again from {{time}}.",
+      "resets": "The month counts anew from {{time}}.",
+      "noLimit": "No monthly limit is set for projects. The month counts anew from {{time}}.",
+      "runs": "Runs",
+      "inputTokens": "Input tokens",
+      "outputTokens": "Output tokens"
+    },
+    "byAgent": "By agent",
+    "bySource": "By person",
+    "sources": {
+      "someone": "Someone",
+      "nobody": "Automatic",
+      "left": "No longer in the project"
+    },
+    "days": {
+      "title": "By day",
+      "chart": "Costs by day",
+      "day": "{{day}}: {{amount}} · {{runs}}",
+      "peak": "Highest day: {{day}} with {{amount}}"
+    },
+    "note": "The amounts are estimates at list prices. Days and months count in UTC.",
+    "noteUserLimit": "Each person also has a daily limit of {{amount}} across all projects; shown here is only what was used in this project.",
+    "noteNobody": "\"Automatic\" is what ran without a person asking, such as an offer by the moderator or an automatic review, and the usage of deleted accounts."
   }
 }

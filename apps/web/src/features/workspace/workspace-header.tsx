@@ -20,6 +20,7 @@ import { GitLogDialog } from '@web/features/git/git-log-dialog';
 import { MergeRequestsDialog } from '@web/features/git/merge-requests-dialog';
 import type { SessionUser } from '@web/features/auth/session';
 import { NotificationBell } from '@web/features/notifications/notification-bell';
+import { UsageDialog } from '@web/features/usage/usage-dialog';
 import { PhaseIndicator } from '@web/features/workspace/phase-indicator';
 import {
   ProjectSettingsDialog,
@@ -32,6 +33,8 @@ type WorkspaceHeaderProps = {
   projectName: string;
   settings: ProjectSettings;
   repository: WorkspaceRepository;
+  /** The menu offers the usage of the project (spec 31b): for owners. */
+  showUsage?: boolean;
   activePhase: Phase;
   /** Jumping to a phase and asking for the next step (spec 24); missing for viewers. */
   onSelectPhase?: (phase: Phase) => void;
@@ -48,6 +51,7 @@ export function WorkspaceHeader({
   projectName,
   settings,
   repository,
+  showUsage = false,
   activePhase,
   onSelectPhase,
   onAskNextStep,
@@ -68,7 +72,12 @@ export function WorkspaceHeader({
         <span aria-hidden="true" className="text-display text-text-faint">
           /
         </span>
-        <ProjectMenu projectName={projectName} settings={settings} repository={repository} />
+        <ProjectMenu
+          projectName={projectName}
+          settings={settings}
+          repository={repository}
+          showUsage={showUsage}
+        />
       </div>
 
       <div className="justify-self-center">
@@ -114,17 +123,20 @@ export function WorkspaceHeader({
 }
 
 /**
- * The project name opens the project menu: back to the project list, and the project settings
- * (spec 16b), which everyone sees and owners change.
+ * The project name opens the project menu: back to the project list, the project settings
+ * (spec 16b), which everyone sees and owners change, the repository, and for owners the usage
+ * (spec 31b).
  */
 function ProjectMenu({
   projectName,
   settings,
   repository,
+  showUsage,
 }: {
   projectName: string;
   settings: ProjectSettings;
   repository: WorkspaceRepository;
+  showUsage: boolean;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -133,6 +145,7 @@ function ProjectMenu({
   const [repositoryOpen, setRepositoryOpen] = useState(repository.returned !== undefined);
   const [logOpen, setLogOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
   // "Ansehen" at a review under "Wartet auf dich" opens the merge requests with that review.
   const reviewId = repository.reviewId ?? null;
   return (
@@ -181,6 +194,15 @@ function ProjectMenu({
           >
             {t('workspace.gitLog')}
           </DropdownMenuItem>
+          {showUsage ? (
+            <DropdownMenuItem
+              onSelect={() => {
+                setUsageOpen(true);
+              }}
+            >
+              {t('workspace.usage')}
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
@@ -217,6 +239,10 @@ function ProjectMenu({
       <Dialog open={logOpen} onOpenChange={setLogOpen}>
         {/* Mounted only while open: the log is loaded then. */}
         {logOpen ? <GitLogDialog projectId={repository.projectId} /> : null}
+      </Dialog>
+      <Dialog open={usageOpen} onOpenChange={setUsageOpen}>
+        {/* Mounted only while open: the usage is loaded then. */}
+        {usageOpen ? <UsageDialog projectId={repository.projectId} /> : null}
       </Dialog>
     </>
   );

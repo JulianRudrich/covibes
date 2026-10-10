@@ -10,7 +10,7 @@ import { projectQuery } from '@web/features/projects/queries';
 import { proposalsQuery } from '@web/features/proposals/queries';
 import { gitReviewsQuery } from '@web/features/git/request-queries';
 import { roadmapQuery } from '@web/features/roadmap/queries';
-import { usageStateQuery } from '@web/features/usage/queries';
+import { usageOverviewQuery, usageStateQuery } from '@web/features/usage/queries';
 import { openVotesQuery } from '@web/features/decisions/queries';
 import { notificationsQuery } from '@web/features/notifications/queries';
 import { useProjectLive } from '@web/features/workspace/use-project-live';
@@ -427,5 +427,48 @@ describe('useProjectLive', () => {
         true,
       );
     });
+    // The owner's overview is only held by its open dialog: nothing to load here.
+    expect(
+      queryClient.getQueryState(usageOverviewQuery(PROJECT_ID, null).queryKey),
+    ).toBeUndefined();
+  });
+
+  it('loads the open overview of the running month again when a run cost something (spec 31b)', async () => {
+    const free = { reached: false, resetsAt: null };
+    const overview = {
+      month: '2026-10',
+      current: true,
+      limits: { projectMonthUsd: 100, userDayUsd: 15 },
+      endsAt: '2026-11-01T00:00:00.000Z',
+      total: { costUsd: 1, runs: 1, inputTokens: 0, outputTokens: 0 },
+      byAgent: [],
+      bySource: [],
+      byDay: [],
+    };
+    stubApi({
+      [`GET ${PROJECT_URL}`]: () => ({ body: DETAILS }),
+      [`GET ${PROJECT_URL}/usage/state`]: () => ({ body: { project: free, user: free } }),
+      [`GET ${PROJECT_URL}/usage`]: () => ({ body: overview }),
+      [`GET ${PROJECT_URL}/usage?month=2026-09`]: () => ({
+        body: { ...overview, month: '2026-09', current: false },
+      }),
+    });
+    const queryClient = renderLive();
+    await queryClient.query(usageOverviewQuery(PROJECT_ID, null));
+    await queryClient.query(usageOverviewQuery(PROJECT_ID, '2026-09'));
+
+    act(() => {
+      live.handlers?.onEvent({ type: 'usage' });
+    });
+
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryState(usageOverviewQuery(PROJECT_ID, null).queryKey)?.isInvalidated,
+      ).toBe(true);
+    });
+    // A month that is over does not change any more.
+    expect(
+      queryClient.getQueryState(usageOverviewQuery(PROJECT_ID, '2026-09').queryKey)?.isInvalidated,
+    ).toBe(false);
   });
 });

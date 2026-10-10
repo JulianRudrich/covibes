@@ -2,9 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
   formatClockTime,
+  formatCount,
+  formatDayOfMonth,
   formatLongDate,
+  formatMonth,
   formatRelativeTime,
+  formatShare,
   formatUntil,
+  formatUsd,
   initialsOf,
   isSameLocalDay,
 } from './format';
@@ -90,5 +95,55 @@ describe('formatUntil', () => {
     expect(formatUntil(local(2026, 10, 1, 1, 0), 'en', now)).toBe('November 1');
     // The day after tomorrow is far enough for the day alone.
     expect(formatUntil(local(2026, 9, 12, 2, 0), 'de', now)).toBe('12. Oktober');
+  });
+});
+
+// Amounts are written with spaces that do not break; the tests read them as plain ones.
+const plain = (text: string) => text.replace(/\s+/g, ' ');
+
+describe('formatUsd', () => {
+  it('writes an amount in dollars as the language does', () => {
+    expect(plain(formatUsd(6.17, 'de'))).toBe('6,17 $');
+    expect(plain(formatUsd(1234.5, 'de'))).toBe('1.234,50 $');
+    expect(formatUsd(6.17, 'en')).toBe('$6.17');
+    expect(plain(formatUsd(0, 'de'))).toBe('0,00 $');
+  });
+
+  it('says that an amount is there when it rounds to nothing', () => {
+    expect(plain(formatUsd(0.0004, 'de'))).toBe('< 0,01 $');
+    expect(formatUsd(0.004, 'en')).toBe('< $0.01');
+    expect(plain(formatUsd(0.005, 'de'))).toBe('0,01 $');
+  });
+});
+
+describe('formatShare', () => {
+  it('is exact to a tenth while the share is small, and whole after that', () => {
+    expect(plain(formatShare(0.0617, 'de'))).toBe('6,2 %');
+    expect(plain(formatShare(0.42, 'de'))).toBe('42 %');
+    expect(plain(formatShare(1.042, 'de'))).toBe('104 %');
+    expect(formatShare(0.0617, 'en')).toBe('6.2%');
+    expect(plain(formatShare(0, 'de'))).toBe('0 %');
+  });
+
+  it('says that a share is there when it rounds to nothing', () => {
+    expect(plain(formatShare(0.0001, 'de'))).toBe('< 0,1 %');
+  });
+});
+
+describe('formatCount', () => {
+  it('writes counts out and shortens them from a million on', () => {
+    expect(formatCount(42, 'de')).toBe('42');
+    expect(formatCount(85_300, 'de')).toBe('85.300');
+    expect(plain(formatCount(1_234_567, 'de'))).toBe('1,2 Mio.');
+    expect(formatCount(1_234_567, 'en')).toBe('1.2M');
+  });
+});
+
+describe('formatMonth and formatDayOfMonth', () => {
+  it('name a month and a day of UTC, whatever the time zone of the browser', () => {
+    expect(formatMonth('2026-10', 'de')).toBe('Oktober 2026');
+    expect(formatMonth('2026-01', 'en')).toBe('January 2026');
+    expect(formatDayOfMonth('2026-10-01', 'de')).toBe('1. Oktober');
+    expect(formatDayOfMonth('2026-10-31', 'en')).toBe('October 31');
   });
 });

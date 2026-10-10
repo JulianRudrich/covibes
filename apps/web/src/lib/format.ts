@@ -56,6 +56,51 @@ export function formatLongDate(iso: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'long' }).format(new Date(iso));
 }
 
+/**
+ * An amount in US dollars as the language writes it: "6,17 $" or "$6.17". An amount that is there
+ * but rounds to nothing says so ("< 0,01 $") instead of looking like none.
+ */
+export function formatUsd(amount: number, locale: string): string {
+  const format = new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' });
+  return amount > 0 && amount < 0.005 ? `< ${format.format(0.01)}` : format.format(amount);
+}
+
+/**
+ * A share of something as a percentage: "6,2 %" under a tenth, "42 %" above. A share that is
+ * there but rounds to nothing says so ("< 0,1 %").
+ */
+export function formatShare(ratio: number, locale: string): string {
+  const format = new Intl.NumberFormat(locale, {
+    style: 'percent',
+    maximumFractionDigits: ratio < 0.1 ? 1 : 0,
+  });
+  return ratio > 0 && ratio < 0.0005 ? `< ${format.format(0.001)}` : format.format(ratio);
+}
+
+/** A large count as short as it reads well: "85.300" stays, "1,2 Mio." from a million on. */
+export function formatCount(count: number, locale: string): string {
+  return new Intl.NumberFormat(
+    locale,
+    count >= 1_000_000 ? { notation: 'compact', maximumFractionDigits: 1 } : {},
+  ).format(count);
+}
+
+/** A calendar month of UTC like "2026-10" as its name: "Oktober 2026". */
+export function formatMonth(month: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${month}-01T00:00:00Z`));
+}
+
+/** A day of UTC like "2026-10-07" as its date without the year: "7. Oktober". */
+export function formatDayOfMonth(day: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(
+    new Date(`${day}T00:00:00Z`),
+  );
+}
+
 /** Up to two initials from a display name, e.g. "Olga Owner" → "OO". */
 export function initialsOf(name: string): string {
   const letters = name

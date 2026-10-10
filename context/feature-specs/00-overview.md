@@ -296,6 +296,10 @@ Built in two parts (2026-10-10):
 - **Design:** **required:** usage overview
 
 ### 32 English
+Built in two parts (2026-10-10):
+- **32a** the language of the interface: German or English per person, a switch on the signed-out pages and in the account menu, new accounts in the language of their browser, and the English texts read through
+- **32b** the language of a project: chosen when a project is created and changed by its owners, for the plan, the exports and what Covibes writes into the repository
+
 - **Goal:** all UI texts in English, a language switch and the project language for plan and exports.
 - **Needs:** all UI specs
 - **Design:** –

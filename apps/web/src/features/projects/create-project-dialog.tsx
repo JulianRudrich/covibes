@@ -16,7 +16,12 @@ import { FieldError, Input, Label } from '@web/components/ui/input';
 import { useCreateProject } from '@web/features/projects/queries';
 import { currentLanguage } from '@web/i18n/language';
 
-export function CreateProjectDialog() {
+/**
+ * The button that opens the dialog "Neues Projekt". `label` names it differently, e.g. for the
+ * first project of someone new (spec 33); `quiet` makes it the second choice where another
+ * button of the page is the first.
+ */
+export function CreateProjectDialog({ label, quiet = false }: { label?: string; quiet?: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const createProject = useCreateProject();
@@ -58,9 +63,9 @@ export function CreateProjectDialog() {
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
       <DialogTrigger asChild>
-        <Button variant="primary">
+        <Button variant={quiet ? 'secondary' : 'primary'}>
           <Plus size={14} strokeWidth={2.2} aria-hidden="true" />
-          {t('projects.create')}
+          {label ?? t('projects.create')}
         </Button>
       </DialogTrigger>
       <DialogContent

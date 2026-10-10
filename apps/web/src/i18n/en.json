@@ -27,7 +27,8 @@
       "invalidLink": "The login link has expired or was already used. Just request a new one.",
       "generic": "That did not work. Please try again."
     },
-    "invited": "You were invited to a project. Sign in to continue to the invitation."
+    "invited": "You were invited to a project. Sign in to continue to the invitation.",
+    "tagline": "Plan together with chat, canvas and AI agents."
   },
   "account": {
     "menu": "Account",
@@ -40,8 +41,6 @@
   "projects": {
     "title": "Projects",
     "create": "Create project",
-    "emptyTitle": "No projects yet",
-    "emptyText": "Create your first project. Then plan it with chat, canvas and the agents.",
     "updated": "changed {{time}}",
     "loadError": "The projects could not be loaded.",
     "roles": {
@@ -401,7 +400,31 @@
     "overview": "Overview"
   },
   "empty": {
-    "chat": "No messages yet."
+    "chat": {
+      "title": "The conversation starts here",
+      "text": "Write to your team, or call an agent with @.",
+      "viewer": "No messages yet. Once the team writes, you read along here.",
+      "startersHint": "The moderator helps you get started:",
+      "starters": {
+        "project": {
+          "label": "Present the project",
+          "message": "@Moderator This is what we are planning: "
+        },
+        "criteria": {
+          "label": "Set the criteria",
+          "message": "@Moderator Which criteria should we set for our project?"
+        },
+        "team": {
+          "label": "Meet the team",
+          "message": "@Moderator Please introduce the agents in the team briefly."
+        }
+      }
+    },
+    "canvas": {
+      "title": "This board is still empty",
+      "text": "Add notes, blocks and frames below, or ask an agent in the chat to draw something.",
+      "viewer": "Once the team adds something, it appears here."
+    }
   },
   "canvas": {
     "newBlock": "New block",
@@ -568,7 +591,7 @@
   },
   "decisions": {
     "title": "Decisions",
-    "empty": "No decisions yet.",
+    "empty": "No decisions yet. The moderator records here what you decide.",
     "log": "Log",
     "logTitle": "Decision log",
     "logEmpty": "No entries yet.",
@@ -598,7 +621,7 @@
   },
   "criteria": {
     "title": "Criteria",
-    "empty": "No criteria yet.",
+    "empty": "No criteria yet. The team weighs solutions by them; the moderator asks for them the first time.",
     "add": "Add criterion",
     "addFirst": "Criterion",
     "change": "Change criterion “{{text}}”",
@@ -1318,5 +1341,24 @@
     "note": "The amounts are estimates at list prices. Days and months count in UTC.",
     "noteUserLimit": "Each person also has a daily limit of {{amount}} across all projects; shown here is only what was used in this project.",
     "noteNobody": "“Automatic” is what ran without a person asking, such as an offer by the moderator or an automatic review, and the usage of deleted accounts."
+  },
+  "welcome": {
+    "title": "Welcome to Covibes",
+    "text": "Here you plan a project together, with chat, canvas and AI agents, before the first code is written.",
+    "steps": {
+      "collect": {
+        "title": "Collect",
+        "text": "Ideas go into the chat and onto the canvas. The moderator puts them in order and asks questions."
+      },
+      "decide": {
+        "title": "Decide",
+        "text": "Specialists add their view, the critic names risks. What you decide goes into the log."
+      },
+      "handOver": {
+        "title": "Hand over",
+        "text": "Architecture and project plan become the package coding agents build from."
+      }
+    },
+    "create": "Create your first project"
   }
 }

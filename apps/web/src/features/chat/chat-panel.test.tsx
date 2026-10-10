@@ -83,7 +83,7 @@ const stored: Responder = (init) => {
   };
 };
 
-function renderPanel(readOnly = false) {
+function renderPanel(readOnly = false, team = ['moderator', 'backend', 'critic', 'data']) {
   const queryClient = createQueryClient();
   render(
     <QueryClientProvider client={queryClient}>
@@ -92,7 +92,7 @@ function renderPanel(readOnly = false) {
           projectId={PROJECT_ID}
           user={OLGA}
           readOnly={readOnly}
-          team={['moderator', 'backend', 'critic', 'data']}
+          team={team}
           members={[{ userId: OLGA.id, name: OLGA.name, role: 'owner', canApproveGit: true }]}
           role={readOnly ? 'viewer' : 'owner'}
           moderatorNeutral
@@ -113,7 +113,84 @@ function sendByEnter(text: string) {
   fireEvent.keyDown(composer(), { key: 'Enter' });
 }
 
+/** The heading of the chat before its first message (spec 33). */
+const EMPTY = 'Hier beginnt das Gespräch';
+
 describe('ChatPanel', () => {
+  it('says what the empty chat is for and offers first messages to the moderator (spec 33)', async () => {
+    const { fetchMock } = stubChatApi([]);
+    renderPanel();
+
+    expect(await screen.findByRole('heading', { name: EMPTY })).toBeInTheDocument();
+    expect(
+      screen.getByText('Schreib deinem Team, oder ruf mit @ einen Agent.'),
+    ).toBeInTheDocument();
+    const starters = within(
+      screen.getByRole('group', { name: 'Der Moderator hilft beim Einstieg:' }),
+    );
+    expect(starters.getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'Projekt vorstellen',
+      'Kriterien festlegen',
+      'Team kennenlernen',
+    ]);
+
+    // A starter puts its message into the field and sends nothing: a run costs something.
+    fireEvent.click(starters.getByRole('button', { name: 'Kriterien festlegen' }));
+    expect(composer()).toHaveValue(
+      '@Moderator Welche Kriterien sollten wir für unser Projekt festlegen?',
+    );
+    expect(composer()).toHaveFocus();
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+
+    // Another one replaces it, and the person writes on behind it.
+    fireEvent.click(starters.getByRole('button', { name: 'Projekt vorstellen' }));
+    expect(composer()).toHaveValue('@Moderator Wir planen Folgendes: ');
+    const field = composer() as HTMLTextAreaElement;
+    expect(field.selectionStart).toBe(field.value.length);
+    // The same one again, after the person emptied the field.
+    fireEvent.change(field, { target: { value: '' } });
+    fireEvent.click(starters.getByRole('button', { name: 'Projekt vorstellen' }));
+    expect(field).toHaveValue('@Moderator Wir planen Folgendes: ');
+  });
+
+  it('sends a first message like any other, and the start is gone with it', async () => {
+    const { posts } = stubChatApi([]);
+    posts.push(stored);
+    renderPanel();
+    fireEvent.click(await screen.findByRole('button', { name: 'Team kennenlernen' }));
+
+    fireEvent.keyDown(composer(), { key: 'Enter' });
+
+    const list = await screen.findByRole('list', { name: 'Nachrichten' });
+    expect(
+      within(list).getByText(/Stell uns bitte kurz die Agents im Team vor/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: EMPTY })).not.toBeInTheDocument();
+    expect(composer()).toHaveValue('');
+  });
+
+  it('offers no first messages without a moderator in the team', async () => {
+    stubChatApi([]);
+    renderPanel(false, ['backend']);
+
+    expect(await screen.findByRole('heading', { name: EMPTY })).toBeInTheDocument();
+    expect(screen.queryByRole('group')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Projekt vorstellen' })).not.toBeInTheDocument();
+  });
+
+  it('tells viewers of an empty chat that messages will appear, without anything to do', async () => {
+    stubChatApi([]);
+    renderPanel(true);
+
+    expect(
+      await screen.findByText(
+        'Noch keine Nachrichten. Sobald das Team schreibt, liest du hier mit.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: EMPTY })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Projekt vorstellen' })).not.toBeInTheDocument();
+  });
+
   it('shows the history with a divider for today', async () => {
     stubChatApi([message({ id: 'a1', content: 'Hallo @Backend' })]);
     renderPanel();
@@ -128,7 +205,7 @@ describe('ChatPanel', () => {
     const { fetchMock, posts } = stubChatApi([]);
     posts.push(stored);
     renderPanel();
-    await screen.findByText('Noch keine Nachrichten.');
+    await screen.findByRole('heading', { name: EMPTY });
 
     sendByEnter('  @Moderator, zeichne einen Block  ');
 
@@ -156,7 +233,7 @@ describe('ChatPanel', () => {
     posts.push(() => ({ status: 500, body: { error: { code: 'internal', message: 'x' } } }));
     posts.push(stored);
     renderPanel();
-    await screen.findByText('Noch keine Nachrichten.');
+    await screen.findByRole('heading', { name: EMPTY });
 
     sendByEnter('Hallo Team');
 
@@ -170,7 +247,7 @@ describe('ChatPanel', () => {
   it('shows messages that arrive on the live channel', async () => {
     stubChatApi([]);
     const queryClient = renderPanel();
-    await screen.findByText('Noch keine Nachrichten.');
+    await screen.findByRole('heading', { name: EMPTY });
 
     act(() => {
       applyLiveEvent(queryClient, PROJECT_ID, {

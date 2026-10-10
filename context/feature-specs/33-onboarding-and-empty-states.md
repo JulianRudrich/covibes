@@ -34,12 +34,36 @@ Someone who signs in for the first time, or opens a new project, sees what Covib
 - Spec 21 (projects, invitations), spec 32 (both languages)
 
 ## Checklist
-- [ ] Without a project, the project list welcomes with what Covibes is, the three steps and the button for the first project.
-- [ ] The empty chat says what it is for and offers three first messages; a click fills the composer and sends nothing.
-- [ ] The empty canvas says how to start, takes no clicks, and is gone with the first element, while placing, and in exports.
-- [ ] The empty sections of the overview say how they fill.
-- [ ] Viewers read what will appear, without steps they cannot take.
-- [ ] The login page says what Covibes is.
-- [ ] The derived looks were checked from screenshots and are listed in `ui-context.md`.
-- [ ] Tests for the web parts pass.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] Without a project, the project list welcomes with what Covibes is, the three steps and the button for the first project.
+- [x] The empty chat says what it is for and offers three first messages; a click fills the composer and sends nothing.
+- [x] The empty canvas says how to start, takes no clicks, and is gone with the first element, while placing, and in exports.
+- [x] The empty sections of the overview say how they fill.
+- [x] Viewers read what will appear, without steps they cannot take.
+- [x] The login page says what Covibes is.
+- [x] The derived looks were checked from screenshots and are listed in `ui-context.md`.
+- [x] Tests for the web parts pass.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-10-10)
+- **Project list** (`features/projects/project-list-page.tsx`): without a project the list is the welcome: "Willkommen bei Covibes", one sentence on what Covibes is, the three steps "Sammeln", "Entscheiden" and "Übergeben" with a line each, and the button "Erstes Projekt anlegen". It opens the same dialog as the page's own button, which steps back to the secondary look meanwhile, so the page has one main button.
+- **Chat** (`features/chat/chat-start.tsx`): before the first message the chat shows "Hier beginnt das Gespräch", who is reached here, and under "Der Moderator hilft beim Einstieg:" three starters: "Projekt vorstellen", "Kriterien festlegen", "Team kennenlernen". A starter puts its message to the moderator into the composer, with the caret behind it; nothing is sent. The composer takes such a message through a new property `start`; a second click, also on the same starter, puts it there again. Without a moderator in the team there are no starters. Viewers read "Noch keine Nachrichten. Sobald das Team schreibt, liest du hier mit."
+- **Canvas** (`features/canvas/empty-board-hint.tsx`): a board without elements shows "Dieses Board ist noch leer" and how to start, in the middle of the canvas. It takes no pointer events, is marked as no part of an export, and is not shown while a block, a note or a frame is being placed or while a proposal draws on the board. Viewers read that the board will fill.
+- **Overview:** the empty sections say how they fill: "Noch keine Entscheidungen. Was ihr entscheidet, hält der Moderator hier fest." and "Noch keine Kriterien. An ihnen misst das Team Lösungen; der Moderator fragt beim ersten Mal danach." The criteria now say it to owners and editors too, above the button for the first criterion; before, they saw the button alone.
+- **Login:** the line "Gemeinsam planen mit Chat, Canvas und KI-Agents." under the wordmark.
+- All texts are there in German and English (`welcome.*`, `empty.chat.*`, `empty.canvas.*`, `auth.tagline`); "Noch keine Projekte" and its text are gone.
+- **Verified** with `pnpm dev` and the browser as olga, without a model run:
+  - In the empty test project "d": the start of the chat with its three starters, the hint on the board, and both empty sections of the overview.
+  - "Projekt vorstellen" put "@Moderator Wir planen Folgendes: " into the composer with the caret at its end; no request was sent.
+  - The hint on the board was gone while the note tool was active and back when it was put down. Nothing was placed, so the project stays empty.
+  - The welcome was checked from a screenshot with the list of projects emptied in the browser only, since the test account has projects.
+  - The login page with its line, signed out on another origin.
+  - Not tried live: the views of a viewer, the English texts on screen, an export of an empty board, and the hint next to a proposal on an empty board. Tests cover the views of a viewer and that the hint carries the mark exports leave out. The English texts are only checked for being there in both languages, and the conditions in the canvas (no element, no proposal, nothing being placed) are reached by no test.
+- **Decided while building:**
+  - The introduction is the empty states themselves. A tour would stand between a new person and the work, and would need a place to remember who has seen it.
+  - A starter fills the composer instead of sending: the person sees what is asked in their name, can change it, and decides when a run is spent. The first starter ends open ("Wir planen Folgendes: ") because only the person knows the project.
+  - The hint on the canvas has no buttons. The tools are right below it, and a hint that takes clicks would be in the way of the first click on the board.
+  - The welcome shows whenever the list is empty, not only at the first sign-in: someone who left all their projects is in the same place as someone new.
+- **Known limits:**
+  - Someone who joins through an invitation lands in a project that already has content and sees none of this; the project then explains itself through what is in it.
+  - The starters are the same for every project and every phase.
+  - The looks are derived; the final design of login and project list comes with spec 36.

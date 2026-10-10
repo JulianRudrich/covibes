@@ -72,12 +72,13 @@ export function LoginPage() {
   return (
     <main className="grid min-h-dvh place-items-center bg-bg-app p-6 text-text">
       <div className="w-full max-w-[380px]">
-        <div className="mb-5 flex items-center justify-center gap-2.5">
+        <div className="flex items-center justify-center gap-2.5">
           <Logo />
           <span className="text-display font-semibold tracking-[-0.02em]">
             {t('common.wordmark')}
           </span>
         </div>
+        <p className="mt-2 mb-5 text-center text-ui text-text-3">{t('auth.tagline')}</p>
         <Card className="p-6">
           <h1 className="m-0 text-display font-semibold">{t('auth.title')}</h1>
           <p className="mt-1 mb-5 text-ui text-text-3">{t('auth.subtitle')}</p>

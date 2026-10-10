@@ -1,7 +1,6 @@
 import type { ProjectSummary } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { FolderOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { AppHeader } from '@web/components/app-header';
@@ -41,6 +40,46 @@ function ProjectRow({ project }: { project: ProjectSummary }) {
   );
 }
 
+const WELCOME_STEPS = ['collect', 'decide', 'handOver'] as const;
+
+/**
+ * What someone without a project sees (spec 33; derived look): what Covibes is, how a project
+ * runs in three steps, and the button for the first one. It is the introduction; there is no
+ * tour.
+ */
+function Welcome() {
+  const { t } = useTranslation();
+  return (
+    <Card className="flex flex-col items-center px-8 py-10 text-center">
+      <h2 className="m-0 text-[20px] font-semibold tracking-[-0.01em]">{t('welcome.title')}</h2>
+      <p className="mt-2 mb-0 max-w-[440px] text-body leading-normal text-text-2">
+        {t('welcome.text')}
+      </p>
+      <ol className="m-0 mt-7 grid w-full list-none grid-cols-3 gap-5 p-0 text-left">
+        {WELCOME_STEPS.map((step, index) => (
+          <li key={step} className="flex flex-col gap-1.5">
+            <span
+              aria-hidden="true"
+              className="grid size-6 place-items-center rounded-full bg-bg-subtle text-small font-semibold text-text-2"
+            >
+              {index + 1}
+            </span>
+            <h3 className="m-0 text-ui font-semibold text-text">
+              {t(`welcome.steps.${step}.title`)}
+            </h3>
+            <p className="m-0 text-small leading-snug text-text-3">
+              {t(`welcome.steps.${step}.text`)}
+            </p>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-8">
+        <CreateProjectDialog label={t('welcome.create')} />
+      </div>
+    </Card>
+  );
+}
+
 export function ProjectListPage() {
   const { t } = useTranslation();
   const user = useQuery(sessionQuery).data;
@@ -68,7 +107,8 @@ export function ProjectListPage() {
           <h1 className="m-0 text-[20px] font-semibold tracking-[-0.01em]">
             {t('projects.title')}
           </h1>
-          <CreateProjectDialog />
+          {/* The welcome below has the button for the first project; this one steps back. */}
+          <CreateProjectDialog quiet={projects.data?.length === 0} />
         </div>
 
         {projects.isPending ? (
@@ -76,11 +116,7 @@ export function ProjectListPage() {
         ) : projects.isError ? (
           <Notice tone="danger">{t('projects.loadError')}</Notice>
         ) : projects.data.length === 0 ? (
-          <Card className="grid place-items-center gap-2 px-6 py-12 text-center">
-            <FolderOpen size={28} className="text-text-4" aria-hidden="true" />
-            <h2 className="m-0 text-title font-semibold">{t('projects.emptyTitle')}</h2>
-            <p className="m-0 max-w-[360px] text-ui text-text-3">{t('projects.emptyText')}</p>
-          </Card>
+          <Welcome />
         ) : (
           <ul className="m-0 grid list-none gap-2 p-0" aria-label={t('projects.title')}>
             {projects.data.map((project) => (

@@ -1,10 +1,11 @@
 import type { HandRaise, ProjectMember, ProjectRole } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PanelHeader, PanelTitle } from '@web/components/ui/panel';
 import { useMentionNames } from '@web/features/agents/agents';
+import { ChatStart } from '@web/features/chat/chat-start';
 import { Composer } from '@web/features/chat/composer';
 import { MessageList } from '@web/features/chat/message-list';
 import { messagesQuery } from '@web/features/chat/queries';
@@ -97,6 +98,12 @@ export function ChatPanel({
     [members, user.id, role, votes.cast, votes.close],
   );
 
+  // A first message the empty chat offers (spec 33): it goes into the composer.
+  const [start, setStart] = useState<{ key: number; text: string }>();
+  const offerStart = useCallback((text: string) => {
+    setStart((previous) => ({ key: (previous?.key ?? 0) + 1, text }));
+  }, []);
+
   return (
     <>
       <PanelHeader className="justify-between">
@@ -116,6 +123,13 @@ export function ChatPanel({
         ) : (
           <MessageList
             items={messages.data}
+            empty={
+              <ChatStart
+                readOnly={readOnly}
+                // The first messages are for the moderator, who has to be in the team.
+                onStart={team.includes('moderator') ? offerStart : undefined}
+              />
+            }
             currentUserId={user.id}
             team={team}
             people={members}
@@ -140,6 +154,7 @@ export function ChatPanel({
               agents={team}
               people={others}
               uploads={uploads}
+              start={start}
               onSend={(content, attachments) => {
                 send(content, attachments);
               }}

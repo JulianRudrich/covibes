@@ -27,7 +27,8 @@
       "invalidLink": "Der Login-Link ist abgelaufen oder wurde schon benutzt. Fordere einfach einen neuen an.",
       "generic": "Das hat nicht geklappt. Bitte versuch es noch einmal."
     },
-    "invited": "Du wurdest zu einem Projekt eingeladen. Melde dich an, dann geht es weiter zur Einladung."
+    "invited": "Du wurdest zu einem Projekt eingeladen. Melde dich an, dann geht es weiter zur Einladung.",
+    "tagline": "Gemeinsam planen mit Chat, Canvas und KI-Agents."
   },
   "account": {
     "menu": "Konto",
@@ -40,8 +41,6 @@
   "projects": {
     "title": "Projekte",
     "create": "Projekt anlegen",
-    "emptyTitle": "Noch keine Projekte",
-    "emptyText": "Leg dein erstes Projekt an. Danach planst du darin mit Chat, Canvas und den Agents.",
     "updated": "geändert {{time}}",
     "loadError": "Die Projekte konnten nicht geladen werden.",
     "roles": {
@@ -401,7 +400,31 @@
     "overview": "Überblick"
   },
   "empty": {
-    "chat": "Noch keine Nachrichten."
+    "chat": {
+      "title": "Hier beginnt das Gespräch",
+      "text": "Schreib deinem Team, oder ruf mit @ einen Agent.",
+      "viewer": "Noch keine Nachrichten. Sobald das Team schreibt, liest du hier mit.",
+      "startersHint": "Der Moderator hilft beim Einstieg:",
+      "starters": {
+        "project": {
+          "label": "Projekt vorstellen",
+          "message": "@Moderator Wir planen Folgendes: "
+        },
+        "criteria": {
+          "label": "Kriterien festlegen",
+          "message": "@Moderator Welche Kriterien sollten wir für unser Projekt festlegen?"
+        },
+        "team": {
+          "label": "Team kennenlernen",
+          "message": "@Moderator Stell uns bitte kurz die Agents im Team vor."
+        }
+      }
+    },
+    "canvas": {
+      "title": "Dieses Board ist noch leer",
+      "text": "Leg unten Notizen, Blöcke und Rahmen an, oder bitte im Chat einen Agent, etwas zu zeichnen.",
+      "viewer": "Sobald das Team etwas anlegt, erscheint es hier."
+    }
   },
   "canvas": {
     "newBlock": "Neuer Block",
@@ -568,7 +591,7 @@
   },
   "decisions": {
     "title": "Entscheidungen",
-    "empty": "Noch keine Entscheidungen.",
+    "empty": "Noch keine Entscheidungen. Was ihr entscheidet, hält der Moderator hier fest.",
     "log": "Protokoll",
     "logTitle": "Entscheidungsprotokoll",
     "logEmpty": "Noch keine Einträge.",
@@ -598,7 +621,7 @@
   },
   "criteria": {
     "title": "Kriterien",
-    "empty": "Noch keine Kriterien.",
+    "empty": "Noch keine Kriterien. An ihnen misst das Team Lösungen; der Moderator fragt beim ersten Mal danach.",
     "add": "Kriterium hinzufügen",
     "addFirst": "Kriterium",
     "change": "Kriterium „{{text}}“ ändern",
@@ -1318,5 +1341,24 @@
     "note": "Die Beträge sind Schätzungen zu Listenpreisen. Tage und Monate zählen in UTC.",
     "noteUserLimit": "Je Person gilt außerdem ein Tageslimit von {{amount}} über alle Projekte; hier steht nur, was in diesem Projekt verbraucht wurde.",
     "noteNobody": "„Automatisch“ ist, was ohne Auftrag einer Person lief, etwa ein Angebot des Moderators oder ein automatisches Review, und der Verbrauch gelöschter Konten."
+  },
+  "welcome": {
+    "title": "Willkommen bei Covibes",
+    "text": "Hier plant ihr ein Projekt gemeinsam, mit Chat, Canvas und KI-Agents, bevor der erste Code entsteht.",
+    "steps": {
+      "collect": {
+        "title": "Sammeln",
+        "text": "Ideen kommen in den Chat und auf den Canvas. Der Moderator ordnet sie und fragt nach."
+      },
+      "decide": {
+        "title": "Entscheiden",
+        "text": "Spezialisten bringen ihre Sicht ein, der Kritiker nennt Risiken. Was ihr entscheidet, steht im Protokoll."
+      },
+      "handOver": {
+        "title": "Übergeben",
+        "text": "Aus Architektur und Projektplan wird das Paket, mit dem Coding-Agents bauen."
+      }
+    },
+    "create": "Erstes Projekt anlegen"
   }
 }

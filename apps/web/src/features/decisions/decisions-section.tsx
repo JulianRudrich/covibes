@@ -133,7 +133,7 @@ export function DecisionsSection({
       </div>
 
       {decisions.length === 0 ? (
-        <p className="m-0 text-small text-text-3">{t('decisions.empty')}</p>
+        <p className="m-0 text-small leading-snug text-text-3">{t('decisions.empty')}</p>
       ) : (
         <ul className="m-0 list-none p-0">
           {decisions.map((decision, index) => {

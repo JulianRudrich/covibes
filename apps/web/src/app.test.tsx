@@ -327,6 +327,10 @@ describe('without a session', () => {
   it('offers the two languages on the login page, and asks for the mail in the one shown', async () => {
     renderApp('/login');
     const languages = within(await screen.findByRole('group', { name: 'Sprache' }));
+    // The page says in one line what Covibes is (spec 33).
+    expect(
+      screen.getByText('Gemeinsam planen mit Chat, Canvas und KI-Agents.'),
+    ).toBeInTheDocument();
     expect(languages.getByRole('button', { name: 'Deutsch' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -523,11 +527,34 @@ describe('with a session', () => {
     expect(router.state.location.pathname).toBe('/');
   });
 
-  it('shows a friendly empty project list', async () => {
+  it('welcomes someone without a project: what Covibes is, three steps and the first project (spec 33)', async () => {
     stubApi({ 'GET /api/projects': () => ({ body: [] }) });
     renderApp('/');
 
-    expect(await screen.findByRole('heading', { name: 'Noch keine Projekte' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Willkommen bei Covibes' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/bevor der erste Code entsteht/)).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent),
+    ).toEqual(['Sammeln', 'Entscheiden', 'Übergeben']);
+
+    // The button of the welcome opens the same dialog as the one of the page.
+    fireEvent.click(screen.getByRole('button', { name: 'Erstes Projekt anlegen' }));
+    expect(await screen.findByRole('dialog', { name: 'Neues Projekt' })).toBeInTheDocument();
+  });
+
+  it('keeps the welcome for those without a project', async () => {
+    stubApi({ 'GET /api/projects': () => ({ body: [PROJECT] }) });
+    renderApp('/');
+
+    expect(await screen.findByRole('list', { name: 'Projekte' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Willkommen bei Covibes' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Erstes Projekt anlegen' }),
+    ).not.toBeInTheDocument();
   });
 
   it('lists projects with role and last change', async () => {

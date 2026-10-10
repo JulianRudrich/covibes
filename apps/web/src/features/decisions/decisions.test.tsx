@@ -282,9 +282,20 @@ describe('CriteriaSection', () => {
     expect(within(section).queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('says so while there are none', () => {
+  it('says what they are for while there are none', () => {
     const { section } = renderCriteria(false, []);
+    expect(section).toHaveTextContent(
+      'Noch keine Kriterien. An ihnen misst das Team Lösungen; der Moderator fragt beim ersten Mal danach.',
+    );
+    expect(within(section).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('says it also to those who can add the first one (spec 33)', () => {
+    const { section } = renderCriteria(true, []);
     expect(section).toHaveTextContent('Noch keine Kriterien.');
+    expect(
+      within(section).getByRole('button', { name: 'Kriterium hinzufügen' }),
+    ).toBeInTheDocument();
   });
 
   it('lets owners and editors change a criterion in place', () => {

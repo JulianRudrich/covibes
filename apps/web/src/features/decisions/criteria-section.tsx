@@ -48,9 +48,12 @@ export function CriteriaSection({ criteria, edit }: CriteriaSectionProps) {
       <h3 id={titleId} className="m-0 text-ui font-semibold text-text">
         {t('criteria.title')}
       </h3>
-      {criteria.length === 0 && !edit ? (
-        <p className="m-0 text-small text-text-3">{t('criteria.empty')}</p>
-      ) : (
+      {/* Without criteria the section says what they are for (spec 33), also to those who can
+          add the first one below. */}
+      {criteria.length === 0 ? (
+        <p className="m-0 text-small leading-snug text-text-3">{t('criteria.empty')}</p>
+      ) : null}
+      {criteria.length === 0 && !edit ? null : (
         <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
           {criteria.map((criterion) => (
             <li key={criterion.id} className="max-w-full">

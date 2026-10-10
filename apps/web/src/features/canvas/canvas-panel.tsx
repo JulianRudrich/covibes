@@ -73,6 +73,7 @@ import {
 } from '@web/features/canvas/canvas-actions';
 import { ArrowMarkers, CanvasArrow } from '@web/features/canvas/canvas-arrow';
 import { CanvasToolbar } from '@web/features/canvas/canvas-toolbar';
+import { EmptyBoardHint } from '@web/features/canvas/empty-board-hint';
 import { loadElk } from '@web/features/canvas/elk';
 import { sizeRoadmaps } from '@web/features/canvas/flow-mapping';
 import { FrameNode } from '@web/features/canvas/frame-node';
@@ -698,6 +699,10 @@ function Board({
             ))}
           </div>
         </ViewportPortal>
+        {/* An empty board says how to start (spec 33), unless something is on its way. */}
+        {nodes.length === 0 && overlay.elements.length === 0 && !placing ? (
+          <EmptyBoardHint readOnly={readOnly} />
+        ) : null}
         {placing ? <PlacementLayer drawsArea={tool === 'frame'} onPlace={place} /> : null}
         <CanvasToolbar
           tool={tool}

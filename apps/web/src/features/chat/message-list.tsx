@@ -1,5 +1,5 @@
 import type { MessageDebate } from '@covibes/shared';
-import { Fragment, useEffect, useLayoutEffect, useRef } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ChatMessageView } from '@web/features/chat/chat-message';
@@ -12,6 +12,8 @@ const STICK_THRESHOLD_PX = 48;
 
 type MessageListProps = {
   items: readonly ChatItem[];
+  /** What the chat shows before its first message (spec 33). */
+  empty: ReactNode;
   currentUserId: string;
   /** The agents of the team, whose mentions in agent answers are shown as chips. */
   team: readonly string[];
@@ -43,6 +45,7 @@ function DayDivider({ label }: { label: string }) {
  */
 export function MessageList({
   items,
+  empty,
   currentUserId,
   team,
   people,
@@ -94,13 +97,7 @@ export function MessageList({
       element.scrollHeight - element.scrollTop - element.clientHeight < STICK_THRESHOLD_PX;
   }
 
-  if (items.length === 0) {
-    return (
-      <div className="grid min-h-0 flex-1 place-items-center p-6 text-center text-ui text-text-3">
-        {t('empty.chat')}
-      </div>
-    );
-  }
+  if (items.length === 0) return empty;
 
   const now = new Date().toISOString();
   const byId = new Map(items.map((item) => [item.id, item]));

@@ -38,7 +38,15 @@ function stubResizeObserver() {
 }
 
 function renderList() {
-  render(<MessageList items={[ITEM]} currentUserId="user-olga" team={[]} onRetry={vi.fn()} />);
+  render(
+    <MessageList
+      items={[ITEM]}
+      empty={null}
+      currentUserId="user-olga"
+      team={[]}
+      onRetry={vi.fn()}
+    />,
+  );
   const scroller = screen.getByRole('list', { name: 'Nachrichten' }).parentElement;
   if (!scroller) throw new Error('The list has no scroller');
   // jsdom lays nothing out, so the test gives the scroller its sizes.

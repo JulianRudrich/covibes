@@ -7,6 +7,7 @@ import {
 } from '@covibes/shared';
 import { ArrowUp, AtSign, FileText, LoaderCircle, Paperclip, X } from 'lucide-react';
 import {
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -46,6 +47,11 @@ type ComposerProps = {
   /** The files of the message being written (spec 20a); without it nothing can be attached. */
   uploads?: Uploads;
   disabled?: boolean;
+  /**
+   * A message to start from (spec 33), e.g. one the empty chat offers: it goes into the field
+   * for the person to complete and send. A new `key` puts it there again.
+   */
+  start?: { key: number; text: string };
 };
 
 const NO_PEOPLE: readonly { userId: string; name: string }[] = [];
@@ -68,6 +74,7 @@ export function Composer({
   onSend,
   uploads,
   disabled = false,
+  start,
 }: ComposerProps) {
   const { t, i18n } = useTranslation();
   const resolve = useAgents();
@@ -78,6 +85,19 @@ export function Composer({
   const hintId = useId();
   const [draft, setDraft] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // A message to start from replaces what is in the field, once per key.
+  const [started, setStarted] = useState<number | undefined>(undefined);
+  if (start && start.key !== started) {
+    setStarted(start.key);
+    setDraft(start.text.slice(0, MESSAGE_MAX_LENGTH));
+  }
+  // Writing goes on behind it.
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (started === undefined || !textarea) return;
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  }, [started]);
   // Caret behind an inserted mention, applied when the closing menu hands focus back.
   const pendingCaretRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);

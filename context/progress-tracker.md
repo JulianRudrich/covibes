@@ -7,7 +7,7 @@
 Bring the result into the repository (M6, specs 28 to 30): connecting GitLab and reading the repository, approvals and Git actions, webhooks and the review of merge requests. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing at the moment. Spec 30a (task status from the repository) is done; part 30b (the review of merge requests against the architecture) is next.
+**Spec 30b review of merge requests** (worked out on 2026-10-10): Covibes checks open merge requests against the architecture it holds, by itself once per state of the commits for merge requests of its own issues and on a click for others, and shows the verdict and the findings. Part 30c (the review as a comment in GitLab after approval) follows.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

@@ -46,6 +46,19 @@ export function GitRequestSummary({
       />
     );
   }
+  // A review as a comment (spec 30c) is named by its action: the merge request and what it found.
+  if (request.kind === 'comment') {
+    return (
+      <Trans
+        i18nKey={done ? 'git.requests.doneComment' : 'git.requests.summaryComment'}
+        values={{
+          title: request.actions[0]?.title ?? '',
+          repository: repositoryName(request.repository.path),
+        }}
+        components={{ b: BOLD, repo: REPOSITORY }}
+      />
+    );
+  }
   // The plan package as a merge request (spec 29c) is one thing, whatever it holds.
   if (request.kind === 'merge_request') {
     return (
@@ -93,9 +106,11 @@ export function GitActionList({ actions }: { actions: readonly GitAction[] }) {
                 rel="noreferrer"
                 className="inline-flex shrink-0 items-center gap-1 text-text-2 underline-offset-2 hover:text-text hover:underline"
               >
-                {action.result.number === null
-                  ? t(action.result.existed ? 'git.actions.existed' : 'git.actions.created')
-                  : `${action.kind === 'merge_request' || action.kind === 'merge' ? '!' : '#'}${String(action.result.number)}`}
+                {action.kind === 'comment'
+                  ? t('git.actions.comment')
+                  : action.result.number === null
+                    ? t(action.result.existed ? 'git.actions.existed' : 'git.actions.created')
+                    : `${action.kind === 'merge_request' || action.kind === 'merge' ? '!' : '#'}${String(action.result.number)}`}
                 <ExternalLink size={11} strokeWidth={2} aria-hidden="true" />
               </a>
             ) : (
@@ -139,6 +154,8 @@ export type GitRequestActions = {
   onEnd: (requestId: string, how: 'reject' | 'withdraw') => void;
   /** Leads to connecting the own GitLab account. */
   onConnect: () => void;
+  /** Opens the review a comment posts (spec 30c): what will stand in the repository. */
+  onOpenReview?: (reviewId: string) => void;
 };
 
 /**
@@ -163,17 +180,32 @@ export function GitRequestCard({
   const agents = useAgents();
   const agent = request.agentKey === null ? null : agents(request.agentKey);
 
-  const view = (
-    <Button
-      size="s"
-      aria-expanded={viewing}
-      onClick={() => {
-        setViewing((open) => !open);
-      }}
-    >
-      {t(viewing ? 'git.requests.hide' : 'git.requests.view')}
-    </Button>
-  );
+  // A comment is looked at as its review: that is the text that will stand in the repository.
+  const reviewId = request.kind === 'comment' ? (request.actions[0]?.reviewId ?? null) : null;
+  const { onOpenReview } = actions;
+  const view =
+    reviewId !== null && onOpenReview ? (
+      <Button
+        size="s"
+        // The short word fits the narrow card next to "Freigeben"; the name says what opens.
+        aria-label={t('git.requests.viewReview')}
+        onClick={() => {
+          onOpenReview(reviewId);
+        }}
+      >
+        {t('git.requests.view')}
+      </Button>
+    ) : (
+      <Button
+        size="s"
+        aria-expanded={viewing}
+        onClick={() => {
+          setViewing((open) => !open);
+        }}
+      >
+        {t(viewing ? 'git.requests.hide' : 'git.requests.view')}
+      </Button>
+    );
   // Rejecting is an icon at the end of the row, so three actions fit the narrow card.
   const reject = (label: string) => (
     <Tooltip content={label}>

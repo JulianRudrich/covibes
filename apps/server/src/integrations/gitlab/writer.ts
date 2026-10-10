@@ -42,6 +42,14 @@ const mergeRequestSchema = z.object({
   web_url: pageUrl,
 });
 
+const noteSchema = z.object({
+  id: z.number().int().positive(),
+  body: z.string().nullish(),
+});
+
+/** Comments of a merge request that are looked through for a mark, the newest first. */
+const NOTES_SEARCHED = 100;
+
 /** A refusal of our own, worded like one of GitLab so it reaches the log the same way. */
 const refuse = (reason: string) => new GitlabError(400, reason, reason);
 
@@ -88,6 +96,13 @@ export function gitlabWriter(
   token: string,
 ): RepositoryWriter {
   const base = `/projects/${String(target.repositoryId)}`;
+
+  /** Where a comment of a merge request is: the merge request's page, at the comment. */
+  async function commentUrl(number: number, noteId: number): Promise<string> {
+    const found = await readMergeRequest(client, target, token, number);
+    if (!found) throw new GitlabError(404, 'The merge request is not there');
+    return `${found.url}#note_${String(noteId)}`;
+  }
 
   return {
     ensureMilestone({ title, description }) {
@@ -247,6 +262,47 @@ export function gitlabWriter(
         );
         if (!merged) throw new GitlabError(502, 'GitLab sent no merge request');
         return { number: merged.number, url: merged.url, existed: false };
+      });
+    },
+
+    commentOnMergeRequest({ number, body }) {
+      return written(async () => {
+        const created = noteSchema.safeParse(
+          await client.post(
+            target.baseUrl,
+            `${base}/merge_requests/${String(number)}/notes`,
+            token,
+            { body },
+          ),
+        );
+        if (!created.success) throw new GitlabError(502, 'GitLab sent no comment');
+        return { url: await commentUrl(number, created.data.id) };
+      });
+    },
+
+    findMergeRequestComment(number, mark) {
+      return written(async () => {
+        const query = new URLSearchParams({
+          sort: 'desc',
+          order_by: 'created_at',
+          per_page: String(NOTES_SEARCHED),
+        });
+        const listed = z
+          .array(z.unknown())
+          .safeParse(
+            await client.get(
+              target.baseUrl,
+              `${base}/merge_requests/${String(number)}/notes?${query.toString()}`,
+              token,
+            ),
+          );
+        const found = (listed.success ? listed.data : [])
+          .flatMap((entry) => {
+            const note = noteSchema.safeParse(entry);
+            return note.success ? [note.data] : [];
+          })
+          .find((note) => (note.body ?? '').includes(mark));
+        return found ? { url: await commentUrl(number, found.id) } : undefined;
       });
     },
   };

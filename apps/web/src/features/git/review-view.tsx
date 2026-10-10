@@ -1,6 +1,7 @@
 import type { GitReview, GitReviewSummary } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, CircleCheck, ExternalLink, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, CircleCheck, ExternalLink, MessageSquare, TriangleAlert } from 'lucide-react';
+import { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
@@ -8,7 +9,13 @@ import { FieldError } from '@web/components/ui/input';
 import { AgentAvatar } from '@web/features/agents/agent-avatar';
 import { agentClass, useAgents } from '@web/features/agents/agents';
 import { AGENT_DARK_TEXT } from '@web/features/canvas/agent-look';
-import { gitReviewsQuery } from '@web/features/git/request-queries';
+import {
+  gitRequestsQuery,
+  gitReviewsQuery,
+  useApproveGitRequests,
+  useRequestReviewComment,
+} from '@web/features/git/request-queries';
+import { ApiError } from '@web/lib/api';
 import { cn } from '@web/lib/cn';
 import { formatRelativeTime } from '@web/lib/format';
 
@@ -184,9 +191,112 @@ export function ReviewView({ projectId, reviewId, onBack }: ReviewViewProps) {
             </ol>
           ) : null}
 
+          <ReviewComment
+            projectId={projectId}
+            review={review}
+            canRequest={reviews.data.canRequest}
+          />
           <p className={NOTE}>{t('git.review.note')}</p>
         </article>
       )}
+    </div>
+  );
+}
+
+/** How a click on "In GitLab kommentieren" ended, if not as it should. */
+type CommentOutcome = 'taken' | 'approveFailed' | 'failed';
+
+/**
+ * The review as a comment in the repository (spec 30c; derived look): what became of it, and for
+ * owners and editors the way to lay it before the approvers. Who may approve and has a GitLab
+ * account posts it with one click; nothing reaches the repository without an approval.
+ */
+function ReviewComment({
+  projectId,
+  review,
+  canRequest,
+}: {
+  projectId: string;
+  review: GitReview;
+  canRequest: boolean;
+}) {
+  const { t } = useTranslation();
+  const access = useQuery(gitRequestsQuery(projectId)).data;
+  const request = useRequestReviewComment(projectId);
+  const approve = useApproveGitRequests(projectId);
+  const [outcome, setOutcome] = useState<CommentOutcome | null>(null);
+  const direct = access?.canApprove === true && access.hasAccount;
+  const busy = request.isPending || approve.isPending;
+  const { comment } = review;
+
+  function post() {
+    setOutcome(null);
+    request.mutate(review.id, {
+      onSuccess: ({ requestId }) => {
+        if (!direct) return;
+        approve.mutate(
+          { requestIds: [requestId] },
+          {
+            onError: () => {
+              setOutcome('approveFailed');
+            },
+          },
+        );
+      },
+      onError: (error) => {
+        setOutcome(
+          error instanceof ApiError && error.code === 'already_running' ? 'taken' : 'failed',
+        );
+      },
+    });
+  }
+
+  if (review.status !== 'done') return null;
+  if (comment?.state === 'done') {
+    return (
+      <p className="m-0 flex items-center gap-1.5 text-small text-text-2">
+        <MessageSquare size={13} strokeWidth={2} aria-hidden="true" className="shrink-0" />
+        {comment.url ? (
+          <a
+            href={comment.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 underline-offset-2 hover:text-text hover:underline"
+          >
+            {t('git.review.comment.done')}
+            <ExternalLink size={11} strokeWidth={2} aria-hidden="true" />
+          </a>
+        ) : (
+          t('git.review.comment.done')
+        )}
+      </p>
+    );
+  }
+  if (comment) {
+    return comment.state === 'failed' ? (
+      <FieldError>{t('git.review.comment.failed')}</FieldError>
+    ) : (
+      <p
+        role="status"
+        className={cn('m-0 text-small text-text-2', comment.state === 'running' && 'animate-pulse')}
+      >
+        {t(`git.review.comment.${comment.state}`)}
+      </p>
+    );
+  }
+  if (!canRequest) return null;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="s" disabled={busy} onClick={post}>
+          <MessageSquare size={13} strokeWidth={2} aria-hidden="true" />
+          {t(direct ? 'git.review.comment.post' : 'git.review.comment.propose')}
+        </Button>
+        <span className="min-w-0 flex-1 text-small leading-snug text-text-3">
+          {t('git.review.comment.hint')}
+        </span>
+      </div>
+      {outcome ? <FieldError>{t(`git.review.comment.outcome.${outcome}`)}</FieldError> : null}
     </div>
   );
 }
@@ -240,7 +350,7 @@ export function ReviewCard({ review, onOpen }: { review: GitReview; onOpen: () =
           </li>
         ) : null}
       </ul>
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
         <Button
           size="s"
           aria-label={t('git.review.open', { number: review.number })}
@@ -248,6 +358,12 @@ export function ReviewCard({ review, onOpen }: { review: GitReview; onOpen: () =
         >
           {t('git.review.view')}
         </Button>
+        {review.comment?.state === 'done' ? (
+          <span className="inline-flex min-w-0 items-center gap-1 text-meta text-text-3">
+            <MessageSquare size={12} strokeWidth={2} aria-hidden="true" className="shrink-0" />
+            {t('git.review.comment.done')}
+          </span>
+        ) : null}
       </div>
     </>
   );

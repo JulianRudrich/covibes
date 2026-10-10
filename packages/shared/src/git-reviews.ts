@@ -89,13 +89,30 @@ export type GitReview = Omit<GitReviewSummary, 'findings'> & {
   findings: GitReviewFinding[];
   /** The merge request is still open, as far as the repository's state was read. */
   open: boolean;
+  /** What became of its comment in the repository (spec 30c); null if none was asked for. */
+  comment: GitReviewComment | null;
+};
+
+/**
+ * The comment of a review: its request waits for approval, runs, failed, or the comment is
+ * posted (`done`, with its address). A request that was rejected or taken back counts as none.
+ */
+export type GitReviewComment = {
+  requestId: string;
+  state: 'waiting' | 'running' | 'failed' | 'done';
+  /** Where the comment is in the repository, once it is posted. */
+  url: string | null;
 };
 
 /**
  * `GET /api/projects/:projectId/git/reviews`: the latest review of every merge request that is
  * still open, the newest first.
  */
-export type GitReviews = { reviews: GitReview[] };
+export type GitReviews = {
+  /** The person lays a review before the approvers as a comment: owners and editors (spec 30c). */
+  canRequest: boolean;
+  reviews: GitReview[];
+};
 
 /** `POST /api/projects/:projectId/git/merge-requests/:number/review`. */
 export type GitReviewStarted = { reviewId: string };

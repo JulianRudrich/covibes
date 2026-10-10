@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { GitActionDraft, ProjectSummary } from '@covibes/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   RepositoryWriteError,
@@ -114,6 +114,10 @@ function repository({
   const mergeRequests = new Map<string, number>();
   /** The merge requests that are merged, by their number. */
   const merged: number[] = [];
+  /** The comments at merge requests, in the order they were posted. */
+  const comments: { number: number; body: string }[] = [];
+  const commentUrl = (number: number, place: number) =>
+    `${GITLAB}/verein/app/-/merge_requests/${String(number)}#note_${String(place)}`;
   const writer: RepositoryWriter = {
     ensureMilestone({ title }) {
       calls.push(`milestone ${title}`);
@@ -185,8 +189,35 @@ function repository({
         existed,
       });
     },
+    commentOnMergeRequest({ number, body }) {
+      const name = `comment ${String(number)}`;
+      calls.push(name);
+      const failure = state.fails[name];
+      if (failure) return Promise.reject(failure);
+      comments.push({ number, body });
+      if (state.lost.includes(name)) return Promise.reject(new Error('The connection broke'));
+      return Promise.resolve({ url: commentUrl(number, comments.length) });
+    },
+    findMergeRequestComment(number, mark) {
+      calls.push('find comment');
+      const place = comments.findIndex(
+        (entry) => entry.number === number && entry.body.includes(mark),
+      );
+      return Promise.resolve(place === -1 ? undefined : { url: commentUrl(number, place + 1) });
+    },
   };
-  return { calls, issues, milestones, targets, state, writer, branches, mergeRequests, merged };
+  return {
+    calls,
+    issues,
+    milestones,
+    targets,
+    state,
+    writer,
+    branches,
+    mergeRequests,
+    merged,
+    comments,
+  };
 }
 
 function deps(
@@ -623,5 +654,102 @@ describe('merging a merge request (spec 29d)', () => {
     expect(await runGitRequest(deps(repo), { requestId })).toBe('done');
     expect((await stored(requestId)).actions[0]?.result_existed).toBe(true);
     expect(repo.merged).toEqual([7]);
+  });
+});
+
+describe('the review as a comment (spec 30c)', () => {
+  const comment: GitActionDraft = {
+    kind: 'comment',
+    payload: {
+      title: 'Review von !7: 1 Abweichung',
+      number: 7,
+      reviewId: '9c000000-0000-4000-8000-000000000007',
+      body: '### Review gegen die Architektur\n\nWeicht ab.',
+    },
+  };
+
+  it('posts the comment at the merge request with the approver’s access, with its mark', async () => {
+    const { requestId, approver } = await approved([comment]);
+    const repo = repository();
+    const accessOf = vi.fn<GitRequestDeps['accessOf']>(() =>
+      Promise.resolve({ baseUrl: GITLAB, token: 'token-of-the-approver' }),
+    );
+
+    expect(await runGitRequest(deps(repo, accessOf), { requestId })).toBe('done');
+
+    expect(accessOf).toHaveBeenCalledWith(approver);
+    expect(repo.targets.at(-1)?.token).toBe('token-of-the-approver');
+    expect(repo.calls).toEqual(['comment 7']);
+    const { actions, request } = await stored(requestId);
+    expect(request.status).toBe('done');
+    expect(repo.comments).toEqual([
+      {
+        number: 7,
+        body: `### Review gegen die Architektur\n\nWeicht ab.\n\n<!-- covibes-action:${
+          actions[0]?.id ?? ''
+        } -->`,
+      },
+    ]);
+    expect(
+      actions.map((action) => [
+        action.kind,
+        action.status,
+        action.result_number,
+        action.result_url,
+        action.result_existed,
+      ]),
+    ).toEqual([['comment', 'done', '7', `${GITLAB}/verein/app/-/merge_requests/7#note_1`, false]]);
+  });
+
+  it('posts nothing twice when an answer was lost', async () => {
+    const { requestId } = await approved([comment]);
+    const repo = repository({ lost: ['comment 7'] });
+
+    await expect(runGitRequest(deps(repo), { requestId })).rejects.toThrow('The connection broke');
+    expect((await stored(requestId)).outcomes).toEqual([
+      ['Review von !7: 1 Abweichung', 'started', null],
+    ]);
+
+    repo.state.lost = [];
+    expect(await runGitRequest(deps(repo), { requestId })).toBe('done');
+
+    // The second try looked first and found the comment by its mark.
+    expect(repo.calls).toEqual(['comment 7', 'find comment']);
+    expect(repo.comments).toHaveLength(1);
+    const { actions } = await stored(requestId);
+    expect(actions[0]).toMatchObject({
+      status: 'done',
+      result_url: `${GITLAB}/verein/app/-/merge_requests/7#note_1`,
+      result_existed: true,
+    });
+  });
+
+  it('fails with the reason when GitLab refuses the comment, and posts it on a second approval', async () => {
+    const { requestId } = await approved([comment]);
+    const repo = repository({ fails: { 'comment 7': refuse('not_found', '404 Not found') } });
+
+    expect(await runGitRequest(deps(repo), { requestId })).toBe('failed');
+    const failed = await stored(requestId);
+    expect(failed.outcomes).toEqual([['Review von !7: 1 Abweichung', 'failed', 'not_found']]);
+    expect(repo.comments).toEqual([]);
+
+    repo.state.fails = {};
+    await approveAgain(requestId);
+    expect(await runGitRequest(deps(repo), { requestId })).toBe('done');
+    expect(repo.comments).toHaveLength(1);
+  });
+
+  it('fails a comment whose payload does not read', async () => {
+    const { requestId } = await approved([
+      { kind: 'comment', payload: { ...comment.payload, reviewId: 'no-review' } },
+    ]);
+    const repo = repository();
+
+    expect(await runGitRequest(deps(repo), { requestId })).toBe('failed');
+
+    expect(repo.calls).toEqual([]);
+    expect((await stored(requestId)).outcomes).toEqual([
+      ['Review von !7: 1 Abweichung', 'failed', 'invalid'],
+    ]);
   });
 });

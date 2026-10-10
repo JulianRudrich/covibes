@@ -110,11 +110,36 @@ export function gitReviewsQuery(projectId: string) {
   });
 }
 
-/** The reviews that say a merge request goes against the architecture: what the overview shows. */
+/**
+ * The reviews that say a merge request goes against the architecture: what the overview shows.
+ * A review whose comment waits for approval, runs or failed is left out (spec 30c): the card of
+ * that request stands for it.
+ */
 export function deviatingReviews(reviews: readonly GitReview[] | undefined): GitReview[] {
   return (reviews ?? []).filter(
-    (review) => review.open && review.status === 'done' && review.verdict === 'deviates',
+    (review) =>
+      review.open &&
+      review.status === 'done' &&
+      review.verdict === 'deviates' &&
+      (review.comment === null || review.comment.state === 'done'),
   );
+}
+
+/** Lays a review before the approvers as a comment at its merge request (spec 30c). */
+export function useRequestReviewComment(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (reviewId: string) =>
+      api<GitRequestCreated>(`${base(projectId)}/reviews/${encodeURIComponent(reviewId)}/comment`, {
+        method: 'POST',
+      }),
+    onSettled: () =>
+      Promise.all(
+        [gitRequestsQueryKey, gitReviewsQueryKey, gitLogQueryKey].map((key) =>
+          queryClient.invalidateQueries({ queryKey: key(projectId), exact: true }),
+        ),
+      ),
+  });
 }
 
 /** Starts the review of an open merge request at the state its commits have now. */
@@ -141,6 +166,8 @@ export function useRequestReview(projectId: string) {
 function reloadRequests(queryClient: QueryClient, projectId: string) {
   return Promise.all(
     [
+      // A comment that was approved or rejected changes what its review says (spec 30c).
+      gitReviewsQueryKey,
       gitRequestsQueryKey,
       gitIssuesQueryKey,
       gitLogQueryKey,

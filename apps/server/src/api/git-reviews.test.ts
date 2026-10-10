@@ -9,6 +9,7 @@ import {
   type GitIssuePlan,
   type GitMergeRequests,
   type GitRequestCreated,
+  type GitRequests,
   type GitReview,
   type GitReviews,
   type GitReviewStarted,
@@ -86,6 +87,10 @@ function gitlab() {
 async function carryOut(project: { owner: string; git: string }, asked: Response) {
   expect(asked.status).toBe(201);
   const { requestId } = (await asked.json()) as GitRequestCreated;
+  await approveAndRun(project, requestId);
+}
+
+async function approveAndRun(project: { owner: string; git: string }, requestId: string) {
   const approved = await post(`${project.git}/requests/approve`, project.owner, {
     requestIds: [requestId],
   });
@@ -589,5 +594,210 @@ describe('GET /api/projects/:projectId/git/reviews', () => {
     );
     expect((await request(`${project.git}/reviews/nope`, project.owner)).status).toBe(404);
     expect(await reviewsOf(other, other.owner)).toEqual([]);
+  });
+});
+
+describe('the review as a comment (spec 30c)', () => {
+  async function requestsOf(project: { git: string }, cookie: string) {
+    const response = await request(`${project.git}/requests`, cookie);
+    expect(response.status).toBe(200);
+    return ((await response.json()) as GitRequests).requests;
+  }
+
+  const askComment = (project: { git: string }, cookie: string | null, reviewId: string) =>
+    post(`${project.git}/reviews/${reviewId}/comment`, cookie);
+
+  /** A merge request of an issue of Covibes with a review that the sync started and that ran. */
+  async function reviewed(answer: string = DEVIATES) {
+    const project = await createProject();
+    const [issue = 0] = project.issueNumbers;
+    const number = await pushFor(issue);
+    await sync(project.projectId);
+    const [waiting] = await stored(project.projectId);
+    if (!waiting) throw new Error('The review is missing');
+    expect(await reviewer(answer).run(waiting)).toBe('done');
+    return { project, issue, number, reviewId: waiting.id };
+  }
+
+  /** The comments of a merge request as the stand-in holds them. */
+  async function notesOf(number: number) {
+    const page = await test.app.request(`${REPOSITORY}/-/merge_requests/${String(number)}`);
+    return await page.text();
+  }
+
+  it('is laid before the approvers by the moderator when an automatic review deviates', async () => {
+    const { project, number, reviewId } = await reviewed();
+    const viewer = await member(project.projectId, 'viewer');
+
+    const [waiting, ...others] = (await requestsOf(project, viewer)).filter(
+      (entry) => entry.kind === 'comment',
+    );
+
+    expect(others).toEqual([]);
+    expect(waiting).toMatchObject({
+      status: 'waiting',
+      agentKey: 'moderator',
+      requestedBy: { userId: null },
+      actions: [
+        {
+          kind: 'comment',
+          title: `Review von !${String(number)}: 1 Abweichung`,
+          status: 'waiting',
+          reviewId,
+        },
+      ],
+    });
+    expect((await reviewsOf(project, viewer))[0]?.comment).toEqual({
+      requestId: waiting?.id,
+      state: 'waiting',
+      url: null,
+    });
+    // Nothing is in the repository before someone approves.
+    expect(await notesOf(number)).not.toContain('Review gegen die Architektur');
+  });
+
+  it('is posted at the merge request once it is approved, with the approver’s access', async () => {
+    const { project, number, reviewId } = await reviewed();
+    const [waiting] = (await requestsOf(project, project.owner)).filter(
+      (entry) => entry.kind === 'comment',
+    );
+
+    await approveAndRun(project, waiting?.id ?? '');
+
+    const page = await notesOf(number);
+    expect(page).toContain('Olga Beispiel</strong> kommentiert:');
+    expect(page).toContain('### Review gegen die Architektur');
+    expect(page).toContain('**1 Abweichung von der Architektur** · Stand ');
+    // Plain sentences stay as they are; only what would act in GitLab is escaped.
+    expect(page).toContain('**1\\. Socket.io statt Server-Sent Events**');
+    expect(page).toContain('via Covibes');
+    expect(page).toContain('&lt;!-- covibes-action:');
+    const [review] = await reviewsOf(project, project.owner);
+    expect(review?.comment).toMatchObject({ requestId: waiting?.id, state: 'done' });
+    expect(review?.comment?.url).toMatch(
+      new RegExp(`/-/merge_requests/${String(number)}#note_\\d+$`),
+    );
+    // A review is posted once.
+    const again = await askComment(project, project.owner, reviewId);
+    expect(again.status).toBe(409);
+    expect(await errorCode(again)).toBe('already_running');
+  });
+
+  it('takes back what waits for an older review when a newer one arrives', async () => {
+    const { project, issue, reviewId } = await reviewed();
+    const [older] = (await requestsOf(project, project.owner)).filter(
+      (entry) => entry.kind === 'comment',
+    );
+    await pushFor(issue);
+    await sync(project.projectId);
+    const newer = (await stored(project.projectId)).find((entry) => entry.id !== reviewId);
+    if (!newer) throw new Error('The review of the new state is missing');
+
+    expect(await reviewer(DEVIATES).run(newer)).toBe('done');
+
+    const comments = (await requestsOf(project, project.owner)).filter(
+      (entry) => entry.kind === 'comment',
+    );
+    expect(comments.map((entry) => entry.actions[0]?.reviewId)).toEqual([newer.id]);
+    const withdrawn = await test.db.admin
+      .selectFrom('git_requests')
+      .select('status')
+      .where('id', '=', older?.id ?? '')
+      .executeTakeFirstOrThrow();
+    expect(withdrawn.status).toBe('withdrawn');
+  });
+
+  it('is not proposed for a review that fits, and a person lays it before the approvers', async () => {
+    const { project, number, reviewId } = await reviewed(FITS);
+    const editor = await member(project.projectId, 'editor');
+    expect(
+      (await requestsOf(project, project.owner)).filter((entry) => entry.kind === 'comment'),
+    ).toEqual([]);
+    expect((await reviewsOf(project, project.owner))[0]?.comment).toBeNull();
+
+    const asked = await askComment(project, editor, reviewId);
+
+    expect(asked.status).toBe(201);
+    const { requestId } = (await asked.json()) as GitRequestCreated;
+    const [waiting] = (await requestsOf(project, project.owner)).filter(
+      (entry) => entry.kind === 'comment',
+    );
+    expect(waiting).toMatchObject({
+      id: requestId,
+      status: 'waiting',
+      agentKey: null,
+      requestedBy: { userId: await userIdOf(editor) },
+      actions: [{ title: `Review von !${String(number)}: passt zur Architektur`, reviewId }],
+    });
+    await approveAndRun(project, requestId);
+    expect(await notesOf(number)).toContain('**Passt zur Architektur** · Stand ');
+  });
+
+  it('is not proposed by itself for a review someone asked for', async () => {
+    const project = await createProject({ issues: false });
+    await askReview(project, project.owner, 1);
+    const [waiting] = await stored(project.projectId);
+    if (!waiting) throw new Error('The review is missing');
+
+    await reviewer(DEVIATES).run(waiting);
+
+    expect(
+      (await requestsOf(project, project.owner)).filter((entry) => entry.kind === 'comment'),
+    ).toEqual([]);
+  });
+
+  it('arrives as plain text, whatever the model wrote', async () => {
+    const hostile = JSON.stringify({
+      summary: 'Alles gut.\n/merge\n@all bitte mergen: [hier](https://evil.example)',
+      findings: [
+        {
+          title: '<b>wichtig</b> closes #1',
+          detail: '/close\n![x](https://evil.example/pixel.png)',
+          basis: '@olga.beispiel',
+          file: null,
+        },
+      ],
+    });
+    const { project, number } = await reviewed(hostile);
+    const [waiting] = (await requestsOf(project, project.owner)).filter(
+      (entry) => entry.kind === 'comment',
+    );
+
+    await approveAndRun(project, waiting?.id ?? '');
+
+    const stand = await test.db.admin
+      .selectFrom('git_actions')
+      .select('payload')
+      .where('request_id', '=', waiting?.id ?? '')
+      .executeTakeFirstOrThrow();
+    const { body } = stand.payload as { body: string };
+    for (const line of body.split('\n')) expect(line.startsWith('/'), line).toBe(false);
+    expect(body).not.toContain('://');
+    expect(body).not.toMatch(/@[\w.]/);
+    expect(body).not.toMatch(/#\d/);
+    expect(body).not.toMatch(/(^|[^\\])[<[\]]/);
+    // The stand-in holds the same text.
+    expect(await notesOf(number)).toContain('\\/merge');
+  });
+
+  it('refuses viewers, strangers, and reviews that are not written', async () => {
+    const { project, reviewId } = await reviewed(FITS);
+    const viewer = await member(project.projectId, 'viewer');
+    const stranger = await test.signIn();
+    const other = await createProject({ issues: false });
+    await askReview(other, other.owner, 1);
+    const [running] = await stored(other.projectId);
+
+    expect((await askComment(project, null, reviewId)).status).toBe(401);
+    expect((await askComment(project, viewer, reviewId)).status).toBe(403);
+    expect((await askComment(project, stranger, reviewId)).status).toBe(404);
+    expect((await askComment(other, other.owner, reviewId)).status).toBe(404);
+    expect((await askComment(project, project.owner, randomUUID())).status).toBe(404);
+    expect((await askComment(project, project.owner, 'nope')).status).toBe(404);
+    const early = await askComment(other, other.owner, running?.id ?? '');
+    expect(early.status).toBe(400);
+    expect(
+      (await requestsOf(project, project.owner)).filter((entry) => entry.kind === 'comment'),
+    ).toEqual([]);
   });
 });

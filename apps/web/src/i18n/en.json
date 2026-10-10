@@ -961,7 +961,10 @@
       "summaryMergeRequest": "Open a <b>merge request</b> with the plan package in <repo>{{repository}}</repo>",
       "doneMergeRequest": "<b>Merge request</b> with the plan package opened in <repo>{{repository}}</repo>",
       "summaryMerge": "Merge <b>{{title}}</b> in <repo>{{repository}}</repo>",
-      "doneMerge": "<b>{{title}}</b> merged in <repo>{{repository}}</repo>"
+      "doneMerge": "<b>{{title}}</b> merged in <repo>{{repository}}</repo>",
+      "summaryComment": "Post <b>{{title}}</b> as a comment in <repo>{{repository}}</repo>",
+      "doneComment": "<b>{{title}}</b> commented in <repo>{{repository}}</repo>",
+      "viewReview": "View review"
     },
     "actions": {
       "created": "created",
@@ -973,7 +976,8 @@
         "done": "Done",
         "failed": "Failed",
         "dropped": "Not done"
-      }
+      },
+      "comment": "Comment"
     },
     "issues": {
       "menu": "Create issues …",
@@ -1154,9 +1158,23 @@
       "findings": "Deviations",
       "basis": "Architecture",
       "file": "File",
-      "note": "A model wrote this review; it is in Covibes only. It compares with the decisions, the architecture and the feature spec of the task as Covibes holds them now.",
+      "note": "A model wrote this review. It compares with the decisions, the architecture and the feature spec of the task as Covibes holds them now.",
       "gone": "This review is gone: the merge request was merged or closed, or it got new commits.",
-      "loadFailed": "The review could not be loaded. Please try again."
+      "loadFailed": "The review could not be loaded. Please try again.",
+      "comment": {
+        "post": "Comment in GitLab",
+        "propose": "Propose as a comment",
+        "hint": "It is posted only after approval, with the GitLab account of who approves.",
+        "waiting": "The comment waits for approval.",
+        "running": "Posting the comment …",
+        "failed": "The comment could not be posted. It can be tried again under “Waiting for you”.",
+        "done": "Commented in GitLab",
+        "outcome": {
+          "taken": "This review waits for approval already or is commented.",
+          "approveFailed": "The request was made, but approving it failed. It waits under “Waiting for you”.",
+          "failed": "That did not work. Please try again."
+        }
+      }
     }
   },
   "export": {

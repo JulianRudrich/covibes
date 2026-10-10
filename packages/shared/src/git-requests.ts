@@ -3,16 +3,16 @@ import { z } from 'zod';
 import type { GitRepository } from './git';
 import type { GitReviewSummary } from './git-reviews';
 
-// Git actions and their approval (specs 29b to 29e). Everything that changes something in a
+// Git actions and their approval (specs 29b to 29e, and 30c). Everything that changes something in a
 // repository is a request that waits for approval; its actions are the single changes, and with
 // their outcomes they are the log. Nothing here names a host: an action says what is created, not
 // how GitLab is asked for it.
 
 /**
- * What a request is for: issues from the plan, the plan package as a merge request, or merging a
- * merge request.
+ * What a request is for: issues from the plan, the plan package as a merge request, merging a
+ * merge request, or the review of a merge request as a comment there (spec 30c).
  */
-export const GIT_REQUEST_KINDS = ['issues', 'merge_request', 'merge'] as const;
+export const GIT_REQUEST_KINDS = ['issues', 'merge_request', 'merge', 'comment'] as const;
 export type GitRequestKind = (typeof GIT_REQUEST_KINDS)[number];
 
 /**
@@ -32,9 +32,17 @@ export type GitRequestStatus = (typeof GIT_REQUEST_STATUSES)[number];
 
 /**
  * A single change in the repository: a milestone that must be there, a new issue, a commit of
- * files on a branch, a merge request for a branch, or the merging of a merge request.
+ * files on a branch, a merge request for a branch, the merging of a merge request, or a comment
+ * at a merge request.
  */
-export const GIT_ACTION_KINDS = ['milestone', 'issue', 'commit', 'merge_request', 'merge'] as const;
+export const GIT_ACTION_KINDS = [
+  'milestone',
+  'issue',
+  'commit',
+  'merge_request',
+  'merge',
+  'comment',
+] as const;
 export type GitActionKind = (typeof GIT_ACTION_KINDS)[number];
 
 /**
@@ -154,6 +162,21 @@ export const gitMergePayloadSchema = z
   .strict();
 export type GitMergePayload = z.infer<typeof gitMergePayloadSchema>;
 
+/** The review of a merge request as a comment there (spec 30c). */
+export const gitCommentPayloadSchema = z
+  .object({
+    /** What the list of actions calls it, e.g. "Review von !7: 2 Abweichungen". */
+    title: z.string().min(1).max(255),
+    /** The merge request, by its number in the repository. */
+    number: z.number().int().positive(),
+    /** The review the comment is built from. */
+    reviewId: z.uuid(),
+    /** Markdown; what the model wrote stands in it as plain text. */
+    body: z.string().min(1).max(20_000),
+  })
+  .strict();
+export type GitCommentPayload = z.infer<typeof gitCommentPayloadSchema>;
+
 /** An action as it is asked for, before it has an id and an outcome. */
 export const gitActionDraftSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('milestone'), payload: gitMilestonePayloadSchema }).strict(),
@@ -161,6 +184,7 @@ export const gitActionDraftSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('commit'), payload: gitCommitPayloadSchema }).strict(),
   z.object({ kind: z.literal('merge_request'), payload: gitMergeRequestPayloadSchema }).strict(),
   z.object({ kind: z.literal('merge'), payload: gitMergePayloadSchema }).strict(),
+  z.object({ kind: z.literal('comment'), payload: gitCommentPayloadSchema }).strict(),
 ]);
 export type GitActionDraft = z.infer<typeof gitActionDraftSchema>;
 /** The actions of a request for issues, and of one for a merge request. */
@@ -184,6 +208,8 @@ export type GitAction = {
   result: { number: number | null; url: string | null; existed: boolean } | null;
   /** Why it failed; `detail` is what the host said, as text. */
   error: { code: GitActionError; detail: string } | null;
+  /** The review a comment posts (spec 30c); missing or null for every other action. */
+  reviewId?: string | null;
 };
 
 /** A request with its actions, as members see it. */

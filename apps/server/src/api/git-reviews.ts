@@ -1,11 +1,14 @@
 import type { DB } from '@covibes/db';
 import {
+  buildReviewCommentActions,
   GIT_REVIEW_VERDICTS,
   projectIdSchema,
   readReviewFindings,
   type ApiErrorCode,
   type GitConnection,
+  type GitRequestCreated,
   type GitReview,
+  type GitReviewComment,
   type GitReviews,
   type GitReviewStarted,
   type GitReviewStatus,
@@ -44,6 +47,8 @@ const REFUSALS: Readonly<Record<string, ApiErrorCode>> = {
   // The reviews of the day are used up.
   '53400': 'limit_reached',
   '23514': 'invalid_input',
+  // The review was posted already, or its comment waits (spec 30c).
+  '23505': 'already_running',
 };
 
 const verdictSchema = z.enum(GIT_REVIEW_VERDICTS).nullable().catch(null);
@@ -84,7 +89,52 @@ function reviews(db: Kysely<DB>, projectId: string) {
 
 type ReviewRow = Awaited<ReturnType<ReturnType<typeof reviews>['execute']>>[number];
 
-function toReview(row: ReviewRow, now = Date.now()): GitReview {
+/**
+ * What became of the comments of a project's reviews (spec 30c), by the id of the review: the
+ * request that waits, runs, failed or posted it. One that was rejected or taken back is none.
+ */
+async function loadReviewComments(
+  db: Kysely<DB>,
+  projectId: string,
+): Promise<Map<string, GitReviewComment>> {
+  const rows = await db
+    .selectFrom('git_actions')
+    .innerJoin('git_requests', 'git_requests.id', 'git_actions.request_id')
+    .select([
+      'git_requests.id',
+      'git_requests.status',
+      'git_actions.result_url',
+      sql<string | null>`git_actions.payload ->> 'reviewId'`.as('review_id'),
+    ])
+    .where('git_actions.project_id', '=', projectId)
+    .where('git_actions.kind', '=', 'comment')
+    .where('git_requests.status', 'in', ['waiting', 'approved', 'failed', 'done'])
+    .orderBy('git_requests.created_at')
+    .execute();
+  const comments = new Map<string, GitReviewComment>();
+  for (const row of rows) {
+    if (row.review_id === null) continue;
+    comments.set(row.review_id, {
+      requestId: row.id,
+      state:
+        row.status === 'done'
+          ? 'done'
+          : row.status === 'approved'
+            ? 'running'
+            : row.status === 'failed'
+              ? 'failed'
+              : 'waiting',
+      url: row.status === 'done' ? row.result_url : null,
+    });
+  }
+  return comments;
+}
+
+function toReview(
+  row: ReviewRow,
+  comments: ReadonlyMap<string, GitReviewComment>,
+  now = Date.now(),
+): GitReview {
   const verdict = verdictSchema.parse(row.verdict);
   const waiting = row.run_status === 'queued' || row.run_status === 'running';
   const status: GitReviewStatus =
@@ -116,6 +166,7 @@ function toReview(row: ReviewRow, now = Date.now()): GitReview {
     summary: status === 'done' ? row.summary : null,
     findings: status === 'done' ? readReviewFindings(row.findings) : [],
     open: row.mr_open,
+    comment: comments.get(row.id) ?? null,
   };
 }
 
@@ -150,7 +201,8 @@ export async function loadLatestReviews(
     .orderBy('git_reviews.number')
     .orderBy('git_reviews.created_at', 'desc')
     .execute();
-  return new Map(rows.map((row) => [Number(row.number), toReview(row)]));
+  const comments = rows.length > 0 ? await loadReviewComments(db, projectId) : new Map();
+  return new Map(rows.map((row) => [Number(row.number), toReview(row, comments)]));
 }
 
 /** Adds the routes of the reviews below `/api/projects/:projectId/git`. */
@@ -190,16 +242,21 @@ export function addGitReviewRoutes(
   routes.get('/reviews', async (c) => {
     const who = asked(c);
     if ('error' in who) return who.error;
-    const found = await withUser(db, who.userId, async (trx) => {
-      if (!(await roleOf(trx, who.projectId, who.userId))) return undefined;
+    const stored = await withUser(db, who.userId, async (trx) => {
+      const row = await roleOf(trx, who.projectId, who.userId);
+      if (!row) return undefined;
       const repository = await connection(trx, who.projectId);
-      return repository
-        ? [...(await loadLatestReviews(trx, who.projectId, repository)).values()]
-        : [];
+      return {
+        row,
+        reviews: repository
+          ? [...(await loadLatestReviews(trx, who.projectId, repository)).values()]
+          : [],
+      };
     });
-    if (!found) return apiError(c, 'not_found');
+    if (!stored) return apiError(c, 'not_found');
     return c.json<GitReviews>({
-      reviews: found
+      canRequest: stored.row.role !== 'viewer',
+      reviews: stored.reviews
         .filter((review) => review.open)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, MAX_LISTED_REVIEWS),
@@ -212,14 +269,76 @@ export function addGitReviewRoutes(
     if ('error' in who) return who.error;
     const reviewId = z.uuid().safeParse(c.req.param('reviewId'));
     if (!reviewId.success) return apiError(c, 'not_found');
-    const row = await withUser(db, who.userId, async (trx) => {
+    const found = await withUser(db, who.userId, async (trx) => {
       if (!(await roleOf(trx, who.projectId, who.userId))) return undefined;
-      return await reviews(trx, who.projectId)
+      const row = await reviews(trx, who.projectId)
         .where('git_reviews.id', '=', reviewId.data)
         .executeTakeFirst();
+      return row ? toReview(row, await loadReviewComments(trx, who.projectId)) : undefined;
     });
-    if (!row) return apiError(c, 'not_found');
-    return c.json<GitReview>(toReview(row));
+    if (!found) return apiError(c, 'not_found');
+    return c.json<GitReview>(found);
+  });
+
+  /**
+   * Lays a review before the approvers as a comment at its merge request (spec 30c), for owners
+   * and editors. The comment is built here from the stored review; it is posted once the request
+   * is approved. The database refuses a review that waits already or was posted.
+   */
+  routes.post('/reviews/:reviewId/comment', async (c) => {
+    const who = asked(c);
+    if ('error' in who) return who.error;
+    const reviewId = z.uuid().safeParse(c.req.param('reviewId'));
+    if (!reviewId.success) return apiError(c, 'not_found');
+    const stored = await withUser(db, who.userId, async (trx) => {
+      const row = await roleOf(trx, who.projectId, who.userId);
+      if (!row) return undefined;
+      const review = await reviews(trx, who.projectId)
+        .where('git_reviews.id', '=', reviewId.data)
+        .executeTakeFirst();
+      const project = await trx
+        .selectFrom('projects')
+        .select(['name', 'language'])
+        .where('id', '=', who.projectId)
+        .executeTakeFirstOrThrow();
+      return { row, project, review: review ? toReview(review, new Map()) : undefined };
+    });
+    if (!stored?.review) return apiError(c, 'not_found');
+    if (stored.row.role === 'viewer') return apiError(c, 'forbidden');
+    const { review, project } = stored;
+    // Only a review that is written has something to post.
+    if (review.status !== 'done' || review.verdict === null || review.summary === null) {
+      return apiError(c, 'invalid_input');
+    }
+    const language = project.language === 'en' ? 'en' : 'de';
+    const actions = buildReviewCommentActions(
+      {
+        id: review.id,
+        number: review.number,
+        sha: review.sha,
+        verdict: review.verdict,
+        summary: review.summary,
+        findings: review.findings,
+      },
+      language,
+      project.name,
+    );
+
+    try {
+      const requestId = await withUser(db, who.userId, async (trx) => {
+        const created = await sql<{ id: string }>`
+          select public.create_git_request(
+            ${who.projectId}, 'comment', ${JSON.stringify(actions)}::jsonb
+          ) as id`.execute(trx);
+        return created.rows[0]?.id ?? '';
+      });
+      return c.json<GitRequestCreated>({ requestId }, 201);
+    } catch (error) {
+      const state = sqlState(error);
+      const refused = state === undefined ? undefined : REFUSALS[state];
+      if (!refused) throw error;
+      return apiError(c, refused);
+    }
   });
 
   /**

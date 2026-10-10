@@ -450,6 +450,7 @@ export {
   GIT_REQUEST_KINDS,
   GIT_REQUEST_STATUSES,
   gitActionDraftSchema,
+  gitCommentPayloadSchema,
   gitCommitPayloadSchema,
   gitFileSchema,
   gitIssuePayloadSchema,
@@ -466,6 +467,7 @@ export {
   type GitActionError,
   type GitActionKind,
   type GitActionStatus,
+  type GitCommentPayload,
   type GitCommitPayload,
   type GitFile,
   type GitFileState,
@@ -501,6 +503,7 @@ export {
   readReviewFindings,
   type GitReview,
   type GitReviewAnswer,
+  type GitReviewComment,
   type GitReviewFinding,
   type GitReviews,
   type GitReviewStarted,
@@ -508,6 +511,13 @@ export {
   type GitReviewSummary,
   type GitReviewVerdict,
 } from './git-reviews';
+export {
+  buildReviewComment,
+  buildReviewCommentActions,
+  inertText,
+  MAX_REVIEW_COMMENT_LENGTH,
+  type ReviewForComment,
+} from './git-review-comment';
 export {
   buildIssueActions,
   GIT_ISSUE_MARK,

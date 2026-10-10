@@ -548,3 +548,63 @@ describe('listOpenMergeRequests', () => {
     expect(await readMergeRequest(client, target, accessToken, 99)).toBeUndefined();
   });
 });
+
+describe('commentOnMergeRequest', () => {
+  const MARK = 'covibes-action:9c000000-0000-4000-8000-000000000001';
+
+  it('posts a comment at the merge request, which agents that read then see', async () => {
+    const { writer, calls, get } = await setUp();
+
+    const written = await writer.commentOnMergeRequest({
+      number: 1,
+      body: `### Review\n\nWeicht ab.\n\n<!-- ${MARK} -->`,
+    });
+
+    expect(written.url).toMatch(
+      /^http:\/\/gitlab\.test\/beispiel-verein\/vereins-app\/-\/merge_requests\/1#note_\d+$/,
+    );
+    expect(calls).toEqual([
+      'POST /api/v4/projects/101/merge_requests/1/notes',
+      'GET /api/v4/projects/101/merge_requests/1',
+    ]);
+    // The page of the merge request shows the text as it was sent.
+    const page = await (await get('/beispiel-verein/vereins-app/-/merge_requests/1')).text();
+    expect(page).toContain('### Review');
+    expect(page).toContain(`id="note_${written.url.split('#note_')[1] ?? ''}"`);
+  });
+
+  it('finds a comment by its mark, and nothing without one', async () => {
+    const { writer } = await setUp();
+    expect(await writer.findMergeRequestComment(1, MARK)).toBeUndefined();
+    const written = await writer.commentOnMergeRequest({
+      number: 1,
+      body: `Weicht ab.\n\n<!-- ${MARK} -->`,
+    });
+    await writer.commentOnMergeRequest({ number: 1, body: 'Ein anderer Kommentar.' });
+
+    expect(await writer.findMergeRequestComment(1, MARK)).toEqual(written);
+    expect(await writer.findMergeRequestComment(1, 'covibes-action:another')).toBeUndefined();
+    // The mark of a comment at another merge request is not this one's.
+    expect(await writer.findMergeRequestComment(2, MARK)).toBeUndefined();
+  });
+
+  it('fails with the reason for a merge request that is not there, and for an empty comment', async () => {
+    const { writer } = await setUp();
+
+    await expect(writer.commentOnMergeRequest({ number: 99, body: 'x' })).rejects.toEqual(
+      failure('not_found'),
+    );
+    await expect(writer.commentOnMergeRequest({ number: 1, body: ' ' })).rejects.toEqual(
+      failure('invalid'),
+    );
+  });
+
+  it('says when GitLab cannot be reached', async () => {
+    const { writer, answer } = await setUp();
+    answer.away = true;
+
+    await expect(writer.commentOnMergeRequest({ number: 1, body: 'x' })).rejects.toEqual(
+      failure('unreachable'),
+    );
+  });
+});

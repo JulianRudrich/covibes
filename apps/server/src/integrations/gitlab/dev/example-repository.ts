@@ -11,7 +11,14 @@ import { gitBlobId } from '@server/integrations/gitlab/blobs';
 // Covibes reads it.
 
 type Person = { name: string; username: string };
-type Note = { body: string; system: boolean; author: Person; created_at: string };
+type Note = {
+  /** Only comments that were posted since the start have one (spec 30c). */
+  id?: number;
+  body: string;
+  system: boolean;
+  author: Person;
+  created_at: string;
+};
 
 type ExampleIssue = {
   iid: number;
@@ -400,10 +407,17 @@ export function createExampleStore(now: () => number = Date.now) {
     }
     return branches.get(id)?.get(ref);
   }
-  const mergeRequestsOf = (id: number): readonly ExampleMergeRequest[] => [
-    ...(EXAMPLE_REPOSITORIES[id]?.mergeRequests ?? []),
-    ...(mergeRequests.get(id) ?? []),
-  ];
+  /** The comments that were posted at merge requests since the start, per repository. */
+  const comments = new Map<number, Map<number, Note[]>>();
+  // GitLab's ids of comments count across everything.
+  let noteId = 0;
+  const mergeRequestsOf = (id: number): readonly ExampleMergeRequest[] =>
+    [...(EXAMPLE_REPOSITORIES[id]?.mergeRequests ?? []), ...(mergeRequests.get(id) ?? [])].map(
+      (entry) => {
+        const posted = comments.get(id)?.get(entry.iid);
+        return posted ? { ...entry, notes: [...entry.notes, ...posted] } : entry;
+      },
+    );
 
   const issuesOf = (id: number): readonly ExampleIssue[] =>
     [...(EXAMPLE_REPOSITORIES[id]?.issues ?? []), ...(issues.get(id) ?? [])].map((issue) => {
@@ -614,6 +628,22 @@ export function createExampleStore(now: () => number = Date.now) {
       };
       issues.set(id, [...(issues.get(id) ?? []), issue]);
       return issue;
+    },
+    /** Posts a comment at a merge request (spec 30c); undefined if that is not there. */
+    addNote(id: number, iid: number, body: string): Note | undefined {
+      if (!mergeRequestsOf(id).some((entry) => entry.iid === iid)) return undefined;
+      noteId += 1;
+      const note: Note = {
+        id: noteId,
+        body,
+        system: false,
+        author: OLGA,
+        created_at: new Date(now()).toISOString(),
+      };
+      const ofRepository = comments.get(id) ?? new Map<number, Note[]>();
+      ofRepository.set(iid, [...(ofRepository.get(iid) ?? []), note]);
+      comments.set(id, ofRepository);
+      return note;
     },
     /** Closes an issue or opens it again (spec 30a); undefined for an issue that is not there. */
     setIssueState(id: number, iid: number, state: ExampleIssue['state']) {
@@ -940,5 +970,16 @@ export function addExampleRepositoryRoutes(
   routes.get('/api/v4/projects/:id/merge_requests/:iid/notes', (c) => {
     const found = mergeRequest(c.req.param('id'), c.req.param('iid'));
     return found ? c.json(found.notes) : c.json(notFound, 404);
+  });
+
+  /** A comment at a merge request, as GitLab takes it (spec 30c). */
+  routes.post('/api/v4/projects/:id/merge_requests/:iid/notes', async (c) => {
+    const repository = find(c.req.param('id'));
+    const body = text((await fields(c.req))?.body);
+    if (!repository) return c.json(notFound, 404);
+    if (body.trim() === '')
+      return c.json({ message: '400 Bad request - Note {:note=>["can\'t be blank"]}' }, 400);
+    const note = store.addNote(repository.id, Number(c.req.param('iid')), body);
+    return note ? c.json(note, 201) : c.json(notFound, 404);
   });
 }

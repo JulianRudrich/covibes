@@ -137,6 +137,8 @@ async function loadRequests(
       'result_existed',
       'error_code',
       'error_detail',
+      // Only what a comment needs of its payload: the review it posts (spec 30c).
+      sql<string | null>`payload ->> 'reviewId'`.as('review_id'),
     ])
     .where(
       'request_id',
@@ -190,6 +192,7 @@ async function loadRequests(
                   stepStatus.data === 'failed' && error.success
                     ? { code: error.data, detail: step.error_detail }
                     : null,
+                ...(stepKind.data === 'comment' ? { reviewId: step.review_id } : {}),
               },
             ];
           }),

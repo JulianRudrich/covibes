@@ -278,7 +278,7 @@ Built in five parts (2026-10-09), because the unit is large:
 Built in three parts (2026-10-10), because the unit is large:
 - **30a** task status from the repository: Covibes reads the state of the issues itself (on opening, regularly and on a click), a webhook only speeds it up (owner decision); the plan and the roadmap show what is done
 - **30b** the review of merge requests against the architecture: once per state of the commits for merge requests of Covibes issues, others on a click (owner decision)
-- **30c** the review as a comment in GitLab, after approval
+- **30c** the review as a comment in GitLab, after approval: a Git request that the moderator makes when an automatic review deviates, or a person with a click
 
 - **Goal:** a GitLab webhook for merge requests. The automatic review compares them with the architecture, shows the result in Covibes and posts it as a GitLab comment after approval. The task status comes from GitLab.
 - **Needs:** 29

@@ -3,6 +3,7 @@ import {
   gitCommitPayloadSchema,
   gitIssueMark,
   gitIssuePayloadSchema,
+  gitCommentPayloadSchema,
   gitMergePayloadSchema,
   gitMergeRequestPayloadSchema,
   gitMilestonePayloadSchema,
@@ -201,6 +202,27 @@ export async function runGitRequest(
       } else if (action.kind === 'merge') {
         const merge = gitMergePayloadSchema.parse(action.payload);
         await finish(action, await writer.mergeMergeRequest(merge));
+      } else if (action.kind === 'comment') {
+        const comment = gitCommentPayloadSchema.parse(action.payload);
+        const mark = gitIssueMark(action.id);
+        // A try before this one may have posted it without its answer arriving.
+        const posted =
+          action.attempts > 0
+            ? await writer.findMergeRequestComment(comment.number, mark)
+            : undefined;
+        const written =
+          posted ??
+          (await writer.commentOnMergeRequest({
+            number: comment.number,
+            body: `${comment.body}
+
+<!-- ${mark} -->`,
+          }));
+        await finish(action, {
+          number: comment.number,
+          url: written.url,
+          existed: posted !== undefined,
+        });
       } else {
         await fail(action, 'invalid', 'The kind of action is unknown');
       }

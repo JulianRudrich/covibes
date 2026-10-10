@@ -1,6 +1,7 @@
 import type { DB } from '@covibes/db';
 import {
   buildCodingPackage,
+  buildReviewCommentActions,
   gitReviewAnswerSchema,
   MAX_REVIEW_CHARS,
   MAX_REVIEW_FILE_CHARS,
@@ -244,7 +245,7 @@ export async function reviewMergeRequest(
     // Only the review this run was started for; one that was started again has another run.
     const review = await admin
       .selectFrom('git_reviews')
-      .select(['number', 'sha', 'issue_number'])
+      .select(['number', 'sha', 'issue_number', 'trigger'])
       .where('id', '=', reviewId)
       .where('run_id', '=', runId)
       .executeTakeFirst();
@@ -336,6 +337,45 @@ export async function reviewMergeRequest(
     if (!answer) {
       deps.logger.error(`The review ${reviewId} of project ${projectId} came back in no form`);
       return 'failed';
+    }
+
+    // The review as a comment in the repository (spec 30c). What still waits for approval for
+    // an older review of this merge request is about commits it no longer ends with.
+    await sql`
+      select private.withdraw_older_review_comments(
+        ${projectId}, ${Number(review.number)}, ${reviewId}
+      )`.execute(admin);
+    // A review that started by itself and found deviations is laid before the approvers by the
+    // moderator. Nothing reaches the repository before someone approves it.
+    if (review.trigger === 'auto' && answer.findings.length > 0) {
+      const actions = buildReviewCommentActions(
+        {
+          id: reviewId,
+          number: Number(review.number),
+          sha: review.sha,
+          verdict: 'deviates',
+          summary: answer.summary,
+          findings: answer.findings,
+        },
+        input.language,
+        input.projectName,
+      );
+      try {
+        await sql`
+          select private.insert_git_request(
+            ${projectId}, 'comment', ${JSON.stringify(actions)}::jsonb, null, 'moderator'
+          )`.execute(admin);
+      } catch (error) {
+        // The review stands either way: its comment waits already, or the repository is gone.
+        const state = (error as { code?: unknown } | null)?.code;
+        if (state !== '23505' && state !== 'P0002') {
+          deps.logger.error(
+            `The comment of review ${reviewId} could not be proposed: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }
     }
     return 'done';
   } catch (error) {

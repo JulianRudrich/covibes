@@ -400,6 +400,8 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
         },
       );
     },
+    // The card of a comment shows its review: what will stand in the repository (spec 30c).
+    onOpenReview: setOpenReview,
   };
   // Suggestions for the plan wait for owners and editors, like proposals.
   const planSuggestions = readOnly ? 0 : (planState?.suggestions.length ?? 0);

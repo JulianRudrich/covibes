@@ -352,14 +352,19 @@ export function createGitlabStandIn(
     const open = store
       .mergeRequestsOf(found.id)
       .find((entry) => entry.state === 'opened' && entry.source_branch === branch);
+    const path = 'src/realtime/socket.ts';
+    // The file is there already once an example merge request was merged.
+    const held =
+      store.filesOf(found.id, found.default_branch, exists ? branch : undefined)?.[path] !==
+      undefined;
     const committed = store.commit(found.id, target, {
       branch,
       ...(exists ? {} : { startBranch: found.default_branch }),
       message: `Live-Aktualisierung für #${String(iid)}`,
       actions: [
         {
-          action: exists ? 'update' : 'create',
-          file_path: 'src/realtime/socket.ts',
+          action: held ? 'update' : 'create',
+          file_path: path,
           content: exampleChange(issue.title, exists ? new Date(now()).toISOString() : null),
         },
       ],
@@ -413,7 +418,21 @@ export function createGitlabStandIn(
           (diff) =>
             `<li><code>${escapeHtml(diff.new_path)}</code> ${diff.new_file ? '(neu)' : '(geändert)'}</li>`,
         )
-        .join('')}</ul>`,
+        .join('')}</ul>
+      ${mergeRequest.notes
+        .filter((note) => !note.system)
+        .map(
+          (note) =>
+            // The text as it was sent: the stand-in reads no Markdown, so what would act in
+            // GitLab can be looked at here.
+            `<p${note.id === undefined ? '' : ` id="note_${String(note.id)}"`}><strong>${escapeHtml(
+              note.author.name,
+            )}</strong> kommentiert:</p>
+      <pre style="white-space: pre-wrap; font: inherit; border-left: 2px solid; padding-left: 10px">${escapeHtml(
+        note.body,
+      )}</pre>`,
+        )
+        .join('')}`,
       ),
     );
   });

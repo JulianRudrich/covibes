@@ -38,6 +38,12 @@ export type WrittenMergeRequest = {
   existed: boolean;
 };
 
+/** A comment that stands at a merge request now. */
+export type WrittenComment = {
+  /** Where it is, for a link. */
+  url: string;
+};
+
 /** A file of a commit: it is added or changed (`write`), or only added when missing (`create`). */
 export type FileToWrite = { path: string; content: string; mode: 'write' | 'create' };
 
@@ -96,6 +102,14 @@ export type RepositoryWriter = {
    * what is merged. One that is merged already counts as done (`existed`).
    */
   mergeMergeRequest(input: { number: number; sha: string | null }): Promise<WrittenMergeRequest>;
+  /** Comments on a merge request (spec 30c). */
+  commentOnMergeRequest(input: {
+    number: number;
+    /** Markdown. */
+    body: string;
+  }): Promise<WrittenComment>;
+  /** The comment at a merge request whose text carries a mark; undefined if there is none. */
+  findMergeRequestComment(number: number, mark: string): Promise<WrittenComment | undefined>;
 };
 
 /** The writer of a repository for a person's access token. */

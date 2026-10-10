@@ -1,6 +1,8 @@
 import type {
   GitMergeRequests,
   GitOpenMergeRequest,
+  GitRequest,
+  GitRequests,
   GitReview,
   GitReviewSummary,
 } from '@covibes/shared';
@@ -47,6 +49,7 @@ function review(fields: Partial<GitReview> = {}): GitReview {
     summary: 'Der Merge Request baut den Login, weicht aber bei der Echtzeit ab.',
     findings: [FINDING],
     open: true,
+    comment: null,
     ...fields,
   };
 }
@@ -103,19 +106,24 @@ function renderDialog({
   mergeRequests = [mergeRequest()],
   reviews = [],
   canReview = true,
+  access = { canApprove: true, hasAccount: true },
   reviewId,
   answers = {},
 }: {
   mergeRequests?: GitOpenMergeRequest[];
   reviews?: GitReview[];
+  /** Owners and editors: they start reviews and lay comments before the approvers. */
   canReview?: boolean;
+  /** Whether the person approves Git requests, and has a GitLab account for it. */
+  access?: Pick<GitRequests, 'canApprove' | 'hasAccount'>;
   reviewId?: string;
   answers?: Record<string, () => Response>;
 } = {}) {
   const calls: string[] = [];
   const responses: Record<string, () => Response> = {
     [`GET ${BASE}/merge-requests`]: () => Response.json(list(mergeRequests, canReview)),
-    [`GET ${BASE}/reviews`]: () => Response.json({ reviews }),
+    [`GET ${BASE}/reviews`]: () => Response.json({ canRequest: canReview, reviews }),
+    [`GET ${BASE}/requests`]: () => Response.json({ ...access, requests: [] }),
     ...answers,
   };
   vi.stubGlobal(
@@ -375,6 +383,242 @@ describe('the review itself', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Das Review konnte nicht geladen werden.',
     );
+  });
+});
+
+describe('the review as a comment (spec 30c)', () => {
+  const REQUEST = '9e000000-0000-4000-8000-0000000000c1';
+  const created = () => Response.json({ requestId: REQUEST }, { status: 201 });
+  const posts = (calls: string[]) => calls.filter((call) => call.startsWith('POST '));
+
+  it('is posted in one step by who may approve and has a GitLab account', async () => {
+    const { calls } = renderDialog({
+      reviews: [review()],
+      reviewId: review().id,
+      answers: {
+        [`POST ${BASE}/reviews/${review().id}/comment`]: created,
+        [`POST ${BASE}/requests/approve`]: () => Response.json({ approved: 1 }),
+      },
+    });
+    const shown = await screen.findByRole('article', { name: 'Review von !7' });
+    expect(shown).toHaveTextContent('Gepostet wird erst nach Freigabe');
+
+    // Until it is known that the person may approve, the button only lays the comment before
+    // the approvers.
+    fireEvent.click(await within(shown).findByRole('button', { name: 'In GitLab kommentieren' }));
+
+    await waitFor(() => {
+      expect(posts(calls)).toEqual([
+        `POST ${BASE}/reviews/${review().id}/comment`,
+        `POST ${BASE}/requests/approve`,
+      ]);
+    });
+  });
+
+  it('is laid before the approvers by everyone else who may ask', async () => {
+    for (const access of [
+      { canApprove: false, hasAccount: true },
+      { canApprove: true, hasAccount: false },
+    ]) {
+      const { calls } = renderDialog({
+        reviews: [review()],
+        reviewId: review().id,
+        access,
+        answers: { [`POST ${BASE}/reviews/${review().id}/comment`]: created },
+      });
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Als Kommentar vorlegen' }));
+
+      await waitFor(() => {
+        expect(posts(calls)).toEqual([`POST ${BASE}/reviews/${review().id}/comment`]);
+      });
+      // The reviews are read again, so the comment that waits shows.
+      await waitFor(() => {
+        expect(calls.filter((call) => call === `GET ${BASE}/reviews`).length).toBeGreaterThan(1);
+      });
+      expect(posts(calls)).toHaveLength(1);
+      cleanup();
+    }
+  });
+
+  it('is not offered to viewers, and not for a review that is not written', async () => {
+    renderDialog({ reviews: [review()], reviewId: review().id, canReview: false });
+    await screen.findByRole('article', { name: 'Review von !7' });
+    expect(screen.queryByRole('button', { name: /kommentieren|vorlegen/ })).toBeNull();
+    cleanup();
+
+    const runs = review({ status: 'running', verdict: null, summary: null, findings: [] });
+    renderDialog({ reviews: [runs], reviewId: runs.id });
+    await screen.findByRole('article', { name: 'Review von !7' });
+    expect(screen.queryByRole('button', { name: /kommentieren|vorlegen/ })).toBeNull();
+  });
+
+  it('says what became of the comment, instead of offering it again', async () => {
+    const states = [
+      ['waiting', 'Der Kommentar wartet auf Freigabe.'],
+      ['running', 'Der Kommentar wird gepostet …'],
+      ['failed', 'Der Kommentar konnte nicht gepostet werden.'],
+    ] as const;
+    for (const [state, text] of states) {
+      const waiting = review({ comment: { requestId: REQUEST, state, url: null } });
+      renderDialog({ reviews: [waiting], reviewId: waiting.id });
+
+      const shown = await screen.findByRole('article', { name: 'Review von !7' });
+      expect(shown).toHaveTextContent(text);
+      expect(screen.queryByRole('button', { name: /kommentieren|vorlegen/ })).toBeNull();
+      cleanup();
+    }
+
+    const url = `${REPOSITORY_URL}/-/merge_requests/7#note_12`;
+    const posted = review({ comment: { requestId: REQUEST, state: 'done', url } });
+    renderDialog({ reviews: [posted], reviewId: posted.id });
+    const shown = await screen.findByRole('article', { name: 'Review von !7' });
+    expect(within(shown).getByRole('link', { name: 'In GitLab kommentiert' })).toHaveAttribute(
+      'href',
+      url,
+    );
+    expect(screen.queryByRole('button', { name: /kommentieren|vorlegen/ })).toBeNull();
+  });
+
+  it('says why the comment was not laid before the approvers', async () => {
+    const cases = [
+      [
+        { [`POST ${BASE}/reviews/${review().id}/comment`]: refusal('already_running', 409) },
+        'Dieses Review wartet schon auf Freigabe oder ist kommentiert.',
+      ],
+      [
+        { [`POST ${BASE}/reviews/${review().id}/comment`]: refusal('internal', 500) },
+        'Das hat nicht geklappt.',
+      ],
+      [
+        {
+          [`POST ${BASE}/reviews/${review().id}/comment`]: created,
+          [`POST ${BASE}/requests/approve`]: refusal('forbidden', 403),
+        },
+        'Der Antrag ist angelegt, aber die Freigabe hat nicht geklappt.',
+      ],
+    ] as const;
+    for (const [answers, text] of cases) {
+      renderDialog({ reviews: [review()], reviewId: review().id, answers });
+
+      fireEvent.click(await screen.findByRole('button', { name: 'In GitLab kommentieren' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(text);
+      cleanup();
+    }
+  });
+});
+
+describe('the comment of a review under "Wartet auf dich"', () => {
+  const REVIEW = review().id;
+  const ACTION: GitRequest['actions'][number] = {
+    id: '9e000000-0000-4000-8000-0000000000c3',
+    kind: 'comment',
+    title: 'Review von !7: 1 Abweichung',
+    status: 'waiting',
+    result: null,
+    error: null,
+    reviewId: REVIEW,
+  };
+  const comment = (fields: Partial<GitRequest> = {}): GitRequest => ({
+    id: '9e000000-0000-4000-8000-0000000000c2',
+    kind: 'comment',
+    status: 'waiting',
+    repository: { path: 'verein/vereins-app', url: REPOSITORY_URL },
+    requestedBy: { userId: null, name: '' },
+    agentKey: 'moderator',
+    decidedBy: null,
+    createdAt: new Date().toISOString(),
+    decidedAt: null,
+    finishedAt: null,
+    actions: [ACTION],
+    ...fields,
+  });
+
+  function renderWaiting(requests: GitRequest[], reviews: GitReview[] = []) {
+    const onOpenReview = vi.fn();
+    const onApprove = vi.fn();
+    render(
+      <TooltipProvider>
+        <WaitingForYou
+          proposals={[]}
+          decided={[]}
+          canDecide
+          onDecide={vi.fn()}
+          activeBoardId={null}
+          onOpenBoard={vi.fn()}
+          git={{
+            canApprove: true,
+            hasAccount: true,
+            userId: '9e111111-1111-4111-8111-111111111111',
+            busy: false,
+            onApprove,
+            onEnd: vi.fn(),
+            onConnect: vi.fn(),
+            onOpenReview,
+            requests,
+          }}
+          reviews={deviatingReviews(reviews)}
+          onOpenReview={onOpenReview}
+        />
+      </TooltipProvider>,
+    );
+    return {
+      onOpenReview,
+      onApprove,
+      section: screen.getByRole('region', { name: 'Wartet auf dich' }),
+    };
+  }
+
+  it('is the moderator’s card to approve, and shows the review it posts', () => {
+    const waiting = comment();
+    const { section, onOpenReview, onApprove } = renderWaiting([waiting]);
+
+    const [card] = within(section).getAllByRole('listitem');
+    if (!card) throw new Error('The card is missing');
+    expect(card).toHaveTextContent('Moderator· Freigabe');
+    expect(card).toHaveTextContent(
+      'Review von !7: 1 Abweichung als Kommentar in vereins-app posten',
+    );
+    // It is something to decide, so it is counted.
+    expect(within(section).getByLabelText('1 offen')).toHaveTextContent('1');
+
+    fireEvent.click(within(card).getByRole('button', { name: 'Review ansehen' }));
+    expect(onOpenReview).toHaveBeenCalledExactlyOnceWith(REVIEW);
+    fireEvent.click(within(card).getByRole('button', { name: 'Freigeben' }));
+    expect(onApprove).toHaveBeenCalledExactlyOnceWith([waiting.id]);
+  });
+
+  it('stands for its review while it waits, runs or failed', () => {
+    for (const state of ['waiting', 'running', 'failed'] as const) {
+      const { section } = renderWaiting(
+        [comment()],
+        [review({ comment: { requestId: comment().id, state, url: null } })],
+      );
+
+      // One card: the request's. The review's own card rests.
+      expect(section).toHaveTextContent('als Kommentar in vereins-app posten');
+      expect(section).not.toHaveTextContent('weicht von der Architektur ab');
+      cleanup();
+    }
+  });
+
+  it('gives way to the review’s card once the comment is posted, which says so', () => {
+    const url = `${REPOSITORY_URL}/-/merge_requests/7#note_12`;
+    const done = comment({
+      status: 'done',
+      finishedAt: new Date().toISOString(),
+      actions: [{ ...ACTION, status: 'done', result: { number: 7, url, existed: false } }],
+    });
+    const { section } = renderWaiting(
+      [done],
+      [review({ comment: { requestId: done.id, state: 'done', url } })],
+    );
+
+    expect(section).toHaveTextContent('!7 Login per Link weicht von der Architektur ab');
+    expect(section).toHaveTextContent('In GitLab kommentiert');
+    // The request that is done is a line with a check, like every Git request.
+    expect(section).toHaveTextContent('Review von !7: 1 Abweichung in vereins-app kommentiert');
   });
 });
 

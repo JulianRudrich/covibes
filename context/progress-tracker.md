@@ -9,7 +9,7 @@
 Polish the product (M7, specs 31 to 36): limits and usage first. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing at the moment. Spec 32 (English) is done with part 32b; spec 33 (onboarding and empty states) is next.
+**Spec 33 onboarding and empty states** (worked out on 2026-10-10): every empty place says what it is for and offers its first step, instead of a tour: the project list without projects welcomes with three steps and the button for the first project, the empty chat offers three first messages to the moderator, the empty canvas says how to start, and the empty sections of the overview say how they fill. Built with derived looks (owner decision); the final design of login and project list comes with spec 36.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

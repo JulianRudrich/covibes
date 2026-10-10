@@ -9,7 +9,7 @@
 Polish the product (M7, specs 31 to 36): limits and usage first. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing at the moment. Spec 30 is complete with part 30c, and with it M6 (GitLab). Next is M7 (polish), starting with spec 31 (limits and usage).
+**Spec 31a usage and limits** (worked out on 2026-10-10): the costs of the AI are metered per project and person, the worker checks two limits before every model call (100 USD per project and month, 15 USD per person and day by default), and a limit shows as a clear message while everything else keeps working. Part 31b (the usage overview for owners) follows.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

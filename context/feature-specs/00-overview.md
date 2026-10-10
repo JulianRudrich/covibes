@@ -287,6 +287,10 @@ Built in three parts (2026-10-10), because the unit is large:
 ## M7: Polish
 
 ### 31 Limits and usage
+Built in two parts (2026-10-10):
+- **31a** usage and limits: costs per project and person are metered, the worker checks the limits before every model call (owner decision: estimated costs in USD, 100 USD per project and month and 15 USD per person and day by default), and a limit shows as a clear message
+- **31b** the usage overview for owners: in total, per agent, per person and per day, as a share of the limit and in USD (owner decision)
+
 - **Goal:** limits per project and user, a clear message when a limit is reached and a usage overview for owners.
 - **Needs:** 07
 - **Design:** **required:** usage overview

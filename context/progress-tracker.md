@@ -9,7 +9,7 @@
 Polish the product (M7, specs 31 to 36): limits and usage first. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing at the moment. Spec 32a (the language of the interface) is done; part 32b (the language of a project) is next.
+**Spec 32b the language of a project** (worked out on 2026-10-10): a project is written in German or English. Its creator chooses the language in the dialog "Neues Projekt", which proposes the language of their interface, and owners change it in the project settings. Plan, exports, the package and Git texts follow it from then on; what is written stays. It is the last part of spec 32.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

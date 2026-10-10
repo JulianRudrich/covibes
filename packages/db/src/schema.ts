@@ -85,6 +85,7 @@ export interface AiRuns {
   started_at: Timestamp | null;
   status: Generated<string>;
   trigger_message_id: string | null;
+  user_id: string | null;
   web_searches: Generated<number>;
 }
 
@@ -607,6 +608,19 @@ export interface Tasks {
   title: Generated<string>;
 }
 
+export interface Usage {
+  agent_key: string;
+  cost_usd: Generated<Numeric>;
+  day: Timestamp;
+  input_tokens: Generated<Int8>;
+  kind: string;
+  model: Generated<string>;
+  output_tokens: Generated<Int8>;
+  project_id: string;
+  runs: Generated<number>;
+  user_id: string | null;
+}
+
 export interface Users {
   created_at: Generated<Timestamp>;
   email: string;
@@ -702,6 +716,7 @@ export interface DB {
   sessions: Sessions;
   share_links: ShareLinks;
   tasks: Tasks;
+  usage: Usage;
   users: Users;
   verifications: Verifications;
   vote_ballots: VoteBallots;

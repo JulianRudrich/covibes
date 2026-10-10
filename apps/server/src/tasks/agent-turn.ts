@@ -63,6 +63,7 @@ import {
   type DecisionContext,
 } from '@server/tasks/run-decisions';
 import { phaseWriter } from '@server/tasks/run-phase';
+import { UsageLimitError, type UsageGuard, type UsageLimitScope } from '@server/usage/limits';
 import { loadTeam, teamWriter, type TeamContext } from '@server/tasks/run-team';
 import { addAgentsTool } from '@server/tools/add-agents';
 import { addBlockTool } from '@server/tools/add-block';
@@ -152,24 +153,48 @@ const NOTES: Record<Language, Record<'done' | 'retry' | 'failed' | 'unavailable'
  * is stored once and read in any time zone.
  */
 export function quotaNote(language: Language, resetsAt: Date | null, now: Date): string {
-  const minutes = resetsAt
-    ? Math.max(1, Math.ceil((resetsAt.getTime() - now.getTime()) / 60_000))
-    : 0;
   if (language === 'en') {
     if (!resetsAt) return 'The AI quota is used up right now. Please mention me again later.';
-    const wait =
-      minutes < 90
-        ? `${String(minutes)} ${minutes === 1 ? 'minute' : 'minutes'}`
-        : `${String(Math.round(minutes / 60))} hours`;
-    return `The AI quota is used up right now and will be free again in about ${wait}. Please mention me again then.`;
+    return `The AI quota is used up right now and will be free again in about ${waitText(language, resetsAt, now)}. Please mention me again then.`;
   }
   if (!resetsAt)
     return 'Das KI-Kontingent ist gerade aufgebraucht. Erwähne mich bitte später noch einmal.';
-  const wait =
-    minutes < 90
-      ? `${String(minutes)} ${minutes === 1 ? 'Minute' : 'Minuten'}`
-      : `${String(Math.round(minutes / 60))} Stunden`;
-  return `Das KI-Kontingent ist gerade aufgebraucht und in etwa ${wait} wieder frei. Erwähne mich dann bitte noch einmal.`;
+  return `Das KI-Kontingent ist gerade aufgebraucht und in etwa ${waitText(language, resetsAt, now)} wieder frei. Erwähne mich dann bitte noch einmal.`;
+}
+
+/** How long it is until a point in time, in words: minutes, hours, or days. */
+function waitText(language: Language, until: Date, now: Date): string {
+  const minutes = Math.max(1, Math.ceil((until.getTime() - now.getTime()) / 60_000));
+  const hours = Math.round(minutes / 60);
+  const days = Math.round(minutes / (60 * 24));
+  if (language === 'en') {
+    if (minutes < 90) return `${String(minutes)} ${minutes === 1 ? 'minute' : 'minutes'}`;
+    return hours < 48 ? `${String(hours)} hours` : `${String(days)} days`;
+  }
+  if (minutes < 90) return `${String(minutes)} ${minutes === 1 ? 'Minute' : 'Minuten'}`;
+  return hours < 48 ? `${String(hours)} Stunden` : `${String(days)} Tagen`;
+}
+
+/**
+ * The note for a limit of the AI that Covibes sets itself (spec 31a): the project's month, or the
+ * day of the person the agent was asked by. Like the note for the provider's quota it names a
+ * duration, and it says that nothing else pauses.
+ */
+export function usageLimitNote(
+  language: Language,
+  scope: UsageLimitScope,
+  resetsAt: Date,
+  now: Date,
+): string {
+  const wait = waitText(language, resetsAt, now);
+  if (language === 'en') {
+    return scope === 'project'
+      ? `This project has reached its AI limit for this month. It is free again in about ${wait}; please mention me again then. Everything else in Covibes keeps working, and owners find the usage in the project's menu.`
+      : `You have reached your AI limit for today. It is free again in about ${wait}; please mention me again then. Everything else in Covibes keeps working.`;
+  }
+  return scope === 'project'
+    ? `Das KI-Limit dieses Projekts für diesen Monat ist erreicht. In etwa ${wait} ist es wieder frei; erwähne mich dann bitte noch einmal. Alles andere in Covibes geht weiter, und Owner finden den Verbrauch im Projektmenü.`
+    : `Dein KI-Limit für heute ist erreicht. In etwa ${wait} ist es wieder frei; erwähne mich dann bitte noch einmal. Alles andere in Covibes geht weiter.`;
 }
 
 export type AgentTurnDeps = {
@@ -190,6 +215,8 @@ export type AgentTurnDeps = {
    * actions.
    */
   gitRequests?: AgentGitRequestsFor;
+  /** Checks the limits of the AI before the model call (spec 31a); without it nothing is limited. */
+  limits?: UsageGuard;
   /** The gateway's `streamAgentReply`; tests pass a scripted model. */
   reply: (request: AgentReplyRequest) => Promise<AgentReplyResult>;
   /** The gateway's `completeText`, for the intent of the triggering message (spec 13). */
@@ -411,6 +438,7 @@ export async function runAgentTurn(
       'decision_id',
       'debate_id',
       'debate_round',
+      'user_id',
     ])
     .where('id', '=', runId)
     .where('kind', '=', 'reply')
@@ -470,6 +498,8 @@ export async function runAgentTurn(
 
   const messageId = await startRun(deps.admin, run, agent);
   try {
+    // At a limit of the AI the agent answers with one sentence instead of calling its model.
+    await deps.limits?.({ projectId: run.projectId, userId: row.user_id });
     const result = await converse(
       deps,
       {
@@ -506,11 +536,13 @@ export async function runAgentTurn(
       error instanceof GatewayLimitError ||
       attempt.attempt >= attempt.maxAttempts;
     const note =
-      error instanceof GatewayLimitError
-        ? quotaNote(language, error.resetsAt, new Date())
-        : error instanceof GatewayConfigError
-          ? NOTES[language].unavailable
-          : NOTES[language][final ? 'failed' : 'retry'];
+      error instanceof UsageLimitError
+        ? usageLimitNote(language, error.scope, error.resetsAt ?? new Date(), new Date())
+        : error instanceof GatewayLimitError
+          ? quotaNote(language, error.resetsAt, new Date())
+          : error instanceof GatewayConfigError
+            ? NOTES[language].unavailable
+            : NOTES[language][final ? 'failed' : 'retry'];
     await failRun(deps.admin, run, messageId, { final, note, reason: describe(error) });
     if (!final) throw error;
     deps.logger.error(`Run ${run.id} failed for good: ${describe(error)}`);

@@ -4,6 +4,7 @@ import {
   formatClockTime,
   formatLongDate,
   formatRelativeTime,
+  formatUntil,
   initialsOf,
   isSameLocalDay,
 } from './format';
@@ -68,5 +69,26 @@ describe('formatLongDate', () => {
   it('writes the date out in the language', () => {
     expect(formatLongDate(local(2026, 8, 28, 14, 5), 'de')).toBe('28. September 2026');
     expect(formatLongDate(local(2026, 8, 28, 14, 5), 'en')).toBe('September 28, 2026');
+  });
+});
+
+describe('formatUntil', () => {
+  const now = Date.parse(local(2026, 9, 10, 10, 0));
+
+  it('names the time for later today', () => {
+    expect(formatUntil(local(2026, 9, 10, 14, 5), 'de', now)).toBe('14:05');
+    expect(formatUntil(local(2026, 9, 10, 14, 5), 'en', now)).toMatch(/^2:05\sPM$/);
+  });
+
+  it('names the day with the time for tomorrow, e.g. where a day of UTC ends at night', () => {
+    expect(formatUntil(local(2026, 9, 11, 2, 0), 'de', now)).toBe('11. Oktober um 02:00');
+    expect(formatUntil(local(2026, 9, 11, 2, 0), 'en', now)).toMatch(/^October 11 at 02:00\sAM$/);
+  });
+
+  it('names the day alone when it is further away, like the start of a month', () => {
+    expect(formatUntil(local(2026, 10, 1, 1, 0), 'de', now)).toBe('1. November');
+    expect(formatUntil(local(2026, 10, 1, 1, 0), 'en', now)).toBe('November 1');
+    // The day after tomorrow is far enough for the day alone.
+    expect(formatUntil(local(2026, 9, 12, 2, 0), 'de', now)).toBe('12. Oktober');
   });
 });

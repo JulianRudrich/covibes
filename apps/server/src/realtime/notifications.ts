@@ -39,6 +39,8 @@ export const liveNotificationSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('package'), projectId: z.uuid() }),
   // The project's connection to GitLab changed (spec 28a); a trigger sends it.
   z.object({ kind: z.literal('git'), projectId: z.uuid() }),
+  // A run cost something (spec 31a); the trigger that meters the runs sends it.
+  z.object({ kind: z.literal('usage'), projectId: z.uuid() }),
 ]);
 export type LiveNotification = z.infer<typeof liveNotificationSchema>;
 
@@ -79,6 +81,8 @@ export async function toLiveEvent(admin: Kysely<DB>, notification: LiveNotificat
       return { type: 'package' as const };
     case 'git':
       return { type: 'git' as const };
+    case 'usage':
+      return { type: 'usage' as const };
   }
 }
 

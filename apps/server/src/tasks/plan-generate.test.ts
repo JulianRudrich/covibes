@@ -21,6 +21,7 @@ import {
 } from '@server/tasks/plan-generate';
 import { memoryBoards } from '@server/test-boards';
 import { APP_URL, createTestServer } from '@server/testing';
+import { UsageLimitError, type UsageGuard } from '@server/usage/limits';
 
 // The generation of the plan (spec 25b), with a scripted model.
 const test = createTestServer();
@@ -570,5 +571,35 @@ describe('buildPlanPrompt', () => {
     expect(prompt).toContain('- Hosting: a vote is open');
     expect(prompt).toContain('- Aufbau: variants wait for the team');
     expect(prompt).toContain(`Sam: ${'x'.repeat(499)}…\n`);
+  });
+});
+
+/** A check of the limits that finds one reached (spec 31a). */
+function atLimit(
+  scope: 'project' | 'user' = 'project',
+  resetsAt = new Date('2026-11-01T00:00:00Z'),
+) {
+  return vi.fn<UsageGuard>(() => Promise.reject(new UsageLimitError(scope, resetsAt)));
+}
+
+describe('a generation at a limit of the AI (spec 31a)', () => {
+  it('asks no model, changes nothing, and says when the limit is free again', async () => {
+    const { projectId, start } = await createProject();
+    const runId = await start();
+    const { deps, complete } = planDeps(ANSWER);
+    const limits = atLimit();
+
+    expect(await generatePlan({ ...deps, limits }, { runId })).toBe('failed');
+
+    expect(complete).not.toHaveBeenCalled();
+    const run = await runOf(runId);
+    expect(run.user_id).not.toBeNull();
+    expect(limits).toHaveBeenCalledExactlyOnceWith({ projectId, userId: run.user_id });
+    expect(run.status).toBe('error');
+    expect(decodePlanFailure(run.error)).toEqual({
+      kind: 'quota',
+      resetsAt: '2026-11-01T00:00:00.000Z',
+    });
+    expect(await suggestionsOf(projectId)).toEqual([]);
   });
 });

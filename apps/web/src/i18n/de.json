@@ -1265,5 +1265,11 @@
       "files_other": "{{count}} Dateien anzeigen",
       "download": "Paket herunterladen"
     }
+  },
+  "usage": {
+    "limit": {
+      "project": "Das KI-Limit dieses Projekts für diesen Monat ist erreicht. Die Agents antworten wieder ab {{time}}; alles andere geht weiter.",
+      "user": "Dein KI-Limit für heute ist erreicht. Die Agents antworten dir wieder ab {{time}}; alles andere geht weiter."
+    }
   }
 }

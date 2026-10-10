@@ -7,7 +7,7 @@ import { AgentAvatar } from '@web/features/agents/agent-avatar';
 import { agentClass, useAgents } from '@web/features/agents/agents';
 import { AGENT_DARK_TEXT, AGENT_PROPOSAL } from '@web/features/canvas/agent-look';
 import { cn } from '@web/lib/cn';
-import { formatClockTime } from '@web/lib/format';
+import { formatUntil } from '@web/lib/format';
 
 const TEXT_BUTTON =
   'cursor-pointer rounded-sm text-small text-text-3 underline-offset-2 hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:pointer-events-none disabled:opacity-50';
@@ -114,7 +114,7 @@ export function PackageSuggestionNote({
           {failure.kind === 'quota'
             ? failure.resetsAt
               ? t('export.package.suggestion.quotaUntil', {
-                  time: formatClockTime(failure.resetsAt, i18n.language),
+                  time: formatUntil(failure.resetsAt, i18n.language),
                 })
               : t('export.package.suggestion.quota')
             : t('export.package.suggestion.failed')}

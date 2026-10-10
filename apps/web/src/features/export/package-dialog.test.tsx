@@ -12,6 +12,12 @@ vi.mock('@web/features/export/download', () => ({ downloadBlob: vi.fn(), downloa
 
 const PROJECT_ID = '7b6a0b52-8f55-4c4e-9f6b-4ad2b3b3c0de';
 const BASE = `/api/projects/${PROJECT_ID}/package`;
+/** A quota that is free again later today reads as a time; on another day it reads as that day. */
+const LATER_TODAY = (() => {
+  const at = new Date();
+  at.setHours(23, 30, 0, 0);
+  return at.toISOString();
+})();
 
 const OVERVIEW: CodingPackageOverview = {
   hasPlan: true,
@@ -503,7 +509,7 @@ describe('the moderator’s suggestions in the PackageDialog (spec 27c)', () => 
         code_standards: { status: 'failed', failure: { kind: 'failed', resetsAt: null } },
         ui_direction: {
           status: 'failed',
-          failure: { kind: 'quota', resetsAt: '2026-10-03T20:30:00.000Z' },
+          failure: { kind: 'quota', resetsAt: LATER_TODAY },
         },
       },
     });
@@ -684,7 +690,7 @@ describe('the feature specs in the PackageDialog (spec 27d)', () => {
           written: 0,
           run: {
             status: 'failed',
-            failure: { kind: 'quota', resetsAt: '2026-10-03T20:30:00.000Z' },
+            failure: { kind: 'quota', resetsAt: LATER_TODAY },
           },
         },
       ],

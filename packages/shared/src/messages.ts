@@ -116,5 +116,7 @@ export const liveEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('package') }),
   // The project's connection to GitLab changed (spec 28a).
   z.object({ type: z.literal('git') }),
+  // The usage of the AI changed (spec 31a): a limit may be reached, or free again.
+  z.object({ type: z.literal('usage') }),
 ]);
 export type LiveEvent = z.infer<typeof liveEventSchema>;

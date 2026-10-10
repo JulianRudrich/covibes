@@ -14,6 +14,7 @@ import {
   type AwaySummaryDeps,
 } from '@server/tasks/away-summary';
 import { APP_URL, createTestServer } from '@server/testing';
+import { UsageLimitError, type UsageGuard } from '@server/usage/limits';
 
 // The moderator's words for someone who comes back (spec 23).
 const test = createTestServer();
@@ -339,5 +340,49 @@ describe('the context of a summary', () => {
     expect(hour).toContain(`Sam: ${'x'.repeat(699)}…\n`);
     const days = buildSummaryPrompt({ ...base, from, until: new Date('2026-10-04T08:00:00.000Z') });
     expect(days).toContain('(about 3 days)');
+  });
+});
+
+/** A check of the limits that finds one reached (spec 31a). */
+function atLimit(
+  scope: 'project' | 'user' = 'project',
+  resetsAt = new Date('2026-11-01T00:00:00Z'),
+) {
+  return vi.fn<UsageGuard>(() => Promise.reject(new UsageLimitError(scope, resetsAt)));
+}
+
+describe('a summary at a limit of the AI (spec 31a)', () => {
+  it('comes without the moderator’s text, and asks no model', async () => {
+    const away = await absence(({ olga, projectId }) => five(olga.cookie, projectId));
+    const { deps, complete } = summaryDeps('Olga und das Team haben viel besprochen.');
+    const limits = atLimit('user');
+
+    expect(await writeAwaySummary({ ...deps, limits }, away.payload)).toBe('failed');
+
+    expect(complete).not.toHaveBeenCalled();
+    // The summary is the run of the person it is written for.
+    expect(limits).toHaveBeenCalledExactlyOnceWith({
+      projectId: away.projectId,
+      userId: away.alex.id,
+    });
+    expect(await summaryOf(away.projectId, away.alex.id)).toEqual({
+      text: null,
+      text_status: 'failed',
+    });
+    expect(await runsOf(away.projectId)).toEqual([]);
+  });
+
+  it('is metered for the person it is written for', async () => {
+    const away = await absence(({ olga, projectId }) => five(olga.cookie, projectId));
+
+    await writeAwaySummary(summaryDeps('Viel ist passiert.').deps, away.payload);
+
+    const runs = await test.db.admin
+      .selectFrom('ai_runs')
+      .select(['kind', 'user_id'])
+      .where('project_id', '=', away.projectId)
+      .where('kind', '=', 'summary')
+      .execute();
+    expect(runs).toEqual([{ kind: 'summary', user_id: away.alex.id }]);
   });
 });

@@ -150,16 +150,28 @@ describe('PlanSuggestions', () => {
     );
     quota.unmount();
 
-    render(
+    const today = new Date();
+    today.setHours(22, 30, 0, 0);
+    const timed = render(
       <PlanSuggestions
-        state={{
-          ...QUIET,
-          failure: { kind: 'quota', resetsAt: new Date(2026, 9, 2, 22, 30).toISOString() },
-        }}
+        state={{ ...QUIET, failure: { kind: 'quota', resetsAt: today.toISOString() } }}
         language="de"
       />,
     );
     expect(screen.getByRole('alert')).toHaveTextContent('und ab 22:30 wieder frei');
+    timed.unmount();
+
+    // A limit of Covibes itself (spec 31a) can be free only weeks from now: then the day is named.
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 1, 2, 0);
+    render(
+      <PlanSuggestions
+        state={{ ...QUIET, failure: { kind: 'quota', resetsAt: nextMonth.toISOString() } }}
+        language="de"
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      `und ab ${new Intl.DateTimeFormat('de', { day: 'numeric', month: 'long' }).format(nextMonth)} wieder frei`,
+    );
   });
 
   it('is nothing while nothing waits', () => {

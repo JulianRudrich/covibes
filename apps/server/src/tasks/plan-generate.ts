@@ -29,6 +29,7 @@ import { notifyLive } from '@server/realtime/notifications';
 import { describeCanvas } from '@server/tasks/agent-turn';
 import { loadDecisionContext, type DecisionContext } from '@server/tasks/run-decisions';
 import { loadTeam } from '@server/tasks/run-team';
+import type { UsageGuard } from '@server/usage/limits';
 
 /** Name of the job the database queues for "Plan erzeugen" and "Aktualisieren" (migration 0024). */
 export const PLAN_GENERATE_TASK = 'plan_generate';
@@ -63,6 +64,8 @@ export type PlanGenerateDeps = {
     prompt: string;
     signal?: AbortSignal;
   }) => Promise<AgentReplyResult>;
+  /** Checks the limits of the AI before the model call (spec 31a); without it nothing is limited. */
+  limits?: UsageGuard;
   logger: { error: (message: string) => void };
   signal?: AbortSignal;
 };
@@ -243,7 +246,7 @@ export async function generatePlan(
     .where('id', '=', runId)
     .where('kind', '=', 'plan')
     .where('status', '=', 'queued')
-    .returning(['project_id', 'created_at'])
+    .returning(['project_id', 'created_at', 'user_id'])
     .executeTakeFirst();
   if (!run) return 'gone';
   const projectId = run.project_id;
@@ -349,6 +352,7 @@ export async function generatePlan(
     // The owner's choice for the moderator in this project, or the catalog default.
     const model = team.members.find((member) => member.key === MODERATOR.key)?.model;
 
+    await deps.limits?.({ projectId, userId: run.user_id });
     const result = await deps.complete({
       model: model ?? MODERATOR.model,
       system: kind === 'update' ? PLAN_UPDATE_PROMPT : PLAN_PROMPT,
@@ -462,7 +466,7 @@ export async function generatePlan(
 
 /** The Graphile Worker task for `plan_generate`. */
 export function planGenerateTask(
-  deps: Pick<PlanGenerateDeps, 'admin' | 'boards' | 'complete'>,
+  deps: Pick<PlanGenerateDeps, 'admin' | 'boards' | 'complete' | 'limits'>,
 ): Task {
   return async (payload, helpers) => {
     await generatePlan({ ...deps, logger: helpers.logger, signal: helpers.abortSignal }, payload);

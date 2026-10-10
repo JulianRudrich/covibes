@@ -10,6 +10,7 @@ import { projectQuery } from '@web/features/projects/queries';
 import { proposalsQuery } from '@web/features/proposals/queries';
 import { gitReviewsQuery } from '@web/features/git/request-queries';
 import { roadmapQuery } from '@web/features/roadmap/queries';
+import { usageStateQuery } from '@web/features/usage/queries';
 import { openVotesQuery } from '@web/features/decisions/queries';
 import { notificationsQuery } from '@web/features/notifications/queries';
 import { useProjectLive } from '@web/features/workspace/use-project-live';
@@ -403,6 +404,26 @@ describe('useProjectLive', () => {
 
     await waitFor(() => {
       expect(queryClient.getQueryState(gitReviewsQuery(PROJECT_ID).queryKey)?.isInvalidated).toBe(
+        true,
+      );
+    });
+  });
+
+  it('loads the state of the limits again when a run cost something (spec 31a)', async () => {
+    const free = { reached: false, resetsAt: null };
+    stubApi({
+      [`GET ${PROJECT_URL}`]: () => ({ body: DETAILS }),
+      [`GET ${PROJECT_URL}/usage/state`]: () => ({ body: { project: free, user: free } }),
+    });
+    const queryClient = renderLive();
+    await queryClient.query(usageStateQuery(PROJECT_ID));
+
+    act(() => {
+      live.handlers?.onEvent({ type: 'usage' });
+    });
+
+    await waitFor(() => {
+      expect(queryClient.getQueryState(usageStateQuery(PROJECT_ID).queryKey)?.isInvalidated).toBe(
         true,
       );
     });

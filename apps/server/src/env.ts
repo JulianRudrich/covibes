@@ -1,6 +1,8 @@
 import { COLLAB_PATH, defineEnv } from '@covibes/shared';
 import { z } from 'zod';
 
+import { usageLimitsEnv } from '@server/usage/limits';
+
 export const serverEnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -54,6 +56,11 @@ export const serverEnvSchema = z
      * `.data/files` in the repository; the built server has no repository around it.
      */
     FILES_DIR: z.string().min(1).optional(),
+    /**
+     * The limits of the AI (spec 31a), shared with the worker, which checks them before every
+     * model call; the server says with them whether a limit is reached.
+     */
+    ...usageLimitsEnv,
   })
   .refine((env) => Boolean(env.GITLAB_CLIENT_ID) === Boolean(env.GITLAB_CLIENT_SECRET), {
     message: 'GITLAB_CLIENT_ID and GITLAB_CLIENT_SECRET must be set together',

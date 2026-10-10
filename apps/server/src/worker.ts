@@ -28,6 +28,7 @@ import { AWAY_SUMMARY_TASK, awaySummaryTask } from '@server/tasks/away-summary';
 import { GIT_REQUEST_TASK, gitRequestTask } from '@server/tasks/git-request';
 import { GIT_SYNC_TASK, gitSyncTask } from '@server/tasks/git-sync';
 import { MR_REVIEW_TASK, mrReviewTask } from '@server/tasks/mr-review';
+import { usageGuard, usageLimitsOf } from '@server/usage/limits';
 import { NOTIFICATION_MAIL_TASK, notificationMailTask } from '@server/tasks/notification-mails';
 import { OBSERVE_TASK, observeTask } from '@server/tasks/observe';
 import { PACKAGE_SPECS_TASK, packageSpecsTask } from '@server/tasks/package-specs';
@@ -103,6 +104,9 @@ const packageReaders: PackageReaders = {
     boards.withBoard(boardId, (doc) => ({ nodes: readNodes(doc), edges: readEdges(doc) })),
 };
 
+// The limits of the AI (spec 31a): every job that calls a model checks them first.
+const limits = usageGuard(admin, usageLimitsOf(env));
+
 const released = await releaseAbandonedJobs(pgPool);
 if (released > 0) {
   console.log(`Covibes worker: resumed the jobs of ${String(released)} ended worker(s)`);
@@ -132,16 +136,17 @@ const runner = await run({
             }),
           }
         : {}),
+      limits,
       reply: streamAgentReply,
       complete: completeText,
     }),
-    [OBSERVE_TASK]: observeTask({ admin, complete: completeText }),
+    [OBSERVE_TASK]: observeTask({ admin, complete: completeText, limits }),
     // The moderator writes the project plan as suggestions per section (spec 25b).
-    [PLAN_GENERATE_TASK]: planGenerateTask({ admin, boards, complete: completeText }),
+    [PLAN_GENERATE_TASK]: planGenerateTask({ admin, boards, complete: completeText, limits }),
     // The moderator suggests a text of the package for coding agents (spec 27c).
-    [PACKAGE_SUGGEST_TASK]: packageSuggestTask({ admin, complete: completeText }),
+    [PACKAGE_SUGGEST_TASK]: packageSuggestTask({ admin, complete: completeText, limits }),
     // The moderator writes the feature specs of a milestone out (spec 27d).
-    [PACKAGE_SPECS_TASK]: packageSpecsTask({ admin, boards, complete: completeText }),
+    [PACKAGE_SPECS_TASK]: packageSpecsTask({ admin, boards, complete: completeText, limits }),
     // An approved Git request runs with the access of who approved it (spec 29b). Without a
     // GitLab nobody has an account, so nothing can be approved and no such job exists.
     ...(gitConnections
@@ -168,11 +173,12 @@ const runner = await run({
             repository,
             packageInput: (projectId) => gatherPackageInput(admin, packageReaders, projectId),
             complete: completeText,
+            limits,
           }),
         }
       : {}),
     // The moderator sums up the conversation for a member who comes back (spec 23).
-    [AWAY_SUMMARY_TASK]: awaySummaryTask({ admin, complete: completeText }),
+    [AWAY_SUMMARY_TASK]: awaySummaryTask({ admin, complete: completeText, limits }),
     // Sums up by mail what a person has not seen in the app (spec 22b).
     [NOTIFICATION_MAIL_TASK]: notificationMailTask({
       admin,

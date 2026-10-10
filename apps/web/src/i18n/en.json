@@ -1265,5 +1265,11 @@
       "files_other": "Show {{count}} files",
       "download": "Download package"
     }
+  },
+  "usage": {
+    "limit": {
+      "project": "This project has reached its AI limit for this month. The agents answer again from {{time}}; everything else keeps working.",
+      "user": "You have reached your AI limit for today. The agents answer you again from {{time}}; everything else keeps working."
+    }
   }
 }

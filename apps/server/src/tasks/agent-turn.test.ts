@@ -39,6 +39,7 @@ import {
   quotaNote,
   runAgentTurn,
   splitText,
+  usageLimitNote,
   type AgentTurnDeps,
 } from '@server/tasks/agent-turn';
 import { memoryStorage, type FileStorage } from '@server/storage/storage';
@@ -47,6 +48,7 @@ import type { RepositoryReader, RepositoryReaders } from '@server/integrations/g
 import { memoryBoards } from '@server/test-boards';
 import { PNG } from '@server/test-files';
 import { createTestServer } from '@server/testing';
+import { UsageLimitError, type UsageGuard } from '@server/usage/limits';
 import type { PageReader } from '@server/tools/read-link';
 
 const test = createTestServer();
@@ -483,9 +485,110 @@ describe('a used-up quota', () => {
   });
 });
 
+describe('a limit of the AI (spec 31a)', () => {
+  it('lets the agent answer with one sentence instead of calling its model', async () => {
+    const { runId, messageId } = await projectWithRequest();
+    const { boards } = memoryBoards();
+    const { deps, reply: model, complete } = turnDeps(drawsApi, boards);
+    const author = await test.db.admin
+      .selectFrom('messages')
+      .select(['author_user_id', 'project_id'])
+      .where('id', '=', messageId)
+      .executeTakeFirstOrThrow();
+    const limits = vi.fn<UsageGuard>(() =>
+      Promise.reject(new UsageLimitError('project', new Date(Date.now() + 20 * 24 * 60 * 60_000))),
+    );
+
+    await runAgentTurn({ ...deps, limits }, { runId }, FIRST_ATTEMPT);
+
+    // Neither the agent's model nor the small one that reads the intent was asked.
+    expect(model).not.toHaveBeenCalled();
+    expect(complete).not.toHaveBeenCalled();
+    // The run is the run of who mentioned the agent, and is checked for them.
+    expect(limits).toHaveBeenCalledExactlyOnceWith({
+      projectId: author.project_id,
+      userId: author.author_user_id,
+    });
+    expect(await reply(runId)).toMatchObject({
+      status: 'error',
+      content:
+        'Das KI-Limit dieses Projekts für diesen Monat ist erreicht. In etwa 20 Tagen ist es wieder frei; erwähne mich dann bitte noch einmal. Alles andere in Covibes geht weiter, und Owner finden den Verbrauch im Projektmenü.',
+    });
+    const run = await loadRun(runId);
+    expect(run).toMatchObject({ status: 'error', user_id: author.author_user_id });
+    expect(Number(run.cost_usd)).toBe(0);
+  });
+
+  it('says so to the person whose own day is used up', async () => {
+    const { runId } = await projectWithRequest();
+    const { boards } = memoryBoards();
+    const { deps } = turnDeps(drawsApi, boards);
+    const limits = vi.fn<UsageGuard>(() =>
+      Promise.reject(new UsageLimitError('user', new Date(Date.now() + 5 * 60 * 60_000))),
+    );
+
+    // The first attempt already gives up: the limit is not free in a few seconds.
+    await runAgentTurn({ ...deps, limits }, { runId }, FIRST_ATTEMPT);
+
+    expect((await reply(runId)).content).toBe(
+      'Dein KI-Limit für heute ist erreicht. In etwa 5 Stunden ist es wieder frei; erwähne mich dann bitte noch einmal. Alles andere in Covibes geht weiter.',
+    );
+  });
+
+  it('answers as always below the limits', async () => {
+    const { runId } = await projectWithRequest();
+    const { boards } = memoryBoards();
+    const { deps, reply: model } = turnDeps(drawsApi, boards);
+    const limits = vi.fn<UsageGuard>(() => Promise.resolve());
+
+    await runAgentTurn({ ...deps, limits }, { runId }, FIRST_ATTEMPT);
+
+    expect(limits).toHaveBeenCalledOnce();
+    expect(model).toHaveBeenCalledOnce();
+    expect(await loadRun(runId)).toMatchObject({ status: 'done' });
+  });
+});
+
+describe('usageLimitNote', () => {
+  const now = new Date('2026-10-10T10:00:00.000Z');
+  const later = (hours: number) => new Date(now.getTime() + hours * 60 * 60_000);
+
+  it('names the limit and how long it lasts, in the project’s language', () => {
+    expect(usageLimitNote('de', 'project', later(21 * 24 + 14), now)).toContain(
+      'Das KI-Limit dieses Projekts für diesen Monat ist erreicht. In etwa 22 Tagen ist es wieder frei',
+    );
+    expect(usageLimitNote('de', 'user', later(14), now)).toContain(
+      'Dein KI-Limit für heute ist erreicht. In etwa 14 Stunden ist es wieder frei',
+    );
+    expect(usageLimitNote('en', 'project', later(3 * 24), now)).toContain(
+      'This project has reached its AI limit for this month. It is free again in about 3 days',
+    );
+    expect(usageLimitNote('en', 'user', later(0.5), now)).toContain(
+      'You have reached your AI limit for today. It is free again in about 30 minutes',
+    );
+  });
+
+  it('says that nothing else pauses', () => {
+    for (const scope of ['project', 'user'] as const) {
+      expect(usageLimitNote('de', scope, later(2), now)).toContain(
+        'Alles andere in Covibes geht weiter',
+      );
+      expect(usageLimitNote('en', scope, later(2), now)).toContain(
+        'Everything else in Covibes keeps working',
+      );
+    }
+  });
+});
+
 describe('quotaNote', () => {
   const now = new Date('2026-09-30T10:00:00.000Z');
   const later = (minutes: number) => new Date(now.getTime() + minutes * 60_000);
+
+  it('names days once the wait is two days or longer', () => {
+    expect(quotaNote('de', later(47 * 60), now)).toContain('in etwa 47 Stunden wieder frei');
+    expect(quotaNote('de', later(48 * 60), now)).toContain('in etwa 2 Tagen wieder frei');
+    expect(quotaNote('en', later(5 * 24 * 60), now)).toContain('free again in about 5 days');
+  });
 
   it('names minutes below one and a half hours, then hours', () => {
     expect(quotaNote('de', later(1), now)).toContain('in etwa 1 Minute wieder frei');

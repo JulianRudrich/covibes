@@ -29,6 +29,7 @@ import { runGitRequest } from '@server/tasks/git-request';
 import { runGitSync } from '@server/tasks/git-sync';
 import { REVIEW_MODEL, reviewMergeRequest, type MrReviewDeps } from '@server/tasks/mr-review';
 import { APP_URL, createTestServer } from '@server/testing';
+import { UsageLimitError } from '@server/usage/limits';
 
 // Reviews of merge requests against the architecture (spec 30b): issues and a merge request in
 // the stand-in, the reading of the repository's state that starts the review, the worker's job
@@ -207,7 +208,7 @@ function result(text: string): AgentReplyResult {
 }
 
 /** The worker's job that writes a review, with a model that answers `answer`. */
-function reviewer(answer: string | Error = DEVIATES) {
+function reviewer(answer: string | Error = DEVIATES, limits?: MrReviewDeps['limits']) {
   const { client, connections } = gitlab();
   const complete = vi.fn<MrReviewDeps['complete']>(() =>
     answer instanceof Error ? Promise.reject(answer) : Promise.resolve(result(answer)),
@@ -219,6 +220,7 @@ function reviewer(answer: string | Error = DEVIATES) {
     packageInput: (projectId) => gatherPackageInput(test.db.admin, test.collab, projectId),
     complete,
     logger,
+    ...(limits ? { limits } : {}),
   };
   return {
     complete,
@@ -449,6 +451,48 @@ describe('the review of a merge request of an issue Covibes created', () => {
     // The review itself is still there to read.
     const single = await request(`${project.git}/reviews/${waiting.id}`, project.owner);
     expect((await single.json()) as GitReview).toMatchObject({ open: false, verdict: 'deviates' });
+  });
+});
+
+describe('a review at a limit of the AI (spec 31a)', () => {
+  it('asks no model and fails; a review someone asked for is checked for that person', async () => {
+    const project = await createProject({ issues: false });
+    const editor = await member(project.projectId, 'editor');
+    await askReview(project, editor, 1);
+    const [waiting] = await stored(project.projectId);
+    if (!waiting) throw new Error('The review is missing');
+    const limits = vi.fn<NonNullable<MrReviewDeps['limits']>>(() =>
+      Promise.reject(new UsageLimitError('user', new Date('2026-10-11T00:00:00Z'))),
+    );
+    const { run, complete } = reviewer(FITS, limits);
+
+    expect(await run(waiting)).toBe('failed');
+
+    expect(complete).not.toHaveBeenCalled();
+    expect(limits).toHaveBeenCalledExactlyOnceWith({
+      projectId: project.projectId,
+      userId: await userIdOf(editor),
+    });
+    expect((await reviewsOf(project, project.owner))[0]).toMatchObject({
+      status: 'failed',
+      verdict: null,
+    });
+  });
+
+  it('checks a review that started by itself for the project only', async () => {
+    const project = await createProject();
+    await pushFor(project.issueNumbers[0] ?? 0);
+    await sync(project.projectId);
+    const [waiting] = await stored(project.projectId);
+    if (!waiting) throw new Error('The review is missing');
+    const limits = vi.fn<NonNullable<MrReviewDeps['limits']>>(() => Promise.resolve());
+
+    expect(await reviewer(FITS, limits).run(waiting)).toBe('done');
+
+    expect(limits).toHaveBeenCalledExactlyOnceWith({
+      projectId: project.projectId,
+      userId: null,
+    });
   });
 });
 

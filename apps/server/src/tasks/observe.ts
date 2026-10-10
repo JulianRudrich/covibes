@@ -27,6 +27,7 @@ import { selectMessages, toMessage } from '@server/chat/rows';
 import { notifyLive } from '@server/realtime/notifications';
 import { loadDecisionContext, type DecisionContext } from '@server/tasks/run-decisions';
 import { loadTeam } from '@server/tasks/run-team';
+import { UsageLimitError, type UsageGuard } from '@server/usage/limits';
 
 /** Name of the job the database schedules after every human message (migration 0008). */
 export const OBSERVE_TASK = 'observe';
@@ -104,13 +105,23 @@ export type ObserverDeps = {
   }) => Promise<AgentReplyResult>;
   /** Schedules the observer of the project again, e.g. while agents work. */
   reschedule: (payload: z.infer<typeof payloadSchema>, runAt: Date) => Promise<void>;
+  /** Checks the limits of the AI before the model call (spec 31a); without it nothing is limited. */
+  limits?: UsageGuard;
   logger: { error: (message: string) => void };
   signal?: AbortSignal;
   now?: () => Date;
 };
 
 export type ObserverOutcome =
-  'gone' | 'off' | 'waiting' | 'gave_up' | 'nothing_new' | 'nothing_possible' | 'failed' | 'looked';
+  | 'gone'
+  | 'off'
+  | 'waiting'
+  | 'gave_up'
+  | 'nothing_new'
+  | 'nothing_possible'
+  | 'limit_reached'
+  | 'failed'
+  | 'looked';
 
 /** Chat text is data: it must not close the sections the prompt is built from. */
 function asData(text: string): string {
@@ -318,6 +329,14 @@ export async function runObserver(deps: ObserverDeps, payload: unknown): Promise
   // The database's clock, which also dates the messages the next look compares with.
   const clock = await sql<{ now: Date }>`select clock_timestamp() as now`.execute(admin);
   const startedAt = clock.rows[0]?.now ?? now();
+  // At a limit of the AI the observer does not look, and writes nothing (spec 31a). It runs by
+  // itself, so only the project's limit counts.
+  try {
+    await deps.limits?.({ projectId, userId: null });
+  } catch (error) {
+    if (error instanceof UsageLimitError) return 'limit_reached';
+    throw error;
+  }
   let result: AgentReplyResult;
   try {
     result = await deps.complete({
@@ -468,7 +487,7 @@ async function raiseHands(
 }
 
 /** The Graphile Worker task for `observe`. */
-export function observeTask(deps: Pick<ObserverDeps, 'admin' | 'complete'>): Task {
+export function observeTask(deps: Pick<ObserverDeps, 'admin' | 'complete' | 'limits'>): Task {
   return async (payload, helpers) => {
     await runObserver(
       {

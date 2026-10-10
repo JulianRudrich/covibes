@@ -28,6 +28,7 @@ import type {
 import { encodePlanFailure } from '@server/plan/failure';
 import { loadIssueTask } from '@server/plan/task-issues';
 import { notifyLive } from '@server/realtime/notifications';
+import type { UsageGuard } from '@server/usage/limits';
 
 /** Name of the job the database queues for the review of a merge request (migration 0036). */
 export const MR_REVIEW_TASK = 'mr_review';
@@ -61,6 +62,8 @@ export type MrReviewDeps = {
     prompt: string;
     signal?: AbortSignal;
   }) => Promise<AgentReplyResult>;
+  /** Checks the limits of the AI before the model call (spec 31a); without it nothing is limited. */
+  limits?: UsageGuard;
   logger: { error: (message: string) => void };
   signal?: AbortSignal;
 };
@@ -217,7 +220,7 @@ export async function reviewMergeRequest(
     .where('id', '=', runId)
     .where('kind', '=', 'review')
     .where('status', '=', 'queued')
-    .returning('project_id')
+    .returning(['project_id', 'user_id'])
     .executeTakeFirst();
   if (!run) return 'gone';
   const projectId = run.project_id;
@@ -285,6 +288,7 @@ export async function reviewMergeRequest(
       spec = path ? fileOf(files, path) || null : null;
     }
 
+    await deps.limits?.({ projectId, userId: run.user_id });
     const result = await deps.complete({
       model: REVIEW_MODEL,
       system: PROMPT,
@@ -385,7 +389,7 @@ export async function reviewMergeRequest(
 
 /** The Graphile Worker task for `mr_review`. */
 export function mrReviewTask(
-  deps: Pick<MrReviewDeps, 'admin' | 'repository' | 'packageInput' | 'complete'>,
+  deps: Pick<MrReviewDeps, 'admin' | 'repository' | 'packageInput' | 'complete' | 'limits'>,
 ): Task {
   return async (payload, helpers) => {
     await reviewMergeRequest(

@@ -36,6 +36,21 @@ export function isSameLocalDay(a: string | number | Date, b: string | number | D
   );
 }
 
+/**
+ * A point in time something is free again, e.g. a limit (spec 31a), as short as it can be said:
+ * the time today ("14:05"), the day with the time if it is within a day and a half ("11. Oktober
+ * um 02:00"), and the day alone after that ("1. November").
+ */
+export function formatUntil(iso: string, locale: string, now = Date.now()): string {
+  if (isSameLocalDay(iso, now)) return formatClockTime(iso, locale);
+  const soon = Date.parse(iso) - now < 36 * 60 * 60_000;
+  return new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'long',
+    ...(soon ? { hour: '2-digit', minute: '2-digit' } : {}),
+  }).format(new Date(iso));
+}
+
 /** Local date for day dividers: "28. September 2026" or "September 28, 2026". */
 export function formatLongDate(iso: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: 'long' }).format(new Date(iso));

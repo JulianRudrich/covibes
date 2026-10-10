@@ -34,6 +34,7 @@ Fill in `.env`:
 - `APP_URL`: the public address, exactly as Covibes is opened in the browser, e.g. `https://covibes.example.org` (no trailing `/`)
 - `BETTER_AUTH_SECRET`, `POSTGRES_PASSWORD`, `COVIBES_ADMIN_PASSWORD`, `COVIBES_APP_PASSWORD`, `INTERNAL_TOKEN`: each generated with `openssl rand -hex 32`
 - `ANTHROPIC_API_KEY`: an API key from the Claude Console for the agents. Other people use this instance, so a personal Claude subscription must not be used here; set a monthly spending limit in the Console.
+- optionally `AI_LIMIT_PROJECT_MONTH_USD` and `AI_LIMIT_USER_DAY_USD`: what one project may cost in a calendar month and one person in a day, as estimated costs in USD. Without them a project stops at 100 and a person at 15; at a limit only the AI pauses. They guard against abuse and do not replace the spending limit in the Console.
 - at least one sign-in method, see the next section
 
 Then start:

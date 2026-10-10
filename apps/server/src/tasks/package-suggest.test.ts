@@ -19,6 +19,7 @@ import {
   type PackageSuggestDeps,
 } from '@server/tasks/package-suggest';
 import { APP_URL, createTestServer } from '@server/testing';
+import { UsageLimitError, type UsageGuard } from '@server/usage/limits';
 
 // The moderator's suggestions for the texts of the package (spec 27c), with a scripted model.
 const test = createTestServer();
@@ -205,7 +206,8 @@ describe('suggesting a text of the package', () => {
       const runId = await start();
       await suggestPackageText(suggestDeps(STANDARDS).deps, { runId, kind: 'code_standards' });
       await vi.waitFor(() => {
-        expect(heard).toEqual(['package', 'package']);
+        // Between the start and the end, the run's costs are announced (spec 31a).
+        expect(heard).toEqual(['package', 'usage', 'package']);
       });
     } finally {
       await listener.query('unlisten covibes_live');
@@ -393,5 +395,40 @@ describe('cleanPackageText', () => {
 
   it('is empty for an answer without text', () => {
     expect(cleanPackageText(' \n ')).toBe('');
+  });
+});
+
+/** A check of the limits that finds one reached (spec 31a). */
+function atLimit(
+  scope: 'project' | 'user' = 'project',
+  resetsAt = new Date('2026-11-01T00:00:00Z'),
+) {
+  return vi.fn<UsageGuard>(() => Promise.reject(new UsageLimitError(scope, resetsAt)));
+}
+
+describe('a suggestion at a limit of the AI (spec 31a)', () => {
+  it('asks no model, and fails with the time the limit is free again', async () => {
+    const { start, overview, runOf } = await createProject();
+    const runId = await start();
+    const { deps, complete } = suggestDeps(STANDARDS);
+    const limits = atLimit();
+
+    expect(await suggestPackageText({ ...deps, limits }, { runId, kind: 'code_standards' })).toBe(
+      'failed',
+    );
+
+    expect(complete).not.toHaveBeenCalled();
+    // The check is for the project and for who asked for the suggestion.
+    const run = await runOf(runId);
+    expect(run.user_id).not.toBeNull();
+    expect(limits).toHaveBeenCalledExactlyOnceWith({
+      projectId: run.project_id,
+      userId: run.user_id,
+    });
+    expect(run.status).toBe('error');
+    expect((await overview()).suggestions.code_standards).toEqual({
+      status: 'failed',
+      failure: { kind: 'quota', resetsAt: '2026-11-01T00:00:00.000Z' },
+    });
   });
 });

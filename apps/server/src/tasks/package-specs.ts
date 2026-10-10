@@ -27,6 +27,7 @@ import { describeCanvas } from '@server/tasks/agent-turn';
 import { cleanPackageText } from '@server/tasks/package-suggest';
 import { loadDecisionContext, type DecisionContext } from '@server/tasks/run-decisions';
 import { loadTeam } from '@server/tasks/run-team';
+import type { UsageGuard } from '@server/usage/limits';
 
 /** Name of the job the database queues for "Ausarbeiten" (migration 0028). */
 export const PACKAGE_SPECS_TASK = 'package_specs';
@@ -55,6 +56,8 @@ export type PackageSpecsDeps = {
     prompt: string;
     signal?: AbortSignal;
   }) => Promise<AgentReplyResult>;
+  /** Checks the limits of the AI before the model call (spec 31a); without it nothing is limited. */
+  limits?: UsageGuard;
   logger: { error: (message: string) => void };
   signal?: AbortSignal;
 };
@@ -185,7 +188,7 @@ export async function writePackageSpecs(
     .where('id', '=', runId)
     .where('kind', '=', 'package')
     .where('status', '=', 'queued')
-    .returning('project_id')
+    .returning(['project_id', 'user_id'])
     .executeTakeFirst();
   if (!run) return 'gone';
   const projectId = run.project_id;
@@ -267,6 +270,7 @@ export async function writePackageSpecs(
     // The owner's choice for the moderator in this project, or the catalog default.
     const model = team.members.find((member) => member.key === MODERATOR.key)?.model;
 
+    await deps.limits?.({ projectId, userId: run.user_id });
     const result = await deps.complete({
       model: model ?? MODERATOR.model,
       system: SPECS_PROMPT,
@@ -363,7 +367,7 @@ export async function writePackageSpecs(
 
 /** The Graphile Worker task for `package_specs`. */
 export function packageSpecsTask(
-  deps: Pick<PackageSpecsDeps, 'admin' | 'boards' | 'complete'>,
+  deps: Pick<PackageSpecsDeps, 'admin' | 'boards' | 'complete' | 'limits'>,
 ): Task {
   return async (payload, helpers) => {
     await writePackageSpecs(

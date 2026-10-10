@@ -7,6 +7,7 @@ import { findAgent } from '@server/agents/catalog';
 import { loadCustomAgentNames } from '@server/agents/custom';
 import { loadPrompt } from '@server/agents/prompts';
 import type { AgentReplyResult } from '@server/ai-gateway';
+import { UsageLimitError, type UsageGuard } from '@server/usage/limits';
 
 /** Name of the job the database schedules when a member comes back (migration 0020). */
 export const AWAY_SUMMARY_TASK = 'away_summary';
@@ -38,6 +39,8 @@ export type AwaySummaryDeps = {
     prompt: string;
     signal?: AbortSignal;
   }) => Promise<AgentReplyResult>;
+  /** Checks the limits of the AI before the model call (spec 31a); without it nothing is limited. */
+  limits?: UsageGuard;
   logger: { error: (message: string) => void };
   signal?: AbortSignal;
 };
@@ -275,6 +278,14 @@ export async function writeAwaySummary(
   // The database's clock, like every other run.
   const clock = await sql<{ now: Date }>`select clock_timestamp() as now`.execute(admin);
   const startedAt = clock.rows[0]?.now ?? new Date();
+  // At a limit of the AI the summary comes without the moderator's text (spec 31a).
+  try {
+    await deps.limits?.({ projectId, userId });
+  } catch (error) {
+    if (!(error instanceof UsageLimitError)) throw error;
+    await store({ text: null, text_status: 'failed' });
+    return 'failed';
+  }
   let result: AgentReplyResult;
   try {
     result = await deps.complete({
@@ -285,12 +296,12 @@ export async function writeAwaySummary(
     });
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    await recordRun(admin, projectId, startedAt, { error: reason.slice(0, 1000) });
+    await recordRun(admin, projectId, userId, startedAt, { error: reason.slice(0, 1000) });
     await store({ text: null, text_status: 'failed' });
     deps.logger.error(`The summary for a return to project ${projectId} failed: ${reason}`);
     return 'failed';
   }
-  await recordRun(admin, projectId, startedAt, { result });
+  await recordRun(admin, projectId, userId, startedAt, { result });
 
   const text = cleanSummary(result.text);
   if (text === '') {
@@ -301,10 +312,11 @@ export async function writeAwaySummary(
   return 'done';
 }
 
-/** Meters the summary as a run of the kind `summary`. */
+/** Meters the summary as a run of the kind `summary`, for the person it is written for. */
 async function recordRun(
   admin: Kysely<DB>,
   projectId: string,
+  userId: string,
   startedAt: Date,
   outcome: { result: AgentReplyResult } | { error: string },
 ) {
@@ -313,6 +325,7 @@ async function recordRun(
     .insertInto('ai_runs')
     .values({
       project_id: projectId,
+      user_id: userId,
       agent_key: 'moderator',
       kind: 'summary',
       status: result ? 'done' : 'error',
@@ -332,7 +345,9 @@ async function recordRun(
 }
 
 /** The Graphile Worker task for `away_summary`. */
-export function awaySummaryTask(deps: Pick<AwaySummaryDeps, 'admin' | 'complete'>): Task {
+export function awaySummaryTask(
+  deps: Pick<AwaySummaryDeps, 'admin' | 'complete' | 'limits'>,
+): Task {
   return async (payload, helpers) => {
     await writeAwaySummary(
       { ...deps, logger: helpers.logger, signal: helpers.abortSignal },

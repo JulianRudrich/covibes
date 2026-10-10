@@ -19,7 +19,7 @@ import { PlanContent } from '@web/features/plan/plan-content';
 import { PlanDiffView } from '@web/features/plan/plan-diff-view';
 import type { PlanDecision } from '@web/features/plan/queries';
 import { cn } from '@web/lib/cn';
-import { formatClockTime } from '@web/lib/format';
+import { formatUntil } from '@web/lib/format';
 
 type PlanSuggestionsProps = {
   state: PlanState;
@@ -91,7 +91,7 @@ export function PlanSuggestions({
           {failure.kind === 'quota'
             ? failure.resetsAt
               ? t('plan.failure.quotaUntil', {
-                  time: formatClockTime(failure.resetsAt, i18n.language),
+                  time: formatUntil(failure.resetsAt, i18n.language),
                 })
               : t('plan.failure.quota')
             : t('plan.failure.failed')}

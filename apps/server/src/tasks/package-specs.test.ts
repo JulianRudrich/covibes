@@ -22,6 +22,7 @@ import {
 } from '@server/tasks/package-specs';
 import { memoryBoards } from '@server/test-boards';
 import { APP_URL, createTestServer } from '@server/testing';
+import { UsageLimitError, type UsageGuard } from '@server/usage/limits';
 
 // The moderator writes the feature specs of a milestone out (spec 27d), with a scripted model.
 const test = createTestServer();
@@ -390,7 +391,8 @@ describe('writing the specs of a milestone out', () => {
       const runId = await start();
       await writePackageSpecs(specsDeps(spec(1, 'Fertig.')).deps, { runId, milestone: 1 });
       await vi.waitFor(() => {
-        expect(heard).toEqual(['package', 'package']);
+        // Between the start and the end, the run's costs are announced (spec 31a).
+        expect(heard).toEqual(['package', 'usage', 'package']);
       });
     } finally {
       await listener.query('unlisten covibes_live');
@@ -458,5 +460,36 @@ describe('parsePackageSpecs', () => {
     );
 
     expect([...specs]).toEqual([[1, 'Eins.']]);
+  });
+});
+
+/** A check of the limits that finds one reached (spec 31a). */
+function atLimit(
+  scope: 'project' | 'user' = 'project',
+  resetsAt = new Date('2026-11-01T00:00:00Z'),
+) {
+  return vi.fn<UsageGuard>(() => Promise.reject(new UsageLimitError(scope, resetsAt)));
+}
+
+describe('writing specs at a limit of the AI (spec 31a)', () => {
+  it('asks no model, and fails with the time the limit is free again', async () => {
+    const { start, overview, specs, runOf } = await createProject();
+    const runId = await start();
+    const { deps, complete } = specsDeps(written('Das Projekt läuft.'));
+    const limits = atLimit('user', new Date('2026-10-11T00:00:00Z'));
+
+    expect(await writePackageSpecs({ ...deps, limits }, { runId, milestone: 1 })).toBe('failed');
+
+    expect(complete).not.toHaveBeenCalled();
+    const run = await runOf(runId);
+    expect(limits).toHaveBeenCalledExactlyOnceWith({
+      projectId: run.project_id,
+      userId: run.user_id,
+    });
+    expect((await overview()).milestoneSpecs[0]?.run).toEqual({
+      status: 'failed',
+      failure: { kind: 'quota', resetsAt: '2026-10-11T00:00:00.000Z' },
+    });
+    expect(await specs()).toEqual({});
   });
 });

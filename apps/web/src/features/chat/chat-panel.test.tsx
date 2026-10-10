@@ -1,4 +1,10 @@
-import { parseMentions, type AiRun, type ChatMessage, type LiveEvent } from '@covibes/shared';
+import {
+  parseMentions,
+  type AiRun,
+  type ChatMessage,
+  type LiveEvent,
+  type UsageState,
+} from '@covibes/shared';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -34,8 +40,13 @@ function jsonBody(init: RequestInit | undefined): unknown {
   return typeof init?.body === 'string' ? JSON.parse(init.body) : undefined;
 }
 
-/** Stubs fetch for the chat routes; POST answers can be queued per test. */
-function stubChatApi(history: ChatMessage[]) {
+const USAGE_URL = `/api/projects/${PROJECT_ID}/usage/state`;
+
+/**
+ * Stubs fetch for the chat routes; POST answers can be queued per test. `usage` is what the
+ * server says of the limits of the AI (spec 31a); without it that route is unknown.
+ */
+function stubChatApi(history: ChatMessage[], usage?: UsageState) {
   const posts: Responder[] = [];
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = input instanceof Request ? input.url : input.toString();
@@ -43,6 +54,7 @@ function stubChatApi(history: ChatMessage[]) {
     let answer: { status?: number; body: unknown } = { status: 404, body: {} };
     if (url === MESSAGES_URL && method === 'GET') answer = { body: history };
     if (url === RUNS_URL && method === 'GET') answer = { body: [] };
+    if (url === USAGE_URL && method === 'GET' && usage) answer = { body: usage };
     if (url === MESSAGES_URL && method === 'POST') {
       const respond = posts.shift();
       if (respond) answer = respond(init);
@@ -167,6 +179,23 @@ describe('ChatPanel', () => {
       });
     });
     expect(await screen.findByText('Live!')).toBeInTheDocument();
+  });
+
+  it('says above the composer that a limit of the AI is reached, and lets people keep writing', async () => {
+    const resetsAt = new Date(Date.now() + 20 * 24 * 60 * 60_000).toISOString();
+    const { posts } = stubChatApi([], {
+      project: { reached: true, resetsAt },
+      user: { reached: false, resetsAt: null },
+    });
+    posts.push(stored);
+    renderPanel();
+
+    const note = await screen.findByText(/Das KI-Limit dieses Projekts für diesen Monat/);
+    expect(note).toHaveTextContent('alles andere geht weiter');
+    // Only the AI pauses: the composer is there and sends.
+    expect(composer().compareDocumentPosition(note)).toBe(Node.DOCUMENT_POSITION_PRECEDING);
+    sendByEnter('Wir machen ohne die Agents weiter.');
+    expect(await screen.findByText('Wir machen ohne die Agents weiter.')).toBeVisible();
   });
 
   it('shows viewers a hint instead of the composer', async () => {

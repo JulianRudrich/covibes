@@ -27,6 +27,7 @@ import { proposalsQueryKey } from '@web/features/proposals/queries';
 import { packageQueryKey } from '@web/features/export/package-queries';
 import { roadmapQueryKey } from '@web/features/roadmap/queries';
 import { invitationsQuery } from '@web/features/share/queries';
+import { usageStateQueryKey } from '@web/features/usage/queries';
 import { useLiveChannel } from '@web/features/realtime/live-channel';
 
 /**
@@ -110,6 +111,9 @@ export function useProjectLive(projectId: string, userId?: string) {
         reloadIfLoaded(gitLogQueryKey(projectId));
         reloadIfLoaded(gitMergeRequestQueryKey(projectId));
         reloadIfLoaded(gitMergeRequestsQueryKey(projectId));
+      } else if (event.type === 'usage') {
+        // A run cost something (spec 31a): a limit may be reached now.
+        reload(usageStateQueryKey(projectId));
       } else if (event.type === 'package') {
         // A suggestion for a text of the package started, ended or was decided (spec 27c); only
         // the open export dialog holds what is loaded again.
@@ -143,6 +147,7 @@ export function useProjectLive(projectId: string, userId?: string) {
       reload(roadmapQueryKey(projectId));
       reload(gitRequestsQueryKey(projectId));
       reload(gitReviewsQueryKey(projectId));
+      reload(usageStateQueryKey(projectId));
       reloadDecisions();
     },
   });

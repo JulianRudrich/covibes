@@ -256,8 +256,10 @@ An agent's instructions cannot change this table.
 - **Self-managed GitLab** (later): every account and every connection stores its own `base_url`.
 
 ### Limits and usage
-- The `ai-gateway` checks the limits per project and user before every call.
-- It writes tokens and costs to `usage`, broken down by day, project, user, agent and model. Until that table exists (spec 31), every run stores its model, tokens and cost in `ai_runs`.
+- Every run stores its model, tokens and estimated cost in `ai_runs`, and the person it is for (`user_id`): who caused it, also through an agent that works for them; nobody for what runs by itself.
+- The database keeps the usage by itself (spec 31a): a trigger adds what a run's tokens and costs grow by to `usage`, broken down by day (UTC), project, person, agent, kind of run and model. The table outlives its project, so deleting one gives nobody their day back.
+- Before every model call the worker checks two limits, as estimated costs in USD: what a project may cost in a calendar month and what a person may cost in a day across all projects (`AI_LIMIT_PROJECT_MONTH_USD`, default 100; `AI_LIMIT_USER_DAY_USD`, default 15; 0 is none; the same for server and worker). The check is a small module every job calls (`usage/limits.ts`), since the gateway knows neither the project nor the person of a call.
+- A reached limit is an error of the same kind as the provider's used-up quota: no model is called, the job says when the limit is free again, and nothing else pauses. Members read only whether a limit is reached; the numbers are for owners.
 - Stable context comes first in the prompt so that prompt caching applies: agent instructions, criteria, decision log.
 
 ## Canvas model (Y.Doc)
@@ -304,7 +306,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `notification_settings`, `member_activity` | per person the switch for mails and when the last one went out; per member when they last had the project open and when a mail last told them that something waits |
 | `away_summaries` | per member the last absence: from when to when, the moderator's summary with its status, and when the member closed it |
 | `files` | files attached to chat messages: name, kind (image, PDF, text), size and the key of the content in the file storage |
-| `ai_runs`, `usage` | agent runs (status, queue, web searches), usage and costs |
+| `ai_runs`, `usage` | agent runs (status, queue, web searches, the person a run is for), and what the AI cost per day, project, person, agent, kind of run and model (spec 31a) |
 
 ## Auth and permissions
 - **Sign-in:** Better Auth on the server under `/api/auth/*`.

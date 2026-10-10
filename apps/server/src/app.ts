@@ -29,6 +29,7 @@ import { planRoutes } from '@server/api/plan';
 import { projectRoutes } from '@server/api/projects';
 import { proposalRoutes } from '@server/api/proposals';
 import { roadmapRoutes } from '@server/api/roadmap';
+import { usageRoutes } from '@server/api/usage';
 import { runRoutes } from '@server/api/runs';
 import { SHARE_REQUESTS_PER_MINUTE, shareLinkRoutes, shareViewRoutes } from '@server/api/share';
 import { AUTH_BASE_PATH, gitlabLoginEnabled, type Auth } from '@server/auth/auth';
@@ -49,6 +50,7 @@ import type { LivePublisher } from '@server/realtime/realtime';
 import { createRateLimiter } from '@server/rate-limit';
 import type { FileStorage } from '@server/storage/storage';
 import { sameSecret } from '@server/secrets';
+import { usageLimitsOf } from '@server/usage/limits';
 import { securityHeaders, serveWebApp } from '@server/web-app';
 
 /** A mail the worker hands to the development mailbox. */
@@ -213,6 +215,8 @@ export function createApp({
   app.route('/api/projects/:projectId/away', awayRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/plan', planRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/roadmap', roadmapRoutes(db.app, auth, live, documents));
+  // Whether a limit of the AI is reached (spec 31a).
+  app.route('/api/projects/:projectId/usage', usageRoutes(db.app, auth, usageLimitsOf(env)));
   app.route('/api/projects/:projectId/package', packageRoutes(db.app, auth, live, documents));
   app.route(
     '/api/projects/:projectId/git',

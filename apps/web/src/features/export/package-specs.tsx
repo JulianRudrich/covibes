@@ -6,7 +6,7 @@ import { Button } from '@web/components/ui/button';
 import { FieldError } from '@web/components/ui/input';
 import { AgentAvatar } from '@web/features/agents/agent-avatar';
 import { useAgents } from '@web/features/agents/agents';
-import { formatClockTime } from '@web/lib/format';
+import { formatUntil } from '@web/lib/format';
 
 type PackageSpecsSectionProps = {
   milestones: CodingPackageOverview['milestoneSpecs'];
@@ -98,7 +98,7 @@ export function PackageSpecsSection({
                   {run.failure.kind === 'quota'
                     ? run.failure.resetsAt
                       ? t('export.package.suggestion.quotaUntil', {
-                          time: formatClockTime(run.failure.resetsAt, i18n.language),
+                          time: formatUntil(run.failure.resetsAt, i18n.language),
                         })
                       : t('export.package.suggestion.quota')
                     : t('export.package.specs.failed')}

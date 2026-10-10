@@ -8,9 +8,11 @@ import { Logo } from '@web/components/logo';
 import { Button } from '@web/components/ui/button';
 import { Card, Notice } from '@web/components/ui/card';
 import { Input, Label } from '@web/components/ui/input';
+import { LanguageSwitch } from '@web/features/account/language-switch';
 import { authErrorKey, redirectErrorKey, type AuthErrorKey } from '@web/features/auth/auth-errors';
 import { safeRedirectPath } from '@web/features/auth/redirect-path';
 import { configQuery } from '@web/features/auth/session';
+import { currentLanguage } from '@web/i18n/language';
 import { authClient } from '@web/lib/auth-client';
 
 const route = getRouteApi('/login');
@@ -45,6 +47,8 @@ export function LoginPage() {
       email: address,
       callbackURL: target,
       errorCallbackURL,
+      // The mail with the link is written in the language of this page (spec 32a).
+      metadata: { language: currentLanguage() },
     });
     setSending(false);
     if (result.error) setError(authErrorKey(result.error));
@@ -155,6 +159,7 @@ export function LoginPage() {
             </>
           ) : null}
         </Card>
+        <LanguageSwitch className="mt-4" />
       </div>
     </main>
   );

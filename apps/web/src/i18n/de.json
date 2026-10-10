@@ -34,6 +34,9 @@
     "emailNotifications": "E-Mail-Benachrichtigungen",
     "signOut": "Abmelden"
   },
+  "language": {
+    "label": "Sprache"
+  },
   "projects": {
     "title": "Projekte",
     "create": "Projekt anlegen",
@@ -60,7 +63,7 @@
     "waiting_other": "{{count}} warten auf dich"
   },
   "workspace": {
-    "projectMenu": "zur Projektliste",
+    "projectMenu": "Projektmenü",
     "phasesLabel": "Phasen",
     "humansLabel": "Menschen",
     "agentsLabel": "Agents",

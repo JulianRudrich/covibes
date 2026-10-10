@@ -49,6 +49,33 @@ export function DropdownMenuLabel({
   );
 }
 
+/** One of several choices in a menu, of which one holds: a check marks it. */
+export const DropdownMenuRadioGroup = MenuPrimitive.RadioGroup;
+
+export function DropdownMenuRadioItem({
+  className,
+  children,
+  ...props
+}: ComponentProps<typeof MenuPrimitive.RadioItem>) {
+  return (
+    <MenuPrimitive.RadioItem
+      className={cn(
+        'flex h-8 cursor-pointer items-center gap-2 rounded-sm px-2 text-ui text-text-body outline-none select-none',
+        'data-highlighted:bg-bg-subtle data-disabled:pointer-events-none data-disabled:opacity-50',
+        className,
+      )}
+      {...props}
+    >
+      <span aria-hidden="true" className="grid size-3.5 shrink-0 place-items-center">
+        <MenuPrimitive.ItemIndicator>
+          <Check size={14} strokeWidth={2.4} />
+        </MenuPrimitive.ItemIndicator>
+      </span>
+      {children}
+    </MenuPrimitive.RadioItem>
+  );
+}
+
 /** A line between two groups of a menu. */
 export function DropdownMenuSeparator() {
   return <MenuPrimitive.Separator className="mx-1 my-1 h-px bg-border" />;

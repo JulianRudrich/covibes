@@ -1,3 +1,10 @@
+import {
+  acceptedLanguages,
+  isLanguage,
+  languageSchema,
+  pickLanguage,
+  type Language,
+} from '@covibes/shared';
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { magicLink } from 'better-auth/plugins';
 import type pg from 'pg';
@@ -26,6 +33,16 @@ type AuthDeps = {
   mailer: Mailer | undefined;
 };
 
+/**
+ * The language the browser of a request prefers (spec 32a): German or English, English for
+ * someone who prefers neither. Undefined when the request names no language at all, e.g. a
+ * script; then the default of the accounts holds.
+ */
+export function requestLanguage(headers: Headers | undefined): Language | undefined {
+  const preferred = acceptedLanguages(headers?.get('accept-language') ?? '');
+  return preferred.length > 0 ? pickLanguage(preferred) : undefined;
+}
+
 export function gitlabLoginEnabled(env: AuthDeps['env']): boolean {
   return Boolean(env.GITLAB_CLIENT_ID && env.GITLAB_CLIENT_SECRET);
 }
@@ -44,7 +61,14 @@ export function authOptions({ env, adminPool, mailer }: AuthDeps) {
       modelName: 'users',
       fields: { emailVerified: 'email_verified', createdAt: 'created_at', updatedAt: 'updated_at' },
       additionalFields: {
-        locale: { type: 'string', required: false, defaultValue: 'de', input: false },
+        // The person's language (spec 32a): they set it themselves, to a language Covibes speaks.
+        locale: {
+          type: 'string',
+          required: false,
+          defaultValue: 'de',
+          input: true,
+          validator: { input: languageSchema },
+        },
       },
     },
     session: {
@@ -82,10 +106,17 @@ export function authOptions({ env, adminPool, mailer }: AuthDeps) {
         create: {
           // The login link does not ask for a name. Other members see the start of the address
           // until profiles exist; the full address stays hidden from them.
-          before: (user) =>
-            Promise.resolve({
-              data: { ...user, name: user.name.trim() || (user.email.split('@')[0] ?? '') },
-            }),
+          // A new account starts in the language its browser prefers (spec 32a).
+          before: (user, context) => {
+            const locale = requestLanguage(context?.headers);
+            return Promise.resolve({
+              data: {
+                ...user,
+                name: user.name.trim() || (user.email.split('@')[0] ?? ''),
+                ...(locale ? { locale } : {}),
+              },
+            });
+          },
         },
       },
     },
@@ -110,8 +141,14 @@ export function authOptions({ env, adminPool, mailer }: AuthDeps) {
       ? [
           magicLink({
             expiresIn: MAGIC_LINK_MINUTES * 60,
-            sendMagicLink: async ({ email, url }) => {
-              await mailer.send(magicLinkMail({ to: email, url, minutes: MAGIC_LINK_MINUTES }));
+            // The page that asks for the link names its language (spec 32a); the mail is
+            // written in it, else in the language the browser prefers.
+            sendMagicLink: async ({ email, url, metadata }, context) => {
+              const named: unknown = metadata?.language;
+              const locale = isLanguage(named) ? named : requestLanguage(context?.headers);
+              await mailer.send(
+                magicLinkMail({ to: email, url, minutes: MAGIC_LINK_MINUTES, locale }),
+              );
             },
           }),
         ]

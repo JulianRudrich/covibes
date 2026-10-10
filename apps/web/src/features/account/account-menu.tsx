@@ -1,3 +1,4 @@
+import { isLanguage, LANGUAGE_NAMES, LANGUAGES } from '@covibes/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { GitBranch, LogOut } from 'lucide-react';
@@ -11,8 +12,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@web/components/ui/dropdown-menu';
+import { useChooseLanguage } from '@web/features/account/language';
 import { configQuery, sessionQuery, type SessionUser } from '@web/features/auth/session';
 import { GitAccountDialog } from '@web/features/git/git-account-dialog';
 import {
@@ -29,12 +34,14 @@ type AccountMenuProps = {
 
 /**
  * The account menu behind the own avatar: who is signed in, the switch for notification mails
- * (spec 22b), the own GitLab account (spec 29a) and signing out.
+ * (spec 22b), the own GitLab account (spec 29a), the language of the interface (spec 32a) and
+ * signing out.
  */
 export function AccountMenu({ user, children }: AccountMenuProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const chooseLanguage = useChooseLanguage();
   // Mails about what the person has not seen in the app (spec 22b); a server that cannot send
   // mail offers no switch.
   const canMail = useQuery(configQuery).data?.emailLogin !== false;
@@ -86,6 +93,22 @@ export function AccountMenu({ user, children }: AccountMenuProps) {
             <GitBranch size={14} aria-hidden="true" />
             {t('git.account.menu')}
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>{t('language.label')}</DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            aria-label={t('language.label')}
+            value={i18n.language}
+            onValueChange={(language) => {
+              if (isLanguage(language)) chooseLanguage(language);
+            }}
+          >
+            {LANGUAGES.map((language) => (
+              <DropdownMenuRadioItem key={language} value={language} lang={language}>
+                {LANGUAGE_NAMES[language]}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => void signOut()}>
             <LogOut size={14} aria-hidden="true" />
             {t('account.signOut')}

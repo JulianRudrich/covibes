@@ -1,10 +1,16 @@
-import type { PublicConfig } from '@covibes/shared';
+import { isLanguage, type Language, type PublicConfig } from '@covibes/shared';
 import { queryOptions } from '@tanstack/react-query';
 
 import { api } from '@web/lib/api';
 import { authClient } from '@web/lib/auth-client';
 
-export type SessionUser = { id: string; name: string; email: string };
+export type SessionUser = {
+  id: string;
+  name: string;
+  email: string;
+  /** The language of the account (spec 32a); the interface follows it. */
+  locale?: Language;
+};
 
 /** The signed-in user or null. Route guards and the account menu share this query. */
 export const sessionQuery = queryOptions({
@@ -12,7 +18,9 @@ export const sessionQuery = queryOptions({
   queryFn: async (): Promise<SessionUser | null> => {
     const { data, error } = await authClient.getSession();
     if (error) throw new Error(`Session could not be loaded (${String(error.status)})`);
-    return data ? { id: data.user.id, name: data.user.name, email: data.user.email } : null;
+    if (!data) return null;
+    const { id, name, email, locale } = data.user;
+    return { id, name, email, ...(isLanguage(locale) ? { locale } : {}) };
   },
   staleTime: 60_000,
 });

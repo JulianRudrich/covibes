@@ -21,6 +21,7 @@ vi.mock('@web/lib/auth-client', () => ({
     getSession: vi.fn(),
     signIn: { magicLink: vi.fn(), social: vi.fn() },
     signOut: vi.fn(),
+    updateUser: vi.fn(),
   },
 }));
 
@@ -262,7 +263,7 @@ const AWAY: AwaySummary = {
   messages: { count: 6, mentions: 0, by: [{ kind: 'human', name: 'Alex Berg' }], authors: 1 },
 };
 
-function signedIn(user: typeof OLGA | null) {
+function signedIn(user: (typeof OLGA & { locale?: string }) | null) {
   vi.mocked(authClient.getSession).mockResolvedValue({
     data: user ? { user, session: {} } : null,
     error: null,
@@ -273,6 +274,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(authClient.signIn.magicLink).mockResolvedValue({ data: {}, error: null });
   vi.mocked(authClient.signOut).mockResolvedValue({ data: {}, error: null });
+  vi.mocked(authClient.updateUser).mockResolvedValue({ data: { status: true }, error: null });
 });
 
 describe('without a session', () => {
@@ -316,8 +318,35 @@ describe('without a session', () => {
       email: 'olga@example.com',
       callbackURL: `/p/${PROJECT.id}`,
       errorCallbackURL: `/login?redirect=${encodeURIComponent(`/p/${PROJECT.id}`)}`,
+      // The mail is written in the language of the page (spec 32a).
+      metadata: { language: 'de' },
     });
     expect(screen.getByRole('link', { name: 'Entwicklungs-Postfach öffnen' })).toBeInTheDocument();
+  });
+
+  it('offers the two languages on the login page, and asks for the mail in the one shown', async () => {
+    renderApp('/login');
+    const languages = within(await screen.findByRole('group', { name: 'Sprache' }));
+    expect(languages.getByRole('button', { name: 'Deutsch' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    fireEvent.click(languages.getByRole('button', { name: 'English' }));
+
+    expect(await screen.findByRole('heading', { name: 'Sign in to Covibes' })).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe('en');
+    fireEvent.change(screen.getByLabelText('Email address'), {
+      target: { value: 'olga@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send login link' }));
+    await waitFor(() => {
+      expect(authClient.signIn.magicLink).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: { language: 'en' } }),
+      );
+    });
+    // Nobody is signed in: no account to write it to.
+    expect(authClient.updateUser).not.toHaveBeenCalled();
   });
 
   it('tells someone who came through an invitation link that it waits behind the login', async () => {
@@ -430,6 +459,8 @@ describe('a read-only link', () => {
     // No login in between.
     expect(router.state.location.pathname).toBe(`/share/${TOKEN}`);
     expect(screen.getByText('Nur lesen')).toBeInTheDocument();
+    // The view needs no account, so it offers the languages itself (spec 32a).
+    expect(screen.getByRole('group', { name: 'Sprache' })).toBeInTheDocument();
     expect(await screen.findByTestId('shared-board')).toHaveTextContent('API');
 
     // The overview: decisions and criteria, without the log and without anything to edit.
@@ -1426,6 +1457,8 @@ describe('with a session', () => {
         await screen.findByRole('heading', { name: 'Einladung zu „Vereins-App“' }),
       ).toBeInTheDocument();
       expect(screen.getByText('Sam lädt dich ein, als Leser mitzumachen.')).toBeInTheDocument();
+      // Someone who is invited may not read the language the page starts in (spec 32a).
+      expect(screen.getByRole('group', { name: 'Sprache' })).toBeInTheDocument();
       expect(
         screen.getByText('Als Leser siehst du Chat und Canvas, änderst aber nichts.'),
       ).toBeInTheDocument();
@@ -1539,6 +1572,29 @@ describe('with a session', () => {
     );
     // The menu stays open, so the switch can be seen changing.
     expect(screen.getByRole('menuitem', { name: 'Abmelden' })).toBeInTheDocument();
+  });
+
+  it('shows the interface in the language of the account, and changes it from the account menu', async () => {
+    signedIn({ ...OLGA, locale: 'en' });
+    stubApi({
+      'GET /api/projects': () => ({ body: [] }),
+      'GET /api/config': () => ({ body: CONFIG }),
+      'GET /api/notifications/settings': () => ({ body: { email: true } }),
+    });
+    renderApp('/');
+
+    // The account is English: so is the page, without anyone choosing.
+    fireEvent.keyDown(await screen.findByRole('button', { name: 'Account' }), { key: 'Enter' });
+    const languages = within(await screen.findByRole('group', { name: 'Language' }));
+    expect(languages.getByRole('menuitemradio', { name: 'English' })).toBeChecked();
+    expect(languages.getByRole('menuitemradio', { name: 'Deutsch' })).not.toBeChecked();
+    expect(authClient.updateUser).not.toHaveBeenCalled();
+
+    fireEvent.click(languages.getByRole('menuitemradio', { name: 'Deutsch' }));
+
+    expect(authClient.updateUser).toHaveBeenCalledWith({ locale: 'de' });
+    expect(await screen.findByRole('button', { name: 'Konto' })).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe('de');
   });
 
   it('offers no switch for mails when the server cannot send any', async () => {

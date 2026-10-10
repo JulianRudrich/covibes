@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import '@web/i18n';
+import { DEFAULT_LANGUAGE, i18n } from '@web/i18n';
 
 import { cleanup, configure } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
@@ -9,9 +9,14 @@ import { afterEach, vi } from 'vitest';
 configure({ asyncUtilTimeout: 3_000 });
 
 // Vitest runs without globals, so Testing Library cannot register its automatic cleanup.
-afterEach(() => {
+afterEach(async () => {
   cleanup();
   vi.unstubAllGlobals();
+  // The tests read German texts; a test that switched the language (spec 32a) leaves no trace.
+  window.localStorage.removeItem('covibes.language');
+  window.localStorage.removeItem('covibes.language.chosen');
+  document.documentElement.lang = DEFAULT_LANGUAGE;
+  if (i18n.language !== DEFAULT_LANGUAGE) await i18n.changeLanguage(DEFAULT_LANGUAGE);
 });
 
 // jsdom has no ResizeObserver; Radix menus measure their trigger with it.

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { PageMessage } from '@web/components/page-message';
+import { LanguageSwitch } from '@web/features/account/language-switch';
 import { Button } from '@web/components/ui/button';
 import { Notice } from '@web/components/ui/card';
 import { invitationPreviewQuery, useAcceptInvitation } from '@web/features/share/queries';
@@ -46,7 +47,7 @@ export function InvitePage() {
 
   if (preview.isPending) {
     return (
-      <PageMessage title={t('invite.loading')}>
+      <PageMessage below={<LanguageSwitch />} title={t('invite.loading')}>
         <span className="sr-only">{t('common.loading')}</span>
       </PageMessage>
     );
@@ -55,7 +56,7 @@ export function InvitePage() {
   const unknown = preview.error instanceof ApiError && preview.error.code === 'not_found';
   if (preview.isError && !unknown) {
     return (
-      <PageMessage title={t('invite.loadError')}>
+      <PageMessage below={<LanguageSwitch />} title={t('invite.loadError')}>
         <BackToProjects />
       </PageMessage>
     );
@@ -72,7 +73,7 @@ export function InvitePage() {
           : status;
   if (dead) {
     return (
-      <PageMessage title={t(`invite.dead.${dead}.title`)}>
+      <PageMessage below={<LanguageSwitch />} title={t(`invite.dead.${dead}.title`)}>
         <p className="m-0 text-ui text-text-3">{t(`invite.dead.${dead}.text`)}</p>
         <BackToProjects />
       </PageMessage>
@@ -82,7 +83,7 @@ export function InvitePage() {
   const { projectId, projectName, role, invitedBy } = preview.data ?? {};
   if (status === 'member' && projectId) {
     return (
-      <PageMessage title={t('invite.member.title')}>
+      <PageMessage below={<LanguageSwitch />} title={t('invite.member.title')}>
         <p className="m-0 text-ui text-text-3">
           {t('invite.member.text', { project: projectName ?? '' })}
         </p>
@@ -100,7 +101,10 @@ export function InvitePage() {
   }
 
   return (
-    <PageMessage title={t('invite.title', { project: projectName ?? '' })}>
+    <PageMessage
+      below={<LanguageSwitch />}
+      title={t('invite.title', { project: projectName ?? '' })}
+    >
       <p className="m-0 text-ui text-text-3">
         {t('invite.text', {
           name: invitedBy ?? t('invite.someone'),

@@ -27,12 +27,15 @@
       "invalidLink": "The login link has expired or was already used. Just request a new one.",
       "generic": "That did not work. Please try again."
     },
-    "invited": "You were invited to a project. Sign in, then you continue to the invitation."
+    "invited": "You were invited to a project. Sign in to continue to the invitation."
   },
   "account": {
     "menu": "Account",
     "emailNotifications": "Email notifications",
     "signOut": "Sign out"
+  },
+  "language": {
+    "label": "Language"
   },
   "projects": {
     "title": "Projects",
@@ -56,11 +59,11 @@
       "creating": "Creating …",
       "error": "The project could not be created. Please try again."
     },
-    "waiting_one": "{{count}} waits for you",
-    "waiting_other": "{{count}} wait for you"
+    "waiting_one": "{{count}} waiting for you",
+    "waiting_other": "{{count}} waiting for you"
   },
   "workspace": {
-    "projectMenu": "to the project list",
+    "projectMenu": "project menu",
     "phasesLabel": "Phases",
     "humansLabel": "People",
     "agentsLabel": "Agents",
@@ -77,14 +80,14 @@
     "repository": "Repository …",
     "accessLost": {
       "title": "You are no longer in this project",
-      "text": "An owner removed you from \"{{project}}\". If that was a mistake, ask for a new invitation."
+      "text": "An owner removed you from “{{project}}”. If that was a mistake, ask for a new invitation."
     },
     "gitLog": "Git log …",
     "mergeRequests": "Merge requests …",
     "usage": "Usage …"
   },
   "share": {
-    "title": "Share \"{{project}}\"",
+    "title": "Share “{{project}}”",
     "hintOwner": "Invite people and decide who may do what.",
     "hintMember": "Who is in this project. Owners invite and change roles.",
     "invite": {
@@ -101,7 +104,7 @@
       "link": "Invitation link",
       "copy": "Copy",
       "copied": "Copied",
-      "linkHint": "Whoever has this link joins as {{role}} for {{days}} days. It is only shown now, so copy it right away."
+      "linkHint": "For {{days}} days, whoever has this link joins as {{role}}. It is only shown now, so copy it right away."
     },
     "open": {
       "title": "Open invitations",
@@ -145,7 +148,7 @@
     "problems": {
       "invalidEmail": "Please enter a valid email address.",
       "alreadyMember": "This person is in the project already.",
-      "tooManyMails": "That were many invitations. Please wait a while or use a link.",
+      "tooManyMails": "That was a lot of invitations. Please wait a while or use a link.",
       "tooManyInvitations": "20 invitations are open already. Revoke one to create a new one.",
       "lastOwner": "A project needs at least one owner.",
       "failed": "That did not work. Please try again."
@@ -154,7 +157,7 @@
   "invite": {
     "loading": "Loading the invitation …",
     "loadError": "The invitation could not be loaded.",
-    "title": "Invitation to \"{{project}}\"",
+    "title": "Invitation to “{{project}}”",
     "text": "{{name}} invites you to join as {{role}}.",
     "someone": "Someone",
     "roles": {
@@ -165,8 +168,8 @@
     "decline": "Not now",
     "failed": "Joining did not work. Please try again.",
     "member": {
-      "title": "You are in already",
-      "text": "You are a member of \"{{project}}\" already.",
+      "title": "You have already joined",
+      "text": "You are a member of “{{project}}” already.",
       "open": "Open the project"
     },
     "dead": {
@@ -239,11 +242,11 @@
       "plan": "Turn the result into the project plan: scope, milestones, tasks, risks, costs and time."
     },
     "change": "Change to this phase",
-    "askHint": "How to go on? The moderator says where you stand and what comes next.",
+    "askHint": "Not sure how to go on? The moderator says where you stand and what comes next.",
     "ask": "Ask the moderator",
     "askMessage": "@Moderator Where do we stand, and what is the next step?",
     "askFailed": "The question could not be sent. Please try again.",
-    "changed": "The project is now in the phase \"{{phase}}\".",
+    "changed": "The project is now in the phase “{{phase}}”.",
     "changeFailed": "The phase could not be changed."
   },
   "agents": {
@@ -347,7 +350,7 @@
       },
       "project": {
         "label": "Shared in the project",
-        "text": "All members of \"{{project}}\" see it with its instructions; owners and editors maintain it."
+        "text": "All members of “{{project}}” see it with its instructions; owners and editors maintain it."
       },
       "creatorOnly": "Only {{name}} can change the visibility."
     },
@@ -376,7 +379,7 @@
     "delete": "Delete",
     "deleteConfirm": "Delete for good",
     "deleteHint": "The agent leaves every team. Its messages stay.",
-    "limitReached": "More than 20 custom agents are not possible here.",
+    "limitReached": "You cannot have more than 20 custom agents here.",
     "failed": "That did not work. Please try again."
   },
   "agentTemplates": {
@@ -414,7 +417,7 @@
     "justDrawn": "Just drawn",
     "isEditing": "{{name}} is editing",
     "formerMember": "Former member",
-    "changeType": "Change the kind of block",
+    "changeType": "Change block type",
     "blockTitle": "Title",
     "blockSubtitle": "Subtitle",
     "blockTypes": {
@@ -485,7 +488,7 @@
     "sending": "Sending …",
     "failed": "Not sent.",
     "retry": "Send again",
-    "readOnly": "You have read access.",
+    "readOnly": "You have read-only access.",
     "loadError": "The messages could not be loaded.",
     "typing": "{{name}} is typing",
     "waiting_one": "{{count}} waiting",
@@ -506,10 +509,10 @@
     "open": "Open {{name}}",
     "download": "Download {{name}}",
     "problems": {
-      "too_many": "A message takes at most 5 files along.",
-      "too_large": "\"{{name}}\" is too large: images up to 5 MB, other files up to 10 MB.",
-      "unsupported": "\"{{name}}\" cannot be attached: images (PNG, JPEG, WebP, GIF), PDFs and text files work.",
-      "failed": "\"{{name}}\" could not be uploaded. Please try again."
+      "too_many": "A message can carry at most 5 files.",
+      "too_large": "“{{name}}” is too large: images up to 5 MB, other files up to 10 MB.",
+      "unsupported": "“{{name}}” cannot be attached: images (PNG, JPEG, WebP, GIF), PDFs and text files work.",
+      "failed": "“{{name}}” could not be uploaded. Please try again."
     }
   },
   "proposals": {
@@ -596,8 +599,8 @@
     "empty": "No criteria yet.",
     "add": "Add criterion",
     "addFirst": "Criterion",
-    "change": "Change criterion \"{{text}}\"",
-    "remove": "Remove criterion \"{{text}}\"",
+    "change": "Change criterion “{{text}}”",
+    "remove": "Remove criterion “{{text}}”",
     "limitReached": "A project has at most 20 criteria.",
     "failed": "The criteria could not be changed. Please try again."
   },
@@ -748,8 +751,8 @@
     "messagesPlain_other": "{{count}} new messages",
     "mentions_one": "{{count}} message mentions you",
     "mentions_other": "{{count}} messages mention you",
-    "waiting_one": "{{count}} thing waits for you",
-    "waiting_other": "{{count}} things wait for you",
+    "waiting_one": "{{count}} thing is waiting for you",
+    "waiting_other": "{{count}} things are waiting for you",
     "others_one": "{{count}} other",
     "others_other": "{{count}} others",
     "dismiss": "Got it"
@@ -764,7 +767,7 @@
     "failure": {
       "failed": "The plan could not be generated. Nothing in the plan changed. Please try again.",
       "quota": "The AI quota is used up right now. Nothing in the plan changed. Please try again later.",
-      "quotaUntil": "The AI quota is used up right now and free again at {{time}}. Nothing in the plan changed."
+      "quotaUntil": "The AI quota is used up right now and will be free again from {{time}}. Nothing in the plan changed."
     },
     "suggestions": {
       "title": "Suggestions of the moderator",
@@ -775,17 +778,17 @@
       "handEdited": "This section was changed by hand. Check that your changes are kept.",
       "showChanges": "Show changes",
       "showText": "Show the whole text",
-      "changesFor": "Switch the view for \"{{section}}\"",
-      "for": "Suggestion for \"{{section}}\"",
-      "acceptFor": "Accept \"{{section}}\"",
-      "rejectFor": "Reject \"{{section}}\"",
+      "changesFor": "Switch the view for “{{section}}”",
+      "for": "Suggestion for “{{section}}”",
+      "acceptFor": "Accept “{{section}}”",
+      "rejectFor": "Reject “{{section}}”",
       "acceptAll": "Accept all"
     },
     "outdated": {
       "title": "The plan is out of date",
       "since": "Since it was last written: {{changes}}.",
-      "decided": "\"{{topic}}\" was decided",
-      "reopened": "\"{{topic}}\" was reopened",
+      "decided": "“{{topic}}” was decided",
+      "reopened": "“{{topic}}” was reopened",
       "criteria": "the criteria changed",
       "more_one": "{{count}} more change",
       "more_other": "{{count}} more changes",
@@ -819,8 +822,8 @@
       },
       "loading": "Loading the version …"
     },
-    "waiting_one": "{{count}} section for the project plan waits for you.",
-    "waiting_other": "{{count}} sections for the project plan wait for you.",
+    "waiting_one": "{{count}} section for the project plan is waiting for you.",
+    "waiting_other": "{{count}} sections for the project plan are waiting for you.",
     "open": "Open the plan",
     "actionFailed": "That did not work. Please try again.",
     "empty": {
@@ -892,7 +895,7 @@
       "action": "Connect to GitLab",
       "again": "Connect again",
       "ownersOnly": "No repository is connected yet. An owner of the project can do that.",
-      "failed": "The way to GitLab did not work. Please try again."
+      "failed": "The redirect to GitLab did not work. Please try again."
     },
     "connected": {
       "by": "Picked by {{by}}. The agents read with the access of {{name}} (@{{username}})."
@@ -900,7 +903,7 @@
     "repository": {
       "pick": "Pick a repository",
       "search": "Search repositories",
-      "none": "Your account works in no repository in which it may open merge requests.",
+      "none": "Your account has no repository in which it may open merge requests.",
       "noneFound": "No repository found.",
       "listFailed": "The repositories could not be loaded. Your access may have expired.",
       "pickFailed": "The repository could not be picked. Please try again.",
@@ -939,10 +942,10 @@
       "view": "View",
       "hide": "Close",
       "reject": "Reject",
-      "withdraw": "Take back",
+      "withdraw": "Withdraw",
       "retry": "Retry",
       "discard": "Discard",
-      "waitsForApprover": "Waits for someone who may approve Git actions.",
+      "waitsForApprover": "Waiting for someone who may approve Git actions.",
       "needsAccount": "To approve, you need your GitLab account.",
       "connectAccount": "Connect",
       "running": "Running … {{done}} of {{total}}",
@@ -964,7 +967,7 @@
       "summaryMerge": "Merge <b>{{title}}</b> in <repo>{{repository}}</repo>",
       "doneMerge": "<b>{{title}}</b> merged in <repo>{{repository}}</repo>",
       "summaryComment": "Post <b>{{title}}</b> as a comment in <repo>{{repository}}</repo>",
-      "doneComment": "<b>{{title}}</b> commented in <repo>{{repository}}</repo>",
+      "doneComment": "<b>{{title}}</b> posted as a comment in <repo>{{repository}}</repo>",
       "viewReview": "View review"
     },
     "actions": {
@@ -1003,9 +1006,9 @@
       "propose_other": "Submit {{count}} issues for approval",
       "proposeNone": "Submit for approval",
       "outcome": {
-        "started": "The issues are being created. You see how far it is under “Waiting for you”.",
-        "proposed": "Submitted. The request waits for approval under “Waiting for you”.",
-        "approveFailed": "The request is made, but approving it did not work. It waits under “Waiting for you”.",
+        "started": "The issues are being created. You can follow the progress under “Waiting for you”.",
+        "proposed": "Submitted. The request is waiting for approval under “Waiting for you”.",
+        "approveFailed": "The request was made, but approving it did not work. It is waiting under “Waiting for you”.",
         "taken": "One of the tasks has an issue already. The list is up to date now.",
         "failed": "That did not work. Please try again."
       }
@@ -1015,7 +1018,7 @@
       "hint": "Everything Covibes was asked to change in the repository: who asked for it and who decided.",
       "loadFailed": "The log could not be loaded. Please try again.",
       "empty": "No Git actions yet.",
-      "requestedBy": "Asked for by {{name}}, {{date}}",
+      "requestedBy": "Requested by {{name}}, {{date}}",
       "approvedBy": "Approved by {{name}}, {{date}}",
       "rejectedBy": "Rejected by {{name}}, {{date}}",
       "via": "via Covibes",
@@ -1025,12 +1028,12 @@
       "hideActions_one": "Hide action",
       "hideActions_other": "Hide actions",
       "status": {
-        "waiting": "Waits for approval",
+        "waiting": "Waiting for approval",
         "approved": "Running",
         "done": "Done",
         "failed": "Failed",
         "rejected": "Rejected",
-        "withdrawn": "Taken back"
+        "withdrawn": "Withdrawn"
       }
     },
     "mergeRequest": {
@@ -1062,15 +1065,15 @@
       },
       "stale": "In the repository, but no longer in the package (feature specs of an earlier state):",
       "last": "Last opened: <mr>merge request !{{number}}<icon/></mr>",
-      "pending": "A request for the package waits already under “Waiting for you”.",
+      "pending": "A request for the package is already waiting under “Waiting for you”.",
       "readOnly": "Owners and editors open the merge request.",
       "create": "Open merge request",
       "propose": "Submit for approval",
       "outcome": {
-        "started": "The merge request is being opened. You see how far it is under “Waiting for you”.",
-        "proposed": "Submitted. The request waits for approval under “Waiting for you”.",
-        "approveFailed": "The request is made, but approving it did not work. It waits under “Waiting for you”.",
-        "taken": "A request for the package waits already.",
+        "started": "The merge request is being opened. You can follow the progress under “Waiting for you”.",
+        "proposed": "Submitted. The request is waiting for approval under “Waiting for you”.",
+        "approveFailed": "The request was made, but approving it did not work. It is waiting under “Waiting for you”.",
+        "taken": "A request for the package is already waiting.",
         "notStored": "A text of the package is not stored yet. Please try again.",
         "failed": "That did not work. Please try again."
       }
@@ -1084,17 +1087,17 @@
       "empty": "No merge request is open in the repository.",
       "draft": "Draft",
       "conflicts": "Conflicts with the target branch",
-      "requested": "waits for approval",
+      "requested": "waiting for approval",
       "merge": "Merge",
       "propose": "Submit",
       "mergeOne": "Merge merge request !{{number}}",
       "proposeOne": "Submit merge request !{{number}} for merging",
       "readOnly": "Owners and editors submit merge requests for merging.",
       "outcome": {
-        "started": "It is being merged. You see how far it is under “Waiting for you”.",
-        "proposed": "Submitted. The request waits for approval under “Waiting for you”.",
-        "approveFailed": "The request is made, but approving it did not work. It waits under “Waiting for you”.",
-        "taken": "A request for this waits already.",
+        "started": "It is being merged. You can follow the progress under “Waiting for you”.",
+        "proposed": "Submitted. The request is waiting for approval under “Waiting for you”.",
+        "approveFailed": "The request was made, but approving it did not work. It is waiting under “Waiting for you”.",
+        "taken": "A request for this is already waiting.",
         "failed": "That did not work. Please try again."
       }
     },
@@ -1123,7 +1126,7 @@
       "renew": "Create a new secret token",
       "renewConfirm": "Really create a new one",
       "renewHint": "The old one stops working. Enter the new one in GitLab.",
-      "renewFailed": "The secret token could not be created anew. Please try again.",
+      "renewFailed": "A new secret token could not be created. Please try again.",
       "loadFailed": "The webhook could not be loaded. Please try again."
     },
     "review": {
@@ -1166,13 +1169,13 @@
         "post": "Comment in GitLab",
         "propose": "Propose as a comment",
         "hint": "It is posted only after approval, with the GitLab account of who approves.",
-        "waiting": "The comment waits for approval.",
+        "waiting": "The comment is waiting for approval.",
         "running": "Posting the comment …",
         "failed": "The comment could not be posted. It can be tried again under “Waiting for you”.",
         "done": "Commented in GitLab",
         "outcome": {
-          "taken": "This review waits for approval already or is commented.",
-          "approveFailed": "The request was made, but approving it failed. It waits under “Waiting for you”.",
+          "taken": "This review is already waiting for approval or has been posted.",
+          "approveFailed": "The request was made, but approving it did not work. It is waiting under “Waiting for you”.",
           "failed": "That did not work. Please try again."
         }
       }
@@ -1194,7 +1197,7 @@
       "content": "In the package",
       "rows": {
         "plan": "Project plan",
-        "planOutdated": "The project plan is outdated. Best update it before the export.",
+        "planOutdated": "The project plan is out of date. Update it before the export.",
         "noPlan": "No project plan yet. Without a plan there is no package.",
         "specs_one": "{{count}} feature spec",
         "specs_other": "{{count}} feature specs",
@@ -1242,13 +1245,13 @@
         "title": "Suggestion",
         "titleFor": "The moderator's suggestion: {{text}}",
         "running": "The moderator is writing a suggestion … This takes about a minute.",
-        "accept": "Take over",
+        "accept": "Accept",
         "dismiss": "Dismiss",
         "replaces": "Replaces the text in the field.",
         "hide": "Hide",
         "failed": "The suggestion did not work. Please try again.",
         "quota": "The AI quota is used up right now. Please try again later.",
-        "quotaUntil": "The AI quota is used up right now and free again from {{time}}."
+        "quotaUntil": "The AI quota is used up right now and will be free again from {{time}}."
       },
       "specs": {
         "title": "Feature specs",
@@ -1276,7 +1279,7 @@
     "hint": "What the AI cost in this project.",
     "month": "Month",
     "loadFailed": "The usage could not be loaded.",
-    "empty": "Nothing was used in this month.",
+    "empty": "Nothing was used this month.",
     "runs_one": "{{count}} run",
     "runs_other": "{{count}} runs",
     "total": {
@@ -1285,8 +1288,8 @@
       "meter": "Share of the project's monthly limit",
       "meterValue": "{{amount}} of {{limit}}, {{share}}",
       "reached": "Limit reached. The agents answer again from {{time}}.",
-      "resets": "The month counts anew from {{time}}.",
-      "noLimit": "No monthly limit is set for projects. The month counts anew from {{time}}.",
+      "resets": "The count starts again from {{time}}.",
+      "noLimit": "No monthly limit is set for projects. The count starts again from {{time}}.",
       "runs": "Runs",
       "inputTokens": "Input tokens",
       "outputTokens": "Output tokens"
@@ -1306,6 +1309,6 @@
     },
     "note": "The amounts are estimates at list prices. Days and months count in UTC.",
     "noteUserLimit": "Each person also has a daily limit of {{amount}} across all projects; shown here is only what was used in this project.",
-    "noteNobody": "\"Automatic\" is what ran without a person asking, such as an offer by the moderator or an automatic review, and the usage of deleted accounts."
+    "noteNobody": "“Automatic” is what ran without a person asking, such as an offer by the moderator or an automatic review, and the usage of deleted accounts."
   }
 }

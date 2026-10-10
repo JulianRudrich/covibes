@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@web/components/logo';
 import { PageMessage } from '@web/components/page-message';
+import { LanguageSwitch } from '@web/features/account/language-switch';
 import { Badge } from '@web/components/ui/badge';
 import { Panel, PanelHeader, PanelTitle } from '@web/components/ui/panel';
 import { AgentDirectoryProvider } from '@web/features/agents/agent-directory';
@@ -31,7 +32,7 @@ export function ShareViewPage() {
 
   if (project.isPending) {
     return (
-      <PageMessage title={t('shareView.loading')}>
+      <PageMessage below={<LanguageSwitch />} title={t('shareView.loading')}>
         <span className="sr-only">{t('common.loading')}</span>
       </PageMessage>
     );
@@ -40,7 +41,10 @@ export function ShareViewPage() {
   if (project.isError) {
     const dead = project.error instanceof ApiError && project.error.code === 'not_found';
     return (
-      <PageMessage title={t(dead ? 'shareView.dead.title' : 'shareView.loadError')}>
+      <PageMessage
+        below={<LanguageSwitch />}
+        title={t(dead ? 'shareView.dead.title' : 'shareView.loadError')}
+      >
         {dead ? <p className="m-0 text-ui text-text-3">{t('shareView.dead.text')}</p> : null}
         <Link to="/" className="mt-2 text-ui">
           {t('shareView.toCovibes')}
@@ -86,6 +90,7 @@ function SharedWorkspace({ token, project }: { token: string; project: SharedPro
         <span className="ml-auto text-small text-text-3">
           {updated ? t('shareView.updated', { time: updated }) : null}
         </span>
+        <LanguageSwitch />
       </header>
 
       <main className="grid min-h-0 grid-cols-[minmax(0,1fr)_300px] gap-2 px-2 pb-2">

@@ -312,6 +312,21 @@ Built in two parts (2026-10-10):
 - **Needs:** 21
 - **Design:** **required**
 
+### 37 References from the chat to the canvas
+Added on 2026-10-10 (owner decision): one of the two features of V1 that had no spec, built before the design pass. In two parts:
+- **37a** references in messages: the name of an element in square brackets leads to the element, in messages of people and of agents
+- **37b** asking about an element: a reference made by clicking an element of the canvas
+
+- **Goal:** blocks can be referenced in the chat, and the markers in messages jump to the block.
+- **Needs:** 06, 08, 11
+- **Design:** the reference is in the handoff "Main screen"; the rest is derived
+
+### 38 Change history
+Added on 2026-10-10 (owner decision): the other feature of V1 that had no spec, built with derived looks before the design pass.
+- **Goal:** the history of a board says who changed what, and changes can be undone, also those of agents.
+- **Needs:** 10, 13
+- **Design:** – (derived; designed in spec 36)
+
 ### 36 Design pass
 - **Timing:** after the features of V1, before spec 34
 - **Goal:** the owner designs in Claude Design what was derived from the prototype (list in `ui-context.md`, "Derived looks") and what is still missing, e.g. agent colors, diagram shapes, plan editor, settings and the mobile view. The coding agent then brings the app in line.

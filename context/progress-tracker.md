@@ -9,7 +9,7 @@
 Polish the product (M7, specs 31 to 36): limits and usage first. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing at the moment. Spec 37a (references in messages) is done; part 37b (a reference made by clicking an element) is next.
+**Spec 37b asking about an element** (worked out on 2026-10-11): a selected element of the canvas offers "Im Chat fragen"; a click puts its name in square brackets into the composer, and the message says which element was meant, so the server refers to the element that was clicked. It is the last part of spec 37.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

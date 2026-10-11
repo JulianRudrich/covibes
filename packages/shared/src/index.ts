@@ -635,6 +635,19 @@ export {
   type UpdateProjectInput,
 } from './projects';
 export {
+  findReferences,
+  MESSAGE_REFERENCES_MAX,
+  messageReferenceSchema,
+  messageReferencesSchema,
+  REFERENCE_LABEL_MAX,
+  referenceLabel,
+  referenceNames,
+  splitReferences,
+  type MessageReference,
+  type ReferenceBoard,
+  type ReferenceSegment,
+} from './canvas-references';
+export {
   acceptedLanguages,
   FALLBACK_LANGUAGE,
   isLanguage,

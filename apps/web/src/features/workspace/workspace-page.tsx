@@ -2,6 +2,7 @@ import {
   boardExportTitle,
   exportFileName,
   type HandRaise,
+  type MessageReference,
   type OpenVote,
   type ProjectDetails,
   type Proposal,
@@ -197,6 +198,20 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
       },
     });
   }, [roadmapOpening, navigate, project, showNotice, t]);
+  // A reference in a message (spec 37a) opens the canvas at its element: the board it is on,
+  // also from the plan, with the element in view.
+  const openReference = useCallback(
+    (reference: MessageReference) =>
+      void navigate({
+        to: '/p/$projectId',
+        params: { projectId: project.id },
+        search:
+          reference.boardId === mainBoardId(project)
+            ? { focus: reference.nodeId }
+            : { board: reference.boardId, focus: reference.nodeId },
+      }),
+    [navigate, project],
+  );
   const clearFocus = useCallback(
     () =>
       void navigate({
@@ -207,6 +222,12 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
       }),
     [navigate, project.id],
   );
+  // An element that is asked for and is not on the board: it was deleted since, e.g. after a
+  // message referred to it (spec 37a).
+  const focusMissing = useCallback(() => {
+    showNotice(t('canvas.elementGone'));
+    clearFocus();
+  }, [showNotice, t, clearFocus]);
   // How the way back from GitLab ended is said once (spec 28a); then the address is clean again.
   const clearGitReturn = useCallback(
     () =>
@@ -526,6 +547,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
               role={project.role}
               moderatorNeutral={project.stance !== 'opinion'}
               onNotice={showNotice}
+              onOpenReference={openReference}
             />
           ) : null
         }
@@ -563,6 +585,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                   canAdoptVariants={canConfirmDecisions}
                   focusId={focus}
                   onFocused={clearFocus}
+                  onFocusMissing={focusMissing}
                   exports={boardExports}
                 />
               </RoadmapProvider>

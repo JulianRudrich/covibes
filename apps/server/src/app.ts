@@ -199,7 +199,10 @@ export function createApp({
   }
 
   const messageLimiter = createRateLimiter({ limit: MESSAGES_PER_MINUTE, windowMs: 60_000 });
-  app.route('/api/projects/:projectId/messages', messageRoutes(db.app, auth, live, messageLimiter));
+  app.route(
+    '/api/projects/:projectId/messages',
+    messageRoutes(db.app, auth, live, messageLimiter, (boardId) => documents.readBoard(boardId)),
+  );
   app.route('/api/projects/:projectId/runs', runRoutes(db.app, auth));
   const uploadLimiter = createRateLimiter({ limit: UPLOADS_PER_MINUTE, windowMs: 60_000 });
   app.route('/api/projects/:projectId/files', fileRoutes(db.app, auth, files, uploadLimiter));

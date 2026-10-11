@@ -2670,3 +2670,79 @@ describe('the handover to the repository (spec 29e)', () => {
     expect(call?.prompt).not.toContain('<repository>');
   });
 });
+
+describe('references to the canvas (spec 37a)', () => {
+  it('turns the name of what the agent just drew into a reference', async () => {
+    const { boardId, runId } = await projectWithRequest();
+    const { boards, doc } = memoryBoards();
+    const draws: Model = async (request) => {
+      await request.tools.find((tool) => tool.name === 'add_block')?.run({ title: 'API' });
+      return result('Ich habe den Block [API] ergänzt.');
+    };
+
+    await runAgentTurn(turnDeps(draws, boards).deps, { runId }, FIRST_ATTEMPT);
+
+    const [block] = readNodes(doc(boardId));
+    expect(await reply(runId)).toMatchObject({
+      content: 'Ich habe den Block [API] ergänzt.',
+      references: [
+        {
+          label: 'API',
+          boardId,
+          nodeId: block?.id,
+          by: { kind: 'agent', agentKey: 'moderator' },
+        },
+      ],
+    });
+  });
+
+  it('refers to what people put on the main canvas, in their colors', async () => {
+    const { boardId, runId } = await projectWithRequest();
+    const { boards, doc } = memoryBoards();
+    const web = addBlock(
+      doc(boardId),
+      { id: randomUUID(), blockType: 'app', position: { x: 0, y: 0 }, label: 'Web-App' },
+      { kind: 'human', userId: randomUUID() },
+    );
+
+    await runAgentTurn(
+      turnDeps(() => Promise.resolve(result('Die [web-app] spricht mit dem [Backend].')), boards)
+        .deps,
+      { runId },
+      FIRST_ATTEMPT,
+    );
+
+    // A name nothing on the canvas has stays text.
+    expect((await reply(runId)).references).toEqual([
+      { label: 'web-app', boardId, nodeId: web.id, by: { kind: 'human' } },
+    ]);
+  });
+
+  it('leaves an answer without a name of the canvas as it is', async () => {
+    const { runId } = await projectWithRequest();
+    const { boards } = memoryBoards();
+
+    await runAgentTurn(
+      turnDeps(() => Promise.resolve(result('Dazu gibt es noch nichts, siehe [Plan].')), boards)
+        .deps,
+      { runId },
+      FIRST_ATTEMPT,
+    );
+
+    const answer = await reply(runId);
+    expect(answer).not.toHaveProperty('references');
+    expect(answer.content).toBe('Dazu gibt es noch nichts, siehe [Plan].');
+  });
+
+  it('tells every agent how to refer to an element', async () => {
+    const { runId } = await projectWithRequest();
+    const { boards } = memoryBoards();
+    const { deps, reply: model } = turnDeps(() => Promise.resolve(result('Gut.')), boards);
+
+    await runAgentTurn(deps, { runId }, FIRST_ATTEMPT);
+
+    expect(model.mock.calls[0]?.[0].system).toContain(
+      'write its exact title in square brackets, e.g. [AI-Gateway]',
+    );
+  });
+});

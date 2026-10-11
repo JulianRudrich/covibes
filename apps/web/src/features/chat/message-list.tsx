@@ -1,4 +1,4 @@
-import type { MessageDebate } from '@covibes/shared';
+import type { MessageDebate, MessageReference } from '@covibes/shared';
 import { Fragment, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -27,6 +27,8 @@ type MessageListProps = {
   moderatorNeutral?: boolean;
   /** Ends a running debate early (spec 18); without it the button is left out. */
   onStopDebate?: (debate: MessageDebate) => void;
+  /** Leads to an element of the canvas a message refers to (spec 37a). */
+  onOpenReference?: (reference: MessageReference) => void;
 };
 
 function DayDivider({ label }: { label: string }) {
@@ -54,6 +56,7 @@ export function MessageList({
   voting,
   moderatorNeutral,
   onStopDebate,
+  onOpenReference,
 }: MessageListProps) {
   const { t, i18n } = useTranslation();
   const scroller = useRef<HTMLDivElement>(null);
@@ -135,6 +138,7 @@ export function MessageList({
                   voting={voting}
                   moderatorNeutral={moderatorNeutral}
                   onStopDebate={onStopDebate}
+                  onOpenReference={onOpenReference}
                 />
               </li>
             </Fragment>

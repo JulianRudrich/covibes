@@ -14,6 +14,7 @@ import { loadTeamMentionNames } from '@server/api/agents';
 import { apiError } from '@server/api/errors';
 import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
+import { projectBoardIds, referencesOf, type BoardReader } from '@server/chat/references';
 import { selectMessages, toMessage } from '@server/chat/rows';
 import { withUser, type AppDb } from '@server/db/database';
 import type { LivePublisher } from '@server/realtime/realtime';
@@ -32,7 +33,14 @@ function membership(trx: Transaction<DB>, projectId: string, userId: string) {
  * `/api/projects/:projectId/messages` (spec 06). Reads and writes through `withUser`, so RLS checks
  * every row; the explicit role check only makes the answers clearer (403 for viewers).
  */
-export function messageRoutes(db: AppDb, auth: Auth, live: LivePublisher, limiter: RateLimiter) {
+export function messageRoutes(
+  db: AppDb,
+  auth: Auth,
+  live: LivePublisher,
+  limiter: RateLimiter,
+  /** Reads a board as it stands, to find what a message refers to (spec 37a). */
+  readBoard: BoardReader,
+) {
   const routes = new Hono<{ Variables: SessionVariables }>();
   routes.use(sessionMiddleware(auth));
 
@@ -102,6 +110,13 @@ export function messageRoutes(db: AppDb, auth: Auth, live: LivePublisher, limite
           .execute();
         if (usable.length !== attachments.length) return 'invalid_input' as const;
       }
+      // What the message refers to on the canvas (spec 37a): names in square brackets, looked
+      // up on the boards of the project as they stand right now.
+      const references = await referencesOf(
+        content,
+        await projectBoardIds(trx, projectId.data),
+        readBoard,
+      );
       // Sending the same id again (e.g. after a lost answer) returns the stored message.
       const inserted = await trx
         .insertInto('messages')
@@ -113,6 +128,7 @@ export function messageRoutes(db: AppDb, auth: Auth, live: LivePublisher, limite
           content,
           mentions: parseMentions(content, names),
           mentioned_users: parsePeopleMentions(content, people, names).slice(0, 20),
+          block_refs: JSON.stringify(references),
         })
         .onConflict((conflict) => conflict.column('id').doNothing())
         .returning('id')

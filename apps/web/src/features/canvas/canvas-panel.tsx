@@ -62,7 +62,7 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { PanelHeader } from '@web/components/ui/panel';
-import { useAgents } from '@web/features/agents/agents';
+import { agentColor, useAgents } from '@web/features/agents/agents';
 import { BOARD_PANEL_ID, boardTabId } from '@web/features/canvas/board-ids';
 import { BlockNode } from '@web/features/canvas/block-node';
 import type { BoardConnection } from '@web/features/canvas/board-connection';
@@ -75,7 +75,7 @@ import { ArrowMarkers, CanvasArrow } from '@web/features/canvas/canvas-arrow';
 import { CanvasToolbar } from '@web/features/canvas/canvas-toolbar';
 import { EmptyBoardHint } from '@web/features/canvas/empty-board-hint';
 import { loadElk } from '@web/features/canvas/elk';
-import { sizeRoadmaps } from '@web/features/canvas/flow-mapping';
+import { sizeRoadmaps, type CanvasFlowNode } from '@web/features/canvas/flow-mapping';
 import { FrameNode } from '@web/features/canvas/frame-node';
 import { LiveCursor } from '@web/features/canvas/live-cursor';
 import { NoteNode } from '@web/features/canvas/note-node';
@@ -95,6 +95,7 @@ import { boardImage, NO_EXPORT } from '@web/features/export/board-image';
 import { downloadBlob, downloadText } from '@web/features/export/download';
 import { ExportMenu, type ExportOption } from '@web/features/export/export-menu';
 import { initialsOf } from '@web/lib/format';
+import { aiRing } from '@web/lib/styles';
 
 const nodeTypes: NodeTypes = { block: BlockNode, sticky: NoteNode, frame: FrameNode };
 const edgeTypes: EdgeTypes = { arrow: CanvasArrow };
@@ -118,9 +119,14 @@ type CanvasPanelProps = {
   onDecide: DecideProposal;
   /** Whether the user adopts variants; false for editors while the owner decides. */
   canAdoptVariants?: boolean;
-  /** An element to bring into view once it is on the board, e.g. the roadmap (spec 26a). */
+  /**
+   * An element to bring into view once it is on the board, e.g. the roadmap (spec 26a) or what a
+   * message refers to (spec 37a). It is highlighted for a moment.
+   */
   focusId?: string;
   onFocused?: () => void;
+  /** The element did not come: it is not on this board (any more). */
+  onFocusMissing?: () => void;
   /** What the exports of the board are called (spec 27a); without it the board offers none. */
   exports?: BoardExports;
 };
@@ -170,6 +176,7 @@ function BoardCanvas({
   canAdoptVariants,
   focusId,
   onFocused,
+  onFocusMissing,
   exports,
 }: Omit<CanvasPanelProps, 'tabs' | 'notice'>) {
   const { t } = useTranslation();
@@ -193,6 +200,7 @@ function BoardCanvas({
           canAdoptVariants={canAdoptVariants}
           focusId={focusId}
           onFocused={onFocused}
+          onFocusMissing={onFocusMissing}
           exports={exports}
         />
       ) : (
@@ -216,11 +224,19 @@ type BoardProps = {
   canAdoptVariants?: boolean;
   focusId?: string;
   onFocused?: () => void;
+  onFocusMissing?: () => void;
   exports?: BoardExports;
 };
 
 /** Room around an element brought into view, on each side. */
 const FOCUS_MARGIN = 48;
+/** How long an element brought into view stays highlighted (handoff: about 2.5 s). */
+const FOCUS_FLASH_MS = 2500;
+/**
+ * How long the board waits for an element that is asked for: one that was just added arrives
+ * within moments; after that it is not on this board.
+ */
+const FOCUS_WAIT_MS = 3000;
 
 function snap(value: number) {
   return Math.round(value / GRID_SIZE) * GRID_SIZE;
@@ -243,6 +259,7 @@ function Board({
   canAdoptVariants,
   focusId,
   onFocused,
+  onFocusMissing,
   exports,
 }: BoardProps) {
   const { t } = useTranslation();
@@ -288,6 +305,8 @@ function Board({
   const paneWidth = useStore((state) => state.width);
   const paneHeight = useStore((state) => state.height);
   const focused = useRef<string | null>(null);
+  // The element that was just brought into view; it is highlighted for a moment.
+  const [flash, setFlash] = useState<string | null>(null);
   useEffect(() => {
     if (!focusId) {
       // The address forgot it; the same element can be asked for again.
@@ -307,8 +326,28 @@ function Board({
     // At once, without a movement: the board just opened, and a movement would never end in a tab
     // that is not drawn right now, while the address already forgot what to show.
     void setCenter(target.position.x + width / 2, target.position.y + height / 2, { zoom });
+    setFlash(focusId);
     onFocused?.();
   }, [focusId, nodes, paneWidth, paneHeight, setCenter, onFocused]);
+  useEffect(() => {
+    if (flash === null) return;
+    const timer = window.setTimeout(() => {
+      setFlash(null);
+    }, FOCUS_FLASH_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [flash]);
+  // An element that does not come is not on this board (any more), e.g. one a message
+  // refers to that was deleted since (spec 37a).
+  const focusPending = focusId !== undefined && !nodes.some((node) => node.id === focusId);
+  useEffect(() => {
+    if (!focusPending || !onFocusMissing) return;
+    const timer = window.setTimeout(onFocusMissing, FOCUS_WAIT_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [focusPending, focusId, onFocusMissing]);
   const { cursors, onPointerMove, onPointerLeave } = useLiveCursors(connection.provider, user);
   const undo = useUndo(doc, author, !readOnly);
 
@@ -694,6 +733,7 @@ function Board({
               canAdoptVariants={canAdoptVariants}
               onDecide={onDecide}
             />
+            {flash !== null ? <FocusFlash node={nodes.find((node) => node.id === flash)} /> : null}
             {cursors.map((cursor) => (
               <LiveCursor key={cursor.clientId} cursor={cursor} />
             ))}
@@ -722,6 +762,39 @@ function Board({
         />
       </ReactFlow>
     </CanvasActionsProvider>
+  );
+}
+
+/**
+ * The highlight around an element that was just brought into view, e.g. through a reference in
+ * the chat (spec 37a; handoff: the state "changed by AI" for a moment): a ring in the color of
+ * the agent that made the element, in ink for an element a person made. It lies over the
+ * element, takes no clicks and is no part of the board.
+ */
+function FocusFlash({ node }: { node: CanvasFlowNode | undefined }) {
+  const agents = useAgents();
+  // Gone meanwhile: nothing to highlight.
+  if (!node) return null;
+  const { width, height } = node.data.size;
+  const by = node.data.createdBy;
+  const agent = by.kind === 'agent' ? agents(by.agentKey) : null;
+  const color = agent ? agentColor(agent) : 'var(--color-ink)';
+  return (
+    <div
+      data-testid="focus-flash"
+      className="pointer-events-none absolute rounded-frame border-2 motion-safe:animate-pulse"
+      style={{
+        left: node.position.x - 6,
+        top: node.position.y - 6,
+        width: width + 12,
+        height: height + 12,
+        borderColor: color,
+        boxShadow: agent
+          ? aiRing(agent)
+          : `0 0 0 4px color-mix(in srgb, ${color} 12%, transparent)`,
+        zIndex: 5,
+      }}
+    />
   );
 }
 

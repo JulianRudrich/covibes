@@ -25,16 +25,44 @@ vi.mock('@web/lib/auth-client', () => ({
   },
 }));
 
+// What the stand-in for the chat refers to (spec 37a); `vi.mock` is hoisted, so is this.
+const REFERENCES = vi.hoisted(() => ({
+  Haupt: {
+    boardId: '33333333-3333-4333-8333-333333333333',
+    nodeId: 'aaaaaaaa-0000-4000-8000-000000000001',
+  },
+  Ablauf: {
+    boardId: '44444444-4444-4444-8444-444444444444',
+    nodeId: 'aaaaaaaa-0000-4000-8000-000000000002',
+  },
+}));
+
 // Canvas and chat need the live server; their parts have their own tests.
 vi.mock('@web/features/chat/chat-panel', async () => {
   const { createElement } = await import('react');
   return {
-    ChatPanel: (props: { projectId: string; readOnly: boolean }) =>
-      createElement('div', {
-        'data-testid': 'chat-panel',
-        'data-project': props.projectId,
-        'data-readonly': String(props.readOnly),
-      }),
+    ChatPanel: (props: {
+      projectId: string;
+      readOnly: boolean;
+      onOpenReference?: (reference: { boardId: string; nodeId: string }) => void;
+    }) =>
+      createElement(
+        'div',
+        {
+          'data-testid': 'chat-panel',
+          'data-project': props.projectId,
+          'data-readonly': String(props.readOnly),
+        },
+        // Stand for references in messages (spec 37a): to an element of the main canvas and
+        // to one of another board.
+        ...Object.entries(REFERENCES).map(([name, reference]) =>
+          createElement(
+            'button',
+            { key: name, onClick: () => props.onOpenReference?.(reference) },
+            `Verweis ${name}`,
+          ),
+        ),
+      ),
   };
 });
 vi.mock('@web/features/canvas/canvas-panel', async () => {
@@ -46,6 +74,7 @@ vi.mock('@web/features/canvas/canvas-panel', async () => {
       notice: string | null;
       focusId?: string;
       onFocused?: () => void;
+      onFocusMissing?: () => void;
       exports?: { title: string; fileName: string; language: string; onFailed: () => void };
     }) =>
       createElement(
@@ -63,6 +92,10 @@ vi.mock('@web/features/canvas/canvas-panel', async () => {
         },
         props.notice,
         props.focusId ? createElement('button', { onClick: props.onFocused }, 'Im Blick') : null,
+        // Stands for an element that never came (spec 37a).
+        props.focusId
+          ? createElement('button', { onClick: props.onFocusMissing }, 'Nicht da')
+          : null,
       ),
   };
 });
@@ -1220,6 +1253,82 @@ describe('with a session', () => {
       expect(within(plan).queryByRole('button', { name: 'Aktualisieren' })).toBeNull();
       // Nothing waits for someone who only reads.
       expect(screen.queryByRole('region', { name: 'Wartet auf dich' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('references from the chat to the canvas (spec 37a)', () => {
+    const withBoards = () =>
+      stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({
+          body: { ...DETAILS, boards: [...DETAILS.boards, EXTRA_BOARD] },
+        }),
+      });
+
+    it('opens the board of the element and brings the element into view', async () => {
+      withBoards();
+      const router = renderApp(`/p/${PROJECT.id}`);
+      const chat = await screen.findByTestId('chat-panel');
+
+      fireEvent.click(within(chat).getByRole('button', { name: 'Verweis Ablauf' }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('canvas-panel')).toHaveAttribute('data-board', EXTRA_BOARD.id);
+      });
+      expect(screen.getByTestId('canvas-panel')).toHaveAttribute(
+        'data-focus',
+        REFERENCES.Ablauf.nodeId,
+      );
+      expect(router.state.location.search).toEqual({
+        board: EXTRA_BOARD.id,
+        focus: REFERENCES.Ablauf.nodeId,
+      });
+
+      // An element of the main canvas needs no board in the address.
+      fireEvent.click(within(chat).getByRole('button', { name: 'Verweis Haupt' }));
+      await waitFor(() => {
+        expect(router.state.location.search).toEqual({ focus: REFERENCES.Haupt.nodeId });
+      });
+      expect(screen.getByTestId('canvas-panel')).toHaveAttribute(
+        'data-board',
+        DETAILS.boards[0]?.id ?? '',
+      );
+    });
+
+    it('leaves the plan for the canvas when a reference is followed', async () => {
+      withBoards();
+      const router = renderApp(`/p/${PROJECT.id}?view=plan`);
+      await screen.findByTestId('plan-panel');
+
+      fireEvent.click(
+        within(screen.getByTestId('chat-panel')).getByRole('button', { name: 'Verweis Haupt' }),
+      );
+
+      expect(await screen.findByTestId('canvas-panel')).toHaveAttribute(
+        'data-focus',
+        REFERENCES.Haupt.nodeId,
+      );
+      expect(screen.queryByTestId('plan-panel')).not.toBeInTheDocument();
+      expect(router.state.location.search).toEqual({ focus: REFERENCES.Haupt.nodeId });
+    });
+
+    it('says that an element is gone, and forgets it', async () => {
+      withBoards();
+      const router = renderApp(`/p/${PROJECT.id}`);
+      fireEvent.click(
+        within(await screen.findByTestId('chat-panel')).getByRole('button', {
+          name: 'Verweis Haupt',
+        }),
+      );
+      const canvas = screen.getByTestId('canvas-panel');
+
+      fireEvent.click(await within(canvas).findByRole('button', { name: 'Nicht da' }));
+
+      expect(
+        await within(canvas).findByText('Dieses Element gibt es auf dem Canvas nicht mehr.'),
+      ).toBeInTheDocument();
+      await waitFor(() => {
+        expect(router.state.location.search).toEqual({});
+      });
     });
   });
 

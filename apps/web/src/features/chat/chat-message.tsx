@@ -1,4 +1,4 @@
-import type { MessageDebate } from '@covibes/shared';
+import type { MessageDebate, MessageReference } from '@covibes/shared';
 import { Check, CornerDownRight, MessagesSquare } from 'lucide-react';
 import { useId, useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -74,6 +74,8 @@ type ChatMessageViewProps = {
   moderatorNeutral?: boolean;
   /** Ends a running debate early (spec 18); viewers get no button. */
   onStopDebate?: (debate: MessageDebate) => void;
+  /** Leads to an element of the canvas the message refers to (spec 37a). */
+  onOpenReference?: (reference: MessageReference) => void;
 };
 
 /**
@@ -95,6 +97,7 @@ export function ChatMessageView({
   voting,
   moderatorNeutral = true,
   onStopDebate,
+  onOpenReference,
 }: ChatMessageViewProps) {
   const { t, i18n } = useTranslation();
   const id = useId();
@@ -224,6 +227,8 @@ export function ChatMessageView({
           agents={agent === null ? item.mentions : team}
           people={mentioned}
           self={currentUserId}
+          references={item.references}
+          onOpenReference={onOpenReference}
         />
         {streamingAgent ? (
           <span

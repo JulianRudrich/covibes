@@ -1,4 +1,4 @@
-import type { HandRaise, ProjectMember, ProjectRole } from '@covibes/shared';
+import type { HandRaise, MessageReference, ProjectMember, ProjectRole } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -34,6 +34,8 @@ type ChatPanelProps = {
   moderatorNeutral: boolean;
   /** Shows a short note, e.g. when deciding a raised hand or an offer failed. */
   onNotice: (text: string) => void;
+  /** Opens the canvas at an element a message refers to (spec 37a). */
+  onOpenReference?: (reference: MessageReference) => void;
 };
 
 /**
@@ -50,6 +52,7 @@ export function ChatPanel({
   role,
   moderatorNeutral,
   onNotice,
+  onOpenReference,
 }: ChatPanelProps) {
   const { t } = useTranslation();
   const messages = useQuery(messagesQuery(projectId));
@@ -138,6 +141,7 @@ export function ChatPanel({
             voting={voting}
             moderatorNeutral={moderatorNeutral}
             onStopDebate={readOnly ? undefined : stopDebate}
+            onOpenReference={onOpenReference}
           />
         )}
 

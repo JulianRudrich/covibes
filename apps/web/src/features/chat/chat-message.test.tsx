@@ -1,4 +1,4 @@
-import type { AgentKey } from '@covibes/shared';
+import type { AgentKey, MessageReference } from '@covibes/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
@@ -221,6 +221,109 @@ describe('ChatMessageView', () => {
       <ChatMessageView item={human({ content: 'javascript:alert(1) www.example.org' })} isOwn />,
     );
     expect(within(screen.getAllByRole('article')[1] as HTMLElement).queryByRole('link')).toBeNull();
+  });
+
+  describe('references to the canvas (spec 37a)', () => {
+    const gateway: MessageReference = {
+      label: 'AI-Gateway',
+      boardId: '11111111-1111-4111-8111-111111111111',
+      nodeId: '22222222-2222-4222-8222-222222222222',
+      by: { kind: 'agent', agentKey: 'moderator' },
+    };
+    const webApp: MessageReference = {
+      label: 'Web-App',
+      boardId: gateway.boardId,
+      nodeId: '33333333-3333-4333-8333-333333333333',
+      by: { kind: 'human' },
+    };
+
+    it('shows a reference as a button with the name, in the colors of who made the element', () => {
+      render(
+        <ChatMessageView
+          item={human({
+            content: 'Hängt die [Web-App] am [AI-Gateway]?',
+            references: [webApp, gateway],
+          })}
+          isOwn={false}
+          onOpenReference={vi.fn()}
+        />,
+      );
+      const text = messageText(screen.getByRole('article'));
+
+      const chips = within(text).getAllByRole('button');
+      expect(chips.map((chip) => chip.textContent)).toEqual(['Web-App', 'AI-Gateway']);
+      expect(chips[1]).toHaveAccessibleName('Zu „AI-Gateway“ auf dem Canvas');
+      // The moderator made the gateway, a person the web app.
+      expect(chips[1]).toHaveClass('bg-agent-moderator-tint-2', 'text-agent-moderator-dark');
+      expect(chips[0]).toHaveClass('bg-bg-subtle', 'text-text-2');
+      // The words around the references stay, the brackets are the button's.
+      expect(text).toHaveTextContent('Hängt die Web-App am AI-Gateway?');
+    });
+
+    it('leads to the element on a click', () => {
+      const open = vi.fn();
+      render(
+        <ChatMessageView
+          item={human({ content: 'Siehe [AI-Gateway].', references: [gateway] })}
+          isOwn={false}
+          onOpenReference={open}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Zu „AI-Gateway“ auf dem Canvas' }));
+
+      expect(open).toHaveBeenCalledExactlyOnceWith(gateway);
+    });
+
+    it('keeps brackets the server matched to nothing as they were written', () => {
+      render(
+        <ChatMessageView
+          item={human({
+            content: 'Das [Backend] fehlt, siehe [AI-Gateway].',
+            references: [gateway],
+          })}
+          isOwn={false}
+          onOpenReference={vi.fn()}
+        />,
+      );
+      const text = messageText(screen.getByRole('article'));
+
+      expect(within(text).getAllByRole('button')).toHaveLength(1);
+      expect(text).toHaveTextContent('Das [Backend] fehlt, siehe AI-Gateway.');
+    });
+
+    it('shows references in an agent’s answer too, next to mentions and links', () => {
+      render(
+        <ChatMessageView
+          item={{
+            ...agentMessage('moderator'),
+            content: 'Das [AI-Gateway] ist neu, @Backend prüft es: https://example.org/doku',
+            references: [gateway],
+          }}
+          isOwn={false}
+          team={['moderator', 'backend']}
+          onOpenReference={vi.fn()}
+        />,
+      );
+      const text = messageText(screen.getByRole('article'));
+
+      expect(within(text).getByRole('button', { name: /AI-Gateway/ })).toBeInTheDocument();
+      expect(within(text).getByText('@Backend')).toHaveClass('bg-agent-backend-tint');
+      expect(within(text).getByRole('link')).toHaveAttribute('href', 'https://example.org/doku');
+    });
+
+    it('only marks a reference where nothing can lead to it', () => {
+      render(
+        <ChatMessageView
+          item={human({ content: 'Siehe [AI-Gateway].', references: [gateway] })}
+          isOwn={false}
+        />,
+      );
+      const text = messageText(screen.getByRole('article'));
+
+      expect(within(text).queryByRole('button')).not.toBeInTheDocument();
+      expect(within(text).getByText('AI-Gateway')).toBeInTheDocument();
+    });
   });
 
   it('shows a chip for the people the server found mentioned, the own one stronger (spec 22a)', () => {

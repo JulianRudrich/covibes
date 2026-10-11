@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { agentKeySchema } from './agents/custom';
+import { messageReferencesSchema } from './canvas-references';
 import { messageDebateSchema, messageDebateTurnSchema } from './debates';
 import { comparisonSchema, messageVoteSchema } from './decisions';
 import { attachmentIdsSchema, messageAttachmentSchema } from './files';
@@ -31,6 +32,11 @@ export const chatMessageSchema = z.object({
   mentions: z.array(agentKeySchema),
   /** The people the message mentions (spec 22a), found by the server; left out when none. */
   mentionedUsers: z.array(z.string()).optional(),
+  /**
+   * The elements of the canvas the message refers to by `[Name]` (spec 37a), found by the
+   * server; left out when none.
+   */
+  references: messageReferencesSchema.optional(),
   replyTo: z.string().nullable(),
   status: z.enum(MESSAGE_STATUSES),
   /** The moderator's offer of help that this message makes, if any (spec 15). */

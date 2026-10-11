@@ -127,7 +127,6 @@ describe('writing', () => {
     ['status', "'streaming'"],
     ['created_at', "now() - interval '1 day'"],
     ['updated_at', "now() - interval '1 day'"],
-    ['block_refs', '\'[{"id": "x"}]\'::jsonb'],
     ['reply_to', 'gen_random_uuid()'],
     ['author_agent_key', "'moderator'"],
   ])('clients cannot set the server-owned column %s', async (column, value) => {
@@ -159,6 +158,31 @@ describe('writing', () => {
         [PROJECT, foreign.rows[0]?.id],
       ),
     ).rejects.toMatchObject({ code: '23503' });
+  });
+
+  it('stores what a message refers to on the canvas, as a list of at most 20 (spec 37a)', async () => {
+    const insert = (references: string) =>
+      asUser(app, OWNER, async (client) => {
+        const { rows } = await client.query<{ block_refs: unknown[] }>(
+          `insert into messages (project_id, author_kind, author_user_id, content, block_refs)
+           values ($1, 'human', $2, 'Siehe [API].', $3::jsonb) returning block_refs`,
+          [PROJECT, OWNER, references],
+        );
+        return rows[0]?.block_refs;
+      });
+    const reference = { label: 'API', boardId: randomUUID(), nodeId: randomUUID() };
+
+    expect(await insert(JSON.stringify([reference]))).toEqual([reference]);
+    expect(await insert(JSON.stringify(Array.from({ length: 20 }, () => reference)))).toHaveLength(
+      20,
+    );
+    await expect(
+      insert(JSON.stringify(Array.from({ length: 21 }, () => reference))),
+    ).rejects.toMatchObject({ code: '23514' });
+    // Anything but a list is refused.
+    await expect(insert(JSON.stringify({ label: 'API' }))).rejects.toMatchObject({
+      code: expect.stringMatching(/^(23514|22023)$/) as string,
+    });
   });
 
   it('messages can be neither changed nor deleted by clients', async () => {

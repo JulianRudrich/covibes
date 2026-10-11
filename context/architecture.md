@@ -117,6 +117,8 @@ During development Vite forwards `/api` to the server. Web app and API therefore
    4. write the finished message into `messages`
 5. Everyone sees the queue status (waiting or working) through `ai_runs` and the channel.
 
+A message refers to an element of the canvas by its name in square brackets, e.g. `[AI-Gateway]` (spec 37a). The server finds the element when the message is stored (a person's message on all boards of the project, an agent's answer on the main canvas) and keeps board and element in `messages.block_refs`, so the reference still leads there after the element is renamed. The web app shows it as an inline button that opens the board with the element in view.
+
 ### Canvas
 - There is one Y.Doc per board (`board:{boardId}`). React Flow renders from the Y.Doc.
 - **Awareness** carries three things: cursors, presence and **locks**, i.e. the ids of the blocks a human is currently editing.
@@ -292,7 +294,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `project_people` | everyone who is or was a member of a project, so former members keep their name |
 | `boards`, `yjs_documents` | boards and storage of the Y.Docs: the canvas of every board and the plan of every project |
 | `plan_suggestions`, `plan_versions` | the moderator's suggestions per section of the plan with their status, whether they come from a generation or an update and whether their section was changed by hand; the versions of the plan with why each was kept (spec 25c). The plan itself is a document in `yjs_documents` |
-| `messages` | chat: author (human or agent), mentioned agents and people, block references |
+| `messages` | chat: author (human or agent), mentioned agents and people, and the elements of the canvas the message refers to (`block_refs`, spec 37a) |
 | `custom_agents`, `project_agents` | custom agents (personal or shared in a project); team per project. Catalog agents are defined in code |
 | `agent_knowledge` | the knowledge of a custom agent: files (content in the file storage) and links with a note |
 | `hand_raises`, `offers` | raised hands (open, heard, dismissed); the moderator's offers of help (open, accepted, declined) |

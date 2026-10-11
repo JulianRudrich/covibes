@@ -6,6 +6,7 @@ import {
   projectSettingsSchema,
   readEdges,
   readNodes,
+  referenceNames,
   readPlanSections,
   readRoadmap,
   toPhase,
@@ -19,6 +20,7 @@ import {
   type NodeLock,
   type Phase,
   type Roadmap,
+  type MessageReference,
 } from '@covibes/shared';
 import type { Task } from 'graphile-worker';
 import { sql, type Kysely } from 'kysely';
@@ -45,6 +47,7 @@ import {
   type AgentReplyResult,
   type AgentTool,
 } from '@server/ai-gateway';
+import { referencesOf } from '@server/chat/references';
 import { loadMessage, selectMessages, toMessage } from '@server/chat/rows';
 import type { BoardAccess } from '@server/collab/board-client';
 import { loadAssignees } from '@server/plan/assignees';
@@ -521,7 +524,14 @@ export async function runAgentTurn(
       },
       attempt,
     );
-    await finishRun(deps.admin, run, messageId, result, NOTES[language].done);
+    await finishRun(
+      deps.admin,
+      run,
+      messageId,
+      result,
+      NOTES[language].done,
+      await answerReferences(deps, run.projectId, result.text),
+    );
     if (askForCriteria) {
       await deps.admin
         .updateTable('projects')
@@ -1323,12 +1333,36 @@ function describe(error: unknown): string {
   return limitLength(error instanceof Error ? error.message : String(error), MAX_ERROR_LENGTH);
 }
 
+/**
+ * What an answer refers to (spec 37a): names in square brackets, looked up on the main canvas,
+ * which is the board an agent sees and draws on. Read when the answer is complete, so what the
+ * agent just drew counts.
+ */
+async function answerReferences(
+  deps: Pick<AgentTurnDeps, 'admin' | 'boards'>,
+  projectId: string,
+  text: string,
+): Promise<MessageReference[]> {
+  if (referenceNames(text).length === 0) return [];
+  const board = await deps.admin
+    .selectFrom('boards')
+    .select('id')
+    .where('project_id', '=', projectId)
+    .where('kind', '=', 'main')
+    .executeTakeFirst();
+  if (!board) return [];
+  return referencesOf(text, [board.id], (boardId) =>
+    deps.boards.withBoard(boardId, (doc) => ({ nodes: readNodes(doc) })),
+  );
+}
+
 async function finishRun(
   admin: Kysely<DB>,
   run: Run,
   messageId: string,
   result: AgentReplyResult,
   emptyNote: string,
+  references: readonly MessageReference[],
 ) {
   const { usage } = result;
   await admin.transaction().execute(async (trx) => {
@@ -1337,6 +1371,7 @@ async function finishRun(
       .set({
         // An agent that only drew still says something, and a message is never empty.
         content: limitLength(result.text.trim() || emptyNote, MAX_CONTENT_LENGTH),
+        block_refs: JSON.stringify(references),
         status: 'complete',
       })
       .where('id', '=', messageId)

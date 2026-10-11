@@ -498,7 +498,8 @@
       "deleted": "Dieses Board wurde gelöscht.",
       "limit": "Ein Projekt hat höchstens {{max}} Boards.",
       "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
-    }
+    },
+    "elementGone": "Dieses Element gibt es auf dem Canvas nicht mehr."
   },
   "chat": {
     "messages": "Nachrichten",
@@ -521,7 +522,8 @@
     "typingShort": "schreibt",
     "replyTo": "Antwort an {{name}}",
     "agentNeutral": "Agent · neutral",
-    "agentError": "Die Antwort ist fehlgeschlagen."
+    "agentError": "Die Antwort ist fehlgeschlagen.",
+    "reference": "Zu „{{name}}“ auf dem Canvas"
   },
   "files": {
     "attachHint": "Bilder, PDFs und Textdateien, je bis 10 MB",

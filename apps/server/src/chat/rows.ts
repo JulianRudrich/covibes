@@ -9,6 +9,7 @@ import {
   messageDebateSchema,
   messageDebateTurnSchema,
   messageOfferSchema,
+  messageReferencesSchema,
   messageVoteSchema,
   type AiRun,
   type AiRunStatus,
@@ -114,6 +115,7 @@ export function selectMessages(db: Kysely<DB>) {
         'messages.content',
         'messages.mentions',
         'messages.mentioned_users',
+        'messages.block_refs',
         'messages.reply_to',
         'messages.status',
         'messages.created_at',
@@ -151,6 +153,8 @@ export function toMessage(row: MessageRow): ChatMessage | undefined {
     ballots: row.vote_ballots,
   });
   const attachments = z.array(messageAttachmentSchema).safeParse(row.attachments);
+  // What the message refers to on the canvas (spec 37a), as the server found it.
+  const references = messageReferencesSchema.safeParse(row.block_refs);
   const debate = messageDebateSchema.safeParse({
     id: row.debate_id,
     topic: row.debate_topic,
@@ -176,6 +180,7 @@ export function toMessage(row: MessageRow): ChatMessage | undefined {
     content: row.content,
     mentions: row.mentions.filter(isKnownAgentKey),
     ...(row.mentioned_users.length > 0 ? { mentionedUsers: row.mentioned_users } : {}),
+    ...(references.success && references.data.length > 0 ? { references: references.data } : {}),
     replyTo: row.reply_to,
     status: isStatus(row.status) ? row.status : 'complete',
     ...(offer.success ? { offer: offer.data } : {}),

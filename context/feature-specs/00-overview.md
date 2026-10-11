@@ -322,7 +322,10 @@ Added on 2026-10-10 (owner decision): one of the two features of V1 that had no 
 - **Design:** the reference is in the handoff "Main screen"; the rest is derived
 
 ### 38 Change history
-Added on 2026-10-10 (owner decision): the other feature of V1 that had no spec, built with derived looks before the design pass.
+Added on 2026-10-10 (owner decision): the other feature of V1 that had no spec, built with derived looks before the design pass. In two parts (owner decisions on the scope, 2026-10-11):
+- **38a** the history of a board: every change, by agents and by people, as entries of one author each, and the dialog that lists them
+- **38b** taking an entry back: as a whole, by owners and editors; what someone else changed since stays
+
 - **Goal:** the history of a board says who changed what, and changes can be undone, also those of agents.
 - **Needs:** 10, 13
 - **Design:** – (derived; designed in spec 36)

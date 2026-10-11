@@ -9,7 +9,7 @@
 Polish the product (M7, specs 31 to 36): limits and usage first. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing at the moment. Spec 37 (references from the chat to the canvas) is done with part 37b; spec 38 (the change history) is next.
+**Spec 38a the history of a board** (worked out on 2026-10-11): the server records every change to a board as entries of one author each, read from the board itself when it is stored, and a dialog "Verlauf" lists them. Owner decisions: the history covers agents and people, an entry is taken back as a whole, owners and editors take back, 30 days and at most 200 entries per board. It is the first of two parts of spec 38; part 38b takes an entry back.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
@@ -381,6 +381,7 @@ Nothing at the moment. Spec 37 (references from the chat to the canvas) is done 
 ## Decisions
 Product decisions are in `project-overview.md`, technical ones in `architecture.md`. The most important at a glance:
 - **Features of V1 without a spec** (2026-10-10): references from the chat to the canvas and the change history are built before the design pass, with derived looks, as specs 37 and 38.
+- **Change history** (2026-10-11): it records every change to a board, by agents and by people. An entry is taken back as a whole, and what someone else changed since stays. Everyone in the project reads it, owners and editors take back. Entries are kept for 30 days, at most 200 per board.
 - **Positioning:** Covibes steers, coding agents build. Covibes agents write no application code.
 - **Moderator:** it offers help but never starts unasked. Stance and decision process are configurable per project.
 - **Custom agents:** V1 includes custom agents that are created in Covibes and shared personally or in a project. External agents (A2A/webhook) and company agents come right after V1, together with team workspaces.

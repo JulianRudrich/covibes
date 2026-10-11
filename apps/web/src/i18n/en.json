@@ -1392,6 +1392,15 @@
     "goTo": "Go to “{{name}}” on the board",
     "more_one": "Show {{count}} more element",
     "more_other": "Show {{count}} more elements",
-    "less": "Show less"
+    "less": "Show less",
+    "undo": "Revert",
+    "undoOf": "Revert the entry by {{name}}",
+    "undoNothing": "Nothing reverted: what this entry changed has been edited since.",
+    "undoNothingLeft": "There is nothing to revert here: everything is as it was before already.",
+    "undoFailed": "Reverting did not work. Please try again.",
+    "reverts": "Revert",
+    "undone": "Reverted by {{name}}",
+    "undoneBySomeone": "Reverted",
+    "undonePartly": "{{reverted}} of {{total}} elements, the rest has changed since"
   }
 }

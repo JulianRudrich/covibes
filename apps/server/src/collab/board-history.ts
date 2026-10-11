@@ -33,6 +33,21 @@ type BoardHistoryDeps = {
 /** Who sent a change: a person, or the server itself (for an agent, or applying a proposal). */
 export type ChangeSender = { id: string; name: string } | 'service';
 
+/**
+ * What the server just did on a board to take an entry back (spec 38b): which entry, for whom,
+ * and what came of it.
+ */
+export type RevertMark = {
+  /** The entry that is taken back. */
+  reverts: string;
+  by: { userId: string; name: string };
+  /** The elements that were taken off the board for it. */
+  removed: readonly string[];
+  /** How many elements were set back, and how many stayed as they were. */
+  reverted: number;
+  kept: number;
+};
+
 type OpenBoard = {
   /** The board as it stood when the last entry was written. */
   state: BoardState;
@@ -69,6 +84,8 @@ type StoredEntry = {
   actor_agent_key: string | null;
   items: unknown;
   updated_at: Date;
+  reverts: string | null;
+  undone_at: Date | null;
 };
 
 function isBy(entry: StoredEntry, actor: HistoryActor): boolean {
@@ -115,16 +132,6 @@ export function createBoardHistory({
     board.ids = present;
   }
 
-  /**
-   * Says who removes elements the server is about to remove for them, e.g. when someone takes an
-   * entry back (spec 38b). Without it, what the server removes is nobody's.
-   */
-  function removing(boardId: string, ids: readonly string[], actor: HistoryActor) {
-    const board = boards.get(boardId);
-    if (!board) return;
-    for (const id of ids) board.removedBy.set(id, actor);
-  }
-
   /** A board is no longer open; what it changed was written when it was stored. */
   function unloaded(boardId: string) {
     boards.delete(boardId);
@@ -143,6 +150,7 @@ export function createBoardHistory({
     boardId: string,
     groups: readonly { actor: HistoryActor; items: HistoryItem[] }[],
     names: Map<string, string>,
+    mark?: RevertMark,
   ): Promise<string | undefined> {
     const at = now();
     const client = await adminPool.connect();
@@ -159,8 +167,14 @@ export function createBoardHistory({
         return undefined;
       }
       for (const group of groups) {
+        // What the person who takes an entry back did by it is an entry of its own.
+        const taking =
+          mark && group.actor.kind === 'human' && group.actor.userId === mark.by.userId
+            ? mark
+            : undefined;
         const latest = await client.query<StoredEntry>(
-          `select id, actor_kind, actor_user_id, actor_agent_key, items, updated_at
+          `select id, actor_kind, actor_user_id, actor_agent_key, items, updated_at, reverts,
+                  undone_at
            from board_changes where board_id = $1
            order by updated_at desc, id desc limit 1 for update`,
           [boardId],
@@ -168,10 +182,14 @@ export function createBoardHistory({
         const entry = latest.rows[0];
         const earlier = entry ? historyItemsSchema.safeParse(entry.items) : undefined;
         // The same author going on within a minute, with nobody in between: their entry grows.
+        // An entry that takes one back, or was taken back, stays what it is.
         if (
+          !taking &&
           entry &&
           earlier?.success &&
           isBy(entry, group.actor) &&
+          entry.reverts === null &&
+          entry.undone_at === null &&
           at.getTime() - entry.updated_at.getTime() < HISTORY_MERGE_MS
         ) {
           const merged = mergeItems(earlier.data, group.items);
@@ -190,8 +208,9 @@ export function createBoardHistory({
         await client.query(
           `insert into board_changes
              (project_id, board_id, actor_kind, actor_user_id, actor_agent_key, actor_name, items,
-              created_at, updated_at)
-           values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $8)`,
+              created_at, updated_at, reverts)
+           values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $8,
+                   (select id from board_changes where id = $9 and board_id = $2))`,
           [
             projectId,
             boardId,
@@ -201,6 +220,24 @@ export function createBoardHistory({
             actor.kind === 'human' ? await nameOf(client, actor.userId, names) : '',
             JSON.stringify(group.items.slice(0, HISTORY_MAX_ITEMS)),
             at,
+            taking?.reverts ?? null,
+          ],
+        );
+        if (!taking) continue;
+        // The entry that was taken back says by whom, and is not taken back twice.
+        await client.query(
+          `update board_changes
+           set undone_at = $3, undone_by = $4, undone_by_name = $5, undone_reverted = $6,
+               undone_kept = $7
+           where id = $1 and board_id = $2 and undone_at is null`,
+          [
+            taking.reverts,
+            boardId,
+            at,
+            taking.by.userId,
+            taking.by.name.slice(0, 200),
+            taking.reverted,
+            taking.kept,
           ],
         );
       }
@@ -228,20 +265,30 @@ export function createBoardHistory({
    * A board was stored: what changed since the last entry is written, one entry per author. The
    * board as it stands becomes what the next entry is compared with, whether or not the write
    * succeeds: a history with a gap is better than one that repeats itself.
+   *
+   * With `mark`, the server just took an entry back for a person (spec 38b): what they did by
+   * it is written as an entry of its own, and the entry it takes back is marked.
    */
-  function stored(boardId: string, doc: Y.Doc): Promise<void> {
+  function stored(boardId: string, doc: Y.Doc, mark?: RevertMark): Promise<void> {
     const board = boards.get(boardId);
     if (!board) {
       boards.set(boardId, opened(doc));
       return Promise.resolve();
     }
     const current = read(doc);
+    if (mark) {
+      // What the server removed for the person is removed by them.
+      const actor: HistoryActor = { kind: 'human', userId: mark.by.userId };
+      for (const id of mark.removed) board.removedBy.set(id, actor);
+    }
     const groups = diffBoard(board.state, current, {
       humans: new Set(board.humans.keys()),
-      service: board.service,
+      // Taking back is a change of the server; that it happened may not have arrived here yet.
+      service: board.service || mark !== undefined,
       removedBy: board.removedBy,
     });
     const names = board.humans;
+    if (mark && !names.has(mark.by.userId)) names.set(mark.by.userId, mark.by.name);
     board.state = current;
     board.ids = idsOf(doc);
     board.humans = new Map();
@@ -251,7 +298,7 @@ export function createBoardHistory({
 
     const before = writing.get(boardId) ?? Promise.resolve();
     const done = before
-      .then(() => write(boardId, groups, names))
+      .then(() => write(boardId, groups, names, mark))
       .then((projectId) => {
         if (projectId !== undefined) onChanged?.(projectId, boardId);
       })
@@ -270,7 +317,7 @@ export function createBoardHistory({
     return writing.get(boardId) ?? Promise.resolve();
   }
 
-  return { loaded, changed, removing, stored, unloaded, settled };
+  return { loaded, changed, stored, unloaded, settled };
 }
 
 export type BoardHistoryRecorder = ReturnType<typeof createBoardHistory>;

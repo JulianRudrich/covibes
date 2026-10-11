@@ -4,11 +4,13 @@ import {
   addBlock,
   addEdge,
   addNote,
+  boardDocumentName,
   moveNodes,
   removeNodes,
   updateNode,
   type Author,
   type BoardHistory,
+  type BoardHistoryUndo,
   type ProjectDetails,
   type ProjectSummary,
 } from '@covibes/shared';
@@ -17,10 +19,10 @@ import * as Y from 'yjs';
 
 import { createBoardHistory } from '@server/collab/board-history';
 import { withUser } from '@server/db/database';
-import { createTestServer } from '@server/testing';
+import { APP_URL, createTestServer } from '@server/testing';
 
-// The history of a board (spec 38a): what the server writes when a board is stored, and what
-// members read of it.
+// The history of a board (spec 38): what the server writes when a board is stored, what members
+// read of it, and taking an entry back.
 const test = createTestServer();
 const MODERATOR: Author = { kind: 'agent', agentKey: 'moderator' };
 
@@ -28,6 +30,8 @@ function request(path: string, cookie: string | null, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   if (cookie) headers.set('cookie', cookie);
   if (init.body) headers.set('content-type', 'application/json');
+  // What changes something comes from the app itself.
+  if (init.method === 'POST') headers.set('origin', APP_URL);
   return test.app.request(path, { ...init, headers });
 }
 
@@ -432,5 +436,360 @@ describe('the history of a board', () => {
       project.boardId,
     ]);
     expect(left.rowCount).toBe(0);
+  });
+});
+
+type Project = Awaited<ReturnType<typeof createProject>>;
+
+/** Changes a board through the collaboration server, as tools do, and writes its history. */
+async function draw(project: Project, change: (doc: Y.Doc) => void) {
+  await test.collab.changeBoard({ boardId: project.boardId, projectId: project.projectId }, change);
+  await test.collab.recordHistory(project.boardId);
+}
+
+/** What the moderator draws to start with: two blocks and the arrow between them. */
+async function drawn(project: Project) {
+  const web = block('Web-App');
+  const api = block('API', { x: 300, y: 0 });
+  const line = { id: randomUUID(), source: web.id, target: api.id };
+  await draw(project, (doc) => {
+    addBlock(doc, web, MODERATOR);
+    addBlock(doc, api, MODERATOR);
+    addEdge(doc, line, MODERATOR);
+  });
+  return { web, api, line };
+}
+
+async function undo(project: Project, entryId: string | undefined, cookie: string) {
+  return request(`${project.history}/${entryId ?? ''}/undo`, cookie, { method: 'POST' });
+}
+
+async function outcomeOf(response: Response) {
+  expect(response.status).toBe(200);
+  return (await response.json()) as BoardHistoryUndo;
+}
+
+/** The board as it is: what is on it, by id, with what tells one state from another. */
+async function boardOf(project: Project) {
+  const { nodes, edges } = await test.collab.readBoard(project.boardId);
+  return {
+    nodes: new Map(nodes.map((node) => [node.id, node])),
+    edges: new Map(edges.map((edge) => [edge.id, edge])),
+  };
+}
+
+describe('taking an entry back', () => {
+  it('removes what an agent drew, as a new entry by the person who took it back', async () => {
+    const project = await createProject();
+    await drawn(project);
+    const [entry] = await historyOf(project.history, project.owner);
+    expect(entry).toMatchObject({ reverts: false, undone: null, canUndo: true });
+
+    const outcome = await outcomeOf(await undo(project, entry?.id, project.owner));
+
+    expect(outcome).toEqual({ reverted: 3, kept: 0 });
+    const board = await boardOf(project);
+    expect(board.nodes.size + board.edges.size).toBe(0);
+    const [taking, taken, ...rest] = await historyOf(project.history, project.owner);
+    expect(rest).toEqual([]);
+    expect(taking).toMatchObject({
+      actor: { kind: 'human', userId: project.ownerId, name: 'Olga' },
+      reverts: true,
+      undone: null,
+      canUndo: true,
+    });
+    expect(taking?.items.map((item) => [item.label, item.action, item.present])).toEqual([
+      ['Web-App', 'removed', false],
+      ['API', 'removed', false],
+      ['Web-App → API', 'removed', false],
+    ]);
+    expect(taken).toMatchObject({
+      id: entry?.id,
+      actor: { kind: 'agent', agentKey: 'moderator' },
+      reverts: false,
+      undone: { by: 'Olga', reverted: 3, kept: 0 },
+      canUndo: false,
+    });
+    expect(Date.parse(taken?.undone?.at ?? '')).not.toBeNaN();
+  });
+
+  it('brings back what was removed and sets back what was moved or changed', async () => {
+    const project = await createProject();
+    const alex = await member(project.projectId, 'editor', 'Alex');
+    const author: Author = { kind: 'human', userId: alex.id };
+    const { web, api, line } = await drawn(project);
+    const before = await boardOf(project);
+    // Alex moves one block and renames the other; then the renamed one is removed.
+    await draw(project, (doc) => {
+      moveNodes(doc, [[web.id, { x: 0, y: 300 }]], author);
+      updateNode(doc, api.id, { label: 'Schnittstelle' }, author);
+    });
+    await draw(project, (doc) => {
+      removeNodes(doc, [api.id], author);
+    });
+    const [removal, change] = await historyOf(project.history, project.owner);
+    expect(removal?.items.map((item) => item.action)).toEqual(['removed', 'removed']);
+    expect(change?.items.map((item) => item.action)).toEqual(['moved', 'changed']);
+
+    // The removal first: the block is back as it was removed, with its arrow.
+    expect(await outcomeOf(await undo(project, removal?.id, project.owner))).toEqual({
+      reverted: 2,
+      kept: 0,
+    });
+    const restored = await boardOf(project);
+    expect(restored.nodes.get(api.id)).toMatchObject({
+      label: 'Schnittstelle',
+      createdBy: MODERATOR,
+      lastChangedBy: { kind: 'human', userId: project.ownerId },
+    });
+    expect(restored.edges.get(line.id)).toMatchObject({ source: web.id, target: api.id });
+
+    // Then what Alex changed: the board is as the moderator drew it.
+    expect(await outcomeOf(await undo(project, change?.id, project.owner))).toEqual({
+      reverted: 2,
+      kept: 0,
+    });
+    const after = await boardOf(project);
+    expect(after.nodes.get(web.id)?.position).toEqual(before.nodes.get(web.id)?.position);
+    expect(after.nodes.get(api.id)?.label).toBe('API');
+    expect([...after.nodes.keys()].sort()).toEqual([...before.nodes.keys()].sort());
+    expect([...after.edges.keys()]).toEqual([line.id]);
+  });
+
+  it('leaves alone what was changed since, and says how many stayed', async () => {
+    const project = await createProject();
+    const alex = await member(project.projectId, 'editor', 'Alex');
+    const { web, api, line } = await drawn(project);
+    const [entry] = await historyOf(project.history, project.owner);
+    // Alex builds on it: the API gets another name. Its arrow hangs on a block that stays.
+    await draw(project, (doc) => {
+      updateNode(doc, api.id, { label: 'Gateway' }, { kind: 'human', userId: alex.id });
+    });
+
+    const outcome = await outcomeOf(await undo(project, entry?.id, project.owner));
+
+    // The arrow goes; the renamed block stays, and so the other block it would leave alone goes.
+    expect(outcome).toEqual({ reverted: 2, kept: 1 });
+    const board = await boardOf(project);
+    expect([...board.nodes.keys()]).toEqual([api.id]);
+    expect(board.nodes.get(api.id)?.label).toBe('Gateway');
+    expect(board.edges.has(line.id)).toBe(false);
+    expect(board.nodes.has(web.id)).toBe(false);
+    const entries = await historyOf(project.history, project.owner);
+    expect(entries.find((candidate) => candidate.id === entry?.id)?.undone).toMatchObject({
+      by: 'Olga',
+      reverted: 2,
+      kept: 1,
+    });
+    // Taken back once is taken back.
+    const again = await undo(project, entry?.id, project.owner);
+    expect(again.status).toBe(409);
+    expect(await again.json()).toMatchObject({ error: { code: 'already_decided' } });
+  });
+
+  it('takes nothing back while nothing is as the entry left it, and can be tried again', async () => {
+    const project = await createProject();
+    const alex = await member(project.projectId, 'editor', 'Alex');
+    const author: Author = { kind: 'human', userId: alex.id };
+    const api = block('API');
+    await draw(project, (doc) => {
+      addBlock(doc, api, MODERATOR);
+    });
+    const [entry] = await historyOf(project.history, project.owner);
+    await draw(project, (doc) => {
+      updateNode(doc, api.id, { label: 'Gateway' }, author);
+    });
+
+    expect(await outcomeOf(await undo(project, entry?.id, project.owner))).toEqual({
+      reverted: 0,
+      kept: 1,
+    });
+
+    // Nothing happened: no new entry, and the entry is not taken back.
+    const entries = await historyOf(project.history, project.owner);
+    expect(entries).toHaveLength(2);
+    expect(entries.every((candidate) => candidate.undone === null && !candidate.reverts)).toBe(
+      true,
+    );
+    expect((await boardOf(project)).nodes.get(api.id)?.label).toBe('Gateway');
+
+    // Alex gives the block its name back; now the entry can be taken back.
+    await draw(project, (doc) => {
+      updateNode(doc, api.id, { label: 'API' }, author);
+    });
+    expect(await outcomeOf(await undo(project, entry?.id, alex.cookie))).toEqual({
+      reverted: 1,
+      kept: 0,
+    });
+    expect((await boardOf(project)).nodes.size).toBe(0);
+  });
+
+  it('can be taken back itself, which brings the change back', async () => {
+    const project = await createProject();
+    const alex = await member(project.projectId, 'editor', 'Alex');
+    const { web, api, line } = await drawn(project);
+    const [entry] = await historyOf(project.history, project.owner);
+    await outcomeOf(await undo(project, entry?.id, project.owner));
+    const [taking] = await historyOf(project.history, project.owner);
+
+    const outcome = await outcomeOf(await undo(project, taking?.id, alex.cookie));
+
+    expect(outcome).toEqual({ reverted: 3, kept: 0 });
+    const board = await boardOf(project);
+    expect([...board.nodes.keys()].sort()).toEqual([web.id, api.id].sort());
+    expect([...board.edges.keys()]).toEqual([line.id]);
+    // The moderator's elements are the moderator's again, brought back by Alex.
+    expect(board.nodes.get(api.id)).toMatchObject({
+      createdBy: MODERATOR,
+      lastChangedBy: { kind: 'human', userId: alex.id },
+    });
+    const [again, first, original] = await historyOf(project.history, project.owner);
+    expect(again).toMatchObject({
+      actor: { kind: 'human', userId: alex.id, name: 'Alex' },
+      reverts: true,
+      undone: null,
+      canUndo: true,
+    });
+    expect(again?.items.map((item) => [item.action, item.present])).toEqual([
+      ['added', true],
+      ['added', true],
+      ['added', true],
+    ]);
+    expect(first).toMatchObject({ id: taking?.id, undone: { by: 'Alex' }, canUndo: false });
+    // What was taken back first stays taken back; the way on is the newest entry.
+    expect(original).toMatchObject({ id: entry?.id, undone: { by: 'Olga' }, canUndo: false });
+  });
+
+  it('writes what others did meanwhile as theirs, apart from the taking back', async () => {
+    const project = await createProject();
+    const alex = await member(project.projectId, 'editor', 'Alex');
+    await drawn(project);
+    const [entry] = await historyOf(project.history, project.owner);
+    // Alex has the board open and adds a note that is not stored yet.
+    const open = await test.collab.hocuspocus.openDirectConnection(
+      boardDocumentName(project.boardId),
+      {
+        user: { id: alex.id, name: 'Alex', role: 'editor' },
+        boardId: project.boardId,
+        projectId: project.projectId,
+      },
+    );
+    try {
+      if (!open.document) throw new Error('The board is not open');
+      addNote(
+        open.document,
+        { id: randomUUID(), position: { x: 0, y: 400 }, text: 'Offene Frage' },
+        { kind: 'human', userId: alex.id },
+      );
+
+      expect(await outcomeOf(await undo(project, entry?.id, project.owner))).toEqual({
+        reverted: 3,
+        kept: 0,
+      });
+    } finally {
+      await open.disconnect();
+    }
+
+    const entries = await historyOf(project.history, project.owner);
+    const by = (name: string) =>
+      entries.filter(
+        (candidate) => candidate.actor.kind === 'human' && candidate.actor.name === name,
+      );
+    expect(by('Alex').map((candidate) => [candidate.reverts, candidate.items])).toEqual([
+      [false, [expect.objectContaining({ label: 'Offene Frage', action: 'added' })]],
+    ]);
+    expect(by('Olga')).toHaveLength(1);
+    expect(by('Olga')[0]).toMatchObject({ reverts: true });
+    expect(by('Olga')[0]?.items.map((item) => item.action)).toEqual([
+      'removed',
+      'removed',
+      'removed',
+    ]);
+  });
+
+  it('touches nothing that someone is editing', async () => {
+    const project = await createProject();
+    const api = block('API');
+    const other = block('Web-App', { x: 300, y: 0 });
+    await draw(project, (doc) => {
+      addBlock(doc, api, MODERATOR);
+      addBlock(doc, other, MODERATOR);
+    });
+    const [entry] = await historyOf(project.history, project.owner);
+    // Sam edits the block: the lock lives in the awareness of the board.
+    const editing = await test.collab.hocuspocus.openDirectConnection(
+      boardDocumentName(project.boardId),
+      {
+        user: { id: 'sam', name: 'Sam', role: 'editor' },
+        boardId: project.boardId,
+        projectId: project.projectId,
+      },
+    );
+    editing.document?.awareness.setLocalState({
+      user: { id: 'sam', name: 'Sam' },
+      editing: { nodeId: api.id, since: Date.now() },
+    });
+    try {
+      expect(await outcomeOf(await undo(project, entry?.id, project.owner))).toEqual({
+        reverted: 1,
+        kept: 1,
+      });
+    } finally {
+      editing.document?.awareness.setLocalState(null);
+      await editing.disconnect();
+    }
+
+    expect([...(await boardOf(project)).nodes.keys()]).toEqual([api.id]);
+  });
+
+  it('is for owners and editors, and only for an entry of the board', async () => {
+    const project = await createProject();
+    const viewer = await member(project.projectId, 'viewer', 'Vera');
+    const stranger = await test.signIn();
+    const other = await createProject();
+    await drawn(project);
+    await drawn(other);
+    const [entry] = await historyOf(project.history, project.owner);
+    const [foreign] = await historyOf(other.history, other.owner);
+
+    // A viewer reads the history and is offered nothing to take back.
+    expect((await historyOf(project.history, viewer.cookie))[0]).toMatchObject({ canUndo: false });
+    expect((await undo(project, entry?.id, viewer.cookie)).status).toBe(403);
+    expect((await undo(project, entry?.id, stranger)).status).toBe(404);
+    expect(
+      (await request(`${project.history}/${entry?.id ?? ''}/undo`, null, { method: 'POST' }))
+        .status,
+    ).toBe(401);
+    // An entry is found under its own board only.
+    expect((await undo(project, foreign?.id, project.owner)).status).toBe(404);
+    expect((await undo(other, entry?.id, other.owner)).status).toBe(404);
+    expect((await undo(project, randomUUID(), project.owner)).status).toBe(404);
+    expect((await undo(project, 'nope', project.owner)).status).toBe(404);
+
+    // Nothing of it changed a board or its history.
+    expect((await boardOf(project)).nodes.size).toBe(2);
+    expect((await boardOf(other)).nodes.size).toBe(2);
+    expect(await historyOf(project.history, project.owner)).toHaveLength(1);
+    expect((await historyOf(project.history, project.owner))[0]?.undone).toBeNull();
+  });
+
+  it('keeps the name of who took an entry back, and outlives the entry it took back', async () => {
+    const project = await createProject();
+    const alex = await member(project.projectId, 'editor', 'Alex');
+    await drawn(project);
+    const [entry] = await historyOf(project.history, project.owner);
+    await outcomeOf(await undo(project, entry?.id, alex.cookie));
+
+    await test.db.adminPool.query('delete from users where id = $1', [alex.id]);
+
+    const [taking, taken] = await historyOf(project.history, project.owner);
+    expect(taken?.undone).toMatchObject({ by: 'Alex' });
+    expect(taking).toMatchObject({ actor: { kind: 'human', userId: null, name: 'Alex' } });
+
+    // Once the entry that was taken back is gone, the taking back is an entry like any other.
+    await test.db.adminPool.query('delete from board_changes where id = $1', [entry?.id]);
+    const [left, ...rest] = await historyOf(project.history, project.owner);
+    expect(rest).toEqual([]);
+    expect(left).toMatchObject({ id: taking?.id, reverts: false, undone: null, canUndo: true });
   });
 });

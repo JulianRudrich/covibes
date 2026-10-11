@@ -209,6 +209,16 @@ describe('diffBoard', () => {
 
     expect(diffBoard(board([]), board([api]), at())[0]?.actor).toEqual(olga);
   });
+
+  it('believes an element by a person the server changed the board for', () => {
+    // Olga takes an entry back (spec 38b): the server sets the element back in her name, while
+    // only Alex's own changes arrived.
+    const gateway = { ...block('Gateway', moderator), lastChangedBy: olga };
+
+    expect(
+      diffBoard(board([]), board([gateway]), at({ humans: [ALEX], service: true }))[0]?.actor,
+    ).toEqual(olga);
+  });
 });
 
 describe('mergeItems', () => {

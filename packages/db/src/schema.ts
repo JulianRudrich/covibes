@@ -109,6 +109,12 @@ export interface BoardChanges {
   id: Generated<string>;
   items: Json;
   project_id: string;
+  reverts: string | null;
+  undone_at: Timestamp | null;
+  undone_by: string | null;
+  undone_by_name: Generated<string>;
+  undone_kept: number | null;
+  undone_reverted: number | null;
   updated_at: Generated<Timestamp>;
 }
 

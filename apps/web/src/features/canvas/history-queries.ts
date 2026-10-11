@@ -1,5 +1,5 @@
-import type { BoardHistory } from '@covibes/shared';
-import { queryOptions } from '@tanstack/react-query';
+import type { BoardHistory, BoardHistoryUndo } from '@covibes/shared';
+import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@web/lib/api';
 
@@ -18,5 +18,23 @@ export function boardHistoryQuery(projectId: string, boardId: string) {
       api<BoardHistory>(
         `/projects/${encodeURIComponent(projectId)}/boards/${encodeURIComponent(boardId)}/history`,
       ),
+  });
+}
+
+/**
+ * Takes an entry of the history back (spec 38b). The answer says how many of its elements were
+ * set back and how many stayed; the history is loaded again either way, so the list says what
+ * became of the entry, also when someone else was faster.
+ */
+export function useUndoHistoryEntry(projectId: string, boardId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (entryId: string) =>
+      api<BoardHistoryUndo>(
+        `/projects/${encodeURIComponent(projectId)}/boards/${encodeURIComponent(boardId)}/history/${encodeURIComponent(entryId)}/undo`,
+        { method: 'POST' },
+      ),
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: boardHistoryQueryKey(projectId, boardId) }),
   });
 }

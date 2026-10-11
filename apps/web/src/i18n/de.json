@@ -1392,6 +1392,15 @@
     "goTo": "Zu „{{name}}“ auf dem Board",
     "more_one": "{{count}} weiteres Element zeigen",
     "more_other": "{{count}} weitere Elemente zeigen",
-    "less": "Weniger zeigen"
+    "less": "Weniger zeigen",
+    "undo": "Zurücknehmen",
+    "undoOf": "Eintrag von {{name}} zurücknehmen",
+    "undoNothing": "Nichts zurückgenommen: Was dieser Eintrag geändert hat, wurde seitdem weiter bearbeitet.",
+    "undoNothingLeft": "Hier gibt es nichts zurückzunehmen: Alles ist schon wieder wie vorher.",
+    "undoFailed": "Das Zurücknehmen hat nicht geklappt. Bitte versuche es noch einmal.",
+    "reverts": "Zurücknahme",
+    "undone": "Zurückgenommen von {{name}}",
+    "undoneBySomeone": "Zurückgenommen",
+    "undonePartly": "{{reverted}} von {{total}} Elementen, der Rest wurde seitdem geändert"
   }
 }

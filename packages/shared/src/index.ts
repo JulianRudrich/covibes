@@ -634,9 +634,11 @@ export {
   type UpdateProjectAgentInput,
   type UpdateProjectInput,
 } from './projects';
+export { revertItems, type RevertResult } from './canvas/revert';
 export {
   boardHistoryEntrySchema,
   boardHistoryItemSchema,
+  boardHistoryUndoSchema,
   diffBoard,
   HISTORY_ACTIONS,
   HISTORY_DAYS,
@@ -649,9 +651,11 @@ export {
   historyItemsSchema,
   mergeItems,
   sameActor,
+  sameContent,
   type BoardHistory,
   type BoardHistoryEntry,
   type BoardHistoryItem,
+  type BoardHistoryUndo,
   type BoardState,
   type HistoryAction,
   type HistoryActor,

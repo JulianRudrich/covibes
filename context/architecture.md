@@ -126,6 +126,7 @@ A message refers to an element of the canvas by its name in square brackets, e.g
   - Changed elements carry `lastChangedBy` and `lastChangedAt`; the client highlights them briefly.
   - Undo of one's own changes runs through Yjs.
 - **History (spec 38a):** when the server stores a board, it compares it with how it stood at the last store and writes what each author did as one entry of `board_changes`: the elements that were added, removed, moved or changed, each as it was before and after. The author comes from the element (`lastChangedBy`); who removed something, and who brought something back through undo, comes from whose changes arrived in between. An entry grows while its author goes on within a minute. Members read the history of a board; only the server writes it. Entries are kept for 30 days, at most 200 per board.
+- **Taking back (spec 38b):** owners and editors take an entry of the history back as a whole. The server sets every element of the entry to how it was before, as one change of the board in the name of the person, and only where the element is still as the entry left it: what was changed since, what an arrow of someone else hangs on and what someone is editing stays. The taking back is an entry of its own that names the entry it takes back; that entry says by whom it was taken back and is not taken back twice. Taking the new entry back brings the change back.
 - **Proposals and variants** live in Postgres as `proposals`, not in the Y.Doc.
   - A canvas proposal holds operations (add a block, a note, a frame or an arrow; change a node; arrange), the same ones the tools apply directly (`packages/shared`, `canvas/operations.ts`).
   - The client shows them dashed or as a comparison view.
@@ -293,7 +294,7 @@ The diagram type lives on its frame (spec 12), not in a separate `meta` map, so 
 | `project_members` | role (owner, editor, viewer), `can_approve_git` |
 | `invitations`, `share_links` | invitations by link or email with role, expiry, uses and the hash of the token; the read-only link of a project (one row, the hash of its token) |
 | `project_people` | everyone who is or was a member of a project, so former members keep their name |
-| `boards`, `yjs_documents`, `board_changes` | boards and storage of the Y.Docs: the canvas of every board and the plan of every project; the history of every board, one entry per author and go (spec 38a) |
+| `boards`, `yjs_documents`, `board_changes` | boards and storage of the Y.Docs: the canvas of every board and the plan of every project; the history of every board, one entry per author and go, and which entry takes which back (spec 38) |
 | `plan_suggestions`, `plan_versions` | the moderator's suggestions per section of the plan with their status, whether they come from a generation or an update and whether their section was changed by hand; the versions of the plan with why each was kept (spec 25c). The plan itself is a document in `yjs_documents` |
 | `messages` | chat: author (human or agent), mentioned agents and people, and the elements of the canvas the message refers to (`block_refs`, spec 37a) |
 | `custom_agents`, `project_agents` | custom agents (personal or shared in a project); team per project. Catalog agents are defined in code |

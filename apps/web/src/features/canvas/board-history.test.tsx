@@ -1,13 +1,13 @@
 import type { BoardHistory, BoardHistoryEntry } from '@covibes/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Dialog } from '@web/components/ui/dialog';
 import { BoardHistoryDialog } from '@web/features/canvas/board-history';
 import { boardHistoryQueryKey } from '@web/features/canvas/history-queries';
 
-// The dialog "Verlauf" of a board (spec 38a).
+// The dialog "Verlauf" of a board (spec 38): what happened on it, and taking an entry back.
 const PROJECT_ID = '0c6a0b52-8f55-4c4e-9f6b-4ad2b3b3c0de';
 const BOARD_ID = '33333333-3333-4333-8333-333333333333';
 const URL = `/api/projects/${PROJECT_ID}/boards/${BOARD_ID}/history`;
@@ -29,7 +29,11 @@ const item = (
   };
 };
 
+/** An entry as a viewer sees it: nothing took it back, and there is nothing to take back. */
+const PLAIN = { reverts: false, undone: null, canUndo: false } as const;
+
 const BY_MODERATOR: BoardHistoryEntry = {
+  ...PLAIN,
   id: 'e1',
   actor: { kind: 'agent', agentKey: 'moderator' },
   at: minutesAgo(5),
@@ -40,6 +44,7 @@ const BY_MODERATOR: BoardHistoryEntry = {
   ],
 };
 const BY_OLGA: BoardHistoryEntry = {
+  ...PLAIN,
   id: 'e2',
   actor: { kind: 'human', userId: 'u1', name: 'Olga Owner' },
   at: minutesAgo(90),
@@ -52,12 +57,28 @@ const BY_OLGA: BoardHistoryEntry = {
   ],
 };
 
-function renderHistory(history: BoardHistory | null) {
+/**
+ * The dialog over a server that holds `history`. `undo` answers a try to take an entry back; it
+ * gets the server to change what the history says from then on.
+ */
+function renderHistory(
+  history: BoardHistory | null,
+  undo: (
+    entryId: string,
+    server: { history: BoardHistory | null },
+  ) => Response | Promise<Response> = () => new Response(null, { status: 500 }),
+) {
   const server = { history };
+  const undone: string[] = [];
   vi.stubGlobal(
     'fetch',
-    vi.fn((input: RequestInfo | URL) => {
+    vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = input instanceof Request ? input.url : input.toString();
+      const entryId = /\/history\/([^/]+)\/undo$/.exec(url)?.[1];
+      if (entryId !== undefined && url.startsWith(URL) && init?.method === 'POST') {
+        undone.push(entryId);
+        return Promise.resolve(undo(entryId, server));
+      }
       return Promise.resolve(
         url === URL && server.history
           ? Response.json(server.history)
@@ -82,6 +103,8 @@ function renderHistory(history: BoardHistory | null) {
   );
   return {
     onOpenElement,
+    /** The entries the dialog asked to take back, in order. */
+    undone,
     /** The board got an entry; the live channel loads the history again. */
     arrive: (nextHistory: BoardHistory) => {
       server.history = nextHistory;
@@ -190,8 +213,15 @@ describe('BoardHistoryDialog', () => {
   it('names an entry nobody can be named for, and an element without a name by its kind', async () => {
     renderHistory({
       entries: [
-        { id: 'e3', actor: { kind: 'unknown' }, at: minutesAgo(1), items: [item('', 'removed')] },
         {
+          ...PLAIN,
+          id: 'e3',
+          actor: { kind: 'unknown' },
+          at: minutesAgo(1),
+          items: [item('', 'removed')],
+        },
+        {
+          ...PLAIN,
           id: 'e4',
           actor: { kind: 'human', userId: null, name: ' ' },
           at: minutesAgo(2),
@@ -237,5 +267,215 @@ describe('BoardHistoryDialog', () => {
     renderHistory(null);
 
     expect(await screen.findByText('Der Verlauf konnte nicht geladen werden.')).toBeInTheDocument();
+  });
+});
+
+// Taking an entry back (spec 38b), as an owner or editor sees the dialog.
+describe('BoardHistoryDialog: taking an entry back', () => {
+  const DRAWN: BoardHistoryEntry = { ...BY_MODERATOR, canUndo: true };
+  /** The entry that took the moderator's back, and that entry as it is afterwards. */
+  const TAKING: BoardHistoryEntry = {
+    id: 'e9',
+    actor: { kind: 'human', userId: 'u1', name: 'Olga Owner' },
+    at: minutesAgo(0),
+    items: BY_MODERATOR.items.map((element) => ({
+      ...element,
+      action: 'removed',
+      present: false,
+    })),
+    reverts: true,
+    undone: null,
+    canUndo: true,
+  };
+  const takenBack = (kept = 0): BoardHistoryEntry => ({
+    ...BY_MODERATOR,
+    items: BY_MODERATOR.items.map((element, index) => ({ ...element, present: index < kept })),
+    undone: { by: 'Olga Owner', at: minutesAgo(2), reverted: 3 - kept, kept },
+    canUndo: false,
+  });
+  const undoButton = (entry: HTMLElement) =>
+    within(entry).queryByRole('button', { name: /^Eintrag von .+ zurücknehmen$/ });
+
+  it('offers it at every entry that can be taken back, and at no other', async () => {
+    renderHistory({ entries: [TAKING, takenBack(), { ...BY_OLGA, canUndo: true }] });
+
+    const [taking, taken, olga] = await entries();
+    if (!taking || !taken || !olga) throw new Error('Entries are missing');
+
+    expect(undoButton(taking)).toHaveAccessibleName('Eintrag von Olga Owner zurücknehmen');
+    expect(undoButton(taking)).toHaveTextContent('Zurücknehmen');
+    expect(undoButton(olga)).toBeInTheDocument();
+    expect(undoButton(taken)).not.toBeInTheDocument();
+  });
+
+  it('offers nothing to someone who only reads', async () => {
+    renderHistory({ entries: [BY_MODERATOR, BY_OLGA] });
+
+    await entries();
+
+    expect(screen.queryByRole('button', { name: /zurücknehmen/ })).not.toBeInTheDocument();
+  });
+
+  it('takes an entry back with one click, and the list says what became of it', async () => {
+    let answer: (response: Response) => void = () => undefined;
+    const { undone } = renderHistory({ entries: [DRAWN, { ...BY_OLGA, canUndo: true }] }, () => {
+      return new Promise<Response>((resolve) => {
+        answer = resolve;
+      });
+    });
+    const [drawn, other] = await entries();
+    if (!drawn || !other) throw new Error('Entries are missing');
+
+    fireEvent.click(
+      within(drawn).getByRole('button', { name: 'Eintrag von Moderator zurücknehmen' }),
+    );
+
+    // While it runs, nothing else is taken back.
+    await waitFor(() => {
+      expect(undone).toEqual(['e1']);
+    });
+    expect(undoButton(drawn)).toBeDisabled();
+    expect(undoButton(other)).toBeDisabled();
+
+    // The board changed: the history has the taking back, and the entry says who took it back.
+    await act(async () => {
+      answer(Response.json({ reverted: 3, kept: 0 }));
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(undoButton(other)).toBeEnabled();
+    });
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('marks a taking back, and says at the entry it took back by whom and when', async () => {
+    renderHistory({ entries: [TAKING, takenBack()] });
+
+    const [taking, taken] = await entries();
+    if (!taking || !taken) throw new Error('Entries are missing');
+
+    expect(taking).toHaveTextContent('Olga Owner · Zurücknahme 3 entfernt');
+    expect(taken).toHaveTextContent('Moderator · 3 hinzugefügt');
+    expect(taken).toHaveTextContent('Zurückgenommen von Olga Owner · vor 2 Minuten');
+    expect(taken).not.toHaveTextContent('Elementen');
+    // What is no longer in force steps back.
+    expect(taken.querySelector('ul')?.parentElement).toHaveClass('opacity-60');
+    expect(taking.querySelector('ul')?.parentElement).not.toHaveClass('opacity-60');
+  });
+
+  it('says how many elements stayed when only a part was taken back', async () => {
+    renderHistory({
+      entries: [
+        takenBack(1),
+        { ...takenBack(), id: 'e5', undone: { by: ' ', at: minutesAgo(3), reverted: 3, kept: 0 } },
+      ],
+    });
+
+    const [partly, nameless] = await entries();
+    if (!partly || !nameless) throw new Error('Entries are missing');
+
+    expect(partly).toHaveTextContent(
+      'Zurückgenommen von Olga Owner · vor 2 Minuten · 2 von 3 Elementen, der Rest wurde seitdem geändert',
+    );
+    expect(partly.querySelector('ul')?.parentElement).not.toHaveClass('opacity-60');
+    // Whoever took it back may be gone, name and all.
+    expect(nameless).toHaveTextContent('Zurückgenommen · vor 3 Minuten');
+  });
+
+  it('follows what the server says after taking back', async () => {
+    renderHistory({ entries: [DRAWN] }, (_entryId, server) => {
+      server.history = { entries: [TAKING, takenBack()] };
+      return Response.json({ reverted: 3, kept: 0 });
+    });
+    const [drawn] = await entries();
+    if (!drawn) throw new Error('No entry');
+
+    fireEvent.click(
+      within(drawn).getByRole('button', { name: 'Eintrag von Moderator zurücknehmen' }),
+    );
+
+    await waitFor(async () => {
+      expect(await entries()).toHaveLength(2);
+    });
+    const [taking, taken] = await entries();
+    if (!taking || !taken) throw new Error('Entries are missing');
+    expect(taken).toHaveTextContent('Zurückgenommen von Olga Owner');
+    expect(undoButton(taken)).not.toBeInTheDocument();
+    // The way back is the new entry.
+    expect(undoButton(taking)).toBeEnabled();
+    // The button that was pressed is gone; the focus stays in the list.
+    expect(screen.getByRole('list', { name: 'Verlauf' })).toHaveFocus();
+  });
+
+  it('says when nothing could be taken back, and leaves the entry to be tried again', async () => {
+    const answers = [
+      { reverted: 0, kept: 3 },
+      { reverted: 0, kept: 0 },
+    ];
+    const { undone } = renderHistory({ entries: [DRAWN] }, () =>
+      Response.json(answers[undone.length - 1]),
+    );
+    const [drawn] = await entries();
+    if (!drawn) throw new Error('No entry');
+    const click = () => {
+      const button = undoButton(drawn);
+      if (!button) throw new Error('No button');
+      fireEvent.click(button);
+    };
+
+    click();
+    expect(await within(drawn).findByRole('status')).toHaveTextContent(
+      'Nichts zurückgenommen: Was dieser Eintrag geändert hat, wurde seitdem weiter bearbeitet.',
+    );
+    await waitFor(() => {
+      expect(undoButton(drawn)).toBeEnabled();
+    });
+
+    click();
+    await waitFor(() => {
+      expect(within(drawn).getByRole('status')).toHaveTextContent(
+        'Hier gibt es nichts zurückzunehmen: Alles ist schon wieder wie vorher.',
+      );
+    });
+    expect(undone).toEqual(['e1', 'e1']);
+  });
+
+  it('says when taking back failed, and nothing when someone else was faster', async () => {
+    const failing = renderHistory({ entries: [DRAWN, { ...BY_OLGA, canUndo: true }] });
+    const [drawn, other] = await entries();
+    if (!drawn || !other) throw new Error('Entries are missing');
+
+    fireEvent.click(
+      within(drawn).getByRole('button', { name: 'Eintrag von Moderator zurücknehmen' }),
+    );
+
+    expect(await within(drawn).findByRole('alert')).toHaveTextContent(
+      'Das Zurücknehmen hat nicht geklappt. Bitte versuche es noch einmal.',
+    );
+    expect(within(other).queryByRole('alert')).not.toBeInTheDocument();
+    expect(failing.undone).toEqual(['e1']);
+    cleanup();
+
+    // Someone else took it back in the same moment: the list says who.
+    renderHistory({ entries: [DRAWN] }, (_entryId, server) => {
+      server.history = { entries: [TAKING, takenBack()] };
+      return new Response(JSON.stringify({ error: { code: 'already_decided', message: 'x' } }), {
+        status: 409,
+      });
+    });
+    const [again] = await entries();
+    if (!again) throw new Error('No entry');
+    fireEvent.click(
+      within(again).getByRole('button', { name: 'Eintrag von Moderator zurücknehmen' }),
+    );
+
+    await waitFor(async () => {
+      expect(await entries()).toHaveLength(2);
+    });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Verlauf' })).toHaveTextContent(
+      'Zurückgenommen von Olga Owner',
+    );
   });
 });

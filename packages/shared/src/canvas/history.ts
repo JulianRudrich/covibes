@@ -67,6 +67,11 @@ function content(element: Element): string {
   );
 }
 
+/** Whether two elements are the same thing, whoever touched them last. */
+export function sameContent(a: CanvasNode | CanvasEdge, b: CanvasNode | CanvasEdge): boolean {
+  return content(a) === content(b);
+}
+
 /** A node without where it is: two nodes that only differ in this were moved. */
 function placeless(node: CanvasNode): string {
   return content({ ...node, position: { x: 0, y: 0 }, frameId: null });
@@ -125,19 +130,17 @@ export function sameActor(a: HistoryActor, b: HistoryActor): boolean {
 
 /**
  * Who an added, moved or changed element is by. Every element says who changed it last, and that
- * is believed if they were at work: a person whose changes arrived, or an agent while the server
- * changed the board. Otherwise the element came back as it was before, e.g. through someone's
- * undo, which restores the old author with the old content; then it is by the one person who was
- * at work, if there was exactly one.
+ * is believed if they were at work: a person whose changes arrived, or anyone while the server
+ * changed the board, which it does for an agent and for a person who takes an entry back (spec
+ * 38b). Otherwise the element came back as it was before, e.g. through someone's undo, which
+ * restores the old author with the old content; then it is by the one person who was at work,
+ * if there was exactly one.
  */
 function actorOf(element: Element, window: HistoryWindow): HistoryActor {
   const by = element.lastChangedBy;
   const [only] = window.humans.size === 1 ? [...window.humans] : [];
-  if (by.kind === 'human') {
-    if (window.humans.has(by.userId) || only === undefined) return by;
-    return { kind: 'human', userId: only };
-  }
-  if (window.service || only === undefined) return by;
+  const atWork = by.kind === 'human' && window.humans.has(by.userId);
+  if (atWork || window.service || only === undefined) return by;
   return { kind: 'human', userId: only };
 }
 
@@ -229,8 +232,33 @@ export const boardHistoryEntrySchema = z.object({
   /** When the author last added to the entry. */
   at: z.string(),
   items: z.array(boardHistoryItemSchema),
+  /** Whether this entry takes another one back (spec 38b). */
+  reverts: z.boolean(),
+  /** For an entry that was taken back: by whom and when, and what came of it. */
+  undone: z
+    .object({
+      by: z.string(),
+      at: z.string(),
+      /** How many of its elements were set back, and how many stayed as they were. */
+      reverted: z.number().int(),
+      kept: z.number().int(),
+    })
+    .nullable(),
+  /** Whether the reader may take the entry back: owners and editors, and only once. */
+  canUndo: z.boolean(),
 });
 export type BoardHistoryEntry = z.infer<typeof boardHistoryEntrySchema>;
 
 /** `GET /api/projects/:projectId/boards/:boardId/history`: the entries, the newest first. */
 export type BoardHistory = { entries: BoardHistoryEntry[] };
+
+/**
+ * `POST /api/projects/:projectId/boards/:boardId/history/:entryId/undo`: how many elements of
+ * the entry were set back and how many stayed as they are. With none set back, the entry is not
+ * taken back and can be tried again.
+ */
+export const boardHistoryUndoSchema = z.object({
+  reverted: z.number().int(),
+  kept: z.number().int(),
+});
+export type BoardHistoryUndo = z.infer<typeof boardHistoryUndoSchema>;

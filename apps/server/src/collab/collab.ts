@@ -24,7 +24,7 @@ import { WebSocketServer, type RawData } from 'ws';
 import * as Y from 'yjs';
 
 import type { Auth } from '@server/auth/auth';
-import { createBoardHistory } from '@server/collab/board-history';
+import { createBoardHistory, type RevertMark } from '@server/collab/board-history';
 import { withUser, type Database as AppDatabase } from '@server/db/database';
 import { sameSecret } from '@server/secrets';
 import { acceptUpgrade, fetchHeaders } from '@server/websockets';
@@ -292,10 +292,14 @@ export function createCollab({
    * Writes what changed on a board into its history right now (spec 38a), without waiting for
    * the board to be stored, and resolves once it is written. For a board nobody has open there
    * is nothing left to write: it was written when the board was stored for the last time.
+   *
+   * What changed is read before this returns to its caller, so two calls in a row tell apart
+   * what happened before and between them. With `mark`, what changed took an entry back (spec
+   * 38b) and is written as that.
    */
-  async function recordHistory(boardId: string): Promise<void> {
+  async function recordHistory(boardId: string, mark?: RevertMark): Promise<void> {
     const live = hocuspocus.documents.get(boardDocumentName(boardId));
-    if (live && !live.isLoading) await history.stored(boardId, live);
+    if (live && !live.isLoading) await history.stored(boardId, live, mark);
     await history.settled(boardId);
   }
 
@@ -392,7 +396,13 @@ export type Collab = ReturnType<typeof createCollab>;
 /** What the API needs from the collaboration server. */
 export type BoardDocuments = Pick<
   Collab,
-  'deleteBoard' | 'changeBoard' | 'changePlan' | 'readBoard' | 'readPlan' | 'readPlanSections'
+  | 'deleteBoard'
+  | 'changeBoard'
+  | 'changePlan'
+  | 'readBoard'
+  | 'readPlan'
+  | 'readPlanSections'
+  | 'recordHistory'
 > & {
   /**
    * Asks for ids for the tasks of a plan that has some without (spec 26b); it returns at once and

@@ -9,7 +9,7 @@
 Polish the product (M7, specs 31 to 36): limits and usage first. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing at the moment. Spec 38a (the history of a board) is done; part 38b (taking an entry back) is next.
+**Spec 38b taking an entry back** (worked out on 2026-10-11): owners and editors take an entry of a board's history back as a whole. Every element of the entry is set to how it was before, unless it was changed since, something else hangs on it or someone is editing it; the result says how many were set back and how many stayed. The taking back is a new entry and can be taken back too. It is the last part of spec 38.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

@@ -31,7 +31,14 @@ export function createTestServer(overrides: Partial<Record<keyof ServerEnv, stri
   const mail = createMailSetup(env);
   const auth = createAuth({ env, adminPool: db.adminPool, mailer: mail.mailer });
   const realtime = createRealtime({ db, auth });
-  const collab = createCollab({ db, auth, internalToken: env.INTERNAL_TOKEN });
+  const collab = createCollab({
+    db,
+    auth,
+    internalToken: env.INTERNAL_TOKEN,
+    onBoardHistory: (projectId, boardId) => {
+      realtime.publish(projectId, { type: 'history', boardId });
+    },
+  });
   /** Uploaded files stay in memory. */
   const files = memoryStorage();
   /** The app with another collaboration server, e.g. one a test starts and stops itself. */

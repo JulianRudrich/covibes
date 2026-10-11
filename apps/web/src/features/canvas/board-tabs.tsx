@@ -4,7 +4,7 @@ import {
   MAX_BOARDS_PER_PROJECT,
   type ProjectBoard,
 } from '@covibes/shared';
-import { ChevronDown, FileText, Plus } from 'lucide-react';
+import { ChevronDown, FileText, History, Plus } from 'lucide-react';
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -40,6 +40,8 @@ type BoardTabsProps = {
   onOpenPlan?: () => void;
   /** Decisions changed since the plan was written (spec 25c): the button carries a dot. */
   planOutdated?: boolean;
+  /** Opens the history of the open board (spec 38a); without it there is no button for it. */
+  onOpenHistory?: () => void;
 };
 
 const FOCUS_RING =
@@ -60,6 +62,7 @@ export function BoardTabs({
   onNotice,
   planOpen = false,
   onOpenPlan,
+  onOpenHistory,
   planOutdated = false,
 }: BoardTabsProps) {
   const { t } = useTranslation();
@@ -276,13 +279,30 @@ export function BoardTabs({
         </button>
       )}
 
+      {/* The history belongs to the board that is open, so the plan has none here. */}
+      {onOpenHistory && !planOpen ? (
+        <button
+          type="button"
+          aria-label={t('history.open')}
+          title={t('history.open')}
+          className={cn(
+            'ml-auto grid size-[30px] shrink-0 cursor-pointer place-items-center rounded-md text-text-2b hover:bg-bg-subtle hover:text-text',
+            FOCUS_RING,
+          )}
+          onClick={onOpenHistory}
+        >
+          <History size={15} strokeWidth={2} aria-hidden="true" />
+        </button>
+      ) : null}
       {onOpenPlan ? (
         <button
           type="button"
           aria-pressed={planOpen}
           aria-controls={planOpen ? PLAN_PANEL_ID : undefined}
           className={cn(
-            'ml-auto flex h-[30px] shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium whitespace-nowrap',
+            'flex h-[30px] shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium whitespace-nowrap',
+            // Pushed to the end of the row, unless the history's button already is.
+            onOpenHistory && !planOpen ? '' : 'ml-auto',
             FOCUS_RING,
             planOpen ? 'bg-bg-subtle text-text' : 'text-text-2b hover:bg-bg-subtle hover:text-text',
           )}

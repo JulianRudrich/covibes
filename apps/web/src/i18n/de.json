@@ -1363,5 +1363,35 @@
       }
     },
     "create": "Erstes Projekt anlegen"
+  },
+  "history": {
+    "open": "Verlauf des Boards",
+    "title": "Verlauf",
+    "hint": "Was sich auf diesem Board geändert hat, das Neueste zuerst. Einträge bleiben {{days}} Tage.",
+    "empty": "Noch nichts aufgezeichnet. Der Verlauf beginnt mit der nächsten Änderung auf diesem Board.",
+    "loadFailed": "Der Verlauf konnte nicht geladen werden.",
+    "someone": "Jemand",
+    "counts": {
+      "added": "{{count}} hinzugefügt",
+      "removed": "{{count}} entfernt",
+      "moved": "{{count}} verschoben",
+      "changed": "{{count}} geändert"
+    },
+    "actions": {
+      "added": "Hinzugefügt",
+      "removed": "Entfernt",
+      "moved": "Verschoben",
+      "changed": "Geändert"
+    },
+    "kinds": {
+      "block": "Block",
+      "sticky": "Notiz",
+      "frame": "Rahmen",
+      "edge": "Verbindung"
+    },
+    "goTo": "Zu „{{name}}“ auf dem Board",
+    "more_one": "{{count}} weiteres Element zeigen",
+    "more_other": "{{count}} weitere Elemente zeigen",
+    "less": "Weniger zeigen"
   }
 }

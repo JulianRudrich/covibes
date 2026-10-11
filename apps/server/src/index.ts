@@ -48,6 +48,10 @@ const collab: Collab = createCollab({
     announceRoadmap(projectId, doc);
     giveTaskIds(projectId, doc);
   },
+  // Everyone who has the project open learns that a board's history changed (spec 38a).
+  onBoardHistory: (projectId, boardId) => {
+    realtime.publish(projectId, { type: 'history', boardId });
+  },
 });
 // Forwards what the worker announces (runs, agent messages, streamed text) to the live channels.
 const liveBridge = startLiveBridge({ adminPool: db.adminPool, admin: db.admin, live: realtime });

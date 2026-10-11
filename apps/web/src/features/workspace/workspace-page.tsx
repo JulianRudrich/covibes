@@ -17,9 +17,11 @@ import { useTranslation } from 'react-i18next';
 import { AgentDirectoryProvider } from '@web/features/agents/agent-directory';
 
 import { PageMessage } from '@web/components/page-message';
+import { Dialog } from '@web/components/ui/dialog';
 import { sessionQuery, type SessionUser } from '@web/features/auth/session';
 import { awayQuery, useDismissAway } from '@web/features/away/queries';
 import { SinceYouWereAway } from '@web/features/away/since-you-were-away';
+import { BoardHistoryDialog } from '@web/features/canvas/board-history';
 import { BoardTabs } from '@web/features/canvas/board-tabs';
 import { CanvasPanel, type BoardExports } from '@web/features/canvas/canvas-panel';
 import { ChatPanel } from '@web/features/chat/chat-panel';
@@ -204,18 +206,27 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
   const [ask, setAsk] = useState<NamedElement & { label: string }>();
   // A reference in a message (spec 37a) opens the canvas at its element: the board it is on,
   // also from the plan, with the element in view.
-  const openReference = useCallback(
-    (reference: MessageReference) =>
+  const openElement = useCallback(
+    (boardId: string, nodeId: string) =>
       void navigate({
         to: '/p/$projectId',
         params: { projectId: project.id },
         search:
-          reference.boardId === mainBoardId(project)
-            ? { focus: reference.nodeId }
-            : { board: reference.boardId, focus: reference.nodeId },
+          boardId === mainBoardId(project) ? { focus: nodeId } : { board: boardId, focus: nodeId },
       }),
     [navigate, project],
   );
+  const openReference = useCallback(
+    (reference: MessageReference) => {
+      openElement(reference.boardId, reference.nodeId);
+    },
+    [openElement],
+  );
+  // The history of the open board (spec 38a), opened from the canvas toolbar.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const openHistory = useCallback(() => {
+    setHistoryOpen(true);
+  }, []);
   const clearFocus = useCallback(
     () =>
       void navigate({
@@ -489,6 +500,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
       onNotice={showNotice}
       planOpen={planOpen}
       onOpenPlan={() => void openPlan()}
+      onOpenHistory={openHistory}
       planOutdated={
         planState !== undefined &&
         planState.outdated !== null &&
@@ -659,6 +671,19 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
           </>
         }
       />
+      <Dialog open={historyOpen && activeBoard !== undefined} onOpenChange={setHistoryOpen}>
+        {/* Mounted only while open: the history is loaded then. */}
+        {historyOpen && activeBoard ? (
+          <BoardHistoryDialog
+            projectId={project.id}
+            boardId={activeBoard.id}
+            onOpenElement={(nodeId) => {
+              setHistoryOpen(false);
+              openElement(activeBoard.id, nodeId);
+            }}
+          />
+        ) : null}
+      </Dialog>
     </AgentDirectoryProvider>
   );
 }

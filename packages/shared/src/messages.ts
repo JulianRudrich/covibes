@@ -129,5 +129,7 @@ export const liveEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('git') }),
   // The usage of the AI changed (spec 31a): a limit may be reached, or free again.
   z.object({ type: z.literal('usage') }),
+  // The history of a board got an entry, or an entry of it grew (spec 38a).
+  z.object({ type: z.literal('history'), boardId: z.string() }),
 ]);
 export type LiveEvent = z.infer<typeof liveEventSchema>;

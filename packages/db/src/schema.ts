@@ -99,6 +99,19 @@ export interface AwaySummaries {
   user_id: string;
 }
 
+export interface BoardChanges {
+  actor_agent_key: string | null;
+  actor_kind: string;
+  actor_name: Generated<string>;
+  actor_user_id: string | null;
+  board_id: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  items: Json;
+  project_id: string;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface Boards {
   created_at: Generated<Timestamp>;
   id: Generated<string>;
@@ -673,6 +686,7 @@ export interface DB {
   agent_knowledge: AgentKnowledge;
   ai_runs: AiRuns;
   away_summaries: AwaySummaries;
+  board_changes: BoardChanges;
   boards: Boards;
   comparisons: Comparisons;
   criteria: Criteria;

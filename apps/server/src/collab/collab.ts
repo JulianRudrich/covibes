@@ -24,6 +24,7 @@ import { WebSocketServer, type RawData } from 'ws';
 import * as Y from 'yjs';
 
 import type { Auth } from '@server/auth/auth';
+import { createBoardHistory } from '@server/collab/board-history';
 import { withUser, type Database as AppDatabase } from '@server/db/database';
 import { sameSecret } from '@server/secrets';
 import { acceptUpgrade, fetchHeaders } from '@server/websockets';
@@ -45,6 +46,8 @@ type CollabDeps = {
    * 26b: the ids of its tasks). It only reads the document; a change goes through `changePlan`.
    */
   onPlanStored?: (projectId: string, doc: Y.Doc) => void;
+  /** Called once the history of a board got an entry, or an entry of it grew (spec 38a). */
+  onBoardHistory?: (projectId: string, boardId: string) => void;
 };
 
 /**
@@ -71,11 +74,19 @@ function toUint8Array(data: RawData): Uint8Array {
  * the document's project; viewers only read. The worker connects with the internal token to draw
  * for agents.
  */
-export function createCollab({ db, auth, internalToken, onPlanStored }: CollabDeps) {
+export function createCollab({
+  db,
+  auth,
+  internalToken,
+  onPlanStored,
+  onBoardHistory,
+}: CollabDeps) {
   const pendingStores = new Set<Promise<unknown>>();
   // Documents of deleted boards. Hocuspocus still stores a document after its last connection
   // closed; for these it must not, or the deleted canvas would come back.
   const deletedDocuments = new Set<string>();
+  // What changed on the boards, written as entries of their history (spec 38a).
+  const history = createBoardHistory({ adminPool: db.adminPool, onChanged: onBoardHistory });
 
   const hocuspocus = new Hocuspocus<CollabContext>({
     name: 'covibes',
@@ -140,6 +151,32 @@ export function createCollab({ db, auth, internalToken, onPlanStored }: CollabDe
       return context;
     },
 
+    // The history of a board (spec 38a) starts from how the board stands when it is loaded,
+    // and notes with every change who sent it.
+    afterLoadDocument({ documentName, document }) {
+      const boardId = boardIdFromDocumentName(documentName);
+      if (boardId) history.loaded(boardId, document);
+      return Promise.resolve();
+    },
+    onChange({ documentName, document, context }) {
+      const boardId = boardIdFromDocumentName(documentName);
+      // A change without a person is the server's own: for an agent, or applying a proposal.
+      const user = (context as CollabContext | undefined)?.user;
+      if (boardId) {
+        history.changed(
+          boardId,
+          document,
+          !user || user.id === SERVICE_USER.id ? 'service' : { id: user.id, name: user.name },
+        );
+      }
+      return Promise.resolve();
+    },
+    afterUnloadDocument({ documentName }) {
+      const boardId = boardIdFromDocumentName(documentName);
+      if (boardId) history.unloaded(boardId);
+      return Promise.resolve();
+    },
+
     extensions: [
       new Database({
         fetch: async ({ documentName }) => {
@@ -162,6 +199,11 @@ export function createCollab({ db, auth, internalToken, onPlanStored }: CollabDe
           } finally {
             pendingStores.delete(stored);
           }
+
+          // The board is stored; what changed on it since goes into its history (spec 38a). A
+          // history that cannot be written must not make the store count as failed.
+          const boardId = boardIdFromDocumentName(documentName);
+          if (boardId) await history.stored(boardId, document);
 
           const planOf = projectIdFromPlanDocumentName(documentName);
           if (!planOf || !onPlanStored) return;
@@ -201,6 +243,7 @@ export function createCollab({ db, auth, internalToken, onPlanStored }: CollabDe
   async function deleteBoard(boardId: string) {
     const documentName = boardDocumentName(boardId);
     deletedDocuments.add(documentName);
+    history.unloaded(boardId);
     hocuspocus.closeConnections(documentName);
     // A store that started before could otherwise write the document again after the delete.
     await Promise.allSettled([...pendingStores]);
@@ -243,6 +286,17 @@ export function createCollab({ db, auth, internalToken, onPlanStored }: CollabDe
     } finally {
       await connection.disconnect();
     }
+  }
+
+  /**
+   * Writes what changed on a board into its history right now (spec 38a), without waiting for
+   * the board to be stored, and resolves once it is written. For a board nobody has open there
+   * is nothing left to write: it was written when the board was stored for the last time.
+   */
+  async function recordHistory(boardId: string): Promise<void> {
+    const live = hocuspocus.documents.get(boardDocumentName(boardId));
+    if (live && !live.isLoading) await history.stored(boardId, live);
+    await history.settled(boardId);
   }
 
   /**
@@ -327,6 +381,7 @@ export function createCollab({ db, auth, internalToken, onPlanStored }: CollabDe
     readBoard,
     readPlan,
     readPlanSections,
+    recordHistory,
     closeUser,
     close,
   };

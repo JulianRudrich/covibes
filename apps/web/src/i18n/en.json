@@ -1363,5 +1363,35 @@
       }
     },
     "create": "Create your first project"
+  },
+  "history": {
+    "open": "History of the board",
+    "title": "History",
+    "hint": "What changed on this board, the newest first. Entries are kept for {{days}} days.",
+    "empty": "Nothing recorded yet. The history starts with the next change on this board.",
+    "loadFailed": "The history could not be loaded.",
+    "someone": "Someone",
+    "counts": {
+      "added": "{{count}} added",
+      "removed": "{{count}} removed",
+      "moved": "{{count}} moved",
+      "changed": "{{count}} changed"
+    },
+    "actions": {
+      "added": "Added",
+      "removed": "Removed",
+      "moved": "Moved",
+      "changed": "Changed"
+    },
+    "kinds": {
+      "block": "Block",
+      "sticky": "Note",
+      "frame": "Frame",
+      "edge": "Arrow"
+    },
+    "goTo": "Go to “{{name}}” on the board",
+    "more_one": "Show {{count}} more element",
+    "more_other": "Show {{count}} more elements",
+    "less": "Show less"
   }
 }

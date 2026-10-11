@@ -9,6 +9,7 @@ import { agentRoutes } from '@server/api/agents';
 import { agentKnowledgeRoutes } from '@server/api/agent-knowledge';
 import { customAgentRoutes } from '@server/api/custom-agents';
 import { awayRoutes } from '@server/api/away';
+import { boardHistoryRoutes } from '@server/api/board-history';
 import { boardRoutes } from '@server/api/boards';
 import { criteriaRoutes, decisionRoutes } from '@server/api/decisions';
 import { apiError } from '@server/api/errors';
@@ -207,6 +208,10 @@ export function createApp({
   const uploadLimiter = createRateLimiter({ limit: UPLOADS_PER_MINUTE, windowMs: 60_000 });
   app.route('/api/projects/:projectId/files', fileRoutes(db.app, auth, files, uploadLimiter));
   app.route('/api/projects/:projectId/boards', boardRoutes(db.app, auth, live, documents));
+  app.route(
+    '/api/projects/:projectId/boards/:boardId/history',
+    boardHistoryRoutes(db.app, auth, documents),
+  );
   app.route('/api/projects/:projectId/proposals', proposalRoutes(db.app, auth, live, documents));
   app.route('/api/projects/:projectId/agents', agentRoutes(db.app, auth, live));
   app.route('/api/projects/:projectId/hands', handRoutes(db.app, auth));

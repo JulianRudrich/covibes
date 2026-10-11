@@ -28,6 +28,7 @@ import { packageQueryKey } from '@web/features/export/package-queries';
 import { roadmapQueryKey } from '@web/features/roadmap/queries';
 import { invitationsQuery } from '@web/features/share/queries';
 import { usageOverviewQueryKey, usageStateQueryKey } from '@web/features/usage/queries';
+import { boardHistoryQueryKey } from '@web/features/canvas/history-queries';
 import { useLiveChannel } from '@web/features/realtime/live-channel';
 
 /**
@@ -116,6 +117,9 @@ export function useProjectLive(projectId: string, userId?: string) {
         reload(usageStateQueryKey(projectId));
         // The owner's overview of the running month, while its dialog is open (spec 31b).
         reloadIfLoaded(usageOverviewQueryKey(projectId, null));
+      } else if (event.type === 'history') {
+        // A board got an entry in its history (spec 38a); only its open dialog holds it.
+        reloadIfLoaded(boardHistoryQueryKey(projectId, event.boardId));
       } else if (event.type === 'package') {
         // A suggestion for a text of the package started, ended or was decided (spec 27c); only
         // the open export dialog holds what is loaded again.

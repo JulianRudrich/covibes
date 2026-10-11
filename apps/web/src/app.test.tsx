@@ -70,6 +70,7 @@ vi.mock('@web/features/canvas/canvas-panel', async () => {
   return {
     CanvasPanel: (props: {
       boardId: string;
+      tabs: ReactNode;
       readOnly: boolean;
       notice: string | null;
       focusId?: string;
@@ -84,12 +85,15 @@ vi.mock('@web/features/canvas/canvas-panel', async () => {
           'data-board': props.boardId,
           'data-readonly': String(props.readOnly),
           'data-focus': props.focusId ?? '',
+          'data-notice': props.notice ?? '',
           'data-export': props.exports
             ? `${props.exports.fileName}|${props.exports.title}|${props.exports.language}`
             : '',
           // Stands for an export that gave no file.
           onDoubleClick: props.exports?.onFailed,
         },
+        // The tabs of the header stay real, like those of the plan (spec 38a: the history).
+        props.tabs,
         props.notice,
         props.focusId ? createElement('button', { onClick: props.onFocused }, 'Im Blick') : null,
         // Stands for an element that never came (spec 37a).
@@ -1332,6 +1336,68 @@ describe('with a session', () => {
     });
   });
 
+  describe('the history of a board (spec 38a)', () => {
+    const ELEMENT = 'aaaaaaaa-0000-4000-8000-000000000009';
+    const historyOf = (boardId: string) => `/api/projects/${PROJECT.id}/boards/${boardId}/history`;
+    const entry = (label: string) => ({
+      entries: [
+        {
+          id: 'e1',
+          actor: { kind: 'agent', agentKey: 'moderator' },
+          at: new Date().toISOString(),
+          items: [{ id: ELEMENT, kind: 'block', label, action: 'added', present: true }],
+        },
+      ],
+    });
+
+    it('opens from the canvas for the board that is open, and leads to an element', async () => {
+      const api = stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({
+          body: { ...DETAILS, boards: [...DETAILS.boards, EXTRA_BOARD] },
+        }),
+        [`GET ${historyOf(EXTRA_BOARD.id)}`]: () => ({ body: entry('Anmelden') }),
+      });
+      const router = renderApp(`/p/${PROJECT.id}?board=${EXTRA_BOARD.id}`);
+      const canvas = await screen.findByTestId('canvas-panel');
+      // Loaded only once the dialog opens.
+      expect(
+        api.mock.calls.some(([input]) =>
+          (input instanceof Request ? input.url : input.toString()).endsWith('/history'),
+        ),
+      ).toBe(false);
+
+      expect(canvas).toHaveAttribute('data-board', EXTRA_BOARD.id);
+      fireEvent.click(screen.getByRole('button', { name: 'Verlauf des Boards' }));
+
+      const dialog = await screen.findByRole('dialog', { name: 'Verlauf' });
+      fireEvent.click(
+        await within(dialog).findByRole('button', { name: 'Zu „Anmelden“ auf dem Board' }),
+      );
+
+      // The dialog steps aside and the board brings the element into view.
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog', { name: 'Verlauf' })).not.toBeInTheDocument();
+      });
+      expect(screen.getByTestId('canvas-panel')).toHaveAttribute('data-focus', ELEMENT);
+      expect(router.state.location.search).toEqual({ board: EXTRA_BOARD.id, focus: ELEMENT });
+    });
+
+    it('is there for viewers too', async () => {
+      stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({ body: { ...DETAILS, role: 'viewer' } }),
+        [`GET ${historyOf(DETAILS.boards[0]?.id ?? '')}`]: () => ({ body: entry('API') }),
+      });
+      renderApp(`/p/${PROJECT.id}`);
+
+      await screen.findByTestId('canvas-panel');
+      fireEvent.click(screen.getByRole('button', { name: 'Verlauf des Boards' }));
+
+      const dialog = await screen.findByRole('dialog', { name: 'Verlauf' });
+      await within(dialog).findByRole('list', { name: 'Verlauf' });
+      expect(dialog).toHaveTextContent('Moderator · 1 hinzugefügt');
+    });
+  });
+
   describe('exports (spec 27a)', () => {
     it('names the main canvas in the language of the project, whatever it was called (spec 32b)', async () => {
       stubApi({
@@ -1567,7 +1633,7 @@ describe('with a session', () => {
       expect(router.state.location.search).toEqual({});
     });
     expect(screen.getByTestId('canvas-panel')).toHaveAttribute('data-board', DETAILS.boards[0]?.id);
-    expect(screen.getByTestId('canvas-panel')).toBeEmptyDOMElement();
+    expect(screen.getByTestId('canvas-panel')).toHaveAttribute('data-notice', '');
   });
 
   it('opens the main canvas with a note when someone deletes the open board', async () => {

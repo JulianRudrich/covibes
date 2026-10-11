@@ -10,6 +10,7 @@ import { projectQuery } from '@web/features/projects/queries';
 import { proposalsQuery } from '@web/features/proposals/queries';
 import { gitReviewsQuery } from '@web/features/git/request-queries';
 import { roadmapQuery } from '@web/features/roadmap/queries';
+import { boardHistoryQuery } from '@web/features/canvas/history-queries';
 import { usageOverviewQuery, usageStateQuery } from '@web/features/usage/queries';
 import { openVotesQuery } from '@web/features/decisions/queries';
 import { notificationsQuery } from '@web/features/notifications/queries';
@@ -469,6 +470,33 @@ describe('useProjectLive', () => {
     // A month that is over does not change any more.
     expect(
       queryClient.getQueryState(usageOverviewQuery(PROJECT_ID, '2026-09').queryKey)?.isInvalidated,
+    ).toBe(false);
+  });
+
+  it('loads the open history of a board again when the board gets an entry (spec 38a)', async () => {
+    const BOARD = '33333333-3333-4333-8333-333333333333';
+    const OTHER = '44444444-4444-4444-8444-444444444444';
+    stubApi({
+      [`GET ${PROJECT_URL}`]: () => ({ body: DETAILS }),
+      [`GET ${PROJECT_URL}/boards/${BOARD}/history`]: () => ({ body: { entries: [] } }),
+      [`GET ${PROJECT_URL}/boards/${OTHER}/history`]: () => ({ body: { entries: [] } }),
+    });
+    const queryClient = renderLive();
+    await queryClient.query(boardHistoryQuery(PROJECT_ID, BOARD));
+    await queryClient.query(boardHistoryQuery(PROJECT_ID, OTHER));
+
+    act(() => {
+      live.handlers?.onEvent({ type: 'history', boardId: BOARD });
+    });
+
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryState(boardHistoryQuery(PROJECT_ID, BOARD).queryKey)?.isInvalidated,
+      ).toBe(true);
+    });
+    // The history of another board did not change.
+    expect(
+      queryClient.getQueryState(boardHistoryQuery(PROJECT_ID, OTHER).queryKey)?.isInvalidated,
     ).toBe(false);
   });
 });

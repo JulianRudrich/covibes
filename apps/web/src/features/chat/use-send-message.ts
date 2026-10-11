@@ -5,6 +5,7 @@ import {
   type ChatMessage,
   type MentionNames,
   type MessageAttachment,
+  type NamedElement,
   type SendMessageInput,
 } from '@covibes/shared';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
@@ -62,7 +63,12 @@ export function useSendMessage(
    * the message list is not loaded yet.
    */
   const send = useCallback(
-    (text: string, attachments: readonly MessageAttachment[] = []): boolean => {
+    (
+      text: string,
+      attachments: readonly MessageAttachment[] = [],
+      /** The elements of the canvas the text was asked to refer to (spec 37b). */
+      references: readonly NamedElement[] = [],
+    ): boolean => {
       const input = sendMessageInputSchema.safeParse({ id: crypto.randomUUID(), content: text });
       if (!input.success) return false;
       // Without the list there is nowhere to show the message or a failure to send it.
@@ -81,6 +87,8 @@ export function useSendMessage(
         mentions: parseMentions(content, names),
         ...(mentionedUsers.length > 0 ? { mentionedUsers } : {}),
         ...(attachments.length > 0 ? { attachments: [...attachments] } : {}),
+        // Kept with the message, so sending it again still says which elements are meant.
+        ...(references.length > 0 ? { named: [...references] } : {}),
         replyTo: null,
         status: 'complete',
         createdAt: now,
@@ -92,6 +100,7 @@ export function useSendMessage(
         id,
         content,
         ...(attachments.length > 0 ? { attachments: attachments.map((file) => file.id) } : {}),
+        ...(references.length > 0 ? { references: [...references] } : {}),
       });
       return true;
     },
@@ -111,6 +120,7 @@ export function useSendMessage(
         id,
         content: item.content,
         ...(attached.length > 0 ? { attachments: attached.map((file) => file.id) } : {}),
+        ...(item.named && item.named.length > 0 ? { references: [...item.named] } : {}),
       });
     },
     [queryClient, projectId],

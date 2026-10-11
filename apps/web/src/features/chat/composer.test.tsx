@@ -44,7 +44,7 @@ describe('Composer', () => {
     type(textbox, '  Hallo Team  ');
     fireEvent.keyDown(textbox, { key: 'Enter' });
 
-    expect(onSend).toHaveBeenCalledExactlyOnceWith('Hallo Team', []);
+    expect(onSend).toHaveBeenCalledExactlyOnceWith('Hallo Team', [], []);
     expect(textbox).toHaveValue('');
     expect(textbox).toHaveFocus();
   });
@@ -92,7 +92,7 @@ describe('Composer', () => {
     expect(sendButton()).toBeEnabled();
     fireEvent.click(sendButton());
 
-    expect(onSend).toHaveBeenCalledExactlyOnceWith('Klingt gut', []);
+    expect(onSend).toHaveBeenCalledExactlyOnceWith('Klingt gut', [], []);
     expect(textbox).toHaveValue('');
     expect(textbox).toHaveFocus();
     expect(sendButton()).toBeDisabled();
@@ -225,5 +225,112 @@ describe('Composer', () => {
 
     fireEvent.keyDown(textbox, { key: 'Enter' });
     expect(onSend).not.toHaveBeenCalled();
+  });
+});
+
+describe('asking about an element of the canvas (spec 37b)', () => {
+  const MAIN = '11111111-1111-4111-8111-111111111111';
+  const GATEWAY = { boardId: MAIN, nodeId: '22222222-2222-4222-8222-222222222222' };
+  const WEB = { boardId: MAIN, nodeId: '33333333-3333-4333-8333-333333333333' };
+
+  function renderAsking() {
+    const onSend = vi.fn();
+    const view = (ask?: { boardId: string; nodeId: string; label: string }) => (
+      <TooltipProvider>
+        <Composer agents={['moderator']} onSend={onSend} ask={ask} />
+      </TooltipProvider>
+    );
+    const { rerender } = render(view());
+    const textbox = screen.getByRole<HTMLTextAreaElement>('textbox');
+    return {
+      onSend,
+      textbox,
+      /** Someone clicks "Im Chat fragen" at an element. */
+      ask: (element: { boardId: string; nodeId: string }, label: string) => {
+        rerender(view({ ...element, label }));
+      },
+    };
+  }
+
+  it('puts the name in square brackets into the field and goes on behind it', () => {
+    const { ask, textbox, onSend } = renderAsking();
+
+    ask(GATEWAY, 'AI-Gateway');
+
+    expect(textbox).toHaveValue('[AI-Gateway] ');
+    expect(textbox).toHaveFocus();
+    expect(textbox.selectionStart).toBe('[AI-Gateway] '.length);
+    // Nothing is sent by the click.
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it('inserts at the caret, apart from the word before it', () => {
+    const { ask, textbox } = renderAsking();
+    type(textbox, 'Was macht das? Danke');
+    textbox.setSelectionRange('Was macht das'.length, 'Was macht das'.length);
+
+    ask(GATEWAY, 'AI-Gateway');
+
+    expect(textbox).toHaveValue('Was macht das [AI-Gateway] ? Danke');
+    expect(textbox.selectionStart).toBe('Was macht das [AI-Gateway] '.length);
+  });
+
+  it('sends the element that was meant along with the message', () => {
+    const { ask, textbox, onSend } = renderAsking();
+    ask(GATEWAY, 'AI-Gateway');
+    type(textbox, `${textbox.value}was macht das?`);
+
+    fireEvent.keyDown(textbox, { key: 'Enter' });
+
+    expect(onSend).toHaveBeenCalledExactlyOnceWith('[AI-Gateway] was macht das?', [], [GATEWAY]);
+    expect(textbox).toHaveValue('');
+  });
+
+  it('sends several elements in the order the text names them', () => {
+    const { ask, textbox, onSend } = renderAsking();
+    ask(GATEWAY, 'AI-Gateway');
+    ask(WEB, 'Web-App');
+    expect(textbox).toHaveValue('[AI-Gateway] [Web-App] ');
+    type(textbox, 'Hängt die [Web-App] am [AI-Gateway]?');
+
+    fireEvent.keyDown(textbox, { key: 'Enter' });
+
+    expect(onSend).toHaveBeenCalledExactlyOnceWith(
+      'Hängt die [Web-App] am [AI-Gateway]?',
+      [],
+      [WEB, GATEWAY],
+    );
+  });
+
+  it('leaves out an element whose name the person deleted again', () => {
+    const { ask, textbox, onSend } = renderAsking();
+    ask(GATEWAY, 'AI-Gateway');
+    type(textbox, 'Doch nichts.');
+
+    fireEvent.keyDown(textbox, { key: 'Enter' });
+
+    expect(onSend).toHaveBeenCalledExactlyOnceWith('Doch nichts.', [], []);
+  });
+
+  it('forgets the elements of a message once it is sent', () => {
+    const { ask, textbox, onSend } = renderAsking();
+    ask(GATEWAY, 'AI-Gateway');
+    fireEvent.keyDown(textbox, { key: 'Enter' });
+    onSend.mockClear();
+
+    // The same name typed by hand is a name like any other: the server looks it up.
+    type(textbox, 'Noch einmal zum [AI-Gateway]');
+    fireEvent.keyDown(textbox, { key: 'Enter' });
+
+    expect(onSend).toHaveBeenCalledExactlyOnceWith('Noch einmal zum [AI-Gateway]', [], []);
+  });
+
+  it('inserts the same element again when it is asked about again', () => {
+    const { ask, textbox } = renderAsking();
+
+    ask(GATEWAY, 'AI-Gateway');
+    ask(GATEWAY, 'AI-Gateway');
+
+    expect(textbox).toHaveValue('[AI-Gateway] [AI-Gateway] ');
   });
 });

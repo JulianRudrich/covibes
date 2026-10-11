@@ -185,3 +185,66 @@ describe('splitReferences', () => {
     ]);
   });
 });
+
+describe('elements a message names itself (spec 37b)', () => {
+  it('takes the element that was meant of two with the same name', () => {
+    const upper = node('Service', 'human', { x: 0, y: 0 });
+    const lower = node('Service', 'backend', { x: 0, y: 400 });
+    const boards: ReferenceBoard[] = [{ boardId: MAIN, nodes: [upper, lower] }];
+
+    // By name alone the upper one counts.
+    expect(findReferences('[Service]', boards)[0]?.nodeId).toBe(upper.id);
+    expect(findReferences('[Service]', boards, [{ boardId: MAIN, nodeId: lower.id }])).toEqual([
+      {
+        label: 'Service',
+        boardId: MAIN,
+        nodeId: lower.id,
+        by: { kind: 'agent', agentKey: 'backend' },
+      },
+    ]);
+  });
+
+  it('finds the element on its own board, whatever the boards before it hold', () => {
+    const onMain = node('Datenbank');
+    const onExtra = node('Datenbank');
+    const boards: ReferenceBoard[] = [
+      { boardId: MAIN, nodes: [onMain] },
+      { boardId: EXTRA, nodes: [onExtra] },
+    ];
+
+    const [found] = findReferences('Was speichert die [datenbank]?', boards, [
+      { boardId: EXTRA, nodeId: onExtra.id },
+    ]);
+
+    expect(found).toMatchObject({ label: 'datenbank', boardId: EXTRA, nodeId: onExtra.id });
+  });
+
+  it('looks a name up when the element it is sent with has another name', () => {
+    const api = node('API');
+    const web = node('Web-App');
+    const boards: ReferenceBoard[] = [{ boardId: MAIN, nodes: [api, web] }];
+
+    // The text names the web app; the element sent along is the API.
+    expect(
+      findReferences('[Web-App]', boards, [{ boardId: MAIN, nodeId: api.id }])[0]?.nodeId,
+    ).toBe(web.id);
+    expect(findReferences('[Gibt es nicht]', boards, [{ boardId: MAIN, nodeId: api.id }])).toEqual(
+      [],
+    );
+  });
+
+  it('takes no element of a board that is not among the boards', () => {
+    const own = node('API');
+    const foreign = node('API');
+    const boards: ReferenceBoard[] = [{ boardId: MAIN, nodes: [own] }];
+
+    // The element is named with a board that is not the project's: the name is looked up instead.
+    expect(
+      findReferences('[API]', boards, [{ boardId: EXTRA, nodeId: foreign.id }])[0]?.nodeId,
+    ).toBe(own.id);
+    // The right board with an element it does not hold is no better.
+    expect(
+      findReferences('[API]', boards, [{ boardId: MAIN, nodeId: foreign.id }])[0]?.nodeId,
+    ).toBe(own.id);
+  });
+});

@@ -4,6 +4,7 @@ import {
   referenceNames,
   type CanvasNode,
   type MessageReference,
+  type NamedElement,
   type ReferenceBoard,
 } from '@covibes/shared';
 import type { Kysely } from 'kysely';
@@ -36,11 +37,15 @@ export async function projectBoardIds(db: Kysely<DB>, projectId: string): Promis
  * The references of a text on these boards, the first board that has a name winning. A text
  * without a name in square brackets reads no board at all, which is nearly every message. A board
  * that cannot be read right now has no elements to refer to: the message is stored all the same.
+ *
+ * `named` are elements the message names itself (spec 37b). They count only on `boardIds`, so a
+ * client cannot point at a board of another project, and only under the name the text writes.
  */
 export async function referencesOf(
   text: string,
   boardIds: readonly string[],
   readBoard: BoardReader,
+  named: readonly NamedElement[] = [],
 ): Promise<MessageReference[]> {
   if (referenceNames(text).length === 0) return [];
   const boards: ReferenceBoard[] = [];
@@ -51,5 +56,5 @@ export async function referencesOf(
     );
     boards.push({ boardId, nodes });
   }
-  return findReferences(text, boards);
+  return findReferences(text, boards, named);
 }

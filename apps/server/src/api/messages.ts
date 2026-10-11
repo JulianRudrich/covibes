@@ -116,6 +116,8 @@ export function messageRoutes(
         content,
         await projectBoardIds(trx, projectId.data),
         readBoard,
+        // The elements the sender clicked to ask about (spec 37b).
+        input.data.references,
       );
       // Sending the same id again (e.g. after a lost answer) returns the stored message.
       const inserted = await trx

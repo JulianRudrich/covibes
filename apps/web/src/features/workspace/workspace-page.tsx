@@ -3,6 +3,7 @@ import {
   exportFileName,
   type HandRaise,
   type MessageReference,
+  type NamedElement,
   type OpenVote,
   type ProjectDetails,
   type Proposal,
@@ -198,6 +199,9 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
       },
     });
   }, [roadmapOpening, navigate, project, showNotice, t]);
+  // "Im Chat fragen" at an element of the canvas (spec 37b): its name goes into the composer,
+  // and the message will say which element is meant.
+  const [ask, setAsk] = useState<NamedElement & { label: string }>();
   // A reference in a message (spec 37a) opens the canvas at its element: the board it is on,
   // also from the plan, with the element in view.
   const openReference = useCallback(
@@ -548,6 +552,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
               moderatorNeutral={project.stance !== 'opinion'}
               onNotice={showNotice}
               onOpenReference={openReference}
+              ask={ask}
             />
           ) : null
         }
@@ -586,6 +591,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                   focusId={focus}
                   onFocused={clearFocus}
                   onFocusMissing={focusMissing}
+                  onAsk={readOnly ? undefined : setAsk}
                   exports={boardExports}
                 />
               </RoadmapProvider>

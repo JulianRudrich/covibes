@@ -23,6 +23,7 @@ import {
   placeNodes,
   readEdges,
   readNodes,
+  referenceLabel,
   resizeFrame,
   ROADMAP_DIAGRAM,
   roadmapLayout,
@@ -31,6 +32,7 @@ import {
   type Author,
   type AwarenessUser,
   type BlockType,
+  type NamedElement,
   type PlanLanguage,
   type Position,
   type ProjectMember,
@@ -50,6 +52,7 @@ import {
   type EdgeTypes,
   type NodeTypes,
 } from '@xyflow/react';
+import { MessageSquare } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -127,6 +130,11 @@ type CanvasPanelProps = {
   onFocused?: () => void;
   /** The element did not come: it is not on this board (any more). */
   onFocusMissing?: () => void;
+  /**
+   * Asks about an element in the chat (spec 37b): a selected element offers it. Without it, as
+   * for viewers, the canvas offers nothing.
+   */
+  onAsk?: (element: NamedElement & { label: string }) => void;
   /** What the exports of the board are called (spec 27a); without it the board offers none. */
   exports?: BoardExports;
 };
@@ -177,6 +185,7 @@ function BoardCanvas({
   focusId,
   onFocused,
   onFocusMissing,
+  onAsk,
   exports,
 }: Omit<CanvasPanelProps, 'tabs' | 'notice'>) {
   const { t } = useTranslation();
@@ -201,6 +210,7 @@ function BoardCanvas({
           focusId={focusId}
           onFocused={onFocused}
           onFocusMissing={onFocusMissing}
+          onAsk={onAsk}
           exports={exports}
         />
       ) : (
@@ -225,6 +235,7 @@ type BoardProps = {
   focusId?: string;
   onFocused?: () => void;
   onFocusMissing?: () => void;
+  onAsk?: (element: NamedElement & { label: string }) => void;
   exports?: BoardExports;
 };
 
@@ -260,6 +271,7 @@ function Board({
   focusId,
   onFocused,
   onFocusMissing,
+  onAsk,
   exports,
 }: BoardProps) {
   const { t } = useTranslation();
@@ -637,6 +649,16 @@ function Board({
   }
 
   const placing = tool === 'block' || tool === 'note' || tool === 'frame';
+  // The one selected element that can be asked about in the chat (spec 37b): it has a name,
+  // and nobody is writing in it.
+  const askAbout = useMemo(() => {
+    if (editingId !== null || edges.some((edge) => edge.selected)) return null;
+    const selected = nodes.filter((node) => node.selected);
+    const [only] = selected;
+    if (selected.length !== 1 || !only || only.data.lockedBy) return null;
+    const label = referenceLabel(only.data);
+    return label === '' ? null : { node: only, label };
+  }, [editingId, nodes, edges]);
 
   // The board as files (spec 27a): an image of everything on it, or its diagrams as Mermaid.
   const store = useStoreApi();
@@ -734,6 +756,14 @@ function Board({
               onDecide={onDecide}
             />
             {flash !== null ? <FocusFlash node={nodes.find((node) => node.id === flash)} /> : null}
+            {askAbout && onAsk && !placing ? (
+              <AskPill
+                position={askAbout.node.position}
+                onAsk={() => {
+                  onAsk({ boardId, nodeId: askAbout.node.id, label: askAbout.label });
+                }}
+              />
+            ) : null}
             {cursors.map((cursor) => (
               <LiveCursor key={cursor.clientId} cursor={cursor} />
             ))}
@@ -762,6 +792,26 @@ function Board({
         />
       </ReactFlow>
     </CanvasActionsProvider>
+  );
+}
+
+/**
+ * "Im Chat fragen" right above the selected element (spec 37b; derived look): a small pill in
+ * the place of the lock pill, which a selected element of one's own never has. It is a control
+ * of the moment, no part of the board.
+ */
+function AskPill({ position, onAsk }: { position: Position; onAsk: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      className="nodrag nopan pointer-events-auto absolute z-[6] flex h-[22px] cursor-pointer items-center gap-[5px] rounded-sm border border-border-strong bg-bg-panel pr-2 pl-1.5 text-meta font-medium whitespace-nowrap text-text-2 shadow-button-secondary hover:bg-bg-secondary-hover hover:text-text focus-visible:outline-2 focus-visible:outline-ink"
+      style={{ left: position.x, top: position.y - 28 }}
+      onClick={onAsk}
+    >
+      <MessageSquare size={12} strokeWidth={2} aria-hidden="true" />
+      {t('canvas.ask')}
+    </button>
   );
 }
 

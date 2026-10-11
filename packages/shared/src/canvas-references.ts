@@ -29,6 +29,14 @@ export type MessageReference = z.infer<typeof messageReferenceSchema>;
 
 export const messageReferencesSchema = z.array(messageReferenceSchema).max(MESSAGE_REFERENCES_MAX);
 
+/**
+ * An element a message names itself (spec 37b): the one a person clicked to ask about. The
+ * server takes it only if it finds it on a board of the project under the name the text writes.
+ */
+export const namedElementSchema = z.object({ boardId: z.uuid(), nodeId: z.uuid() });
+export type NamedElement = z.infer<typeof namedElementSchema>;
+export const namedElementsSchema = z.array(namedElementSchema).max(MESSAGE_REFERENCES_MAX);
+
 /** A name as it is compared: one line, single spaces, nothing around it. */
 function plain(name: string): string {
   return name.replace(/\s+/g, ' ').trim();
@@ -74,39 +82,71 @@ export type ReferenceBoard = {
   nodes: readonly Pick<CanvasNode, 'id' | 'label' | 'position' | 'createdBy'>[];
 };
 
+type ReferenceNode = ReferenceBoard['nodes'][number];
+
+function referenceTo(name: string, boardId: string, node: ReferenceNode): MessageReference {
+  return {
+    label: name,
+    boardId,
+    nodeId: node.id,
+    by:
+      node.createdBy.kind === 'agent'
+        ? { kind: 'agent', agentKey: node.createdBy.agentKey }
+        : { kind: 'human' },
+  };
+}
+
 /**
- * The references of a text: for every name in square brackets the element that has this name, on
- * the first of `boards` that has one. Of several elements with the same name on a board the one
- * furthest up counts, then the one furthest left. A name no element has is no reference.
+ * The references of a text: for every name in square brackets the element that has this name.
+ *
+ * An element the message names itself (`named`, spec 37b) comes first: it is taken if it is on
+ * one of `boards` and has the name, so of two elements with one name the one that was meant
+ * counts. Otherwise the name is looked up on the boards in their order: the first board that
+ * has it, and of several elements on a board the one furthest up, then the one furthest left. A
+ * name no element has is no reference.
  */
 export function findReferences(
   text: string,
   boards: readonly ReferenceBoard[],
+  named: readonly NamedElement[] = [],
 ): MessageReference[] {
   const references: MessageReference[] = [];
   for (const name of referenceNames(text)) {
     if (references.length >= MESSAGE_REFERENCES_MAX) break;
-    for (const board of boards) {
-      const node = board.nodes
-        .filter((candidate) => sameName(referenceLabel(candidate), name))
-        .sort(
-          (a, b) =>
-            a.position.y - b.position.y || a.position.x - b.position.x || a.id.localeCompare(b.id),
-        )[0];
-      if (!node) continue;
-      references.push({
-        label: name,
-        boardId: board.boardId,
-        nodeId: node.id,
-        by:
-          node.createdBy.kind === 'agent'
-            ? { kind: 'agent', agentKey: node.createdBy.agentKey }
-            : { kind: 'human' },
-      });
-      break;
-    }
+    const found = namedAs(name, boards, named) ?? lookedUp(name, boards);
+    if (found) references.push(found);
   }
   return references;
+}
+
+/** The first of the named elements that is on one of the boards and has this name. */
+function namedAs(
+  name: string,
+  boards: readonly ReferenceBoard[],
+  named: readonly NamedElement[],
+): MessageReference | undefined {
+  for (const element of named) {
+    const board = boards.find((candidate) => candidate.boardId === element.boardId);
+    const node = board?.nodes.find((candidate) => candidate.id === element.nodeId);
+    if (board && node && sameName(referenceLabel(node), name)) {
+      return referenceTo(name, board.boardId, node);
+    }
+  }
+  return undefined;
+}
+
+/** The element with this name on the first board that has one. */
+function lookedUp(name: string, boards: readonly ReferenceBoard[]): MessageReference | undefined {
+  for (const board of boards) {
+    const node = board.nodes
+      .filter((candidate) => sameName(referenceLabel(candidate), name))
+      .sort(
+        (a, b) =>
+          a.position.y - b.position.y || a.position.x - b.position.x || a.id.localeCompare(b.id),
+      )[0];
+    if (node) return referenceTo(name, board.boardId, node);
+  }
+  return undefined;
 }
 
 /** A piece of message text: plain text, or a reference as it is written, brackets included. */

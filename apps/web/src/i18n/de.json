@@ -499,7 +499,8 @@
       "limit": "Ein Projekt hat höchstens {{max}} Boards.",
       "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
     },
-    "elementGone": "Dieses Element gibt es auf dem Canvas nicht mehr."
+    "elementGone": "Dieses Element gibt es auf dem Canvas nicht mehr.",
+    "ask": "Im Chat fragen"
   },
   "chat": {
     "messages": "Nachrichten",

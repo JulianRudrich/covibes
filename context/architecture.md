@@ -117,7 +117,7 @@ During development Vite forwards `/api` to the server. Web app and API therefore
    4. write the finished message into `messages`
 5. Everyone sees the queue status (waiting or working) through `ai_runs` and the channel.
 
-A message refers to an element of the canvas by its name in square brackets, e.g. `[AI-Gateway]` (spec 37a). The server finds the element when the message is stored (a person's message on all boards of the project, an agent's answer on the main canvas) and keeps board and element in `messages.block_refs`, so the reference still leads there after the element is renamed. The web app shows it as an inline button that opens the board with the element in view.
+A message refers to an element of the canvas by its name in square brackets, e.g. `[AI-Gateway]` (spec 37a). The server finds the element when the message is stored (a person's message on all boards of the project, an agent's answer on the main canvas) and keeps board and element in `messages.block_refs`, so the reference still leads there after the element is renamed. The web app shows it as an inline button that opens the board with the element in view. A message may name the elements it means (spec 37b: "Im Chat fragen" at an element); the server takes one only if it finds it on a board of the project under the name the text writes.
 
 ### Canvas
 - There is one Y.Doc per board (`board:{boardId}`). React Flow renders from the Y.Doc.

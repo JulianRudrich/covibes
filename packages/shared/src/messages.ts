@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { agentKeySchema } from './agents/custom';
-import { messageReferencesSchema } from './canvas-references';
+import { messageReferencesSchema, namedElementsSchema } from './canvas-references';
 import { messageDebateSchema, messageDebateTurnSchema } from './debates';
 import { comparisonSchema, messageVoteSchema } from './decisions';
 import { attachmentIdsSchema, messageAttachmentSchema } from './files';
@@ -71,6 +71,11 @@ export const sendMessageInputSchema = z.object({
     .refine((text) => !text.includes('\u0000'), 'Messages cannot contain NUL characters'),
   /** Uploaded files of the sender that the message takes along (spec 20a). */
   attachments: attachmentIdsSchema.optional(),
+  /**
+   * Elements of the canvas the message means with a `[Name]` (spec 37b), e.g. one that was
+   * clicked to ask about. The server takes one only if it finds it under that name.
+   */
+  references: namedElementsSchema.optional(),
 });
 export type SendMessageInput = z.input<typeof sendMessageInputSchema>;
 

@@ -1,4 +1,10 @@
-import type { HandRaise, MessageReference, ProjectMember, ProjectRole } from '@covibes/shared';
+import type {
+  HandRaise,
+  MessageReference,
+  NamedElement,
+  ProjectMember,
+  ProjectRole,
+} from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -36,6 +42,8 @@ type ChatPanelProps = {
   onNotice: (text: string) => void;
   /** Opens the canvas at an element a message refers to (spec 37a). */
   onOpenReference?: (reference: MessageReference) => void;
+  /** An element of the canvas someone asks about (spec 37b); it goes into the composer. */
+  ask?: NamedElement & { label: string };
 };
 
 /**
@@ -53,6 +61,7 @@ export function ChatPanel({
   moderatorNeutral,
   onNotice,
   onOpenReference,
+  ask,
 }: ChatPanelProps) {
   const { t } = useTranslation();
   const messages = useQuery(messagesQuery(projectId));
@@ -159,8 +168,9 @@ export function ChatPanel({
               people={others}
               uploads={uploads}
               start={start}
-              onSend={(content, attachments) => {
-                send(content, attachments);
+              ask={ask}
+              onSend={(content, attachments, references) => {
+                send(content, attachments, references);
               }}
             />
           )}

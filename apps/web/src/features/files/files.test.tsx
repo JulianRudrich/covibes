@@ -281,7 +281,8 @@ describe('Composer with files', () => {
     fireEvent.change(textbox, { target: { value: ' Schaut mal ' } });
     fireEvent.keyDown(textbox, { key: 'Enter' });
 
-    expect(onSend).toHaveBeenCalledWith('Schaut mal', [IMAGE, NOTES]);
+    // No element of the canvas was asked about (spec 37b).
+    expect(onSend).toHaveBeenCalledWith('Schaut mal', [IMAGE, NOTES], []);
     expect(uploads.clear).toHaveBeenCalledOnce();
     expect(textbox).toHaveValue('');
   });

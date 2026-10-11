@@ -3,7 +3,9 @@ import {
   formatFileSize,
   memberHandle,
   MESSAGE_MAX_LENGTH,
+  referenceNames,
   type MessageAttachment,
+  type NamedElement,
 } from '@covibes/shared';
 import { ArrowUp, AtSign, FileText, LoaderCircle, Paperclip, X } from 'lucide-react';
 import {
@@ -40,10 +42,15 @@ type ComposerProps = {
   /** The other members, offered below the agents (spec 22a). */
   people?: readonly { userId: string; name: string }[];
   /**
-   * Receives the trimmed text and the uploaded files to take along; empty and whitespace-only
-   * messages never arrive here.
+   * Receives the trimmed text, the uploaded files to take along and the elements of the canvas
+   * the text was asked to refer to (spec 37b); empty and whitespace-only messages never arrive
+   * here.
    */
-  onSend: (content: string, attachments: readonly MessageAttachment[]) => void;
+  onSend: (
+    content: string,
+    attachments: readonly MessageAttachment[],
+    references: readonly NamedElement[],
+  ) => void;
   /** The files of the message being written (spec 20a); without it nothing can be attached. */
   uploads?: Uploads;
   disabled?: boolean;
@@ -52,6 +59,12 @@ type ComposerProps = {
    * for the person to complete and send. A new `key` puts it there again.
    */
   start?: { key: number; text: string };
+  /**
+   * An element of the canvas to ask about (spec 37b): its name goes into the text in square
+   * brackets, at the caret, and the message says which element is meant. A new object inserts
+   * again.
+   */
+  ask?: NamedElement & { label: string };
 };
 
 const NO_PEOPLE: readonly { userId: string; name: string }[] = [];
@@ -75,6 +88,7 @@ export function Composer({
   uploads,
   disabled = false,
   start,
+  ask,
 }: ComposerProps) {
   const { t, i18n } = useTranslation();
   const resolve = useAgents();
@@ -104,18 +118,51 @@ export function Composer({
   // A message waits for its files; it still needs text.
   const canSend = !disabled && draft.trim() !== '' && uploads?.uploading !== true;
 
+  // The elements of the canvas this message was asked to refer to (spec 37b), by the name the
+  // text writes for them. They go along when the message is sent, as far as the text still
+  // names them.
+  const namedRef = useRef(new Map<string, NamedElement>());
+  // Caret behind an inserted reference, applied once the text holds it.
+  const afterReferenceRef = useRef<number | null>(null);
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!ask || !textarea) return;
+    const current = textarea.value;
+    const { selectionStart, selectionEnd } = textarea;
+    const before = current.slice(0, selectionStart);
+    // Glued to a word, the bracket would read as part of it.
+    const reference = `${before === '' || /\s$/.test(before) ? '' : ' '}[${ask.label}] `;
+    const next = before + reference + current.slice(selectionEnd);
+    if (next.length > MESSAGE_MAX_LENGTH) return;
+    namedRef.current.set(ask.label.toLowerCase(), { boardId: ask.boardId, nodeId: ask.nodeId });
+    afterReferenceRef.current = selectionStart + reference.length;
+    setDraft(next);
+  }, [ask]);
+
   useLayoutEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
     // Shrink first so deleted lines free their space; the CSS max height caps growth and scrolls.
     textarea.style.height = 'auto';
     textarea.style.height = `${String(textarea.scrollHeight)}px`;
+    // Writing goes on behind a reference that was just inserted.
+    const caret = afterReferenceRef.current;
+    if (caret !== null) {
+      afterReferenceRef.current = null;
+      textarea.focus();
+      textarea.setSelectionRange(caret, caret);
+    }
   }, [draft]);
 
   function send() {
     const content = draft.trim();
     if (!canSend || content === '') return;
-    onSend(content, uploads?.attachments ?? []);
+    const named = referenceNames(content).flatMap((name) => {
+      const element = namedRef.current.get(name.toLowerCase());
+      return element ? [element] : [];
+    });
+    onSend(content, uploads?.attachments ?? [], named);
+    namedRef.current.clear();
     uploads?.clear();
     setDraft('');
     textareaRef.current?.focus();

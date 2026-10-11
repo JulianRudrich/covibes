@@ -107,10 +107,14 @@ function renderChat() {
     if (!request) throw new Error(`No ${method} request #${String(index)}`);
     return request;
   };
-  const send = (text: string, attachments?: MessageAttachment[]): boolean => {
+  const send = (
+    text: string,
+    attachments?: MessageAttachment[],
+    references?: { boardId: string; nodeId: string }[],
+  ): boolean => {
     let sent = false;
     act(() => {
-      sent = result.current.chat.send(text, attachments);
+      sent = result.current.chat.send(text, attachments, references);
     });
     return sent;
   };
@@ -163,6 +167,53 @@ async function settle() {
 }
 
 describe('useSendMessage', () => {
+  it('says which elements of the canvas a message means, also when it is sent again (spec 37b)', async () => {
+    const chat = await renderLoadedChat();
+    const gateway = {
+      boardId: '11111111-1111-4111-8111-111111111111',
+      nodeId: '22222222-2222-4222-8222-222222222222',
+    };
+
+    expect(chat.send('Was macht das [AI-Gateway]?', [], [gateway])).toBe(true);
+    await waitFor(() => {
+      expect(chat.items()).toHaveLength(2);
+    });
+    const id = chat.items()[1]?.id ?? '';
+    expect(chat.nth('POST', 0).body).toEqual({
+      id,
+      content: 'Was macht das [AI-Gateway]?',
+      references: [gateway],
+    });
+
+    chat.nth('POST', 0).fail();
+    await waitFor(() => {
+      expect(chat.items()[1]?.delivery).toBe('failed');
+    });
+    chat.retry(id);
+    await waitFor(() => {
+      expect(chat.requests.filter((request) => request.method === 'POST')).toHaveLength(2);
+    });
+    expect(chat.nth('POST', 1).body).toEqual({
+      id,
+      content: 'Was macht das [AI-Gateway]?',
+      references: [gateway],
+    });
+  });
+
+  it('sends a message without named elements as before', async () => {
+    const chat = await renderLoadedChat();
+
+    chat.send('Hallo Team');
+    await waitFor(() => {
+      expect(chat.items()).toHaveLength(2);
+    });
+
+    expect(chat.nth('POST', 0).body).toEqual({
+      id: chat.items()[1]?.id,
+      content: 'Hallo Team',
+    });
+  });
+
   it('takes uploaded files along and sends them again on a retry (spec 20a)', async () => {
     const chat = await renderLoadedChat();
     const image: MessageAttachment = {

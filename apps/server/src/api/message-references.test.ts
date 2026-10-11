@@ -201,3 +201,98 @@ describe('referencesOf', () => {
     expect(await referencesOf('Siehe [Web-App].', [BOARD], read)).toEqual([]);
   });
 });
+
+describe('a message that names the element it means (spec 37b)', () => {
+  async function post(
+    project: Awaited<ReturnType<typeof createProject>>,
+    content: string,
+    references: unknown,
+  ) {
+    return request(`/api/projects/${project.projectId}/messages`, project.owner, {
+      method: 'POST',
+      body: JSON.stringify({ id: randomUUID(), content, references }),
+    });
+  }
+
+  it('refers to the element that was clicked, of two with the same name', async () => {
+    const project = await createProject();
+    const upper = await project.block('Service', { position: { x: 0, y: 0 } });
+    const lower = await project.block('Service', { position: { x: 0, y: 400 } });
+
+    const byName = await project.send('Was macht der [Service]?');
+    const clicked = (await (
+      await post(project, 'Was macht der [Service]?', [
+        { boardId: project.mainBoardId, nodeId: lower },
+      ])
+    ).json()) as ChatMessage;
+
+    expect(byName.references?.[0]?.nodeId).toBe(upper);
+    expect(clicked.references).toEqual([
+      { label: 'Service', boardId: project.mainBoardId, nodeId: lower, by: { kind: 'human' } },
+    ]);
+  });
+
+  it('refers to an element on another board, although the main canvas has the name too', async () => {
+    const project = await createProject();
+    const flow = await project.addBoard('Ablauf');
+    await project.block('Datenbank');
+    const onFlow = await project.block('Datenbank', { boardId: flow });
+
+    const response = await post(project, '[Datenbank]', [{ boardId: flow, nodeId: onFlow }]);
+
+    expect(((await response.json()) as ChatMessage).references?.[0]).toMatchObject({
+      boardId: flow,
+      nodeId: onFlow,
+    });
+  });
+
+  it('never takes an element of another project', async () => {
+    const project = await createProject();
+    const other = await createProject();
+    const secret = await other.block('Geheimer Dienst');
+    const own = await project.block('API');
+
+    const foreign = await post(project, 'Was macht der [Geheimer Dienst]?', [
+      { boardId: other.mainBoardId, nodeId: secret },
+    ]);
+    // Named with a board of the own project, it is not there either.
+    const smuggled = await post(project, 'Was macht die [API]?', [
+      { boardId: project.mainBoardId, nodeId: secret },
+    ]);
+
+    expect(foreign.status).toBe(201);
+    expect((await foreign.json()) as ChatMessage).not.toHaveProperty('references');
+    expect(((await smuggled.json()) as ChatMessage).references?.[0]?.nodeId).toBe(own);
+  });
+
+  it('looks the name up when it does not fit the element it is sent with', async () => {
+    const project = await createProject();
+    const api = await project.block('API');
+    const web = await project.block('Web-App');
+
+    const response = await post(project, 'Die [Web-App], nicht die API.', [
+      { boardId: project.mainBoardId, nodeId: api },
+    ]);
+
+    expect(
+      ((await response.json()) as ChatMessage).references?.map((found) => found.nodeId),
+    ).toEqual([web]);
+  });
+
+  it('refuses what is no list of elements', async () => {
+    const project = await createProject();
+    const element = { boardId: project.mainBoardId, nodeId: randomUUID() };
+
+    for (const references of [
+      'API',
+      [{ boardId: 'haupt', nodeId: element.nodeId }],
+      [{ boardId: element.boardId }],
+      Array.from({ length: 21 }, () => element),
+    ]) {
+      const response = await post(project, '[API]', references);
+      expect(response.status, JSON.stringify(references).slice(0, 60)).toBe(400);
+    }
+    // A list of nothing is a message like any other.
+    expect((await post(project, '[API]', [])).status).toBe(201);
+  });
+});

@@ -10,15 +10,33 @@ describe('PhaseIndicator', () => {
 
     const current = nav.querySelectorAll('[aria-current="step"]');
     expect(current).toHaveLength(1);
-    expect(current[0]).toHaveTextContent('Architektur');
+    expect(current[0]).toHaveAccessibleName('Architektur: Aktuelle Phase');
   });
 
-  it('shows all four phases in order, with the number only for upcoming ones', () => {
+  it('shows the step, the phase, a segment per phase and what comes next (spec 36b)', () => {
     render(<PhaseIndicator active="architecture" />);
     const nav = screen.getByRole('navigation', { name: 'Phasen' });
 
-    expect(nav).toHaveTextContent(/Brainstorming.*Entscheiden.*Architektur.*4Projektplan/);
-    expect(within(nav).queryByText('1')).not.toBeInTheDocument();
+    expect(nav).toHaveTextContent('Schritt 3 von 4Architektur');
+    expect(nav).toHaveTextContent('Danach: Projektplan');
+    expect(
+      within(nav)
+        .getAllByRole('button')
+        .map((segment) => segment.ariaLabel),
+    ).toEqual([
+      'Brainstorming: Abgeschlossen',
+      'Entscheiden: Abgeschlossen',
+      'Architektur: Aktuelle Phase',
+      'Projektplan: Kommt noch',
+    ]);
+  });
+
+  it('says nothing about a next phase in the last one', () => {
+    render(<PhaseIndicator active="plan" />);
+    const nav = screen.getByRole('navigation', { name: 'Phasen' });
+
+    expect(nav).toHaveTextContent('Schritt 4 von 4Projektplan');
+    expect(nav).not.toHaveTextContent('Danach');
   });
 
   it('says what a phase is for and changes to it (spec 24)', async () => {

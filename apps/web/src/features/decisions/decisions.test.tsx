@@ -55,13 +55,12 @@ describe('DecisionsSection', () => {
     if (!canvas || !hosting) throw new Error('The rows are missing');
     expect(canvas).toHaveTextContent('CanvasReact Flow');
     expect(canvas.querySelector('.bg-success-bg')).toBeInTheDocument();
-    expect(within(canvas).getByText('React Flow')).toHaveClass('text-body', 'font-medium');
-    expect(within(canvas).getByText('Canvas')).toHaveClass('text-meta', 'text-text-3');
+    expect(within(canvas).getByText('React Flow')).toHaveClass('text-body', 'font-semibold');
+    expect(within(canvas).getByText('Canvas')).toHaveClass('text-body', 'text-text-3');
 
-    expect(hosting).toHaveTextContent('Hosting des ServersNoch nicht entschiedenoffen');
+    expect(hosting).toHaveTextContent('Hosting des Serversoffen');
     expect(hosting.querySelector('.border-dashed')).toBeInTheDocument();
-    expect(within(hosting).getByText('offen')).toHaveClass('bg-bg-subtle');
-    expect(hosting).toHaveClass('border-divider-row');
+    expect(within(hosting).getByText('offen')).toHaveClass('bg-bg-subtle', 'rounded-full');
   });
 
   it('says so while nothing is decided', () => {
@@ -140,7 +139,9 @@ describe('DecisionsSection', () => {
     const { section } = renderDecisions({ comparing: ['hosting des servers'] });
 
     const [canvas, hosting] = within(section).getAllByRole('listitem');
-    expect(hosting).toHaveTextContent('Hosting des ServersVergleich A/B läuftoffen');
+    if (!canvas || !hosting) throw new Error('The rows are missing');
+    expect(hosting).toHaveTextContent('Hosting des ServersVergleich A/B läuft');
+    expect(within(hosting).getByText('Vergleich A/B läuft')).toHaveClass('bg-agent-moderator-tint');
     expect(canvas).toHaveTextContent('CanvasReact Flow');
 
     fireEvent.click(screen.getByRole('button', { name: /Hosting des Servers/ }));
@@ -272,12 +273,11 @@ describe('CriteriaSection', () => {
     const chips = within(section).getAllByRole('listitem');
     expect(chips.map((chip) => chip.textContent)).toEqual(['EU-Hosting', 'Team: 3 Devs']);
     expect(chips[0]?.firstElementChild).toHaveClass(
-      'h-[26px]',
-      'rounded-btn-s',
-      'border-border-soft',
-      'bg-bg-muted',
+      'h-[30px]',
+      'rounded-full',
+      'border-border-strong',
       'text-small',
-      'text-text-chip',
+      'text-text-2',
     );
     expect(within(section).queryByRole('button')).not.toBeInTheDocument();
   });

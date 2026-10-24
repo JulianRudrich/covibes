@@ -28,7 +28,7 @@ export function LiveCursor({ cursor }: { cursor: RemoteCursor }) {
           strokeLinejoin="round"
         />
       </svg>
-      <div className="-mt-[3px] ml-[11px] flex h-5 items-center rounded-sm bg-human px-[7px] text-meta font-medium whitespace-nowrap text-on-ink">
+      <div className="-mt-[3px] ml-[14px] flex h-[22px] items-center rounded-full bg-human px-[9px] text-status font-semibold whitespace-nowrap text-on-ink">
         {cursor.name}
       </div>
     </div>

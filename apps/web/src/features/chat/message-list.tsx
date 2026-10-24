@@ -1,5 +1,13 @@
 import type { MessageDebate, MessageReference } from '@covibes/shared';
-import { Fragment, useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ChatMessageView } from '@web/features/chat/chat-message';
@@ -9,6 +17,9 @@ import { formatLongDate, isSameLocalDay } from '@web/lib/format';
 
 /** Closer than this to the bottom counts as "at the bottom", so new messages scroll into view. */
 const STICK_THRESHOLD_PX = 48;
+/** On the first load the last messages rise one after the other (handoff "Motion"). */
+const RISE_STAGGER_MS = 80;
+const RISE_STAGGERED = 6;
 
 type MessageListProps = {
   items: readonly ChatItem[];
@@ -33,7 +44,7 @@ type MessageListProps = {
 
 function DayDivider({ label }: { label: string }) {
   return (
-    <li role="separator" className="flex items-center gap-2.5 text-meta text-text-4">
+    <li role="separator" className="flex items-center gap-2.5 py-1 text-meta text-text-4">
       <span className="h-px flex-1 bg-border-subtle" aria-hidden="true" />
       {label}
       <span className="h-px flex-1 bg-border-subtle" aria-hidden="true" />
@@ -62,6 +73,8 @@ export function MessageList({
   const scroller = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
   const lastId = useRef<string | undefined>(undefined);
+  // The messages of the first load, newest first: they rise staggered, later ones at once.
+  const [firstLoad] = useState(() => items.map((item) => item.id).reverse());
 
   useLayoutEffect(() => {
     const element = scroller.current;
@@ -106,7 +119,11 @@ export function MessageList({
   const byId = new Map(items.map((item) => [item.id, item]));
   return (
     <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto">
-      <ol aria-label={t('chat.messages')} className="m-0 flex list-none flex-col gap-[18px] p-4">
+      {/* Few messages stand at the bottom, next to the composer (handoff "Chat"). */}
+      <ol
+        aria-label={t('chat.messages')}
+        className="m-0 flex min-h-full list-none flex-col justify-end gap-3.5 px-4 pt-1 pb-3.5"
+      >
         {items.map((item, index) => {
           const previous = items[index - 1];
           const newDay = !previous || !isSameLocalDay(previous.createdAt, item.createdAt);
@@ -125,7 +142,7 @@ export function MessageList({
                   }
                 />
               ) : null}
-              <li>
+              <li className="animate-rise" style={riseDelay(firstLoad.indexOf(item.id))}>
                 <ChatMessageView
                   item={item}
                   isOwn={isOwn}
@@ -147,4 +164,9 @@ export function MessageList({
       </ol>
     </div>
   );
+}
+
+function riseDelay(fromNewest: number): CSSProperties | undefined {
+  if (fromNewest < 0 || fromNewest >= RISE_STAGGERED) return undefined;
+  return { animationDelay: `${String((RISE_STAGGERED - 1 - fromNewest) * RISE_STAGGER_MS)}ms` };
 }

@@ -352,6 +352,7 @@ export function ReviewCard({ review, onOpen }: { review: GitReview; onOpen: () =
       </ul>
       <div className="flex items-center gap-2">
         <Button
+          variant="surface"
           size="s"
           aria-label={t('git.review.open', { number: review.number })}
           onClick={onOpen}

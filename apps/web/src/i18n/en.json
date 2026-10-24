@@ -39,7 +39,9 @@
     "label": "Theme",
     "system": "Match system",
     "light": "Light",
-    "dark": "Dark"
+    "dark": "Dark",
+    "toLight": "Light theme",
+    "toDark": "Dark theme"
   },
   "language": {
     "label": "Language"
@@ -91,7 +93,11 @@
     },
     "gitLog": "Git log …",
     "mergeRequests": "Merge requests …",
-    "usage": "Usage …"
+    "usage": "Usage …",
+    "step": "Step {{step}} of {{total}}",
+    "next": "Next: {{phase}}",
+    "inRoom": "In the room",
+    "onBoard": "{{name}}, on this board"
   },
   "share": {
     "title": "Share “{{project}}”",
@@ -487,7 +493,8 @@
       "note": "Note",
       "frame": "Frame",
       "connect": "Connect",
-      "autoLayout": "Auto-layout"
+      "autoLayout": "Auto-layout",
+      "select": "Select"
     },
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
@@ -503,7 +510,8 @@
       "deleteConfirm": "Delete board",
       "deleted": "This board was deleted.",
       "limit": "A project has at most {{max}} boards.",
-      "failed": "That did not work. Please try again."
+      "failed": "That did not work. Please try again.",
+      "addLabel": "Add board"
     },
     "elementGone": "This element is no longer on the canvas.",
     "ask": "Ask in the chat"
@@ -511,7 +519,7 @@
   "chat": {
     "messages": "Messages",
     "today": "Today",
-    "placeholder": "Message the team and agents, @ calls an agent",
+    "placeholder": "Write to the team, @ calls an agent",
     "mentionAgent": "Mention an agent or a member",
     "mentionPeople": "Members",
     "attach": "Attach file",
@@ -528,9 +536,9 @@
     "waiting_other": "{{count}} waiting",
     "typingShort": "is typing",
     "replyTo": "Reply to {{name}}",
-    "agentNeutral": "Agent · neutral",
     "agentError": "The answer failed.",
-    "reference": "Go to “{{name}}” on the canvas"
+    "reference": "Go to “{{name}}” on the canvas",
+    "neutral": "neutral"
   },
   "files": {
     "attachHint": "Images, PDFs and text files, up to 10 MB each",
@@ -1407,6 +1415,7 @@
     "reverts": "Revert",
     "undone": "Reverted by {{name}}",
     "undoneBySomeone": "Reverted",
-    "undonePartly": "{{reverted}} of {{total}} elements, the rest has changed since"
+    "undonePartly": "{{reverted}} of {{total}} elements, the rest has changed since",
+    "button": "History"
   }
 }

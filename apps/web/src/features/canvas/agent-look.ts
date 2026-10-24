@@ -109,37 +109,3 @@ export const AGENT_PROPOSAL: Readonly<Record<AgentLook, string>> = {
   content: 'border-agent-content bg-agent-content-tint/95',
   custom: 'border-agent-custom bg-agent-custom-tint/95',
 };
-
-/**
- * A raised hand (handoff: the critic's card above the composer): its second tint and border; agents
- * without them use their only ones.
- */
-export const AGENT_HAND: Readonly<Record<AgentLook, string>> = {
-  moderator: 'border-agent-moderator-border bg-agent-moderator-tint-2',
-  backend: 'border-agent-backend-border bg-agent-backend-tint',
-  critic: 'border-agent-critic-border bg-agent-critic-tint-2',
-  data: 'border-agent-data-border bg-agent-data-tint',
-  product: 'border-agent-product-border bg-agent-product-tint',
-  frontend: 'border-agent-frontend-border bg-agent-frontend-tint',
-  devops: 'border-agent-devops-border bg-agent-devops-tint',
-  security: 'border-agent-security-border bg-agent-security-tint',
-  ml: 'border-agent-ml-border bg-agent-ml-tint',
-  content: 'border-agent-content-border bg-agent-content-tint',
-  custom: 'border-agent-custom-border bg-agent-custom-tint',
-};
-
-/** The "Anhören" button of a raised hand: the agent's second border, dark text, tint on hover. */
-export const AGENT_HAND_BUTTON: Readonly<Record<AgentLook, string>> = {
-  moderator:
-    'border-agent-moderator-border-2 text-agent-moderator-dark hover:bg-agent-moderator-tint',
-  backend: 'border-agent-backend-border text-agent-backend-dark hover:bg-agent-backend-tint',
-  critic: 'border-agent-critic-border-2 text-agent-critic-dark hover:bg-agent-critic-tint',
-  data: 'border-agent-data-border text-agent-data-dark hover:bg-agent-data-tint',
-  product: 'border-agent-product-border text-agent-product-dark hover:bg-agent-product-tint',
-  frontend: 'border-agent-frontend-border text-agent-frontend-dark hover:bg-agent-frontend-tint',
-  devops: 'border-agent-devops-border text-agent-devops-dark hover:bg-agent-devops-tint',
-  security: 'border-agent-security-border text-agent-security-dark hover:bg-agent-security-tint',
-  ml: 'border-agent-ml-border text-agent-ml-dark hover:bg-agent-ml-tint',
-  content: 'border-agent-content-border text-agent-content-dark hover:bg-agent-content-tint',
-  custom: 'border-agent-custom-border text-agent-custom-dark hover:bg-agent-custom-tint',
-};

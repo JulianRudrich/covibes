@@ -5,7 +5,7 @@ import {
   type ProjectBoard,
 } from '@covibes/shared';
 import { ChevronDown, FileText, History, Plus } from 'lucide-react';
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@web/components/ui/dropdown-menu';
+import { Tooltip } from '@web/components/ui/tooltip';
 import { BOARD_PANEL_ID, boardTabId } from '@web/features/canvas/board-ids';
 import { useFocusOnMount } from '@web/features/canvas/in-place-editing';
 import { PLAN_PANEL_ID } from '@web/features/plan/plan-ids';
@@ -137,7 +138,8 @@ export function BoardTabs({
         ref={tabList}
         role="tablist"
         aria-label={t('canvas.boards.label')}
-        className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]"
+        // The padding keeps the shadow of the open tab from being cut off by the scrolling.
+        className="-mx-2 -my-3 flex min-w-0 items-center gap-1 overflow-x-auto px-2 py-3 [scrollbar-width:none]"
         onKeyDown={onKeyDown}
       >
         {boards.map((board, index) => {
@@ -164,11 +166,14 @@ export function BoardTabs({
             <div
               key={board.id}
               className={cn(
-                'relative flex h-[30px] shrink-0 items-center rounded-md',
-                // A tab whose menu is open stays highlighted, as on hover.
-                active || menuId === board.id
-                  ? 'bg-bg-subtle text-text'
-                  : 'text-text-2b hover:bg-bg-subtle hover:text-text',
+                'relative flex h-[34px] shrink-0 items-center rounded-full transition-colors',
+                active
+                  ? 'bg-bg-panel font-semibold text-text shadow-block'
+                  : // A tab whose menu is open stays highlighted, as on hover.
+                    cn(
+                      'font-medium text-text-2 hover:bg-wash hover:text-text',
+                      menuId === board.id && 'bg-wash text-text',
+                    ),
               )}
             >
               <button
@@ -179,8 +184,9 @@ export function BoardTabs({
                 aria-controls={active ? BOARD_PANEL_ID : undefined}
                 tabIndex={active || (planOpen && index === 0) ? 0 : -1}
                 className={cn(
-                  'flex h-full max-w-[200px] cursor-pointer items-center rounded-md px-3 font-medium whitespace-nowrap',
+                  'flex h-full max-w-[200px] cursor-pointer items-center rounded-full text-ui whitespace-nowrap',
                   FOCUS_RING,
+                  active ? 'px-4' : 'px-3.5',
                   active && editable && 'pr-1',
                 )}
                 onClick={() => {
@@ -217,7 +223,7 @@ export function BoardTabs({
                         type="button"
                         aria-label={t('canvas.boards.menu', { title })}
                         className={cn(
-                          'mr-1 grid size-6 cursor-pointer place-items-center rounded-sm text-text-3 hover:text-text',
+                          'mr-1.5 grid size-6 cursor-pointer place-items-center rounded-full text-text-3 hover:bg-wash hover:text-text',
                           FOCUS_RING,
                         )}
                       >
@@ -265,18 +271,20 @@ export function BoardTabs({
       </div>
 
       {readOnly ? null : (
-        <button
-          type="button"
-          className={cn(
-            'flex h-[30px] shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-ui whitespace-nowrap text-text-2b hover:bg-bg-subtle hover:text-text',
-            FOCUS_RING,
-          )}
-          disabled={create.isPending}
-          onClick={add}
-        >
-          <Plus size={13} strokeWidth={2.2} aria-hidden="true" />
-          {t('canvas.boards.add')}
-        </button>
+        <Tooltip content={t('canvas.boards.addLabel')}>
+          <button
+            type="button"
+            aria-label={t('canvas.boards.addLabel')}
+            className={cn(
+              'grid size-[34px] shrink-0 cursor-pointer place-items-center rounded-full text-text-2 transition-colors hover:bg-wash hover:text-text',
+              FOCUS_RING,
+            )}
+            disabled={create.isPending}
+            onClick={add}
+          >
+            <Plus size={15} strokeWidth={2} aria-hidden="true" />
+          </button>
+        </Tooltip>
       )}
 
       {/* The history belongs to the board that is open, so the plan has none here. */}
@@ -286,12 +294,13 @@ export function BoardTabs({
           aria-label={t('history.open')}
           title={t('history.open')}
           className={cn(
-            'ml-auto grid size-[30px] shrink-0 cursor-pointer place-items-center rounded-md text-text-2b hover:bg-bg-subtle hover:text-text',
+            'ml-auto flex h-[34px] shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-ui font-medium whitespace-nowrap text-text-2 transition-colors hover:bg-wash hover:text-text',
             FOCUS_RING,
           )}
           onClick={onOpenHistory}
         >
-          <History size={15} strokeWidth={2} aria-hidden="true" />
+          <History size={15} strokeWidth={1.9} aria-hidden="true" />
+          {t('history.button')}
         </button>
       ) : null}
       {onOpenPlan ? (
@@ -300,17 +309,19 @@ export function BoardTabs({
           aria-pressed={planOpen}
           aria-controls={planOpen ? PLAN_PANEL_ID : undefined}
           className={cn(
-            'flex h-[30px] shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 font-medium whitespace-nowrap',
+            'flex h-[34px] shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-ui whitespace-nowrap transition-colors',
             // Pushed to the end of the row, unless the history's button already is.
             onOpenHistory && !planOpen ? '' : 'ml-auto',
             FOCUS_RING,
-            planOpen ? 'bg-bg-subtle text-text' : 'text-text-2b hover:bg-bg-subtle hover:text-text',
+            planOpen
+              ? 'bg-bg-panel font-semibold text-text shadow-block'
+              : 'font-medium text-text-2 hover:bg-wash hover:text-text',
           )}
           onClick={() => {
             if (!planOpen) onOpenPlan();
           }}
         >
-          <FileText size={14} strokeWidth={2} aria-hidden="true" />
+          <FileText size={15} strokeWidth={1.9} aria-hidden="true" />
           {t('plan.tab')}
           {planOutdated ? (
             <>
@@ -369,7 +380,7 @@ function TitleField({
       aria-label={label}
       value={value}
       maxLength={BOARD_TITLE_MAX_LENGTH}
-      className="h-[30px] max-w-[200px] min-w-[96px] shrink-0 rounded-md border border-ink bg-bg-panel px-3 font-medium text-text outline-none field-sizing-content"
+      className="h-[34px] max-w-[200px] min-w-[96px] shrink-0 rounded-full border border-ink bg-bg-panel px-4 text-ui font-semibold text-text outline-none field-sizing-content"
       onChange={(event) => {
         setValue(event.target.value);
       }}
@@ -388,5 +399,30 @@ function TitleField({
         if (!finished.current) onSave(value);
       }}
     />
+  );
+}
+
+/**
+ * The row of the board tabs: over the canvas it floats and lets clicks between its pills through;
+ * over the plan it is the panel's header row.
+ */
+export function CanvasTabsRow({
+  floating = false,
+  children,
+}: {
+  floating?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex min-w-0 items-center gap-1',
+        floating
+          ? 'pointer-events-none absolute inset-x-3 top-3 z-10 *:pointer-events-auto'
+          : 'px-3',
+      )}
+    >
+      {children}
+    </div>
   );
 }

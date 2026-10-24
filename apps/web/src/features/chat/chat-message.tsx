@@ -46,6 +46,21 @@ const AGENT_CARET: Record<AgentLook, string> = {
   custom: 'bg-agent-custom',
 };
 
+/** An agent writes into a bubble in its tint. */
+const AGENT_BUBBLE: Record<AgentLook, string> = {
+  moderator: 'bg-agent-moderator-tint',
+  backend: 'bg-agent-backend-tint',
+  critic: 'bg-agent-critic-tint',
+  data: 'bg-agent-data-tint',
+  product: 'bg-agent-product-tint',
+  frontend: 'bg-agent-frontend-tint',
+  devops: 'bg-agent-devops-tint',
+  security: 'bg-agent-security-tint',
+  ml: 'bg-agent-ml-tint',
+  content: 'bg-agent-content-tint',
+  custom: 'bg-agent-custom-tint',
+};
+
 const NO_AGENTS: readonly string[] = [];
 const NO_PEOPLE: readonly { userId: string; name: string }[] = [];
 
@@ -132,79 +147,103 @@ export function ChatMessageView({
     agent !== null ? (
       <AgentAvatar
         agent={agent}
-        size={isModerator ? 24 : 28}
-        className={isModerator ? undefined : 'text-status'}
+        size={isModerator ? 28 : 30}
+        // The moderator's mark stands on the panel color inside its tinted card.
+        className={isModerator ? 'bg-bg-panel' : undefined}
       />
     ) : (
       <Avatar
         kind="human"
+        size={30}
         label={name}
         initials={isOwn || author.kind !== 'human' ? t('common.you') : initialsOf(author.name)}
       />
     );
 
-  const header = (
-    <div
+  // Name, badge and time above a bubble (handoff: "Alex · 10:41"); the moderator's card has them
+  // in its first row with its mark.
+  const time = streamingAgent ? (
+    <span
+      id={`${id}-time`}
       className={cn(
-        'flex min-w-0',
-        isModerator ? 'items-center gap-2' : 'gap-2',
-        !isModerator && (agent === null ? 'items-baseline' : 'items-center'),
+        'flex shrink-0 items-center gap-1.5',
+        agentClass(AGENT_NAME_COLOR, streamingAgent),
+        isModerator && 'ml-auto',
       )}
     >
-      {/* The name is right next to the avatar, so the avatar is not announced a second time. */}
-      {isModerator ? <span aria-hidden="true">{avatar}</span> : null}
+      <TypingDots agent={streamingAgent} />
+      {t('chat.typingShort')}
+    </span>
+  ) : (
+    <time
+      id={`${id}-time`}
+      dateTime={item.createdAt}
+      className={cn('shrink-0 text-text-3 tabular-nums', isModerator && 'ml-auto')}
+    >
+      {formatClockTime(item.createdAt, i18n.language)}
+    </time>
+  );
+  const delivering =
+    delivery === 'sending' ? (
+      <span id={`${id}-delivery`} className="sr-only">
+        {t('chat.sending')}
+      </span>
+    ) : null;
+  const header = isModerator ? (
+    <div className="flex min-w-0 items-center gap-2">
+      {/* The name is right next to the mark, so the mark is not announced a second time. */}
+      <span aria-hidden="true" className="flex">
+        {avatar}
+      </span>
       <span
         id={`${id}-name`}
+        className="min-w-0 text-body font-bold wrap-break-word text-agent-moderator-dark"
+      >
+        {name}
+      </span>
+      <span
+        id={`${id}-badge`}
+        className="flex h-5 shrink-0 items-center rounded-full bg-bg-panel px-2 text-meta font-semibold text-agent-moderator-dark"
+      >
+        {t(moderatorNeutral ? 'chat.neutral' : 'chat.agentBadge')}
+      </span>
+      <span className="ml-auto flex shrink-0 text-status">{time}</span>
+      {delivering}
+    </div>
+  ) : (
+    <div
+      className={cn(
+        'flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-status text-text-3',
+        isOwn ? 'mr-3 justify-end' : 'ml-3',
+      )}
+    >
+      <span
+        id={`${id}-name`}
+        // Own bubbles show no name, as in the handoff; screen readers still hear it.
         className={cn(
-          'min-w-0 text-ui font-semibold wrap-break-word',
-          agent === null ? 'text-text' : agentClass(AGENT_NAME_COLOR, agent),
+          'min-w-0 font-semibold wrap-break-word',
+          isOwn ? 'sr-only' : agent === null ? 'text-text-2' : agentClass(AGENT_NAME_COLOR, agent),
         )}
       >
         {name}
       </span>
       {agent !== null && (
         <span id={`${id}-badge`} className="flex shrink-0">
-          <Badge agent={agent}>
-            {t(isModerator && moderatorNeutral ? 'chat.agentNeutral' : 'chat.agentBadge')}
-          </Badge>
+          <Badge agent={agent}>{t('chat.agentBadge')}</Badge>
         </span>
       )}
-      {streamingAgent ? (
-        <span
-          id={`${id}-time`}
-          className={cn(
-            'flex shrink-0 items-center gap-1.5 text-meta',
-            agentClass(AGENT_NAME_COLOR, streamingAgent),
-            isModerator && 'ml-auto',
-          )}
-        >
-          <TypingDots agent={streamingAgent} />
-          {t('chat.typingShort')}
-        </span>
-      ) : (
-        <time
-          id={`${id}-time`}
-          dateTime={item.createdAt}
-          className={cn(
-            'shrink-0 text-meta tabular-nums',
-            isModerator ? 'ml-auto text-text-3' : 'text-text-4',
-          )}
-        >
-          {formatClockTime(item.createdAt, i18n.language)}
-        </time>
-      )}
-      {delivery === 'sending' && (
-        <span id={`${id}-delivery`} className="sr-only">
-          {t('chat.sending')}
-        </span>
-      )}
+      {isOwn ? null : <span aria-hidden="true">·</span>}
+      {time}
+      {delivering}
     </div>
   );
 
-  const body = (
+  // "Debatte · Runde 1 von 2" and "Antwort an Sam" stand above the text.
+  const markClass = cn('flex items-center gap-[5px] text-meta text-text-3', !isModerator && 'ml-3');
+  const marks = (
     <>
       {item.debateTurn ? (
-        <div className="flex items-center gap-[5px] text-meta text-text-3">
+        <div className={markClass}>
           <MessagesSquare size={12} strokeWidth={2} aria-hidden="true" />
           {item.debateTurn.round === null
             ? t('debates.markSummary')
@@ -215,42 +254,56 @@ export function ChatMessageView({
         </div>
       ) : null}
       {replyToName === undefined ? null : (
-        <div className="flex items-center gap-[5px] text-meta text-text-3">
+        <div className={markClass}>
           <CornerDownRight size={12} strokeWidth={2} aria-hidden="true" />
           {t('chat.replyTo', { name: replyToName })}
         </div>
       )}
+    </>
+  );
 
-      <p className="text-body leading-[1.55] wrap-break-word text-text-body">
-        <MentionText
-          text={item.content}
-          agents={agent === null ? item.mentions : team}
-          people={mentioned}
-          self={currentUserId}
-          references={item.references}
-          onOpenReference={onOpenReference}
+  const text = (
+    <>
+      <MentionText
+        text={item.content}
+        agents={agent === null ? item.mentions : team}
+        people={mentioned}
+        self={currentUserId}
+        references={item.references}
+        onOpenReference={onOpenReference}
+        onInk={isOwn}
+      />
+      {streamingAgent ? (
+        <span
+          aria-hidden="true"
+          className={cn(
+            'ml-0.5 inline-block h-[15px] w-0.5 translate-y-[3px] animate-caret-blink motion-reduce:animate-none',
+            agentClass(AGENT_CARET, streamingAgent),
+          )}
         />
-        {streamingAgent ? (
-          <span
-            aria-hidden="true"
-            className={cn(
-              'ml-px inline-block h-[15px] w-0.5 translate-y-[3px] animate-caret-blink motion-reduce:animate-none',
-              agentClass(AGENT_CARET, streamingAgent),
-            )}
-          />
-        ) : null}
-      </p>
+      ) : null}
+    </>
+  );
 
+  const after = (
+    <>
       {item.attachments ? (
         <AttachmentList projectId={item.projectId} attachments={item.attachments} />
       ) : null}
 
       {agent !== null && item.status === 'error' ? (
-        <span className="text-meta text-danger">{t('chat.agentError')}</span>
+        <span className={cn('text-meta text-danger', !isModerator && 'ml-3')}>
+          {t('chat.agentError')}
+        </span>
       ) : null}
 
       {delivery === 'failed' && (
-        <div className="flex flex-wrap items-baseline gap-x-2 text-meta">
+        <div
+          className={cn(
+            'flex flex-wrap items-baseline gap-x-2 text-meta',
+            isOwn ? 'mr-3 justify-end' : 'ml-3',
+          )}
+        >
           <span id={`${id}-delivery`} className="text-danger">
             {t('chat.failed')}
           </span>
@@ -274,7 +327,9 @@ export function ChatMessageView({
     return (
       <Card labelledBy={labelIds.join(' ')}>
         {header}
-        {body}
+        {marks}
+        <p className="m-0 text-body leading-[1.55] wrap-break-word text-text-body">{text}</p>
+        {after}
         {item.comparison ? <ComparisonCard comparison={item.comparison} /> : null}
         {item.vote && voting ? <VoteCard vote={item.vote} voting={voting} /> : null}
         {item.debate ? <DebateCard debate={item.debate} onStop={onStopDebate} /> : null}
@@ -283,18 +338,47 @@ export function ChatMessageView({
     );
   }
 
+  // A bubble (handoff "Chat"): others on the left with their avatar and the corner at the author,
+  // own messages on the right in ink without an avatar, agents in their tint.
   return (
     <article
       aria-labelledby={labelIds.join(' ')}
       className={cn(
-        'grid grid-cols-[28px_minmax(0,1fr)] gap-2.5 transition-opacity',
+        'flex gap-2.5 transition-opacity',
+        isOwn ? 'justify-end' : 'items-end',
         delivery === 'sending' && 'opacity-60',
       )}
     >
-      <div aria-hidden="true">{avatar}</div>
-      <div className="flex min-w-0 flex-col gap-[3px]">
+      {isOwn ? null : (
+        <div aria-hidden="true" className="flex shrink-0">
+          {avatar}
+        </div>
+      )}
+      <div
+        className={cn(
+          'flex min-w-0 flex-col gap-1',
+          agent === null ? 'max-w-[272px]' : 'max-w-[290px]',
+          isOwn && 'items-end',
+        )}
+      >
         {header}
-        {body}
+        {marks}
+        <p
+          className={cn(
+            'm-0 max-w-full rounded-[18px] px-3.5 py-2.5 text-body wrap-break-word',
+            isOwn
+              ? 'rounded-br-[6px] bg-ink leading-normal text-on-ink'
+              : agent === null
+                ? 'rounded-bl-[6px] bg-bg-subtle leading-normal text-text-body'
+                : cn(
+                    'rounded-bl-[6px] leading-[1.55] text-text-body',
+                    agentClass(AGENT_BUBBLE, agent),
+                  ),
+          )}
+        >
+          {text}
+        </p>
+        {after}
       </div>
     </article>
   );
@@ -320,6 +404,7 @@ function OfferActions({
       <div className="flex flex-wrap gap-1.5">
         <Button
           variant="primary"
+          className="h-[34px] px-4"
           onClick={() => {
             onOffer(item, true);
           }}
@@ -327,6 +412,8 @@ function OfferActions({
           {offer.action}
         </Button>
         <Button
+          variant="surface"
+          className="h-[34px] px-4"
           onClick={() => {
             onOffer(item, false);
           }}
@@ -341,19 +428,19 @@ function OfferActions({
     ? t(accepted ? 'offers.acceptedBy' : 'offers.declinedBy', { name: offer.decidedBy })
     : t(accepted ? 'offers.accepted' : 'offers.declined');
   return (
-    <p className="m-0 flex items-center gap-1.5 border-t border-agent-moderator-divider pt-2.5 text-small text-agent-moderator-dark">
-      <Check size={14} strokeWidth={2.4} className="shrink-0" aria-hidden="true" />
+    <p className="m-0 flex animate-pop items-center gap-[7px] border-t border-agent-moderator-border pt-2.5 text-ui font-semibold text-agent-moderator-dark">
+      <Check size={14} strokeWidth={2.6} className="shrink-0" aria-hidden="true" />
       {text}
     </p>
   );
 }
 
-/** The moderator's card (handoff "Moderator message"): moderator border and tint, padding 12. */
+/** The moderator's card (handoff "Chat"): its tint, a 1 px inner line, radius 20. */
 function Card({ labelledBy, children }: { labelledBy: string; children: ReactNode }) {
   return (
     <article
       aria-labelledby={labelledBy}
-      className="flex flex-col gap-2.5 rounded-panel border border-agent-moderator-border bg-agent-moderator-tint-2 p-3"
+      className="flex flex-col gap-2.5 rounded-[20px] bg-agent-moderator-tint p-3.5 inset-ring inset-ring-agent-moderator-border"
     >
       {children}
     </article>

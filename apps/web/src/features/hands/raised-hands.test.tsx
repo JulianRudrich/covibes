@@ -40,15 +40,15 @@ describe('RaisedHands', () => {
       screen.getByRole('list', { name: 'Handzeichen' }),
     ).getAllByRole('listitem');
     if (!critic || !security) throw new Error('The cards are missing');
-    expect(critic).toHaveTextContent('Kritiker meldet sich – Einwand zu den Kosten');
-    expect(critic).toHaveClass('border-agent-critic-border', 'bg-agent-critic-tint-2');
+    // The name of the hand over its reason, in a card of the agent's tint.
+    expect(critic).toHaveTextContent('Kritiker meldet sichEinwand zu den Kosten');
+    expect(critic).toHaveClass('rounded-panel', 'bg-agent-critic-tint');
     expect(within(critic).getByText('Kritiker meldet sich')).toHaveClass('text-agent-critic-dark');
     expect(within(critic).getByRole('button', { name: 'Anhören' })).toHaveClass(
-      'border-agent-critic-border-2',
+      'bg-bg-panel',
       'text-agent-critic-dark',
     );
-    // Agents without a second tint use their only one.
-    expect(security).toHaveClass('border-agent-security-border', 'bg-agent-security-tint');
+    expect(security).toHaveClass('bg-agent-security-tint');
   });
 
   it('lets owners and editors listen or dismiss', () => {

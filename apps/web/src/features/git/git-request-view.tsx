@@ -186,6 +186,7 @@ export function GitRequestCard({
   const view =
     reviewId !== null && onOpenReview ? (
       <Button
+        variant="surface"
         size="s"
         // The short word fits the narrow card next to "Freigeben"; the name says what opens.
         aria-label={t('git.requests.viewReview')}
@@ -197,6 +198,7 @@ export function GitRequestCard({
       </Button>
     ) : (
       <Button
+        variant="surface"
         size="s"
         aria-expanded={viewing}
         onClick={() => {

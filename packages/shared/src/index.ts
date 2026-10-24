@@ -64,6 +64,7 @@ export {
 export {
   awarenessStateSchema,
   nodeLocks,
+  presentUsers,
   remoteCursors,
   type AwarenessUser,
   type NodeLock,

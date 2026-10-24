@@ -15,9 +15,9 @@ type CriteriaSectionProps = {
   };
 };
 
-// Handoff "Criteria": 26 px chips with radius 7 on the muted background.
+// Handoff "Kriterien": outlined round pills, 30 px.
 const CHIP =
-  'flex h-[26px] max-w-full items-center rounded-btn-s border border-border-soft bg-bg-muted text-small text-text-chip';
+  'flex h-[30px] max-w-full items-center rounded-full border border-border-strong text-small text-text-2';
 
 /**
  * "Kriterien" in the overview (handoff, section 4; spec 16a): the project criteria as chips.
@@ -44,10 +44,10 @@ export function CriteriaSection({ criteria, edit }: CriteriaSectionProps) {
   }
 
   return (
-    <section aria-labelledby={titleId} className="flex flex-col gap-2.5 p-4">
-      <h3 id={titleId} className="m-0 text-ui font-semibold text-text">
+    <section aria-labelledby={titleId} className="flex flex-col gap-2.5">
+      <h2 id={titleId} className="m-0 font-display text-display font-semibold text-text">
         {t('criteria.title')}
-      </h3>
+      </h2>
       {/* Without criteria the section says what they are for (spec 33), also to those who can
           add the first one below. */}
       {criteria.length === 0 ? (
@@ -73,7 +73,7 @@ export function CriteriaSection({ criteria, edit }: CriteriaSectionProps) {
                   <button
                     type="button"
                     aria-label={t('criteria.change', { text: criterion.text })}
-                    className="h-full min-w-0 cursor-text truncate rounded-btn-s px-[9px] focus-visible:outline-2 focus-visible:outline-ink"
+                    className="h-full min-w-0 cursor-text truncate rounded-full px-[13px] focus-visible:outline-2 focus-visible:outline-ink"
                     onClick={() => {
                       setEditing(criterion.id);
                     }}
@@ -84,7 +84,7 @@ export function CriteriaSection({ criteria, edit }: CriteriaSectionProps) {
                     type="button"
                     aria-label={t('criteria.remove', { text: criterion.text })}
                     // Over the end of the chip, so the chip keeps the size of the handoff.
-                    className="absolute top-1/2 right-0.5 grid size-5 -translate-y-1/2 cursor-pointer place-items-center rounded-xs bg-bg-muted text-text-3 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-bg-hover-app hover:text-text focus-visible:outline-2 focus-visible:outline-ink"
+                    className="absolute top-1/2 right-1 grid size-[22px] -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-bg-panel text-text-3 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-bg-subtle hover:text-text focus-visible:outline-2 focus-visible:outline-ink"
                     onClick={() => {
                       edit.onRemove(criterion.id);
                     }}
@@ -93,7 +93,7 @@ export function CriteriaSection({ criteria, edit }: CriteriaSectionProps) {
                   </button>
                 </span>
               ) : (
-                <span className={cn(CHIP, 'px-[9px]')}>
+                <span className={cn(CHIP, 'px-[13px]')}>
                   <span className="truncate">{criterion.text}</span>
                 </span>
               )}
@@ -116,7 +116,7 @@ export function CriteriaSection({ criteria, edit }: CriteriaSectionProps) {
                 <button
                   type="button"
                   aria-label={t('criteria.add')}
-                  className="flex h-[26px] cursor-pointer items-center gap-1 rounded-btn-s border border-dashed border-border-strong px-2 text-small text-text-3 hover:bg-bg-subtle hover:text-text focus-visible:outline-2 focus-visible:outline-ink"
+                  className="flex h-[30px] min-w-[30px] cursor-pointer items-center justify-center gap-1 rounded-full border border-dashed border-border-strong px-2.5 text-small text-text-3 hover:bg-wash hover:text-text focus-visible:outline-2 focus-visible:outline-ink"
                   onClick={() => {
                     setEditing('new');
                   }}
@@ -170,7 +170,7 @@ function CriterionInput({
       value={text}
       maxLength={CRITERION_MAX_LENGTH}
       size={Math.max(8, text.length + 1)}
-      className={cn(CHIP, 'max-w-[260px] border-ink bg-bg-panel px-[9px] outline-none')}
+      className={cn(CHIP, 'max-w-[260px] border-ink bg-bg-panel px-[13px] text-text outline-none')}
       onChange={(event) => {
         setText(event.target.value);
       }}

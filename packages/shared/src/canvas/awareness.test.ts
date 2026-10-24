@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { nodeLocks, remoteCursors } from './awareness';
+import { nodeLocks, presentUsers, remoteCursors } from './awareness';
 
 const OWN = { clientId: 1, userId: 'me' };
 
@@ -41,6 +41,21 @@ describe('remoteCursors', () => {
     ]);
 
     expect(remoteCursors(states, OWN)).toEqual([]);
+  });
+});
+
+describe('presentUsers', () => {
+  it('names everyone else on the board once, also without a cursor', () => {
+    const states = new Map<number, Record<string, unknown>>([
+      [1, { user: { id: 'me', name: 'Me' }, cursor: { x: 1, y: 1 } }],
+      [2, { user: { id: 'sam', name: 'Sam' }, cursor: null }],
+      [3, { user: { id: 'me', name: 'Me' } }],
+      [4, { user: { id: 'alex', name: 'Alex' }, cursor: { x: 5, y: 5 } }],
+      [5, { user: { id: 'sam', name: 'Sam' }, cursor: { x: 2, y: 2 } }],
+      [6, { cursor: { x: 3, y: 3 } }],
+    ]);
+
+    expect(presentUsers(states, OWN)).toEqual(['alex', 'sam']);
   });
 });
 

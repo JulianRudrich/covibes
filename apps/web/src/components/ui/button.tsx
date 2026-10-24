@@ -11,7 +11,9 @@ const buttonVariants = cva(
         primary: 'bg-ink text-on-ink shadow-button-primary hover:bg-ink-hover',
         secondary:
           'border border-border-strong bg-bg-panel text-text-body shadow-button-secondary hover:bg-bg-secondary-hover',
-        ghost: 'bg-transparent text-text-body hover:bg-bg-subtle',
+        ghost: 'bg-transparent text-text-body hover:bg-wash',
+        /** On a tinted or subtle card: the panel color without a border (handoff, overview cards). */
+        surface: 'bg-bg-panel text-text hover:brightness-[1.03]',
         /** Confirms something that cannot be undone, e.g. deleting a board. */
         danger: 'bg-danger text-on-ink shadow-button-primary hover:bg-danger/90',
       },

@@ -19,6 +19,9 @@ type ProjectTeamProps = {
   userId: string;
   /** Shows a short note, e.g. when the team could not be changed. */
   onNotice: (text: string) => void;
+  /** The agent writing in the chat and those raising a hand, shown on their marks. */
+  writing?: string | null;
+  raising?: ReadonlySet<string>;
 };
 
 /** The custom color the fewest of the user's agents have, so new agents are told apart. */
@@ -31,7 +34,7 @@ function leastUsedColor(agents: readonly CustomAgent[]): CustomAgentColor {
  * The team of the open project in the header with everything around it (specs 14 and 19): adding
  * and removing agents, choosing models, and the agent editor for custom agents.
  */
-export function ProjectTeam({ project, userId, onNotice }: ProjectTeamProps) {
+export function ProjectTeam({ project, userId, onNotice, writing, raising }: ProjectTeamProps) {
   const { t } = useTranslation();
   const readOnly = project.role === 'viewer';
   const team = useTeamMutations(project.id, (reason) => {
@@ -46,6 +49,8 @@ export function ProjectTeam({ project, userId, onNotice }: ProjectTeamProps) {
     <>
       <TeamMenu
         agents={project.agents}
+        writing={writing}
+        raising={raising}
         canEdit={!readOnly}
         canChooseModel={project.role === 'owner'}
         customAgents={customAgents}

@@ -42,6 +42,24 @@ export function remoteCursors(
   return cursors;
 }
 
+/**
+ * Who else has the board open (spec 36b: "Im Raum"): the ids of the other people with a client on
+ * it, with or without a cursor on the canvas, each once and sorted.
+ */
+export function presentUsers(
+  states: ReadonlyMap<number, Record<string, unknown>>,
+  own: { clientId: number; userId: string },
+): string[] {
+  const users = new Set<string>();
+  for (const [clientId, state] of states) {
+    if (clientId === own.clientId) continue;
+    const parsed = awarenessStateSchema.safeParse(state);
+    if (!parsed.success || parsed.data.user.id === own.userId) continue;
+    users.add(parsed.data.user.id);
+  }
+  return [...users].sort();
+}
+
 export type NodeLock = { clientId: number; userId: string; name: string; since: number };
 
 /**

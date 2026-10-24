@@ -17,7 +17,7 @@ function renderComposer({
     </TooltipProvider>,
   );
   const textbox = screen.getByRole<HTMLTextAreaElement>('textbox', {
-    name: 'Nachricht an Team und Agents, @ ruft einen Agent',
+    name: 'Schreib dem Team, @ ruft einen Agenten',
   });
   return { onSend, textbox };
 }

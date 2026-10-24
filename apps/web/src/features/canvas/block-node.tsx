@@ -14,19 +14,19 @@ import {
 } from '@web/components/ui/dropdown-menu';
 import { AgentAvatar } from '@web/features/agents/agent-avatar';
 import { agentClass, useAgents, type AgentInfo } from '@web/features/agents/agents';
-import {
-  AGENT_BORDER,
-  AGENT_DARK_TEXT,
-  AGENT_TILE,
-  AGENT_TINT_BORDER,
-} from '@web/features/canvas/agent-look';
+import { AGENT_DARK_TEXT, AGENT_TILE, AGENT_TINT_BORDER } from '@web/features/canvas/agent-look';
 import { blockIcon, blockTypeGroups } from '@web/features/canvas/block-types';
 import { useCanvasActions } from '@web/features/canvas/canvas-actions';
 import { ArrowAnchors, ConnectionHandles } from '@web/features/canvas/connection-handles';
 import { fieldLines, parseFieldLines } from '@web/features/canvas/entity-fields';
 import type { BlockFlowNode, BlockNodeData } from '@web/features/canvas/flow-mapping';
 import { useFocusOnMount, useInPlaceEditing } from '@web/features/canvas/in-place-editing';
-import { EditCaret, JustDrawnPill, LockPill } from '@web/features/canvas/node-chrome';
+import {
+  EditCaret,
+  JustDrawnOutline,
+  JustDrawnPill,
+  LockPill,
+} from '@web/features/canvas/node-chrome';
 import { useJustDrawnBy } from '@web/features/canvas/use-just-drawn';
 import { cn } from '@web/lib/cn';
 import { aiRing } from '@web/lib/styles';
@@ -52,27 +52,21 @@ export function BlockNode({ id, data, selected }: NodeProps<BlockFlowNode>) {
   const tile = (
     <span
       className={cn(
-        'grid size-[30px] shrink-0 place-items-center rounded-md border',
-        lockedBy
-          ? 'border-border-soft bg-border-subtle text-text-2'
-          : agent
-            ? agentClass(AGENT_TILE, agent)
-            : 'border-border-soft bg-bg-subtle text-text-2',
+        'grid size-8 shrink-0 place-items-center rounded-full',
+        agent ? agentClass(AGENT_TILE, agent) : 'bg-bg-subtle text-text-2',
       )}
     >
-      <Icon size={15} strokeWidth={1.8} aria-hidden="true" />
+      <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
     </span>
   );
 
   return (
     <div
       className={cn(
-        'group relative flex w-[180px] flex-col rounded-panel transition-[border-color,box-shadow] duration-200 motion-reduce:transition-none',
+        'group relative flex w-[180px] flex-col rounded-panel bg-bg-panel transition-[box-shadow,transform] duration-200 motion-reduce:transition-none',
         lockedBy
-          ? 'cursor-not-allowed border-[1.5px] border-human bg-bg-locked shadow-lock'
-          : agent
-            ? cn('border-[1.5px] bg-bg-panel', agentClass(AGENT_BORDER, agent))
-            : 'border border-border-block bg-bg-panel shadow-block',
+          ? 'cursor-not-allowed shadow-lock'
+          : cn('hover:-translate-y-0.5', !agent && 'shadow-block'),
         selected && !lockedBy && 'outline-2 outline-offset-2 outline-ink',
       )}
       // The stored size includes the fields of an entity; while they are edited, the block grows
@@ -83,7 +77,10 @@ export function BlockNode({ id, data, selected }: NodeProps<BlockFlowNode>) {
       }}
     >
       {data.changedByAgent ? (
-        <JustDrawnPill agent={data.changedByAgent} visible={agent !== null} />
+        <>
+          <JustDrawnOutline agent={data.changedByAgent} visible={agent !== null} />
+          <JustDrawnPill agent={data.changedByAgent} visible={agent !== null} />
+        </>
       ) : null}
       {lockedBy ? <LockPill name={lockedBy.name} /> : null}
 
@@ -91,7 +88,7 @@ export function BlockNode({ id, data, selected }: NodeProps<BlockFlowNode>) {
         <BlockEditor id={id} data={data} tile={tile} />
       ) : (
         <>
-          <div className="flex h-[66px] shrink-0 items-center gap-2.5 px-3">
+          <div className="flex h-[60px] shrink-0 items-center gap-2.5 px-3.5">
             <TypeMenu
               id={id}
               blockType={data.blockType}
@@ -101,14 +98,14 @@ export function BlockNode({ id, data, selected }: NodeProps<BlockFlowNode>) {
               {tile}
             </TypeMenu>
             <div className="min-w-0">
-              <div className="flex items-center text-body leading-snug font-semibold text-text">
+              <div className="flex items-center text-title leading-snug font-semibold text-text">
                 <span className="truncate">{data.label}</span>
                 {lockedBy ? <EditCaret /> : null}
               </div>
               {data.subtitle ? (
                 <div
                   className={cn(
-                    'truncate text-meta',
+                    'truncate text-status',
                     agent ? agentClass(AGENT_DARK_TEXT, agent) : 'text-text-3',
                   )}
                 >
@@ -123,7 +120,7 @@ export function BlockNode({ id, data, selected }: NodeProps<BlockFlowNode>) {
         </>
       )}
 
-      <AuthorLine data={data} agent={agent} />
+      <AuthorLine data={data} />
       <ArrowAnchors />
       {canChange && !editing ? (
         <ConnectionHandles nodeId={id} selected={selected} anywhere={actions.tool === 'connect'} />
@@ -132,30 +129,27 @@ export function BlockNode({ id, data, selected }: NodeProps<BlockFlowNode>) {
   );
 }
 
-function AuthorLine({ data, agent }: { data: BlockNodeData; agent: AgentInfo | null }) {
+function AuthorLine({ data }: { data: BlockNodeData }) {
   const { authorOf } = useCanvasActions();
   const agents = useAgents();
   const { createdBy } = data;
   const { name, initials } = authorOf(createdBy);
   const author = createdBy.kind === 'agent' ? agents(createdBy.agentKey) : null;
   return (
-    <div
-      className={cn(
-        'mt-auto flex h-[30px] shrink-0 items-center gap-1.5 border-t px-3 text-meta',
-        agent ? agentClass(AGENT_TINT_BORDER, agent) : 'border-border-subtle',
-      )}
-    >
+    <div className="mt-auto flex h-9 shrink-0 items-start gap-1.5 px-3.5 pt-1 text-status">
       {author ? (
         <>
-          <AgentAvatar agent={author} size={16} />
-          <span className={cn('truncate font-medium', agentClass(AGENT_DARK_TEXT, author))}>
+          <AgentAvatar agent={author} size={20} />
+          <span
+            className={cn('truncate leading-5 font-semibold', agentClass(AGENT_DARK_TEXT, author))}
+          >
             {author.name}
           </span>
         </>
       ) : (
         <>
-          <Avatar kind="human" size={16} label={name} initials={initials} />
-          <span className="truncate text-text-2b">{name}</span>
+          <Avatar kind="human" size={20} label={name} initials={initials} />
+          <span className="truncate leading-5 text-text-3">{name}</span>
         </>
       )}
     </div>
@@ -175,7 +169,7 @@ function EntityFields({ fields, agent }: { fields: EntityField[]; agent: AgentIn
       aria-label={t('canvas.entityFields')}
       className={cn(
         // 3 px + 4 px padding and the 1 px border: the 8 px the model reserves (`blockSize`).
-        'm-0 flex list-none flex-col border-t px-3 pt-[3px] pb-1 font-mono text-badge',
+        'm-0 flex list-none flex-col border-t px-3.5 pt-[3px] pb-1 font-mono text-badge',
         agent ? agentClass(AGENT_TINT_BORDER, agent) : 'border-border-subtle',
       )}
     >
@@ -296,7 +290,7 @@ function BlockEditor({ id, data, tile }: { id: string; data: BlockNodeData; tile
 
   return (
     <div className="nodrag flex min-h-0 flex-1 flex-col" onBlur={onBlur} onKeyDown={onKeyDown}>
-      <div className="flex h-[66px] shrink-0 items-center gap-2.5 px-3">
+      <div className="flex h-[60px] shrink-0 items-center gap-2.5 px-3.5">
         {tile}
         <div className="min-w-0 flex-1">
           <input
@@ -307,7 +301,7 @@ function BlockEditor({ id, data, tile }: { id: string; data: BlockNodeData; tile
             onChange={(event) => {
               setDraftLabel(event.target.value);
             }}
-            className="block w-full min-w-0 bg-transparent p-0 text-body leading-snug font-semibold text-text outline-none"
+            className="block w-full min-w-0 bg-transparent p-0 text-title leading-snug font-semibold text-text outline-none"
           />
           <input
             value={draftSubtitle}
@@ -317,7 +311,7 @@ function BlockEditor({ id, data, tile }: { id: string; data: BlockNodeData; tile
             onChange={(event) => {
               setDraftSubtitle(event.target.value);
             }}
-            className="block w-full min-w-0 bg-transparent p-0 text-meta text-text-3 outline-none placeholder:text-text-4"
+            className="block w-full min-w-0 bg-transparent p-0 text-status text-text-3 outline-none placeholder:text-text-4"
           />
         </div>
       </div>
@@ -334,7 +328,7 @@ function BlockEditor({ id, data, tile }: { id: string; data: BlockNodeData; tile
             // A plain Enter starts the next field; Ctrl or Cmd + Enter saves like elsewhere.
             if (event.key === 'Enter' && !event.ctrlKey && !event.metaKey) event.stopPropagation();
           }}
-          className="block w-full resize-none border-t border-border-subtle bg-transparent px-3 pt-[3px] pb-1 font-mono text-badge leading-[22px] text-text-body outline-none placeholder:text-text-4"
+          className="block w-full resize-none border-t border-border-subtle bg-transparent px-3.5 pt-[3px] pb-1 font-mono text-badge leading-[22px] text-text-body outline-none placeholder:text-text-4"
         />
       ) : null}
     </div>

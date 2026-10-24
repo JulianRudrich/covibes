@@ -18,9 +18,13 @@
 - **UI language:** German first, English via i18n. Texts are never hard-coded.
 
 ## Layout (desktop, reference 1440 × 900)
-Until spec 36b the screens keep their structure from spec 03: a grid with `grid-template-rows: 52px 1fr` on `bg-app`, the columns chat, canvas and overview (`380px minmax(0,1fr) 300px`, gap 8). Spec 36b moves the main screen to the layout of the handoff: rows `64px 1fr`, columns `372px minmax(0,1fr) 300px`, gap 12, padding `0 12px 12px`, the phase bar with segments and "Im Raum" in the top bar.
+The main screen (spec 36b): rows `64px 1fr` on `bg-app`, columns `372px minmax(0,1fr) 300px`, gap 12, padding `0 12px 12px`.
+- **Top bar** on the app background, without panels: logo, wordmark and project menu on the left; the phase bar in the middle; "Im Raum", the bell, the theme button and "Teilen" on the right.
+- **Phase bar:** a pill on the panel, 44 high: "Schritt 3 von 4", the phase name, four segments (done in `text`, the current one the track 60 % filled, upcoming in `track`), "Danach: …" (left out in the last phase). Name and segments stay buttons that open the card of a phase.
+- **"Im Raum":** a pill with the people overlapping (the signed-in user first as "Du", a green dot on who has the open board open) and the agents of the team overlapping as their marks (the writing agent glows, a raised hand shows a hand badge).
+- The main panels (chat, canvas, overview) use the `Panel` building block: `bg-panel`, radius `surface` (24), `shadow-panel`, **no border**; the overview has no panel title.
 
-The main panels (chat, canvas, overview) use the `Panel` building block: `bg-panel`, radius `surface` (24), `shadow-panel`, **no border**.
+Other screens keep their structure until spec 36c.
 
 ## Themes
 - The `@theme` block in `apps/web/src/styles/theme.css` holds the light values; `:root[data-theme='dark']` in the same file sets the dark values on the same variables. Components never branch on the theme; Tailwind's `dark:` variant is not used.
@@ -133,10 +137,18 @@ A 4 px grid with the values 2, 4, 6, 8, 10, 12, 14, 16, 18 and 24 px. Panels hav
 - **Input:** 36 px, `rounded-md`, `border-strong`, the border turns ink on focus.
 - **Logo:** two overlapping circles, the upper left one filled; a placeholder until there is a final logo.
 
-The building blocks of the chat, the canvas and the overview (bubbles, moderator card, raised hand, composer, phase bar, "Im Raum", blocks, toolbar, overview cards) are described in the handoff and move to it with spec 36b.
+### Chat, canvas and overview (spec 36b)
+- **Bubbles:** others on the left with a 30 px avatar and the corner at the author (`rounded-bl-[6px]`) on `bg-subtle`; own messages on the right in ink without an avatar (the name stays for screen readers); agents in their tint. Name and time stand above the bubble.
+- **Moderator card:** its tint, a 1 px inner line, radius 20, its mark on the panel color, the chip "neutral" (or "Agent" when it has its own opinion), pill buttons; after a choice a line with a check.
+- **References** to the canvas: pills in the base color of the element's author with `on-ink` text; for a person's element the base is `human`. Inside the own ink bubble references and mention chips turn to the panel color.
+- **Raised hand:** a card in the agent's tint with its mark and hand badge, "Anhören" as a pill on the panel color.
+- **Composer:** a pill (radius 26) on `bg-subtle` with a fine inner line: @, the text, attach, send; it grows to six lines and keeps its radius.
+- **Canvas:** board tabs as pills floating over the canvas, "Verlauf" and "Projektplan" as ghost pills on the right; the toolbar a floating pill at the bottom center with 40 px round tools, "Auswählen" first.
+- **Blocks** radius 18 without a border, a round 32 px icon tile, the author line without a divider, hover lifts by 2 px. **Arrows** 2 px with round caps and an open chevron head, labels as mono pills. **Frames** `rounded-frame` on `bg-frame` with a 1 px inner line, the title in the display font, the count as a pill. **Notes** radius `6 6 22 6`, tilted by 2°.
+- **Overview:** "Wartet auf dich" with a count pill and cards on `bg-subtle` (radius 18); "Entscheidungen" one row per topic with a status circle and the value or an "offen" pill (moderator tint while variants are compared); "Kriterien" as outlined pills.
 
 ## The four block states (core requirement)
-Behavior as in the main-screen handoff; the looks of the studio handoff come with spec 36b.
+Behavior as in the main-screen handoff, looks as in the studio handoff (spec 36b).
 
 | State | Look (studio handoff) |
 |---|---|
@@ -226,6 +238,15 @@ Since 2026-09-30 the app is built with the prototype design; design changes, imp
 - decisions and criteria (spec 16a): the link "Protokoll" and the decision log dialog, the dialog of a decision with "Wieder öffnen" and its reason, the hints while a section is empty, editing a criterion in place, the "×" on a chip and the dashed chip "+", and decision cards under "Wartet auf dich" with "Bestätigen"
 - observer (spec 15): raised hands of agents other than the critic (their tint and border instead of a second tint), the icon button "Nicht jetzt" on a raised hand, the line "Angenommen von …" / "Verschoben von …" under an offer, and "Agents melden sich" in the project menu
 - diagram types (spec 12): the type icon and name in the frame header and its menu, the block types of mind map, data model, flow and sitemap as block cards with their own icons, entity cards with fields in Geist Mono, arrows from the right to the left edge in mind maps and data models
+- **Derived in spec 36b** (main screen in the studio layout):
+  - the green dot in "Im Raum" marks who has the open board open, read from the board's awareness; people elsewhere in the project show without it
+  - the phase bar leaves out "Danach" in the last phase; the 60 % of the current segment marks "running", since Covibes does not measure progress inside a phase
+  - the overview drops its panel title; "Seit du weg warst" takes the look of its sections
+  - "Auswählen" as the first tool of the toolbar, pressed while no other tool is
+  - references of a person's element in `human`; references and mention chips on the panel color inside the own ink bubble
+  - a note stands straight while it is written in; a frame shows no widening outline (too large), its ring and pill say enough
+  - an open topic shows only the "offen" pill instead of "Noch nicht entschieden"
+  - the theme button in the top bar switches between light and dark; "Wie das System" stays in the account menu
 
 ## Still to be designed
 Derived by the coding agent from the studio handoff in spec 36b and 36c (owner decision, 2026-10-24):

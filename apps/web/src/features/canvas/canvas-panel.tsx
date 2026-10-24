@@ -64,8 +64,8 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { PanelHeader } from '@web/components/ui/panel';
 import { agentColor, useAgents } from '@web/features/agents/agents';
+import { CanvasTabsRow } from '@web/features/canvas/board-tabs';
 import { BOARD_PANEL_ID, boardTabId } from '@web/features/canvas/board-ids';
 import { BlockNode } from '@web/features/canvas/block-node';
 import type { BoardConnection } from '@web/features/canvas/board-connection';
@@ -75,7 +75,7 @@ import {
   type CanvasTool,
 } from '@web/features/canvas/canvas-actions';
 import { ArrowMarkers, CanvasArrow } from '@web/features/canvas/canvas-arrow';
-import { CanvasToolbar } from '@web/features/canvas/canvas-toolbar';
+import { CanvasToolbar, TOOLBAR_BUTTON } from '@web/features/canvas/canvas-toolbar';
 import { EmptyBoardHint } from '@web/features/canvas/empty-board-hint';
 import { loadElk } from '@web/features/canvas/elk';
 import { sizeRoadmaps, type CanvasFlowNode } from '@web/features/canvas/flow-mapping';
@@ -98,13 +98,17 @@ import { boardImage, NO_EXPORT } from '@web/features/export/board-image';
 import { downloadBlob, downloadText } from '@web/features/export/download';
 import { ExportMenu, type ExportOption } from '@web/features/export/export-menu';
 import { initialsOf } from '@web/lib/format';
-import { aiRing } from '@web/lib/styles';
+import { aiGlow } from '@web/lib/styles';
 
 const nodeTypes: NodeTypes = { block: BlockNode, sticky: NoteNode, frame: FrameNode };
 const edgeTypes: EdgeTypes = { arrow: CanvasArrow };
 
 const DELETE_KEYS = ['Delete', 'Backspace'];
-const CONNECTION_LINE_STYLE = { stroke: 'var(--color-edge)', strokeWidth: 1.5 };
+const CONNECTION_LINE_STYLE = {
+  stroke: 'var(--color-edge)',
+  strokeWidth: 2,
+  strokeLinecap: 'round' as const,
+};
 
 type CanvasPanelProps = {
   boardId: string;
@@ -137,6 +141,8 @@ type CanvasPanelProps = {
   onAsk?: (element: NamedElement & { label: string }) => void;
   /** What the exports of the board are called (spec 27a); without it the board offers none. */
   exports?: BoardExports;
+  /** Hears who else has the board open (spec 36b: "Im Raum"). */
+  onPresence?: (users: readonly string[]) => void;
 };
 
 export type BoardExports = {
@@ -156,21 +162,21 @@ export type BoardExports = {
  */
 export function CanvasPanel({ boardId, tabs, notice, ...canvas }: CanvasPanelProps) {
   return (
-    <>
-      <PanelHeader className="gap-1 px-3">{tabs}</PanelHeader>
-
+    // The canvas fills the whole panel; the tabs float over it (handoff "Canvas").
+    <div className="relative row-span-2 min-h-0">
+      <CanvasTabsRow floating>{tabs}</CanvasTabsRow>
       <div
         id={BOARD_PANEL_ID}
         role="tabpanel"
         aria-labelledby={boardTabId(boardId)}
-        className="relative min-h-0 bg-bg-canvas"
+        className="absolute inset-0 bg-bg-canvas"
       >
         <ReactFlowProvider key={boardId}>
           <BoardCanvas boardId={boardId} {...canvas} />
         </ReactFlowProvider>
         {notice ? <NoticePill>{notice}</NoticePill> : null}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -187,6 +193,7 @@ function BoardCanvas({
   onFocusMissing,
   onAsk,
   exports,
+  onPresence,
 }: Omit<CanvasPanelProps, 'tabs' | 'notice'>) {
   const { t } = useTranslation();
   const { connection, status, loaded, denied } = useBoardDoc(boardId);
@@ -212,6 +219,7 @@ function BoardCanvas({
           onFocusMissing={onFocusMissing}
           onAsk={onAsk}
           exports={exports}
+          onPresence={onPresence}
         />
       ) : (
         <CanvasMessage>{t('canvas.loading')}</CanvasMessage>
@@ -237,6 +245,7 @@ type BoardProps = {
   onFocusMissing?: () => void;
   onAsk?: (element: NamedElement & { label: string }) => void;
   exports?: BoardExports;
+  onPresence?: (users: readonly string[]) => void;
 };
 
 /** Room around an element brought into view, on each side. */
@@ -273,6 +282,7 @@ function Board({
   onFocusMissing,
   onAsk,
   exports,
+  onPresence,
 }: BoardProps) {
   const { t } = useTranslation();
   const agents = useAgents();
@@ -360,7 +370,15 @@ function Board({
       window.clearTimeout(timer);
     };
   }, [focusPending, focusId, onFocusMissing]);
-  const { cursors, onPointerMove, onPointerLeave } = useLiveCursors(connection.provider, user);
+  const { cursors, present, onPointerMove, onPointerLeave } = useLiveCursors(
+    connection.provider,
+    user,
+  );
+  useEffect(() => {
+    onPresence?.(present);
+  }, [present, onPresence]);
+  // Nobody is on a board that is no longer shown.
+  useEffect(() => () => onPresence?.([]), [onPresence]);
   const undo = useUndo(doc, author, !readOnly);
 
   // Where every element is right now, also while one is dragged here.
@@ -785,7 +803,7 @@ function Board({
               <ExportMenu
                 options={exportOptions}
                 onFailed={exports.onFailed}
-                className="grid h-[34px] w-[30px] rounded-md text-text-body hover:bg-bg-subtle"
+                className={TOOLBAR_BUTTON}
               />
             ) : null
           }
@@ -840,7 +858,7 @@ function FocusFlash({ node }: { node: CanvasFlowNode | undefined }) {
         height: height + 12,
         borderColor: color,
         boxShadow: agent
-          ? aiRing(agent)
+          ? aiGlow(agent)
           : `0 0 0 4px color-mix(in srgb, ${color} 12%, transparent)`,
         zIndex: 5,
       }}
@@ -860,7 +878,7 @@ function NoticePill({ children }: { children: string }) {
   return (
     <div
       role="status"
-      className="absolute top-3 left-1/2 z-10 flex h-[26px] -translate-x-1/2 items-center rounded-[13px] bg-bg-panel px-3 text-status whitespace-nowrap text-text-body shadow-float"
+      className="absolute top-[58px] left-1/2 z-10 flex h-[26px] -translate-x-1/2 animate-pop items-center rounded-full bg-bg-panel px-3 text-status whitespace-nowrap text-text-body shadow-float"
     >
       {children}
     </div>
@@ -872,7 +890,7 @@ function ReconnectingPill() {
   return (
     <div
       role="status"
-      className="absolute top-3 left-1/2 z-10 flex h-[26px] -translate-x-1/2 items-center gap-2 rounded-[13px] bg-bg-muted px-3 text-status text-text-2 shadow-float"
+      className="absolute top-[58px] left-1/2 z-10 flex h-[26px] -translate-x-1/2 items-center gap-2 rounded-full bg-bg-muted px-3 text-status text-text-2 shadow-float"
     >
       <span className="size-1.5 animate-pulse rounded-full bg-text-3" aria-hidden="true" />
       {t('canvas.reconnecting')}

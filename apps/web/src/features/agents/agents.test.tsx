@@ -162,7 +162,7 @@ describe('custom agents in the chat', () => {
     );
 
     const card = screen.getByRole('listitem');
-    expect(card).toHaveTextContent('UX Writer meldet sich – Einwand zur Tonalität');
+    expect(card).toHaveTextContent('UX Writer meldet sichEinwand zur Tonalität');
     expect(card).toHaveClass('bg-agent-custom-tint', 'agent-color-3');
     expect(screen.getByRole('button', { name: 'UX Writer: nicht jetzt' })).toBeInTheDocument();
   });

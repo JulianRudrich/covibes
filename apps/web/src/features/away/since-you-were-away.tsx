@@ -147,24 +147,24 @@ export function SinceYouWereAway({
   const writers = authorList(messages.by, messages.authors);
 
   return (
-    <section
-      aria-labelledby={titleId}
-      className="flex flex-col gap-2.5 border-b border-border-subtle p-4"
-    >
+    <section aria-labelledby={titleId} className="flex flex-col gap-2.5">
       <div className="flex items-baseline justify-between gap-2">
-        <h3 id={titleId} className="m-0 text-ui font-semibold text-text">
+        <h2
+          id={titleId}
+          className="m-0 font-display text-heading font-semibold tracking-[-0.01em] text-text"
+        >
           {t('away.title')}
-        </h3>
+        </h2>
         <span className="shrink-0 text-meta text-text-3">
           {t('away.lastHere', { time: formatRelativeTime(summary.since, i18n.language) })}
         </span>
       </div>
 
       {summary.textStatus === 'pending' || (summary.textStatus === 'done' && summary.text) ? (
-        <div className="flex flex-col gap-1.5 rounded-card border border-border bg-bg-panel p-3 shadow-panel">
-          <div className="flex items-center gap-1.5 text-meta text-text-3">
-            <AgentAvatar agent={moderator} size={16} />
-            <span className={cn('font-medium', agentClass(AGENT_DARK_TEXT, moderator))}>
+        <div className="flex animate-rise flex-col gap-2 rounded-panel bg-bg-subtle p-3.5">
+          <div className="flex items-center gap-1.5 text-status text-text-3">
+            <AgentAvatar agent={moderator} size={20} />
+            <span className={cn('font-semibold', agentClass(AGENT_DARK_TEXT, moderator))}>
               {moderator.name}
             </span>
             <span>· {t('away.summary')}</span>

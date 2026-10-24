@@ -5,7 +5,6 @@ import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@web/components/logo';
-import { Avatar } from '@web/components/ui/avatar';
 import { Dialog } from '@web/components/ui/dialog';
 import {
   DropdownMenu,
@@ -13,8 +12,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@web/components/ui/dropdown-menu';
-import { Tooltip } from '@web/components/ui/tooltip';
-import { AccountMenu } from '@web/features/account/account-menu';
 import { GitDialog } from '@web/features/git/git-dialog';
 import { GitLogDialog } from '@web/features/git/git-log-dialog';
 import { MergeRequestsDialog } from '@web/features/git/merge-requests-dialog';
@@ -22,12 +19,13 @@ import type { SessionUser } from '@web/features/auth/session';
 import { NotificationBell } from '@web/features/notifications/notification-bell';
 import { UsageDialog } from '@web/features/usage/usage-dialog';
 import { PhaseIndicator } from '@web/features/workspace/phase-indicator';
+import { Room } from '@web/features/workspace/room';
+import { ThemeButton } from '@web/features/workspace/theme-button';
 import {
   ProjectSettingsDialog,
   type ProjectSettings,
 } from '@web/features/workspace/project-settings-dialog';
 import type { WorkspaceMember, WorkspaceRepository } from '@web/features/workspace/workspace-shell';
-import { initialsOf } from '@web/lib/format';
 
 type WorkspaceHeaderProps = {
   projectName: string;
@@ -40,8 +38,10 @@ type WorkspaceHeaderProps = {
   onSelectPhase?: (phase: Phase) => void;
   onAskNextStep?: () => void;
   members: WorkspaceMember[];
+  /** The members who have the open board open right now. */
+  present: ReadonlySet<string>;
   user: SessionUser | null;
-  /** The agents of the project (spec 14): their avatars and the team popover. */
+  /** The agents of the project (spec 14): their marks and the team popover. */
   team: ReactNode;
   /** "Teilen" with the share dialog (spec 21a). */
   share: ReactNode;
@@ -56,6 +56,7 @@ export function WorkspaceHeader({
   onSelectPhase,
   onAskNextStep,
   members,
+  present,
   user,
   team,
   share,
@@ -63,13 +64,13 @@ export function WorkspaceHeader({
   const { t } = useTranslation();
 
   return (
-    <header className="grid grid-cols-[380px_minmax(0,1fr)_300px] items-center gap-2 px-2">
-      <div className="flex min-w-0 items-center gap-2.5 pl-2">
+    <header className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 pr-4 pl-5">
+      <div className="flex min-w-0 items-center gap-2.5">
         <Logo />
         <span className="font-display text-[18px] font-bold tracking-[-0.025em]">
           {t('common.wordmark')}
         </span>
-        <span aria-hidden="true" className="text-display text-text-faint">
+        <span aria-hidden="true" className="mx-0.5 text-text-3">
           /
         </span>
         <ProjectMenu
@@ -80,41 +81,13 @@ export function WorkspaceHeader({
         />
       </div>
 
-      <div className="justify-self-center">
-        <PhaseIndicator active={activePhase} onSelect={onSelectPhase} onAsk={onAskNextStep} />
-      </div>
+      <PhaseIndicator active={activePhase} onSelect={onSelectPhase} onAsk={onAskNextStep} />
 
-      <div className="flex items-center justify-end gap-2.5 pr-1">
-        <NotificationBell />
-        <div role="group" aria-label={t('workspace.humansLabel')} className="flex items-center">
-          {members.map((member, index) => {
-            const name = member.isCurrentUser ? t('common.you') : member.name;
-            const avatar = (
-              <Avatar
-                kind="human"
-                tone="strong"
-                size={26}
-                label={name}
-                initials={member.isCurrentUser ? t('common.you') : initialsOf(member.name)}
-                className="border-2 border-bg-app"
-              />
-            );
-            return (
-              <Tooltip key={member.id} content={name}>
-                <span className={index > 0 ? '-ml-1.5' : undefined}>
-                  {member.isCurrentUser && user ? (
-                    <AccountMenu user={user}>{avatar}</AccountMenu>
-                  ) : (
-                    avatar
-                  )}
-                </span>
-              </Tooltip>
-            );
-          })}
-        </div>
-        <span aria-hidden="true" className="h-5 w-px bg-divider-strong" />
-        <div role="group" aria-label={t('workspace.agentsLabel')} className="flex items-center">
-          {team}
+      <div className="flex min-w-0 items-center justify-end gap-3">
+        <Room members={members} present={present} user={user} team={team} />
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <ThemeButton />
         </div>
         {share}
       </div>
@@ -153,7 +126,7 @@ function ProjectMenu({
       <DropdownMenu>
         <DropdownMenuTrigger
           aria-label={`${projectName}, ${t('workspace.projectMenu')}`}
-          className="flex h-[30px] min-w-0 cursor-pointer items-center gap-1.5 rounded-btn-s px-2 text-ui font-medium whitespace-nowrap text-text hover:bg-bg-hover-app focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          className="flex h-[34px] min-w-0 cursor-pointer items-center gap-1.5 rounded-full pr-2.5 pl-3 font-semibold whitespace-nowrap text-text transition-colors hover:bg-wash focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
         >
           <span className="truncate">{projectName}</span>
           <ChevronDown size={14} className="shrink-0 text-text-3" aria-hidden="true" />

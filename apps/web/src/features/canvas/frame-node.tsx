@@ -10,8 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@web/components/ui/dropdown-menu';
-import { agentClass, useAgents } from '@web/features/agents/agents';
-import { AGENT_BORDER } from '@web/features/canvas/agent-look';
+import { useAgents } from '@web/features/agents/agents';
 import { DIAGRAM_TYPE_CHOICES, diagramIcon } from '@web/features/canvas/block-types';
 import { useCanvasActions } from '@web/features/canvas/canvas-actions';
 import type { FrameFlowNode } from '@web/features/canvas/flow-mapping';
@@ -44,12 +43,8 @@ export function FrameNode({ id, data, selected }: NodeProps<FrameFlowNode>) {
   return (
     <div
       className={cn(
-        'relative size-full rounded-frame bg-bg-panel/55 transition-[border-color,box-shadow] duration-200 motion-reduce:transition-none',
-        lockedBy
-          ? 'border-[1.5px] border-human'
-          : agent
-            ? cn('border-[1.5px]', agentClass(AGENT_BORDER, agent))
-            : 'border border-frame-border',
+        'relative size-full rounded-frame bg-bg-frame transition-[box-shadow] duration-200 motion-reduce:transition-none',
+        lockedBy ? 'shadow-lock' : !agent && 'inset-ring inset-ring-border',
         selected && !lockedBy && 'outline-2 outline-offset-2 outline-ink',
       )}
       style={agent ? { boxShadow: aiRing(agent) } : undefined}
@@ -68,27 +63,28 @@ export function FrameNode({ id, data, selected }: NodeProps<FrameFlowNode>) {
         handleClassName="!size-2.5 !rounded-xs !border-2 !border-bg-panel !bg-ink"
       />
       {data.changedByAgent ? (
+        // A frame is too large for the widening outline; ring and pill say enough.
         <JustDrawnPill agent={data.changedByAgent} visible={agent !== null} />
       ) : null}
       {lockedBy ? <LockPill name={lockedBy.name} /> : null}
 
-      <div className="absolute top-3 right-3.5 left-3.5 flex items-center gap-2 text-ui">
+      <div className="absolute top-[18px] right-5 left-[22px] flex items-center gap-2">
         <DiagramMenu
           id={id}
           diagramType={data.diagramType}
           enabled={selected && canChange && !editing && !isRoadmap}
         >
-          <Icon size={14} strokeWidth={2} className="shrink-0 text-text-2b" aria-hidden="true" />
+          <Icon size={15} strokeWidth={1.9} className="shrink-0 text-text-2" aria-hidden="true" />
         </DiagramMenu>
         {editing ? (
           <FrameTitleEditor id={id} title={data.label} />
         ) : (
-          <span className="flex min-w-0 items-center font-semibold text-text">
+          <span className="flex min-w-0 items-center font-display text-[15px] font-semibold text-text">
             <span className="truncate">{data.label}</span>
             {lockedBy ? <EditCaret /> : null}
           </span>
         )}
-        <span className="shrink-0 text-status text-text-3">
+        <span className="flex h-[22px] shrink-0 items-center rounded-full bg-bg-panel px-[9px] text-status text-text-3 tabular-nums">
           {isRoadmap ? (
             <RoadmapSummary />
           ) : isDiagramType(data.diagramType) ? (
@@ -176,7 +172,7 @@ function FrameTitleEditor({ id, title }: { id: string; title: string }) {
       }}
       onKeyDown={onKeyDown}
       onBlur={onBlur}
-      className="nodrag min-w-0 flex-1 bg-transparent p-0 font-semibold text-text outline-none"
+      className="nodrag min-w-0 flex-1 bg-transparent p-0 font-display text-[15px] font-semibold text-text outline-none"
     />
   );
 }

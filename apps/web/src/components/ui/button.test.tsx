@@ -21,7 +21,8 @@ describe('Button', () => {
   it.each([
     ['primary', ['bg-ink', 'text-on-ink', 'shadow-button-primary']],
     ['secondary', ['border', 'bg-bg-panel', 'shadow-button-secondary']],
-    ['ghost', ['bg-transparent', 'hover:bg-bg-subtle']],
+    ['ghost', ['bg-transparent', 'hover:bg-wash']],
+    ['surface', ['bg-bg-panel', 'text-text']],
   ] as const)('renders the %s variant', (variant, classes) => {
     render(<Button variant={variant}>Aktion</Button>);
 

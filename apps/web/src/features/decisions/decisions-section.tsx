@@ -15,6 +15,7 @@ import { Dialog, DialogClose, DialogContent } from '@web/components/ui/dialog';
 import { Label } from '@web/components/ui/input';
 import { ComparisonCard } from '@web/features/decisions/comparison-card';
 import { VariantPreview } from '@web/features/proposals/variant-preview';
+import { cn } from '@web/lib/cn';
 import { formatLongDate, formatRelativeTime } from '@web/lib/format';
 
 type DecisionsSectionProps = {
@@ -69,19 +70,19 @@ function tallyText(tally: VoteTally): string {
   return tally.map((entry) => `${entry.name} ${String(entry.votes)}`).join(' · ');
 }
 
-/** Handoff "Decisions": a green check circle when decided, a dashed ring while open. */
+/** Handoff "Entscheidungen": a green check circle when decided, a dashed ring while open. */
 function StatusSymbol({ decided }: { decided: boolean }) {
   return decided ? (
     <span
       aria-hidden="true"
-      className="grid size-5 shrink-0 place-items-center rounded-full bg-success-bg text-success"
+      className="grid size-[22px] shrink-0 place-items-center rounded-full bg-success-bg text-success"
     >
-      <Check size={11} strokeWidth={3.2} />
+      <Check size={11} strokeWidth={3} />
     </span>
   ) : (
     <span
       aria-hidden="true"
-      className="size-5 shrink-0 rounded-full border-[1.5px] border-dashed border-text-5"
+      className="size-[22px] shrink-0 rounded-full border-2 border-dashed border-text-3"
     />
   );
 }
@@ -110,14 +111,11 @@ export function DecisionsSection({
   const open = decisions.find((decision) => decision.id === openId);
 
   return (
-    <section
-      aria-labelledby={titleId}
-      className="flex flex-col gap-1 border-b border-border-subtle p-4"
-    >
+    <section aria-labelledby={titleId} className="flex flex-col gap-1">
       <div className="mb-1.5 flex items-center justify-between">
-        <h3 id={titleId} className="m-0 text-ui font-semibold text-text">
+        <h2 id={titleId} className="m-0 font-display text-display font-semibold text-text">
           {t('decisions.title')}
-        </h3>
+        </h2>
         {onOpenLog ? (
           <button
             type="button"
@@ -136,37 +134,38 @@ export function DecisionsSection({
         <p className="m-0 text-small leading-snug text-text-3">{t('decisions.empty')}</p>
       ) : (
         <ul className="m-0 list-none p-0">
-          {decisions.map((decision, index) => {
+          {decisions.map((decision) => {
             const decided = decision.status === 'decided';
+            const isComparing = comparing.includes(decision.topic.toLowerCase());
             return (
-              <li key={decision.id} className={index > 0 ? 'border-t border-divider-row' : ''}>
+              <li key={decision.id}>
+                {/* One row per topic (handoff): the topic on the left, the value or "offen" on
+                    the right; the row opens the decision. */}
                 <button
                   type="button"
-                  className="-mx-1.5 flex w-[calc(100%+12px)] cursor-pointer items-center gap-2.5 rounded-sm px-1.5 py-2 text-left hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-ink"
+                  className="-mx-2 flex w-[calc(100%+16px)] cursor-pointer items-center gap-2.5 rounded-full px-2 py-1.5 text-left transition-colors hover:bg-wash focus-visible:outline-2 focus-visible:outline-ink"
                   onClick={() => {
                     setOpenId(decision.id);
                   }}
                 >
                   <StatusSymbol decided={decided} />
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-meta text-text-3">{decision.topic}</span>
-                    <span
-                      className={
-                        decided
-                          ? 'truncate text-body font-medium text-text'
-                          : 'truncate text-body font-medium text-text-2'
-                      }
-                    >
-                      {decided
-                        ? decision.value
-                        : comparing.includes(decision.topic.toLowerCase())
-                          ? t('decisions.comparing')
-                          : t('decisions.notDecided')}
-                    </span>
+                  <span className="min-w-0 flex-1 truncate text-body text-text-3">
+                    {decision.topic}
                   </span>
-                  {decided ? null : (
-                    <span className="flex h-5 shrink-0 items-center rounded-sm bg-bg-subtle px-[7px] text-badge font-medium text-text-2">
-                      {t('decisions.open')}
+                  {decided ? (
+                    <span className="max-w-[55%] shrink-0 truncate text-body font-semibold text-text">
+                      {decision.value}
+                    </span>
+                  ) : (
+                    <span
+                      className={cn(
+                        'flex h-6 shrink-0 items-center rounded-full px-2.5 text-status font-semibold',
+                        isComparing
+                          ? 'bg-agent-moderator-tint text-agent-moderator-dark'
+                          : 'bg-bg-subtle text-text-2',
+                      )}
+                    >
+                      {isComparing ? t('decisions.comparing') : t('decisions.open')}
                     </span>
                   )}
                 </button>

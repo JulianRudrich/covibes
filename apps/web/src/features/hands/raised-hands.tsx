@@ -1,19 +1,17 @@
 import type { HandRaise } from '@covibes/shared';
-import { Hand, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
 import { IconButton } from '@web/components/ui/icon-button';
 import { Tooltip } from '@web/components/ui/tooltip';
+import { AgentAvatar } from '@web/features/agents/agent-avatar';
 import { agentClass, useAgents } from '@web/features/agents/agents';
-import {
-  AGENT_BACKGROUND,
-  AGENT_DARK_TEXT,
-  AGENT_HAND,
-  AGENT_HAND_BUTTON,
-} from '@web/features/canvas/agent-look';
+import { AGENT_DARK_TEXT } from '@web/features/canvas/agent-look';
+import { HandBadge } from '@web/features/hands/hand-badge';
 import type { HandDecision } from '@web/features/hands/queries';
 import { cn } from '@web/lib/cn';
+import { AGENT_TONE } from '@web/lib/styles';
 
 type RaisedHandsProps = {
   hands: readonly HandRaise[];
@@ -22,9 +20,9 @@ type RaisedHandsProps = {
 };
 
 /**
- * The open raised hands above the composer (spec 15; handoff "Raised hand"): the agent's square
- * with a hand, "Kritiker meldet sich – …" and "Anhören". "Nicht jetzt" dismisses the hand (derived
- * look).
+ * The open raised hands above the composer (spec 15; handoff "Raised hand"): a card in the
+ * agent's tint with its mark and the hand badge, "Kritiker meldet sich" over the reason, and
+ * "Anhören" as a pill on the panel color. The X dismisses the hand (derived look).
  */
 export function RaisedHands({ hands, onDecide }: RaisedHandsProps) {
   const { t } = useTranslation();
@@ -40,29 +38,25 @@ export function RaisedHands({ hands, onDecide }: RaisedHandsProps) {
           <li
             key={hand.id}
             className={cn(
-              'flex items-center gap-2.5 rounded-card border py-2.5 pr-2.5 pl-3',
-              agentClass(AGENT_HAND, agent),
+              'flex animate-rise items-center gap-2.5 rounded-panel p-2',
+              agentClass(AGENT_TONE, agent),
             )}
           >
-            <span
-              aria-hidden="true"
-              className={cn(
-                'grid size-7 shrink-0 place-items-center rounded-md text-on-ink',
-                agentClass(AGENT_BACKGROUND, agent),
-              )}
-            >
-              <Hand size={15} strokeWidth={2} />
+            <span aria-hidden="true" className="relative flex shrink-0">
+              <AgentAvatar agent={agent} size={32} className="rounded-[11px] bg-bg-panel" />
+              <HandBadge agent={agent} className="-top-1 -right-1 ring-0" />
             </span>
-            <p className="m-0 min-w-0 flex-1 text-ui leading-snug wrap-break-word text-text-2">
-              <strong className={cn('font-semibold', agentClass(AGENT_DARK_TEXT, agent))}>
+            <p className="m-0 min-w-0 flex-1 text-ui leading-[1.35] wrap-break-word text-text-2">
+              <strong className={cn('block font-bold', agentClass(AGENT_DARK_TEXT, agent))}>
                 {t('hands.raises', { name })}
               </strong>
-              {` – ${hand.reason}`}
+              {hand.reason}
             </p>
             {onDecide ? (
               <div className="flex shrink-0 items-center gap-0.5">
                 <Button
-                  className={cn('bg-bg-panel', agentClass(AGENT_HAND_BUTTON, agent))}
+                  variant="surface"
+                  className={cn('px-3.5', agentClass(AGENT_DARK_TEXT, agent))}
                   onClick={() => {
                     onDecide(hand, 'listen');
                   }}
@@ -72,7 +66,7 @@ export function RaisedHands({ hands, onDecide }: RaisedHandsProps) {
                 <Tooltip content={t('hands.dismiss')}>
                   <IconButton
                     aria-label={t('hands.dismissAgent', { name })}
-                    className="size-6"
+                    className="size-7"
                     onClick={() => {
                       onDecide(hand, 'dismiss');
                     }}

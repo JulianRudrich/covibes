@@ -25,7 +25,7 @@ import {
   useUpdateNotificationSettings,
 } from '@web/features/notifications/queries';
 import { authClient } from '@web/lib/auth-client';
-import { chooseTheme, isThemeChoice, THEME_CHOICES, themeChoice } from '@web/lib/theme';
+import { chooseTheme, isThemeChoice, THEME_CHOICES, useTheme } from '@web/lib/theme';
 
 type AccountMenuProps = {
   user: SessionUser;
@@ -53,7 +53,8 @@ export function AccountMenu({ user, children }: AccountMenuProps) {
   const { gitAccount: gitReturned } = useSearch({ strict: false });
   const { projectId } = useParams({ strict: false });
   const [gitOpen, setGitOpen] = useState(gitReturned !== undefined);
-  const [theme, setTheme] = useState(themeChoice);
+  // The theme button of the top bar changes it too.
+  const { choice: theme } = useTheme();
 
   async function signOut() {
     await authClient.signOut();
@@ -118,7 +119,6 @@ export function AccountMenu({ user, children }: AccountMenuProps) {
             onValueChange={(choice) => {
               if (!isThemeChoice(choice)) return;
               chooseTheme(choice);
-              setTheme(choice);
             }}
           >
             {THEME_CHOICES.map((choice) => (

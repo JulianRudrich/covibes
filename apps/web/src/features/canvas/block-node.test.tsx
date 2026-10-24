@@ -1,4 +1,4 @@
-import type { Author } from '@covibes/shared';
+import type { AgentKey, Author } from '@covibes/shared';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { NodeProps } from '@xyflow/react';
 import type { ReactNode } from 'react';
@@ -98,8 +98,13 @@ function advance(ms: number) {
 }
 
 function expectNormal(block: HTMLElement) {
-  expect(block).toHaveClass('border', 'border-border-block', 'shadow-block');
+  expect(block).toHaveClass('shadow-block');
   expect(block.style.boxShadow).toBe('');
+}
+
+function expectJustDrawn(block: HTMLElement, look: AgentKey) {
+  expect(block).not.toHaveClass('shadow-block');
+  expect(block.style.boxShadow).toBe(aiRing({ look, color: null }));
 }
 
 describe('BlockNode', () => {
@@ -122,7 +127,7 @@ describe('BlockNode', () => {
       expect(screen.getByText('PostgreSQL')).toHaveClass('truncate');
       expect(screen.getByText('Dienst')).toHaveClass('text-text-3');
       expect(screen.getByRole('img', { name: 'Olga Berg' })).toHaveTextContent('OB');
-      expect(screen.getByText('Olga Berg')).toHaveClass('text-text-2b');
+      expect(screen.getByText('Olga Berg')).toHaveClass('text-text-3');
     });
 
     it('shows a generic block and types of a later version as a square', () => {
@@ -141,7 +146,10 @@ describe('BlockNode', () => {
         'bg-agent-moderator-tint',
         'text-agent-moderator',
       );
-      expect(screen.getByText('Moderator')).toHaveClass('font-medium', 'text-agent-moderator-dark');
+      expect(screen.getByText('Moderator')).toHaveClass(
+        'font-semibold',
+        'text-agent-moderator-dark',
+      );
     });
 
     it('leaves out an empty subtitle', () => {
@@ -152,12 +160,11 @@ describe('BlockNode', () => {
   });
 
   describe('just changed by AI', () => {
-    it('shows border, AI ring and pill in the agent color', () => {
+    it('shows the ring, the widening outline and the pill in the agent color', () => {
       const { block } = renderBlock({ changedByAgent: 'moderator' });
 
-      expect(block).toHaveClass('border-[1.5px]', 'border-agent-moderator');
-      expect(block).not.toHaveClass('border-border-block', 'shadow-block');
-      expect(block.style.boxShadow).toBe(aiRing({ look: 'moderator', color: null }));
+      expectJustDrawn(block, 'moderator');
+      expect(block.querySelector('.animate-ring')).toBeInTheDocument();
       const pill = screen.getByText('Gerade gezeichnet');
       expect(pill).toHaveClass('bg-agent-moderator', 'text-on-ink');
       expect(pill).not.toHaveClass('invisible');
@@ -179,18 +186,19 @@ describe('BlockNode', () => {
       const { block } = renderBlock({ changedByAgent: 'moderator' });
 
       advance(4999);
-      expect(block).toHaveClass('border-agent-moderator');
+      expectJustDrawn(block, 'moderator');
 
       advance(1);
       expectNormal(block);
       expect(block).toHaveClass('duration-200', 'motion-reduce:transition-none');
+      expect(block.querySelector('.animate-ring')).not.toBeInTheDocument();
       expect(screen.getByText('Gerade gezeichnet')).toHaveClass('invisible', 'opacity-0');
       expect(screen.getByText('Dienst')).toHaveClass('text-text-3');
     });
 
     it('only shows the rest of the 5 s for an agent change made a moment ago', () => {
       const { block } = renderBlock({ changedByAgent: 'data', lastChangedAt: changedAgo(3000) });
-      expect(block).toHaveClass('border-agent-data');
+      expectJustDrawn(block, 'data');
 
       advance(2000);
       expectNormal(block);
@@ -222,7 +230,7 @@ describe('BlockNode', () => {
           {...nodeProps({ changedByAgent: 'critic', lastChangedAt: new Date().toISOString() })}
         />,
       );
-      expect(block).toHaveClass('border-agent-critic');
+      expectJustDrawn(block, 'critic');
 
       advance(5000);
       expectNormal(block);
@@ -248,7 +256,7 @@ describe('BlockNode', () => {
         changedByAgent: 'moderator',
         lastChangedAt: changedAgo(-60_000),
       });
-      expect(block).toHaveClass('border-agent-moderator');
+      expectJustDrawn(block, 'moderator');
 
       advance(5000);
       expectNormal(block);
@@ -268,15 +276,10 @@ describe('BlockNode', () => {
     it('shows who is editing it, with the lock look and a caret in the title', () => {
       const { block } = renderBlock({ lockedBy: { name: 'Sam' } });
 
-      expect(block).toHaveClass(
-        'border-[1.5px]',
-        'border-human',
-        'bg-bg-locked',
-        'shadow-lock',
-        'cursor-not-allowed',
-      );
+      expect(block).toHaveClass('shadow-lock', 'cursor-not-allowed');
+      expect(block).not.toHaveClass('shadow-block');
       const pill = screen.getByText('Sam bearbeitet');
-      expect(pill).toHaveClass('bg-human', 'text-on-ink', '-left-[1.5px]');
+      expect(pill).toHaveClass('bg-human', 'text-on-ink', 'rounded-full');
       expect(pill.querySelector('.lucide-lock')).toBeInTheDocument();
       expect(block.querySelector('.animate-caret-blink')).toBeInTheDocument();
     });
@@ -284,7 +287,7 @@ describe('BlockNode', () => {
     it('counts more than an agent change a moment ago', () => {
       const { block } = renderBlock({ lockedBy: { name: 'Sam' }, changedByAgent: 'moderator' });
 
-      expect(block).toHaveClass('border-human');
+      expect(block).toHaveClass('shadow-lock');
       expect(block.style.boxShadow).toBe('');
     });
 

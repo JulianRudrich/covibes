@@ -2,7 +2,7 @@ import type { GitReturn, Phase } from '@covibes/shared';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Panel, PanelHeader, PanelTitle } from '@web/components/ui/panel';
+import { Panel } from '@web/components/ui/panel';
 import type { SessionUser } from '@web/features/auth/session';
 import type { ProjectSettings } from '@web/features/workspace/project-settings-dialog';
 import { WorkspaceHeader } from '@web/features/workspace/workspace-header';
@@ -33,6 +33,8 @@ type WorkspaceShellProps = {
   onSelectPhase?: (phase: Phase) => void;
   onAskNextStep?: () => void;
   members: WorkspaceMember[];
+  /** The members who have the open board open right now ("Im Raum"). */
+  present: ReadonlySet<string>;
   user: SessionUser | null;
   /** The agents of the project in the header (spec 14). */
   team: ReactNode;
@@ -46,7 +48,10 @@ type WorkspaceShellProps = {
   overview: ReactNode;
 };
 
-/** Main screen layout: header plus chat, canvas and overview panels (handoff "Main screen"). */
+/**
+ * Main screen layout (handoff "Covibes Studio", "Layout"): the top bar on the app background
+ * plus the chat, canvas and overview panels.
+ */
 export function WorkspaceShell({
   projectName,
   settings,
@@ -56,6 +61,7 @@ export function WorkspaceShell({
   onSelectPhase,
   onAskNextStep,
   members,
+  present,
   user,
   team,
   share,
@@ -66,7 +72,7 @@ export function WorkspaceShell({
   const { t } = useTranslation();
 
   return (
-    <div className="grid h-dvh min-w-[1100px] grid-rows-[52px_minmax(0,1fr)] bg-bg-app text-text">
+    <div className="grid h-dvh min-w-[1100px] grid-rows-[64px_minmax(0,1fr)] bg-bg-app text-text">
       <WorkspaceHeader
         projectName={projectName}
         settings={settings}
@@ -76,22 +82,24 @@ export function WorkspaceShell({
         onSelectPhase={onSelectPhase}
         onAskNextStep={onAskNextStep}
         members={members}
+        present={present}
         user={user}
         team={team}
         share={share}
       />
 
-      <main className="grid min-h-0 grid-cols-[380px_minmax(0,1fr)_300px] gap-2 px-2 pb-2">
+      <main className="grid min-h-0 grid-cols-[372px_minmax(0,1fr)_300px] gap-3 px-3 pb-3">
         <Panel aria-label={t('panels.chat')}>{chat}</Panel>
 
         <Panel aria-label={t('panels.canvas')}>{canvas}</Panel>
 
-        <Panel aria-label={t('panels.overview')}>
-          <PanelHeader>
-            <PanelTitle>{t('panels.overview')}</PanelTitle>
-          </PanelHeader>
-          <div className="min-h-0 overflow-y-auto">{overview}</div>
-        </Panel>
+        {/* The overview has no title of its own: its sections head themselves. */}
+        <aside
+          aria-label={t('panels.overview')}
+          className="flex min-h-0 min-w-0 flex-col gap-[22px] overflow-y-auto rounded-surface bg-bg-panel p-[18px] shadow-panel"
+        >
+          {overview}
+        </aside>
       </main>
     </div>
   );

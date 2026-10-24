@@ -17,6 +17,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { CATALOG_MARKS } from '@web/components/ui/agent-marks';
 import { Avatar } from '@web/components/ui/avatar';
 import { Button } from '@web/components/ui/button';
+import { PanelTitle } from '@web/components/ui/panel';
 import { AgentAvatar } from '@web/features/agents/agent-avatar';
 import { agentClass, useAgents } from '@web/features/agents/agents';
 import { AGENT_DARK_TEXT } from '@web/features/canvas/agent-look';
@@ -74,9 +75,24 @@ const NO_HANDS: readonly HandRaise[] = [];
 const NO_VOTES: readonly OpenVote[] = [];
 const NO_REVIEWS: readonly GitReview[] = [];
 
-const CARD = 'flex flex-col gap-2.5 rounded-card border border-border bg-bg-panel p-3 shadow-panel';
+// Handoff "Wartet auf dich": cards on the subtle surface, radius 18, without a border.
+const CARD = 'flex animate-rise flex-col gap-2.5 rounded-panel bg-bg-subtle p-3.5';
 
 const BOLD = { b: <strong className="font-semibold text-text" /> };
+
+const DONE_LINE = 'flex animate-rise items-start gap-2 px-1 py-0.5 text-ui text-text-2';
+
+/** A completed item: a green check in a 20 px circle (handoff "Wartet auf dich"). */
+function DoneMark() {
+  return (
+    <span
+      aria-hidden="true"
+      className="grid size-5 shrink-0 place-items-center rounded-full bg-success-bg text-success"
+    >
+      <Check size={10} strokeWidth={3} />
+    </span>
+  );
+}
 
 /** Agent names as a list in the UI language, e.g. "Kritiker und Sicherheit". */
 function useAgentList() {
@@ -132,16 +148,11 @@ export function WaitingForYou({
   const gitWaiting = gitOpen.filter((request) => request.status === 'waiting');
 
   return (
-    <section
-      aria-labelledby="waiting-for-you"
-      className="flex flex-col gap-2.5 border-b border-border-subtle p-4"
-    >
+    <section aria-labelledby="waiting-for-you" className="flex flex-col gap-2.5">
       <div className="flex items-center gap-2">
-        <h3 id="waiting-for-you" className="m-0 text-ui font-semibold text-text">
-          {t('overview.waiting')}
-        </h3>
+        <PanelTitle id="waiting-for-you">{t('overview.waiting')}</PanelTitle>
         <span
-          className="grid h-5 min-w-5 place-items-center rounded-[10px] bg-ink px-1.5 text-badge font-semibold text-on-ink tabular-nums"
+          className="grid h-[22px] min-w-[22px] animate-pop place-items-center rounded-full bg-ink px-[7px] text-meta font-bold text-on-ink tabular-nums"
           aria-label={t('overview.waitingCount', { count: waiting })}
         >
           {waiting}
@@ -158,9 +169,9 @@ export function WaitingForYou({
         <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
           {planSuggestions > 0 ? (
             <li className={CARD}>
-              <div className="flex items-center gap-1.5 text-meta text-text-3">
-                <AgentAvatar agent={moderator} size={16} />
-                <span className={cn('font-medium', agentClass(AGENT_DARK_TEXT, moderator))}>
+              <div className="flex items-center gap-1.5 text-status text-text-3">
+                <AgentAvatar agent={moderator} size={20} />
+                <span className={cn('font-semibold', agentClass(AGENT_DARK_TEXT, moderator))}>
                   {moderator.name}
                 </span>
                 <span>· {t('plan.tab')}</span>
@@ -170,7 +181,7 @@ export function WaitingForYou({
               </div>
               {onOpenPlan ? (
                 <div>
-                  <Button size="s" onClick={onOpenPlan}>
+                  <Button variant="surface" onClick={onOpenPlan}>
                     {t('plan.open')}
                   </Button>
                 </div>
@@ -181,9 +192,9 @@ export function WaitingForYou({
             const agent = agents(proposal.agentKey);
             return (
               <li key={proposal.id} className={CARD}>
-                <div className="flex items-center gap-1.5 text-meta text-text-3">
-                  <AgentAvatar agent={agent} size={16} />
-                  <span className={cn('font-medium', agentClass(AGENT_DARK_TEXT, agent))}>
+                <div className="flex items-center gap-1.5 text-status text-text-3">
+                  <AgentAvatar agent={agent} size={20} />
+                  <span className={cn('font-semibold', agentClass(AGENT_DARK_TEXT, agent))}>
                     {agent.name}
                   </span>
                   <span>
@@ -227,7 +238,7 @@ export function WaitingForYou({
                     {(proposal.operations[0]?.variants ?? []).map((variant, position) => (
                       <Button
                         key={variant.name}
-                        size="s"
+                        variant="surface"
                         onClick={() => {
                           onDecide(proposal, 'apply', position);
                         }}
@@ -237,7 +248,6 @@ export function WaitingForYou({
                     ))}
                     <Button
                       variant="ghost"
-                      size="s"
                       onClick={() => {
                         onDecide(proposal, 'reject');
                       }}
@@ -249,7 +259,6 @@ export function WaitingForYou({
                   <div className="flex gap-2">
                     <Button
                       variant="primary"
-                      size="s"
                       onClick={() => {
                         onDecide(proposal, 'apply');
                       }}
@@ -257,7 +266,7 @@ export function WaitingForYou({
                       {t(proposal.kind === 'decision' ? 'proposals.confirm' : 'proposals.apply')}
                     </Button>
                     <Button
-                      size="s"
+                      variant="surface"
                       onClick={() => {
                         onDecide(proposal, 'reject');
                       }}
@@ -307,9 +316,9 @@ export function WaitingForYou({
             const agent = agents(hand.agentKey);
             return (
               <li key={hand.id} className={CARD}>
-                <div className="flex items-center gap-1.5 text-meta text-text-3">
-                  <AgentAvatar agent={agent} size={16} />
-                  <span className={cn('font-medium', agentClass(AGENT_DARK_TEXT, agent))}>
+                <div className="flex items-center gap-1.5 text-status text-text-3">
+                  <AgentAvatar agent={agent} size={20} />
+                  <span className={cn('font-semibold', agentClass(AGENT_DARK_TEXT, agent))}>
                     {agent.name}
                   </span>
                   <span>· {t('overview.hand')}</span>
@@ -322,7 +331,6 @@ export function WaitingForYou({
                   <div className="flex gap-2">
                     <Button
                       variant="primary"
-                      size="s"
                       onClick={() => {
                         onHand(hand, 'listen');
                       }}
@@ -330,7 +338,7 @@ export function WaitingForYou({
                       {t('hands.listen')}
                     </Button>
                     <Button
-                      size="s"
+                      variant="surface"
                       onClick={() => {
                         onHand(hand, 'dismiss');
                       }}
@@ -346,9 +354,9 @@ export function WaitingForYou({
             const moderator = agents('moderator');
             return (
               <li key={vote.id} className={CARD}>
-                <div className="flex items-center gap-1.5 text-meta text-text-3">
-                  <AgentAvatar agent={moderator} size={16} />
-                  <span className={cn('font-medium', agentClass(AGENT_DARK_TEXT, moderator))}>
+                <div className="flex items-center gap-1.5 text-status text-text-3">
+                  <AgentAvatar agent={moderator} size={20} />
+                  <span className={cn('font-semibold', agentClass(AGENT_DARK_TEXT, moderator))}>
                     {moderator.name}
                   </span>
                   <span>· {t('overview.vote')}</span>
@@ -363,7 +371,7 @@ export function WaitingForYou({
                       <Button
                         // The options of a vote never change, so their position is a stable key.
                         key={position}
-                        size="s"
+                        variant="surface"
                         className="max-w-full"
                         aria-label={t('overview.voteFor', { option })}
                         onClick={() => {
@@ -389,26 +397,16 @@ export function WaitingForYou({
       {decided.length + gitDone.length > 0 ? (
         <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
           {gitDone.map((request) => (
-            <li key={request.id} className="flex items-start gap-1.5 text-body text-text-2b">
-              <Check
-                size={14}
-                strokeWidth={2.4}
-                className="mt-[3px] shrink-0 text-success"
-                aria-hidden="true"
-              />
+            <li key={request.id} className={DONE_LINE}>
+              <DoneMark />
               <span className="line-clamp-2 min-w-0">
                 <GitRequestSummary request={request} done />
               </span>
             </li>
           ))}
           {decided.map((entry) => (
-            <li key={entry.id} className="flex items-start gap-1.5 text-body text-text-2b">
-              <Check
-                size={14}
-                strokeWidth={2.4}
-                className="mt-[3px] shrink-0 text-success"
-                aria-hidden="true"
-              />
+            <li key={entry.id} className={DONE_LINE}>
+              <DoneMark />
               {/* Two lines at most, so a long list of agents still says what happened. */}
               <span className="line-clamp-2 min-w-0">
                 <Trans

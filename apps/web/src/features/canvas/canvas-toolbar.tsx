@@ -3,6 +3,7 @@ import {
   Frame,
   LayoutGrid,
   Minus,
+  MousePointer2,
   Plus,
   Spline,
   Square,
@@ -12,6 +13,7 @@ import {
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Tooltip } from '@web/components/ui/tooltip';
 import type { CanvasTool } from '@web/features/canvas/canvas-actions';
 import { nextZoom, ZOOM_MAX, ZOOM_MIN } from '@web/features/canvas/zoom';
 import { cn } from '@web/lib/cn';
@@ -35,8 +37,9 @@ type CanvasToolbarProps = {
 };
 
 /**
- * The floating toolbar of the handoff (spec 10): tools for block, note, frame and arrow, the
- * auto-layout and the zoom from 30 to 200 %. A tool is a mode; clicking it again ends it.
+ * The floating toolbar of the handoff (spec 10, looks of spec 36b): a pill with round icon tools
+ * for selecting, block, note, frame and arrow, the auto-layout and the zoom from 30 to 200 %. A
+ * tool is a mode; clicking it again ends it, and "Auswählen" is pressed while no other tool is.
  */
 export function CanvasToolbar({
   tool,
@@ -54,26 +57,36 @@ export function CanvasToolbar({
     <div
       role="toolbar"
       aria-label={t('canvas.toolbar')}
-      className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-panel border border-border-float bg-bg-panel p-[5px] whitespace-nowrap shadow-float"
+      className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-bg-panel p-1.5 whitespace-nowrap shadow-float"
     >
       {readOnly ? null : (
         <>
-          {TOOLS.map(({ tool: option, icon: Icon }) => (
+          <ToolButton
+            icon={MousePointer2}
+            label={t('canvas.tools.select')}
+            active={tool === null}
+            onClick={() => {
+              onToolChange(null);
+            }}
+          />
+          {TOOLS.map(({ tool: option, icon }) => (
             <ToolButton
               key={option}
-              icon={Icon}
+              icon={icon}
+              label={t(`canvas.tools.${option}`)}
               active={tool === option}
               onClick={() => {
                 onToolChange(tool === option ? null : option);
               }}
-            >
-              {t(`canvas.tools.${option}`)}
-            </ToolButton>
+            />
           ))}
-          <ToolButton icon={LayoutGrid} busy={layoutBusy} onClick={onAutoLayout}>
-            {t('canvas.tools.autoLayout')}
-          </ToolButton>
-          <span className="mx-1 h-[22px] w-px bg-border-soft" aria-hidden="true" />
+          <ToolButton
+            icon={LayoutGrid}
+            label={t('canvas.tools.autoLayout')}
+            busy={layoutBusy}
+            onClick={onAutoLayout}
+          />
+          <span className="mx-1.5 h-6 w-px bg-border-strong" aria-hidden="true" />
         </>
       )}
       <ZoomButton
@@ -81,9 +94,9 @@ export function CanvasToolbar({
         disabled={zoom <= ZOOM_MIN + 0.001}
         onClick={() => void zoomTo(nextZoom(zoom, -1), { duration: 150 })}
       >
-        <Minus size={14} strokeWidth={2.2} aria-hidden="true" />
+        <Minus size={16} strokeWidth={2} aria-hidden="true" />
       </ZoomButton>
-      <span className="min-w-[46px] text-center text-small font-medium text-text-body tabular-nums">
+      <span className="min-w-12 text-center text-ui font-semibold text-text tabular-nums">
         {Math.round(zoom * 100)} %
       </span>
       <ZoomButton
@@ -91,11 +104,11 @@ export function CanvasToolbar({
         disabled={zoom >= ZOOM_MAX - 0.001}
         onClick={() => void zoomTo(nextZoom(zoom, 1), { duration: 150 })}
       >
-        <Plus size={14} strokeWidth={2.2} aria-hidden="true" />
+        <Plus size={16} strokeWidth={2} aria-hidden="true" />
       </ZoomButton>
       {end ? (
         <>
-          <span className="mx-1 h-[22px] w-px bg-border-soft" aria-hidden="true" />
+          <span className="mx-1.5 h-6 w-px bg-border-strong" aria-hidden="true" />
           {end}
         </>
       ) : null}
@@ -103,34 +116,41 @@ export function CanvasToolbar({
   );
 }
 
+/** The class of a round 40 px button of the toolbar; the export menu uses it too. */
+export const TOOLBAR_BUTTON =
+  'grid size-10 cursor-pointer place-items-center rounded-full text-text-2 transition-colors hover:bg-wash hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink';
+
 function ToolButton({
   icon: Icon,
+  label,
   active,
   busy = false,
   onClick,
-  children,
 }: {
   icon: LucideIcon;
+  label: string;
   /** Only for modes; an action such as auto-layout is not a toggle. */
   active?: boolean;
   busy?: boolean;
   onClick: () => void;
-  children: string;
 }) {
   return (
-    <button
-      type="button"
-      aria-pressed={active}
-      disabled={busy}
-      onClick={onClick}
-      className={cn(
-        'flex h-[34px] cursor-pointer items-center gap-1.5 rounded-md pr-2.5 pl-2 text-small font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:cursor-wait disabled:opacity-60',
-        active ? 'bg-ink text-on-ink' : 'text-text-body hover:bg-bg-subtle',
-      )}
-    >
-      <Icon size={15} strokeWidth={1.9} aria-hidden="true" />
-      {children}
-    </button>
+    <Tooltip content={label} side="top">
+      <button
+        type="button"
+        aria-label={label}
+        aria-pressed={active}
+        disabled={busy}
+        onClick={onClick}
+        className={cn(
+          TOOLBAR_BUTTON,
+          'disabled:cursor-wait disabled:opacity-60',
+          active && 'bg-ink text-on-ink hover:bg-ink hover:text-on-ink',
+        )}
+      >
+        <Icon size={17} strokeWidth={1.9} aria-hidden="true" />
+      </button>
+    </Tooltip>
   );
 }
 
@@ -151,7 +171,7 @@ function ZoomButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="grid h-[34px] w-[30px] cursor-pointer place-items-center rounded-md text-text-body hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
+      className="grid h-10 w-9 cursor-pointer place-items-center rounded-full text-text-2 transition-colors hover:bg-wash hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
     >
       {children}
     </button>

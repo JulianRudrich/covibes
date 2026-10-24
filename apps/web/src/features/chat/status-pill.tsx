@@ -31,7 +31,7 @@ export function TypingDots({ agent }: { agent: Pick<AgentInfo, 'look' | 'color'>
         <span
           key={delay}
           className={cn(
-            'size-1 animate-typing-dot rounded-full motion-reduce:animate-none',
+            'size-[5px] animate-typing-dot rounded-full motion-reduce:animate-none',
             agentClass(DOT_COLOR, agent),
             delay,
           )}

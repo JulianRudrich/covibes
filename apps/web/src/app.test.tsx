@@ -926,14 +926,14 @@ describe('with a session', () => {
     renderApp(`/p/${PROJECT.id}`);
 
     const phases = await screen.findByRole('navigation', { name: 'Phasen' });
-    expect(phases.querySelector('[aria-current="step"]')).toHaveTextContent('Entscheiden');
+    expect(phases.querySelector('[aria-current="step"]')).toHaveAccessibleName(/^Entscheiden/);
 
     fireEvent.click(within(phases).getByRole('button', { name: /Architektur/ }));
     const card = await screen.findByRole('dialog', { name: 'Architektur' });
     fireEvent.click(within(card).getByRole('button', { name: 'Zu dieser Phase wechseln' }));
 
     await waitFor(() => {
-      expect(phases.querySelector('[aria-current="step"]')).toHaveTextContent('Architektur');
+      expect(phases.querySelector('[aria-current="step"]')).toHaveAccessibleName(/^Architektur/);
     });
     expect(api).toHaveBeenCalledWith(
       `/api/projects/${PROJECT.id}/phase`,
@@ -967,7 +967,7 @@ describe('with a session', () => {
         'Die Phase konnte nicht gewechselt werden.',
       );
     });
-    expect(phases.querySelector('[aria-current="step"]')).toHaveTextContent('Entscheiden');
+    expect(phases.querySelector('[aria-current="step"]')).toHaveAccessibleName(/^Entscheiden/);
   });
 
   it('tells everyone when someone else or the moderator changes the phase', async () => {
@@ -975,7 +975,7 @@ describe('with a session', () => {
     stubApi({ [`GET /api/projects/${PROJECT.id}`]: () => ({ body: { ...DETAILS, phase } }) });
     renderApp(`/p/${PROJECT.id}`);
     const phases = await screen.findByRole('navigation', { name: 'Phasen' });
-    expect(phases.querySelector('[aria-current="step"]')).toHaveTextContent('Brainstorming');
+    expect(phases.querySelector('[aria-current="step"]')).toHaveAccessibleName(/^Brainstorming/);
     // Opening a project is no change of its phase.
     expect(screen.getByTestId('canvas-panel')).not.toHaveTextContent('Phase');
 
@@ -985,7 +985,7 @@ describe('with a session', () => {
     });
 
     await waitFor(() => {
-      expect(phases.querySelector('[aria-current="step"]')).toHaveTextContent('Entscheiden');
+      expect(phases.querySelector('[aria-current="step"]')).toHaveAccessibleName(/^Entscheiden/);
     });
     expect(screen.getByTestId('canvas-panel')).toHaveTextContent(
       'Das Projekt ist jetzt in der Phase „Entscheiden“.',

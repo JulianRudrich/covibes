@@ -42,7 +42,7 @@ const TONE_COLOR: Record<'edge' | 'ink', string> = {
 };
 
 /**
- * The filled arrowheads of the handoff, one per color. Rendered once per board; arrows refer to
+ * The open chevron heads of the handoff, one per color. Rendered once per board; arrows refer to
  * them by id.
  */
 export function ArrowMarkers() {
@@ -62,14 +62,18 @@ export function ArrowMarkers() {
             viewBox="0 0 10 10"
             refX="8"
             refY="5"
-            markerWidth="6"
-            markerHeight="6"
+            markerWidth="7"
+            markerHeight="7"
             orient="auto-start-reverse"
           >
             <path
-              d="M0 0 L10 5 L0 10 z"
+              d="M1 1L9 5L1 9"
+              fill="none"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               style={{
-                fill:
+                stroke:
                   tone === 'edge' || tone === 'ink' ? TONE_COLOR[tone] : agentColor(lookOf(tone)),
               }}
             />
@@ -81,9 +85,9 @@ export function ArrowMarkers() {
 }
 
 /**
- * An arrow between two blocks (spec 09, handoff "Arrows"): a cubic Bézier in `edge` at 1.5 px
- * with a filled head and a mono label pill in the middle. Right after an agent drew it or its
- * target, it is drawn in the agent's color at 1.75 px; a selected arrow is graphite.
+ * An arrow between two blocks (spec 09, handoff "Arrows"): a cubic Bézier in `edge` at 2 px
+ * with round caps, an open chevron head and a mono label pill in the middle. Right after an agent
+ * drew it or its target, it is drawn in the agent's color at 2.25 px; a selected arrow is ink.
  */
 export function CanvasArrow({ id, data, selected }: EdgeProps<ArrowFlowEdge>) {
   const actions = useCanvasActions();
@@ -107,7 +111,11 @@ export function CanvasArrow({ id, data, selected }: EdgeProps<ArrowFlowEdge>) {
         path={geometry.path}
         markerEnd={`url(#${markerId(tone)})`}
         interactionWidth={16}
-        style={{ stroke, strokeWidth: justDrawnBy && !selected ? 1.75 : 1.5 }}
+        style={{
+          stroke,
+          strokeWidth: justDrawnBy && !selected ? 2.25 : 2,
+          strokeLinecap: 'round',
+        }}
       />
       {editing || data.label ? (
         <EdgeLabelRenderer>
@@ -122,10 +130,10 @@ export function CanvasArrow({ id, data, selected }: EdgeProps<ArrowFlowEdge>) {
             ) : (
               <span
                 className={cn(
-                  'flex h-5 items-center rounded-sm border px-[7px] font-mono text-badge whitespace-nowrap',
+                  'flex h-[22px] items-center rounded-full border px-[9px] font-mono text-badge whitespace-nowrap',
                   justDrawnBy && !selected
                     ? agentClass(AGENT_LABEL, justDrawnBy)
-                    : 'border-border-float bg-bg-panel text-text-2b',
+                    : 'border-transparent bg-bg-panel text-text-2 shadow-block',
                 )}
               >
                 {data.label}
@@ -159,7 +167,7 @@ function LabelEditor({ id, label }: { id: string; label: string }) {
       }}
       onKeyDown={onKeyDown}
       onBlur={onBlur}
-      className="h-5 rounded-sm border border-ink bg-bg-panel px-[7px] font-mono text-badge text-text-2b outline-none"
+      className="h-[22px] rounded-full border border-ink bg-bg-panel px-[9px] font-mono text-badge text-text-2 outline-none"
     />
   );
 }

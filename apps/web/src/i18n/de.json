@@ -39,7 +39,9 @@
     "label": "Design",
     "system": "Wie das System",
     "light": "Hell",
-    "dark": "Dunkel"
+    "dark": "Dunkel",
+    "toLight": "Helles Design",
+    "toDark": "Dunkles Design"
   },
   "language": {
     "label": "Sprache"
@@ -91,7 +93,11 @@
     },
     "gitLog": "Git-Protokoll …",
     "mergeRequests": "Merge Requests …",
-    "usage": "Verbrauch …"
+    "usage": "Verbrauch …",
+    "step": "Schritt {{step}} von {{total}}",
+    "next": "Danach: {{phase}}",
+    "inRoom": "Im Raum",
+    "onBoard": "{{name}}, auf diesem Board"
   },
   "share": {
     "title": "„{{project}}“ teilen",
@@ -487,7 +493,8 @@
       "note": "Notiz",
       "frame": "Rahmen",
       "connect": "Verbinden",
-      "autoLayout": "Auto-Layout"
+      "autoLayout": "Auto-Layout",
+      "select": "Auswählen"
     },
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
@@ -503,7 +510,8 @@
       "deleteConfirm": "Board löschen",
       "deleted": "Dieses Board wurde gelöscht.",
       "limit": "Ein Projekt hat höchstens {{max}} Boards.",
-      "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+      "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal.",
+      "addLabel": "Board hinzufügen"
     },
     "elementGone": "Dieses Element gibt es auf dem Canvas nicht mehr.",
     "ask": "Im Chat fragen"
@@ -511,7 +519,7 @@
   "chat": {
     "messages": "Nachrichten",
     "today": "Heute",
-    "placeholder": "Nachricht an Team und Agents, @ ruft einen Agent",
+    "placeholder": "Schreib dem Team, @ ruft einen Agenten",
     "mentionAgent": "Agent oder Mitglied erwähnen",
     "mentionPeople": "Mitglieder",
     "attach": "Datei anhängen",
@@ -528,9 +536,9 @@
     "waiting_other": "{{count}} warten",
     "typingShort": "schreibt",
     "replyTo": "Antwort an {{name}}",
-    "agentNeutral": "Agent · neutral",
     "agentError": "Die Antwort ist fehlgeschlagen.",
-    "reference": "Zu „{{name}}“ auf dem Canvas"
+    "reference": "Zu „{{name}}“ auf dem Canvas",
+    "neutral": "neutral"
   },
   "files": {
     "attachHint": "Bilder, PDFs und Textdateien, je bis 10 MB",
@@ -1407,6 +1415,7 @@
     "reverts": "Zurücknahme",
     "undone": "Zurückgenommen von {{name}}",
     "undoneBySomeone": "Zurückgenommen",
-    "undonePartly": "{{reverted}} von {{total}} Elementen, der Rest wurde seitdem geändert"
+    "undonePartly": "{{reverted}} von {{total}} Elementen, der Rest wurde seitdem geändert",
+    "button": "Verlauf"
   }
 }

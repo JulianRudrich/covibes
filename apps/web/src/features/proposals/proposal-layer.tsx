@@ -7,7 +7,7 @@ import { agentClass, agentColor, useAgents } from '@web/features/agents/agents';
 import {
   AGENT_DARK_TEXT,
   AGENT_PROPOSAL,
-  AGENT_TILE,
+  AGENT_BORDER,
   AGENT_LABEL,
   AGENT_BACKGROUND,
 } from '@web/features/canvas/agent-look';
@@ -69,8 +69,9 @@ export function ProposalLayer({
               key={arrow.id}
               d={geometry.path}
               fill="none"
-              strokeWidth={1.5}
-              strokeDasharray="5 4"
+              strokeWidth={2}
+              strokeDasharray="2 6"
+              strokeLinecap="round"
               style={{ stroke: agentColor(agents(arrow.agentKey)) }}
               data-testid="proposal-arrow"
             />
@@ -83,7 +84,7 @@ export function ProposalLayer({
           <span
             key={`${arrow.id}-label`}
             className={cn(
-              'pointer-events-none absolute top-0 left-0 z-[4] flex h-5 items-center rounded-sm border px-[7px] font-mono text-badge whitespace-nowrap',
+              'pointer-events-none absolute top-0 left-0 z-[4] flex h-[22px] items-center rounded-full border px-[9px] font-mono text-badge whitespace-nowrap',
               agentClass(AGENT_LABEL, agents(arrow.agentKey)),
             )}
             style={{
@@ -101,7 +102,7 @@ export function ProposalLayer({
           <div
             key={`${id}-changed`}
             className={cn(
-              'pointer-events-none absolute top-0 left-0 z-[4] rounded-[14px] border-[1.5px] border-dashed',
+              'pointer-events-none absolute top-0 left-0 z-[4] rounded-[22px] border-2 border-dashed',
               agentClass(AGENT_PROPOSAL, agents(agentKey)),
               'bg-transparent',
             )}
@@ -114,7 +115,7 @@ export function ProposalLayer({
           >
             <span
               className={cn(
-                'absolute -top-[27px] -right-[1.5px] flex h-[22px] items-center rounded-sm px-2 text-meta font-medium whitespace-nowrap text-on-ink',
+                'absolute -top-[36px] -right-0.5 flex h-[26px] items-center rounded-full px-[11px] text-status font-semibold whitespace-nowrap text-on-ink',
                 agentClass(AGENT_BACKGROUND, agents(agentKey)),
               )}
             >
@@ -145,7 +146,7 @@ export function ProposalLayer({
                   </Button>
                 ) : null
               ) : element.anchor && canDecide && proposal ? (
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
                   <Button
                     variant="primary"
                     size="s"
@@ -156,6 +157,7 @@ export function ProposalLayer({
                     {t('proposals.apply')}
                   </Button>
                   <Button
+                    variant="surface"
                     size="s"
                     onClick={() => {
                       onDecide(proposal, 'reject');
@@ -184,9 +186,9 @@ function ProposalHeader({
   const agent = useAgents()(agentKey);
   const { name } = agent;
   return (
-    <div className="flex h-4 shrink-0 items-center gap-1.5 text-meta">
-      <AgentAvatar agent={agent} size={16} />
-      <span className={cn('truncate font-medium', agentClass(AGENT_DARK_TEXT, agent))}>
+    <div className="flex h-5 shrink-0 items-center gap-1.5 text-status">
+      <AgentAvatar agent={agent} size={20} />
+      <span className={cn('truncate font-semibold', agentClass(AGENT_DARK_TEXT, agent))}>
         {variant
           ? t('variants.letter', { letter: variantLetter(variant.position) })
           : t('proposals.header', { agent: name })}
@@ -207,8 +209,8 @@ function VariantHeading({
   const agent = useAgents()(agentKey);
   return (
     <div className="absolute bottom-full left-0 flex w-full items-start gap-2 pb-2">
-      <AgentAvatar agent={agent} size={16} className="mt-0.5" />
-      <span className="min-w-0 text-ui leading-snug font-semibold break-words text-text">
+      <AgentAvatar agent={agent} size={20} />
+      <span className="min-w-0 font-display text-[15px] leading-snug font-semibold break-words text-text">
         {t('variants.title', { letter: variantLetter(variant.position), name: variant.name })}
       </span>
     </div>
@@ -225,7 +227,7 @@ function GhostCard({ element, actions }: { element: GhostElement; actions: React
     height: element.size.height,
   };
   const frame = cn(
-    'nodrag nopan pointer-events-auto absolute top-0 left-0 border-[1.5px] border-dashed',
+    'nodrag nopan pointer-events-auto absolute top-0 left-0 border-2 border-dashed',
     agentClass(AGENT_PROPOSAL, agent),
   );
 
@@ -258,12 +260,12 @@ function GhostCard({ element, actions }: { element: GhostElement; actions: React
   if (element.kind === 'note') {
     return (
       <div
-        className={cn(frame, 'z-[5] flex flex-col gap-2 rounded-[4px_4px_14px_4px] p-3.5')}
+        className={cn(frame, 'z-[5] flex flex-col gap-2 rounded-[6px_6px_22px_6px] p-3.5')}
         style={place}
         data-testid="proposal-element"
       >
         <ProposalHeader agentKey={element.agentKey} variant={element.variant} />
-        <div className="line-clamp-3 min-h-0 flex-1 text-body leading-snug font-semibold break-words text-note-text">
+        <div className="line-clamp-3 min-h-0 flex-1 font-display text-display leading-snug font-semibold break-words text-note-text">
           {element.label}
         </div>
         {actions}
@@ -273,26 +275,28 @@ function GhostCard({ element, actions }: { element: GhostElement; actions: React
 
   return (
     <div
-      className={cn(frame, 'z-[5] flex flex-col gap-2.5 rounded-panel p-3')}
-      style={place}
+      className={cn(frame, 'z-[5] flex flex-col gap-3 rounded-[20px] p-3.5')}
+      // The card grows by its header and buttons, as in the handoff.
+      style={{ transform: place.transform, width: place.width, minHeight: place.height }}
       data-testid="proposal-element"
     >
       <ProposalHeader agentKey={element.agentKey} variant={element.variant} />
       <div className="flex min-w-0 items-center gap-2.5">
         <span
           className={cn(
-            'grid size-[30px] shrink-0 place-items-center rounded-md border border-dashed',
-            agentClass(AGENT_TILE, agent),
+            'grid size-8 shrink-0 place-items-center rounded-full border-[1.5px] border-dashed',
+            agentClass(AGENT_BORDER, agent),
+            agentClass(AGENT_DARK_TEXT, agent),
           )}
         >
-          <Icon size={15} strokeWidth={1.8} aria-hidden="true" />
+          <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <div className="truncate text-body leading-snug font-semibold text-text">
+          <div className="truncate text-title leading-snug font-semibold text-text">
             {element.label}
           </div>
           {element.subtitle ? (
-            <div className="truncate text-meta text-text-3">{element.subtitle}</div>
+            <div className="truncate text-status text-text-2">{element.subtitle}</div>
           ) : null}
         </div>
       </div>

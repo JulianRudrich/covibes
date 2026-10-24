@@ -69,6 +69,9 @@ type ComposerProps = {
 
 const NO_PEOPLE: readonly { userId: string; name: string }[] = [];
 
+/** The round 40 px buttons inside the pill. */
+const COMPOSER_BUTTON = 'size-10 text-text-2';
+
 /** Enter that confirms an IME composition (e.g. Japanese input) must not send the message. */
 function isComposing(event: KeyboardEvent<HTMLTextAreaElement>) {
   // Safari ends the composition before this keydown and only marks it with keyCode 229.
@@ -144,7 +147,8 @@ export function Composer({
     if (!textarea) return;
     // Shrink first so deleted lines free their space; the CSS max height caps growth and scrolls.
     textarea.style.height = 'auto';
-    textarea.style.height = `${String(textarea.scrollHeight)}px`;
+    // An empty field keeps one line; a long placeholder must not make it grow.
+    if (draft !== '') textarea.style.height = `${String(textarea.scrollHeight)}px`;
     // Writing goes on behind a reference that was just inserted.
     const caret = afterReferenceRef.current;
     if (caret !== null) {
@@ -213,17 +217,18 @@ export function Composer({
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col rounded-panel border border-border-strong bg-bg-panel shadow-button-secondary transition-shadow has-[textarea:focus]:ring-3 has-[textarea:focus]:ring-focus-soft"
+      // A pill of 52 px that keeps its radius while the text grows (handoff "Composer").
+      className="flex flex-col rounded-[26px] bg-bg-subtle inset-ring inset-ring-border transition-shadow has-[textarea:focus]:inset-ring-border-strong has-[textarea:focus]:ring-3 has-[textarea:focus]:ring-focus-soft"
     >
       {uploads && uploads.items.length > 0 ? (
         <ul
           aria-label={t('files.attached')}
-          className="m-0 flex list-none flex-wrap gap-1.5 px-2 pt-2"
+          className="m-0 flex list-none flex-wrap gap-1.5 px-3 pt-3"
         >
           {uploads.items.map((item) => (
             <li
               key={item.localId}
-              className="flex h-7 max-w-full items-center gap-1.5 rounded-btn-s border border-border-soft bg-bg-muted pr-0.5 pl-2 text-small text-text-body"
+              className="flex h-7 max-w-full items-center gap-1.5 rounded-full bg-bg-panel pr-0.5 pl-2.5 text-small text-text-body inset-ring inset-ring-border"
             >
               {item.status === 'uploading' ? (
                 <LoaderCircle
@@ -251,27 +256,15 @@ export function Composer({
           ))}
         </ul>
       ) : null}
-      <textarea
-        ref={textareaRef}
-        rows={1}
-        value={draft}
-        onChange={(event) => {
-          setDraft(event.target.value);
-        }}
-        onKeyDown={handleKeyDown}
-        onPaste={handlePaste}
-        placeholder={t('chat.placeholder')}
-        aria-label={t('chat.placeholder')}
-        aria-describedby={hintId}
-        maxLength={MESSAGE_MAX_LENGTH}
-        disabled={disabled}
-        className="block max-h-36 min-h-11 w-full resize-none overflow-y-auto rounded-t-panel border-0 bg-transparent px-3.5 py-3 text-body leading-5 text-text outline-none placeholder:text-text-4 disabled:cursor-not-allowed disabled:opacity-50"
-      />
-      <div className="flex items-center gap-0.5 px-2 pb-2">
+      <div className="flex items-end gap-0.5 px-1.5 py-1.5">
         <DropdownMenu>
           <DropdownMenuTrigger asChild disabled={disabled}>
-            <IconButton aria-label={t('chat.mentionAgent')} onFocus={handleMentionTriggerFocus}>
-              <AtSign size={15} aria-hidden="true" />
+            <IconButton
+              aria-label={t('chat.mentionAgent')}
+              className={COMPOSER_BUTTON}
+              onFocus={handleMentionTriggerFocus}
+            >
+              <AtSign size={17} strokeWidth={1.9} aria-hidden="true" />
             </IconButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
@@ -316,17 +309,35 @@ export function Composer({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        <textarea
+          ref={textareaRef}
+          rows={1}
+          value={draft}
+          onChange={(event) => {
+            setDraft(event.target.value);
+          }}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          placeholder={t('chat.placeholder')}
+          aria-label={t('chat.placeholder')}
+          aria-describedby={hintId}
+          maxLength={MESSAGE_MAX_LENGTH}
+          disabled={disabled}
+          // Ten lines of text at 20 px between 40 px buttons, then it scrolls.
+          className="block max-h-36 min-h-10 min-w-0 flex-1 resize-none self-center overflow-y-auto border-0 bg-transparent py-2.5 text-[14px] leading-5 text-text outline-none placeholder:text-text-3 placeholder-shown:overflow-hidden placeholder-shown:text-ellipsis placeholder-shown:whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
+        />
         {uploads ? (
           <>
             <Tooltip content={t('files.attachHint')} side="top">
               <IconButton
                 aria-label={t('chat.attach')}
+                className={COMPOSER_BUTTON}
                 disabled={disabled}
                 onClick={() => {
                   fileInputRef.current?.click();
                 }}
               >
-                <Paperclip size={15} aria-hidden="true" />
+                <Paperclip size={17} strokeWidth={1.9} aria-hidden="true" />
               </IconButton>
             </Tooltip>
             <input
@@ -344,18 +355,18 @@ export function Composer({
             />
           </>
         ) : null}
-        <span id={hintId} className="mr-2 ml-auto text-meta whitespace-nowrap text-text-4">
+        {/* Read to screen readers only: the pill has no room for it (handoff "Composer"). */}
+        <span id={hintId} className="sr-only">
           {t('chat.enterToSend')}
         </span>
         <Button
           type="submit"
           variant="primary"
-          size="s"
           aria-label={t('chat.send')}
           disabled={!canSend}
-          className="w-7 px-0"
+          className="size-10 px-0"
         >
-          <ArrowUp size={14} strokeWidth={2.4} aria-hidden="true" />
+          <ArrowUp size={16} strokeWidth={2.3} aria-hidden="true" />
         </Button>
       </div>
     </form>

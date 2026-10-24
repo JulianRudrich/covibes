@@ -1,4 +1,5 @@
 import type { AgentKey } from '@covibes/shared';
+import type { CSSProperties } from 'react';
 
 import { cn } from '@web/lib/cn';
 
@@ -9,6 +10,7 @@ type CommonProps = {
   label: string;
   size?: AvatarSize;
   className?: string;
+  style?: CSSProperties;
 };
 
 export type AvatarProps = CommonProps &
@@ -77,7 +79,7 @@ const AGENT_LOOK: Record<AgentKey | 'custom', string> = {
 };
 
 export function Avatar(props: AvatarProps) {
-  const { label, size = 28, className } = props;
+  const { label, size = 28, className, style } = props;
   const base = cn(
     'grid shrink-0 place-items-center font-semibold leading-none select-none',
     SIZE_CLASSES[size],
@@ -90,6 +92,7 @@ export function Avatar(props: AvatarProps) {
         role="img"
         aria-label={label}
         className={cn(base, 'inset-ring', AGENT_RADIUS[size], AGENT_LOOK[props.agent], className)}
+        style={style}
       >
         <svg
           width={glyph}
@@ -116,6 +119,7 @@ export function Avatar(props: AvatarProps) {
         props.initials.length > 1 && size === 26 && 'text-[10px]',
         className,
       )}
+      style={style}
     >
       <span aria-hidden="true">{props.initials}</span>
     </span>

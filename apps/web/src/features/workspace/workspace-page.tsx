@@ -25,6 +25,8 @@ import { BoardHistoryDialog } from '@web/features/canvas/board-history';
 import { BoardTabs } from '@web/features/canvas/board-tabs';
 import { CanvasPanel, type BoardExports } from '@web/features/canvas/canvas-panel';
 import { ChatPanel } from '@web/features/chat/chat-panel';
+import { messagesQuery } from '@web/features/chat/queries';
+import { chatStatus, runsQuery } from '@web/features/chat/runs';
 import { DecisionsOverview } from '@web/features/decisions/decisions-overview';
 import { openVotesQuery, useVoteActions } from '@web/features/decisions/queries';
 import type { PlanTaskAssignments } from '@web/features/plan/plan-editor';
@@ -390,6 +392,20 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
   });
   const waitingHands = readOnly ? NO_HANDS : hands;
 
+  // "Im Raum" (spec 36b): who else is on the open board, which agent writes in the chat and
+  // which ones raise a hand. Runs and messages are only read here; the chat loads them.
+  const [present, setPresent] = useState<ReadonlySet<string>>(NOBODY);
+  const showPresence = useCallback((users: readonly string[]) => {
+    setPresent(new Set(users));
+  }, []);
+  const runs = useQuery({ ...runsQuery(project.id), enabled: false }).data;
+  const messages = useQuery({ ...messagesQuery(project.id), enabled: false }).data;
+  const writing = useMemo(
+    () => chatStatus(runs ?? [], messages ?? [])?.typing ?? null,
+    [runs, messages],
+  );
+  const raising = useMemo(() => new Set(hands.map((hand) => hand.agentKey)), [hands]);
+
   // Git requests (spec 29b): what waits for approval, runs or failed. Who may approve does so
   // here, with their own GitLab account; without one, the way leads to GitLab and back.
   const gitRequests = useQuery(gitRequestsQuery(project.id)).data;
@@ -548,8 +564,17 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
         }
         onAskNextStep={readOnly ? undefined : askNextStep}
         members={members}
+        present={planOpen ? NOBODY : present}
         user={user}
-        team={<ProjectTeam project={project} userId={user?.id ?? ''} onNotice={showNotice} />}
+        team={
+          <ProjectTeam
+            project={project}
+            userId={user?.id ?? ''}
+            onNotice={showNotice}
+            writing={writing}
+            raising={raising}
+          />
+        }
         share={<ProjectShare project={project} userId={user?.id ?? ''} />}
         chat={
           user ? (
@@ -605,6 +630,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                   onFocusMissing={focusMissing}
                   onAsk={readOnly ? undefined : setAsk}
                   exports={boardExports}
+                  onPresence={showPresence}
                 />
               </RoadmapProvider>
             )
@@ -692,6 +718,7 @@ const NO_PROPOSALS: Proposal[] = [];
 const NO_HANDS: HandRaise[] = [];
 const NO_VOTES: OpenVote[] = [];
 const NO_DECISIONS: DecidedProposal[] = [];
+const NOBODY: ReadonlySet<string> = new Set();
 
 function mainBoardId(project: ProjectDetails): string | undefined {
   return project.boards.find((board) => board.kind === 'main')?.id;

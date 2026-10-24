@@ -9,7 +9,7 @@ import {
   type ProjectAgent,
 } from '@covibes/shared';
 import { Check, ChevronDown, Pencil, Plus, X } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useId, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -22,7 +22,9 @@ import { IconButton } from '@web/components/ui/icon-button';
 import { Popover, PopoverContent, PopoverTrigger } from '@web/components/ui/popover';
 import { Tooltip } from '@web/components/ui/tooltip';
 import { AgentAvatar } from '@web/features/agents/agent-avatar';
-import { useAgents, type AgentInfo } from '@web/features/agents/agents';
+import { agentColor, useAgents, type AgentInfo } from '@web/features/agents/agents';
+import { HandBadge } from '@web/features/hands/hand-badge';
+import { cn } from '@web/lib/cn';
 
 type TeamMenuProps = {
   agents: readonly ProjectAgent[];
@@ -43,9 +45,14 @@ type TeamMenuProps = {
   /** Opens the agent editor for a new agent, or for an existing one. */
   onCreateAgent?: () => void;
   onEditAgent?: (agent: CustomAgent) => void;
+  /** The agent that is writing in the chat right now: its mark glows (handoff "Im Raum"). */
+  writing?: string | null;
+  /** The agents with a raised hand: their marks carry the hand badge. */
+  raising?: ReadonlySet<string>;
 };
 
 const NO_CUSTOM_AGENTS: readonly CustomAgent[] = [];
+const NO_KEYS: ReadonlySet<string> = new Set();
 
 /**
  * The agents of the project in the header (spec 14; handoff: the agent avatars next to the
@@ -64,6 +71,8 @@ export function TeamMenu({
   userId,
   onCreateAgent,
   onEditAgent,
+  writing = null,
+  raising = NO_KEYS,
 }: TeamMenuProps) {
   const { t } = useTranslation();
   const fromDirectory = useAgents();
@@ -128,15 +137,41 @@ export function TeamMenu({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         aria-label={t('team.open', { names })}
-        className="flex cursor-pointer items-center gap-[3px] rounded-btn-s p-0.5 hover:bg-bg-hover-app focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        className="flex cursor-pointer items-center rounded-[10px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink"
       >
-        {team.map((agent) => (
-          <Tooltip key={agent.key} content={agent.info.name}>
-            <span className="flex">
-              <AgentAvatar agent={agent.info} size={24} />
-            </span>
-          </Tooltip>
-        ))}
+        {team.map((agent, index) => {
+          const { name } = agent.info;
+          const isWriting = agent.key === writing;
+          const hand = raising.has(agent.key);
+          const label = isWriting
+            ? t('chat.typing', { name })
+            : hand
+              ? t('hands.raises', { name })
+              : name;
+          return (
+            <Tooltip key={agent.key} content={label}>
+              <span className={cn('relative flex', index > 0 && '-ml-1.5')}>
+                <AgentAvatar
+                  agent={agent.info}
+                  size={30}
+                  className={cn(
+                    'ring-[2.5px] ring-bg-panel',
+                    isWriting && 'animate-glow motion-reduce:animate-none',
+                  )}
+                  style={
+                    isWriting
+                      ? ({
+                          '--glow': `color-mix(in srgb, ${agentColor(agent.info)} 55%, transparent)`,
+                          '--glow-gap': 'var(--color-bg-panel)',
+                        } as CSSProperties)
+                      : undefined
+                  }
+                />
+                {hand ? <HandBadge agent={agent.info} /> : null}
+              </span>
+            </Tooltip>
+          );
+        })}
       </PopoverTrigger>
       <PopoverContent aria-labelledby={titleId} className="w-[380px]">
         <div className="max-h-[min(600px,calc(100dvh-80px))] overflow-y-auto">

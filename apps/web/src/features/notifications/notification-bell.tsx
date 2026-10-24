@@ -60,13 +60,13 @@ export function NotificationBell() {
         aria-label={
           unread > 0 ? t('notifications.openUnread', { count: unread }) : t('notifications.open')
         }
-        className="relative grid size-[30px] shrink-0 cursor-pointer place-items-center rounded-btn-s text-text-2b transition-colors hover:bg-bg-hover-app hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        className="relative grid size-[34px] shrink-0 cursor-pointer place-items-center rounded-full text-text-2 transition-colors hover:bg-wash hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
       >
-        <Bell size={16} aria-hidden="true" />
+        <Bell size={17} strokeWidth={1.9} aria-hidden="true" />
         {unread > 0 ? (
           <span
             aria-hidden="true"
-            className="absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-[8px] bg-ink px-1 text-[10px] leading-none font-semibold text-on-ink tabular-nums"
+            className="absolute top-0 right-0 grid h-4 min-w-4 place-items-center rounded-[8px] bg-ink px-1 text-[10px] leading-none font-semibold text-on-ink tabular-nums"
           >
             {unread > 9 ? '9+' : unread}
           </span>

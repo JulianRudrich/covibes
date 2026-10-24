@@ -3,12 +3,17 @@ import { ReactFlowProvider } from '@xyflow/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { TooltipProvider } from '@web/components/ui/tooltip';
 import { CanvasToolbar } from '@web/features/canvas/canvas-toolbar';
 import { PlacementLayer } from '@web/features/canvas/placement-layer';
 import { nextZoom } from '@web/features/canvas/zoom';
 
 function withFlow({ children }: { children: ReactNode }) {
-  return <ReactFlowProvider>{children}</ReactFlowProvider>;
+  return (
+    <ReactFlowProvider>
+      <TooltipProvider>{children}</TooltipProvider>
+    </ReactFlowProvider>
+  );
 }
 
 describe('nextZoom', () => {
@@ -44,10 +49,9 @@ describe('CanvasToolbar', () => {
     renderToolbar();
 
     const toolbar = screen.getByRole('toolbar', { name: 'Werkzeuge' });
-    expect(toolbar).toHaveClass('bottom-4', 'rounded-panel', 'border-border-float', 'shadow-float');
-    expect(
-      screen.getAllByRole('button').map((button) => button.textContent || button.ariaLabel),
-    ).toEqual([
+    expect(toolbar).toHaveClass('bottom-4', 'rounded-full', 'bg-bg-panel', 'shadow-float');
+    expect(screen.getAllByRole('button').map((button) => button.ariaLabel)).toEqual([
+      'Auswählen',
       'Block',
       'Notiz',
       'Rahmen',
@@ -65,11 +69,27 @@ describe('CanvasToolbar', () => {
     expect(screen.getByRole('button', { name: 'Notiz' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Notiz' })).toHaveClass('bg-ink', 'text-on-ink');
     expect(screen.getByRole('button', { name: 'Block' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Auswählen' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Block' }));
     expect(onToolChange).toHaveBeenLastCalledWith('block');
     fireEvent.click(screen.getByRole('button', { name: 'Notiz' }));
     expect(onToolChange).toHaveBeenLastCalledWith(null);
+    fireEvent.click(screen.getByRole('button', { name: 'Auswählen' }));
+    expect(onToolChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('presses "Auswählen" while no other tool is (spec 36b)', () => {
+    renderToolbar();
+
+    expect(screen.getByRole('button', { name: 'Auswählen' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Block' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('runs the auto-layout as an action, not a mode', () => {
@@ -94,7 +114,7 @@ describe('CanvasToolbar', () => {
     renderToolbar({ readOnly: true, end: <button type="button">Exportieren</button> });
 
     expect(
-      screen.getAllByRole('button').map((button) => button.textContent || button.ariaLabel),
+      screen.getAllByRole('button').map((button) => button.ariaLabel ?? button.textContent),
     ).toEqual(['Verkleinern', 'Vergrößern', 'Exportieren']);
   });
 });

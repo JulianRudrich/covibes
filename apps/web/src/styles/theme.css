@@ -69,6 +69,8 @@
   --color-link: #2a44a8;
   --color-link-hover: #1e3380;
   --color-focus-soft: #dcd8d1;
+  /* The neutral wash of a ghost button under the pointer, the same in both themes */
+  --color-wash: rgba(128, 120, 110, 0.12);
   /* The marks of a chart, a step lighter than ink so the figure above them stays the loudest */
   --color-chart: #57534c;
 
@@ -198,7 +200,8 @@
   --shadow-panel: 0 1px 2px rgba(40, 30, 10, 0.04), 0 10px 30px rgba(40, 30, 10, 0.06);
   --shadow-block: 0 1px 2px rgba(40, 30, 10, 0.05), 0 4px 14px rgba(40, 30, 10, 0.07);
   --shadow-float: 0 2px 6px rgba(40, 30, 10, 0.06), 0 16px 40px rgba(40, 30, 10, 0.14);
-  --shadow-lock: 0 0 0 5px rgba(27, 26, 24, 0.08);
+  /* A block someone edits: a ring in the human color and a soft ring around it */
+  --shadow-lock: 0 0 0 2px var(--color-human), 0 0 0 7px rgba(27, 26, 24, 0.08);
   --shadow-note: 0 2px 4px rgba(110, 90, 20, 0.1), 0 10px 22px rgba(110, 90, 20, 0.1);
   --shadow-button-primary: 0 1px 2px rgba(27, 26, 24, 0.16);
   --shadow-button-secondary: 0 1px 2px rgba(40, 30, 10, 0.06);
@@ -430,7 +433,7 @@
   --shadow-panel: 0 0 0 1px rgba(255, 250, 240, 0.04), 0 10px 30px rgba(0, 0, 0, 0.35);
   --shadow-block: 0 0 0 1px rgba(255, 250, 240, 0.04), 0 2px 10px rgba(0, 0, 0, 0.35);
   --shadow-float: 0 0 0 1px rgba(255, 250, 240, 0.05), 0 16px 40px rgba(0, 0, 0, 0.55);
-  --shadow-lock: 0 0 0 5px rgba(242, 240, 236, 0.12);
+  --shadow-lock: 0 0 0 2px var(--color-human), 0 0 0 7px rgba(242, 240, 236, 0.12);
   --shadow-note: 0 10px 24px rgba(0, 0, 0, 0.4);
   --shadow-button-primary: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-button-secondary: 0 1px 2px rgba(0, 0, 0, 0.3);

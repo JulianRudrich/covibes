@@ -1,33 +1,10 @@
-import { phaseStatuses, type Phase, type PhaseStatus } from '@covibes/shared';
-import { Check, ChevronRight } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { nextPhase, phaseStatuses, PHASES, type Phase } from '@covibes/shared';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@web/components/ui/popover';
 import { cn } from '@web/lib/cn';
-
-function PhaseSymbol({ status, number }: { status: PhaseStatus; number: number }) {
-  if (status === 'done') {
-    return (
-      <span className="grid size-4 shrink-0 place-items-center rounded-full bg-ink text-on-ink">
-        <Check size={10} strokeWidth={3.5} aria-hidden="true" />
-      </span>
-    );
-  }
-  if (status === 'active') {
-    return (
-      <span className="grid size-4 shrink-0 place-items-center rounded-full border-[1.5px] border-ink">
-        <span className="size-1.5 rounded-full bg-ink" />
-      </span>
-    );
-  }
-  return (
-    <span className="grid size-4 shrink-0 place-items-center rounded-full border-[1.5px] border-ring-upcoming text-[9px] font-semibold text-text-upcoming">
-      {number}
-    </span>
-  );
-}
 
 type PhaseIndicatorProps = {
   active: Phase;
@@ -38,48 +15,59 @@ type PhaseIndicatorProps = {
 };
 
 /**
- * Orientation bar: brainstorming → decide → architecture → project plan (handoff "Main screen").
- * A phase opens a card that says what it is for (spec 24; derived looks). From there owners and
- * editors change to the phase, and in the current one they ask the moderator for the next step.
+ * The phase bar of the top bar (handoff "Phase bar"): the step, the name of the current phase,
+ * a segment per phase and what comes next. Every segment opens a card that says what its phase is
+ * for (spec 24; derived look). From there owners and editors change to the phase, and in the
+ * current one they ask the moderator for the next step.
  */
 export function PhaseIndicator({ active, onSelect, onAsk }: PhaseIndicatorProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState<Phase | null>(null);
+  const next = nextPhase(active);
 
   return (
     <nav
       aria-label={t('workspace.phasesLabel')}
-      className="flex items-center gap-0.5 rounded-card bg-track p-[3px]"
+      className="flex h-11 items-center gap-3.5 rounded-full bg-bg-panel pr-[18px] pl-4 whitespace-nowrap shadow-panel"
     >
-      {phaseStatuses(active).map(({ phase, status }, index) => (
-        <Fragment key={phase}>
-          {index > 0 && (
-            <ChevronRight size={12} className="shrink-0 text-text-5" aria-hidden="true" />
-          )}
+      <span className="text-small text-text-3 tabular-nums">
+        {t('workspace.step', { step: PHASES.indexOf(active) + 1, total: PHASES.length })}
+      </span>
+      <span className="font-display text-display font-semibold tracking-[-0.01em] text-text">
+        {t(`phases.${active}`)}
+      </span>
+      <span className="-mx-1 flex">
+        {phaseStatuses(active).map(({ phase, status }) => (
           <Popover
+            key={phase}
             open={open === phase}
             onOpenChange={(isOpen) => {
               setOpen(isOpen ? phase : null);
             }}
           >
             <PopoverTrigger
+              aria-label={`${t(`phases.${phase}`)}: ${t(`phases.status.${status}`)}`}
               aria-current={status === 'active' ? 'step' : undefined}
-              className={cn(
-                'flex h-7 cursor-pointer items-center gap-[7px] rounded-btn-s pl-2.5 whitespace-nowrap focus-visible:outline-2 focus-visible:outline-ink',
-                status === 'active'
-                  ? 'bg-bg-panel pr-3 font-semibold shadow-phase-active'
-                  : 'pr-2.5 hover:text-text',
-                status === 'done' && 'text-text-2',
-                status === 'upcoming' && 'text-text-upcoming',
-              )}
+              title={t(`phases.${phase}`)}
+              // A 6 px segment in a target large enough to hit.
+              className="group grid h-7 w-[34px] cursor-pointer place-items-center rounded-full hover:bg-wash focus-visible:outline-2 focus-visible:outline-ink"
             >
-              <PhaseSymbol status={status} number={index + 1} />
-              {t(`phases.${phase}`)}
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'relative h-1.5 w-[30px] overflow-hidden rounded-full',
+                  status === 'done' ? 'bg-text' : 'bg-track',
+                )}
+              >
+                {status === 'active' ? (
+                  <span className="absolute inset-y-0 left-0 w-[60%] rounded-full bg-text opacity-55" />
+                ) : null}
+              </span>
             </PopoverTrigger>
             <PopoverContent
               align="center"
               aria-label={t(`phases.${phase}`)}
-              className="flex w-[280px] flex-col gap-2 p-3.5"
+              className="flex w-[280px] flex-col gap-2 p-3.5 whitespace-normal"
             >
               <div className="flex items-baseline justify-between gap-2">
                 <h2 className="m-0 text-ui font-semibold text-text">{t(`phases.${phase}`)}</h2>
@@ -123,8 +111,14 @@ export function PhaseIndicator({ active, onSelect, onAsk }: PhaseIndicatorProps)
               ) : null}
             </PopoverContent>
           </Popover>
-        </Fragment>
-      ))}
+        ))}
+      </span>
+      {/* The last phase has nothing after it. */}
+      {next ? (
+        <span className="text-small text-text-3">
+          {t('workspace.next', { phase: t(`phases.${next}`) })}
+        </span>
+      ) : null}
     </nav>
   );
 }

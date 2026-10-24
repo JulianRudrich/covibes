@@ -67,13 +67,23 @@ Second part of spec 36 (the design pass).
 - Spec 36a (design system and themes), `context/design/studio/`, and the specs of the parts that change their looks: 06, 08–11, 13–16, 22–24, 37, 38
 
 ## Checklist
-- [ ] The main screen matches the handoff at 1440 × 900 in light and dark: top bar, phase bar, "Im Raum", chat, canvas, overview.
-- [ ] The phase bar opens the card of every phase as before; the theme button switches the theme and keeps the choice.
-- [ ] "Im Raum" shows who is on the open board, which agent is writing and which one raises its hand.
-- [ ] Bubbles, the moderator card, references, the raised hand and the composer look as in the handoff, and every chat action still works (sending, retry, mentions, attachments, offers, votes, debates, references).
-- [ ] The four block states, arrows, frames, notes, tabs and toolbar look as in the handoff, and every canvas action still works.
-- [ ] The overview cards, decisions and criteria look as in the handoff, and every action still works.
-- [ ] Text reaches 4.5:1 on its background in both themes, also inside bubbles and pills.
-- [ ] With reduced motion nothing moves.
-- [ ] The derived looks are listed in `ui-context.md`.
-- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm format:check`, `pnpm test`, `pnpm db:types:check` and `pnpm build` pass; `progress-tracker.md` is updated.
+- [x] The main screen matches the handoff at 1440 × 900 in light and dark: top bar, phase bar, "Im Raum", chat, canvas, overview.
+- [x] The phase bar opens the card of every phase as before; the theme button switches the theme and keeps the choice.
+- [x] "Im Raum" shows who is on the open board, which agent is writing and which one raises its hand.
+- [x] Bubbles, the moderator card, references, the raised hand and the composer look as in the handoff, and every chat action still works (sending, retry, mentions, attachments, offers, votes, debates, references).
+- [x] The four block states, arrows, frames, notes, tabs and toolbar look as in the handoff, and every canvas action still works.
+- [x] The overview cards, decisions and criteria look as in the handoff, and every action still works.
+- [x] Text reaches 4.5:1 on its background in both themes, also inside bubbles and pills.
+- [x] With reduced motion nothing moves.
+- [x] The derived looks are listed in `ui-context.md`.
+- [x] `pnpm lint`, `pnpm typecheck`, `pnpm format:check`, `pnpm test`, `pnpm db:types:check` and `pnpm build` pass; `progress-tracker.md` is updated.
+
+## Implementation notes (2026-10-24)
+- **Built in two sessions:** the first worked out the spec and built the screen, then ended at its usage limit before testing; the second updated the tests, checked everything and finished the docs.
+- **Top bar** (`workspace-header.tsx`, `phase-indicator.tsx`, `room.tsx`, `theme-button.tsx`, `team-menu.tsx`): the three columns on the app background; the phase bar with step, name, segments and "Danach"; "Im Raum" with the people and the team's marks (glow while writing via `animate-glow`, the hand badge from `hand-badge.tsx`); the theme button calls `chooseTheme`.
+- **Presence:** `use-live-cursors.ts` reports who is on the open board from the awareness the board already shares; `@covibes/shared` got a helper for it in `canvas/awareness.ts`. No new server state.
+- **Chat** (`chat-message.tsx`, `message-list.tsx`, `mention-text.tsx`, `reference-chip.tsx`, `composer.tsx`, `raised-hands.tsx`, `status-pill.tsx`): bubbles, the moderator card with the chip "neutral", references as pills in the author's base, the raised hand card, the composer pill; messages rise with `animate-rise`. The i18n key `chat.agentNeutral` became `chat.neutral`; the placeholder follows the handoff ("Schreib dem Team, @ ruft einen Agenten").
+- **Canvas** (`canvas-panel.tsx`, `board-tabs.tsx`, `canvas-toolbar.tsx`, `block-node.tsx`, `node-chrome.tsx`, `canvas-arrow.tsx`, `frame-node.tsx`, `note-node.tsx`, `proposal-layer.tsx`, `plan-panel.tsx`): the block states as rings instead of borders (`aiRing` is now a 2 px ring in the base plus the glow, `JustDrawnOutline` adds the widening outline), arrows with open chevron heads, frames and notes in the new shapes, floating tabs and toolbar.
+- **Overview** (`waiting-for-you.tsx`, `decisions-section.tsx`, `criteria-section.tsx`, `since-you-were-away.tsx`, Git cards): cards on the subtle surface, decision rows with pills, criteria as outlined pills. `AGENT_HAND`, `AGENT_HAND_BUTTON` and `AGENT_REFERENCE` were removed, since the new looks need them no more.
+- **Tests:** 46 web tests checked the looks of before (borders, square chips, "Agent · neutral", the old placeholder); they check the new looks now, and a few gained checks of the new parts (the widening outline, bubble sides and corners). All 2404 tests pass.
+- **Verified** with `pnpm dev` and the browser as olga at 1440 × 900 in the project "Vereins-App", in dark (the theme stored on the device) and, with the theme button, in light; the layout measured 372 / 720 / 300 px under a 64 px top bar; the session request answered 200 once the server was up. The theme was set back to dark afterwards. Not tried live: a running agent answer, a raised hand and proposals on the canvas; tests cover them.

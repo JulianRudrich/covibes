@@ -41,15 +41,24 @@ function messageText(article: HTMLElement): HTMLElement {
   return paragraph;
 }
 
+/** The mention chips in a message text: round pills of 7 px. */
+function mentionChips(text: HTMLElement) {
+  return Array.from(text.querySelectorAll('span')).filter((span) =>
+    span.className.includes('rounded-[7px]'),
+  );
+}
+
 describe('ChatMessageView', () => {
   it('shows another person with a round avatar, the name and the time', () => {
     render(<ChatMessageView item={human()} isOwn={false} />);
     const article = screen.getByRole('article', { name: 'Alex Adams 14:05' });
 
     const avatar = article.querySelector('[role="img"]');
-    expect(avatar).toHaveClass('rounded-full', 'bg-human-avatar-bg', 'size-7');
+    expect(avatar).toHaveClass('rounded-full', 'bg-human-avatar-bg', 'size-[30px]');
     expect(avatar).toHaveTextContent('AA');
-    expect(within(article).getByText('Alex Adams')).toHaveClass('font-semibold', 'text-text');
+    expect(within(article).getByText('Alex Adams')).toHaveClass('font-semibold', 'text-text-2');
+    // Others write into a bubble on the left with the corner at the author.
+    expect(messageText(article)).toHaveClass('bg-bg-subtle', 'rounded-bl-[6px]');
     expect(within(article).queryByText('Agent')).not.toBeInTheDocument();
     expect(messageText(article)).toHaveTextContent('Die Architektur steht fast.');
   });
@@ -60,11 +69,14 @@ describe('ChatMessageView', () => {
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 
-  it('shows the signed-in user as "Du" in name and avatar', () => {
+  it('shows own messages as an ink bubble on the right, named "Du" for screen readers', () => {
     render(<ChatMessageView item={human()} isOwn />);
     const article = screen.getByRole('article', { name: 'Du 14:05' });
 
-    expect(article.querySelector('[role="img"]')).toHaveTextContent('Du');
+    expect(article).toHaveClass('justify-end');
+    expect(article.querySelector('[role="img"]')).toBeNull();
+    expect(within(article).getByText('Du')).toHaveClass('sr-only');
+    expect(messageText(article)).toHaveClass('bg-ink', 'text-on-ink', 'rounded-br-[6px]');
     expect(article).not.toHaveTextContent('Alex');
   });
 
@@ -74,7 +86,7 @@ describe('ChatMessageView', () => {
 
     expect(time.tagName).toBe('TIME');
     expect(time).toHaveAttribute('dateTime', CREATED_AT);
-    expect(time).toHaveClass('text-meta', 'text-text-4', 'tabular-nums');
+    expect(time).toHaveClass('text-text-3', 'tabular-nums');
   });
 
   it('follows the language of the app', () => {
@@ -97,7 +109,8 @@ describe('ChatMessageView', () => {
     const article = screen.getByRole('article', { name: `${name} Agent 14:05` });
 
     const avatar = article.querySelector('[role="img"]');
-    expect(avatar).toHaveClass(`bg-agent-${key}-tint`, `text-agent-${key}`, 'size-7');
+    expect(avatar).toHaveClass(`bg-agent-${key}-tint`, `text-agent-${key}`, 'size-[30px]');
+    expect(messageText(article)).toHaveClass(`bg-agent-${key}-tint`);
     expect(avatar).not.toHaveClass('rounded-full');
     expect(avatar?.querySelector('path')).toHaveAttribute('d', CATALOG_MARKS[key]);
     expect(within(article).getByText(name)).toHaveClass(`text-agent-${key}-dark`, 'font-semibold');
@@ -107,22 +120,22 @@ describe('ChatMessageView', () => {
     );
   });
 
-  it('shows the moderator in its card with the badge "Agent · neutral"', () => {
+  it('shows the moderator in its card with the chip "neutral"', () => {
     render(<ChatMessageView item={agentMessage('moderator')} isOwn={false} />);
-    const card = screen.getByRole('article', { name: 'Moderator Agent · neutral 14:05' });
+    const card = screen.getByRole('article', { name: 'Moderator neutral 14:05' });
 
     expect(card).toHaveClass(
-      'rounded-panel',
-      'border-agent-moderator-border',
-      'bg-agent-moderator-tint-2',
-      'p-3',
+      'rounded-[20px]',
+      'bg-agent-moderator-tint',
+      'inset-ring-agent-moderator-border',
     );
     const avatar = card.querySelector('[role="img"]');
-    expect(avatar).toHaveClass('bg-agent-moderator-tint', 'size-6');
+    // The mark stands on the panel color inside the tinted card.
+    expect(avatar).toHaveClass('bg-bg-panel', 'size-7');
     expect(avatar?.querySelector('path')).toHaveAttribute('d', CATALOG_MARKS.moderator);
     expect(within(card).getByText('Moderator')).toHaveClass('text-agent-moderator-dark');
-    expect(within(card).getByText('Agent · neutral')).toHaveClass('bg-agent-moderator-tint');
-    expect(within(card).getByText('14:05')).toHaveClass('ml-auto');
+    expect(within(card).getByText('neutral')).toHaveClass('bg-bg-panel', 'rounded-full');
+    expect(within(card).getByText('14:05').parentElement).toHaveClass('ml-auto');
   });
 
   it('ignores "isOwn" for agents', () => {
@@ -179,14 +192,12 @@ describe('ChatMessageView', () => {
     );
     const text = messageText(screen.getByRole('article'));
 
-    const chips = Array.from(text.querySelectorAll('span.rounded-xs'));
+    const chips = mentionChips(text);
     expect(chips.map((chip) => chip.textContent)).toEqual(['@Backend', '@Kritiker', '@moderator']);
     expect(within(text).getByText('@Backend')).toHaveClass(
       'bg-agent-backend-tint',
       'text-agent-backend-dark',
-      'px-[5px]',
-      'py-0.5',
-      'font-medium',
+      'font-semibold',
     );
     expect(within(text).getByText('@Kritiker')).toHaveClass(
       'bg-agent-critic-tint',
@@ -255,8 +266,8 @@ describe('ChatMessageView', () => {
       expect(chips.map((chip) => chip.textContent)).toEqual(['Web-App', 'AI-Gateway']);
       expect(chips[1]).toHaveAccessibleName('Zu „AI-Gateway“ auf dem Canvas');
       // The moderator made the gateway, a person the web app.
-      expect(chips[1]).toHaveClass('bg-agent-moderator-tint-2', 'text-agent-moderator-dark');
-      expect(chips[0]).toHaveClass('bg-bg-subtle', 'text-text-2');
+      expect(chips[1]).toHaveClass('bg-agent-moderator', 'text-on-ink', 'rounded-full');
+      expect(chips[0]).toHaveClass('bg-human', 'text-on-ink');
       // The words around the references stay, the brackets are the button's.
       expect(text).toHaveTextContent('Hängt die Web-App am AI-Gateway?');
     });
@@ -347,9 +358,9 @@ describe('ChatMessageView', () => {
     );
     const text = messageText(screen.getByRole('article'));
 
-    const chips = Array.from(text.querySelectorAll('span.rounded-xs'));
+    const chips = mentionChips(text);
     expect(chips.map((chip) => chip.textContent)).toEqual(['@Alex-Berg', '@olga', '@Backend']);
-    expect(within(text).getByText('@Alex-Berg')).toHaveClass('bg-bg-subtle', 'text-text');
+    expect(within(text).getByText('@Alex-Berg')).toHaveClass('bg-bg-panel', 'text-text');
     // The reader's own mention stands out.
     expect(within(text).getByText('@olga')).toHaveClass('bg-ink', 'text-on-ink');
     expect(within(text).getByText('@Backend')).toHaveClass('bg-agent-backend-tint');
@@ -362,7 +373,7 @@ describe('ChatMessageView', () => {
     render(<ChatMessageView item={human({ content, mentions: ['moderator'] })} isOwn={false} />);
     const text = messageText(screen.getByRole('article'));
 
-    const chips = Array.from(text.querySelectorAll('span.rounded-xs'));
+    const chips = mentionChips(text);
     expect(chips.map((chip) => chip.textContent)).toEqual(['@Moderator']);
     expect(text).toHaveTextContent(content);
   });
@@ -377,7 +388,7 @@ describe('ChatMessageView', () => {
     );
     const text = messageText(screen.getByRole('article'));
 
-    const chips = Array.from(text.querySelectorAll('span.rounded-xs'));
+    const chips = mentionChips(text);
     expect(chips.map((chip) => chip.textContent)).toEqual(['@Backend']);
   });
 
@@ -394,7 +405,7 @@ describe('ChatMessageView', () => {
     const text = messageText(screen.getByRole('article'));
 
     expect(text).toHaveTextContent(content, { normalizeWhitespace: false });
-    expect(text).toHaveClass('text-body', 'leading-[1.55]', 'text-text-body', 'wrap-break-word');
+    expect(text).toHaveClass('text-body', 'text-text-body', 'wrap-break-word');
     expect(within(text).getByText('@Daten')).toHaveClass('bg-agent-data-tint');
   });
 
@@ -503,7 +514,7 @@ describe('offers of help (spec 15)', () => {
     );
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(screen.getByText('Angenommen von Sam')).toHaveClass(
-      'border-agent-moderator-divider',
+      'border-agent-moderator-border',
       'text-agent-moderator-dark',
     );
 
@@ -631,11 +642,11 @@ describe('comparison and vote (spec 16b)', () => {
 
   it('drops "neutral" from the moderator badge when it has its own opinion', () => {
     const { rerender } = render(<ChatMessageView item={agentMessage('moderator')} isOwn={false} />);
-    expect(screen.getByText('Agent · neutral')).toBeInTheDocument();
+    expect(screen.getByText('neutral')).toBeInTheDocument();
     rerender(
       <ChatMessageView item={agentMessage('moderator')} isOwn={false} moderatorNeutral={false} />,
     );
-    expect(screen.queryByText('Agent · neutral')).not.toBeInTheDocument();
+    expect(screen.queryByText('neutral')).not.toBeInTheDocument();
     expect(screen.getByText('Agent')).toBeInTheDocument();
   });
 });

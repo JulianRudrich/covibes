@@ -3,6 +3,7 @@ import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { TooltipProvider } from '@web/components/ui/tooltip';
 import { BoardTabs } from '@web/features/canvas/board-tabs';
 import { projectQuery } from '@web/features/projects/queries';
 import { createQueryClient } from '@web/lib/query-client';
@@ -76,13 +77,17 @@ function renderTabs({
   }
   const view = render(
     <QueryClientProvider client={queryClient}>
-      <Harness />
+      <TooltipProvider>
+        <Harness />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
   function rerender() {
     view.rerender(
       <QueryClientProvider client={queryClient}>
-        <Harness />
+        <TooltipProvider>
+          <Harness />
+        </TooltipProvider>
       </QueryClientProvider>,
     );
   }
@@ -134,7 +139,7 @@ describe('BoardTabs', () => {
     });
     const { onSelect } = renderTabs();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Board' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Board hinzufügen' }));
 
     await waitFor(() => {
       expect(onSelect).toHaveBeenCalledWith(created.id);
@@ -152,7 +157,7 @@ describe('BoardTabs', () => {
     }));
     const { onNotice } = renderTabs({ boards: [MAIN, ...many] });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Board' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Board hinzufügen' }));
 
     expect(onNotice).toHaveBeenCalledWith('Ein Projekt hat höchstens 20 Boards.');
     expect(api).not.toHaveBeenCalled();
@@ -259,7 +264,7 @@ describe('BoardTabs', () => {
   it('lets viewers only switch', () => {
     renderTabs({ readOnly: true });
 
-    expect(screen.queryByRole('button', { name: 'Board' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Board hinzufügen' })).toBeNull();
     fireEvent.doubleClick(tab('Ablauf'));
     fireEvent.contextMenu(tab('Ablauf'));
     expect(screen.queryByRole('textbox')).toBeNull();
@@ -286,6 +291,7 @@ describe('the plan next to the boards (spec 25a)', () => {
           planOutdated={planOutdated}
         />
       </QueryClientProvider>,
+      { wrapper: TooltipProvider },
     );
     return { onSelect, onOpenPlan, plan: screen.getByRole('button', { name: /^Projektplan/ }) };
   }

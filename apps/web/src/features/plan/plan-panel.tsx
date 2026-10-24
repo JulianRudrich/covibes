@@ -2,7 +2,7 @@ import type { AwarenessUser, PlanLanguage, PlanState } from '@covibes/shared';
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { PanelHeader } from '@web/components/ui/panel';
+import { CanvasTabsRow } from '@web/features/canvas/board-tabs';
 import { PlanExportMenu } from '@web/features/export/plan-export-menu';
 import { PlanEditor, type PlanTaskAssignments } from '@web/features/plan/plan-editor';
 import { PLAN_PANEL_ID } from '@web/features/plan/plan-ids';
@@ -67,7 +67,7 @@ export function PlanPanel({
   );
   return (
     <>
-      <PanelHeader className="gap-1 px-3">{tabs}</PanelHeader>
+      <CanvasTabsRow>{tabs}</CanvasTabsRow>
 
       <div
         id={PLAN_PANEL_ID}
@@ -115,7 +115,7 @@ export function PlanPanel({
         {notice ? (
           <div
             role="status"
-            className="absolute top-3 left-1/2 z-10 flex h-[26px] -translate-x-1/2 items-center rounded-[13px] bg-bg-panel px-3 text-status whitespace-nowrap text-text-body shadow-float"
+            className="absolute top-3 left-1/2 z-10 flex h-[26px] -translate-x-1/2 animate-pop items-center rounded-full bg-bg-panel px-3 text-status whitespace-nowrap text-text-body shadow-float"
           >
             {notice}
           </div>

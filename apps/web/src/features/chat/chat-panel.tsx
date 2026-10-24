@@ -154,12 +154,12 @@ export function ChatPanel({
           />
         )}
 
-        <div className="flex flex-col gap-2.5 px-4 pt-3 pb-4">
+        <div className="flex flex-col gap-2.5 px-3 pb-3">
           <RaisedHands hands={hands} onDecide={readOnly ? undefined : decideHand} />
           {/* While a limit of the AI is reached (spec 31a); people keep writing to each other. */}
           <UsageLimitNote projectId={projectId} />
           {readOnly ? (
-            <p className="m-0 rounded-panel bg-bg-muted px-3.5 py-3 text-center text-ui text-text-3">
+            <p className="m-0 rounded-full bg-bg-subtle px-4 py-3.5 text-center text-ui text-text-3">
               {t('chat.readOnly')}
             </p>
           ) : (

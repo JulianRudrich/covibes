@@ -3,6 +3,8 @@
 // may want different themes on different screens. `public/theme.js` applies it before the first
 // paint and must read the same key.
 
+import { useSyncExternalStore } from 'react';
+
 export const THEME_CHOICES = ['system', 'light', 'dark'] as const;
 export type ThemeChoice = (typeof THEME_CHOICES)[number];
 export type Theme = 'light' | 'dark';
@@ -35,8 +37,30 @@ export function resolveTheme(choice: ThemeChoice): Theme {
   return choice === 'system' ? systemTheme() : choice;
 }
 
+// Who shows the theme (the account menu, the theme button) hears about every change.
+const listeners = new Set<() => void>();
+
 function apply() {
   document.documentElement.dataset.theme = resolveTheme(themeChoice());
+  for (const listener of listeners) listener();
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function shownTheme(): Theme {
+  return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+}
+
+/** The choice on this device and the theme it shows now; both follow every change. */
+export function useTheme(): { choice: ThemeChoice; theme: Theme } {
+  const choice = useSyncExternalStore(subscribe, themeChoice);
+  const theme = useSyncExternalStore(subscribe, shownTheme);
+  return { choice, theme };
 }
 
 /** Picks a theme on this device; `system` follows the system again. */

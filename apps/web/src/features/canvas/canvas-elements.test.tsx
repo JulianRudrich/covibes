@@ -12,6 +12,7 @@ import { FrameNode } from '@web/features/canvas/frame-node';
 import { NoteNode } from '@web/features/canvas/note-node';
 import { RoadmapProvider } from '@web/features/roadmap/roadmap-context';
 import { createQueryClient } from '@web/lib/query-client';
+import { aiRing } from '@web/lib/styles';
 
 // Resize handles and the edge layer need a running React Flow; they are checked in the browser.
 vi.mock('@xyflow/react', async (importOriginal) => ({
@@ -105,13 +106,16 @@ describe('NoteNode', () => {
     expect(note).toHaveClass(
       'h-[124px]',
       'w-[176px]',
-      '-rotate-[1.5deg]',
+      '-rotate-2',
       'bg-note',
-      'border-note-border',
       'shadow-note',
-      'rounded-[4px_4px_14px_4px]',
+      'rounded-[6px_6px_22px_6px]',
     );
-    expect(screen.getByText('Offline-Modus?')).toHaveClass('text-display', 'text-note-text');
+    expect(screen.getByText('Offline-Modus?')).toHaveClass(
+      'font-display',
+      'text-heading',
+      'text-note-text',
+    );
     expect(screen.getByText('Notiz · Alex')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Alex' })).toHaveClass('bg-note-avatar');
   });
@@ -119,14 +123,15 @@ describe('NoteNode', () => {
   it('shows who is editing it', () => {
     const { note } = renderNote({ lockedBy: { name: 'Sam' } });
 
-    expect(note).toHaveClass('border-human', 'cursor-not-allowed');
+    expect(note).toHaveClass('shadow-lock', 'cursor-not-allowed');
     expect(screen.getByText('Sam bearbeitet')).toBeInTheDocument();
   });
 
   it('marks an agent change as just drawn', () => {
     const { note } = renderNote({ changedByAgent: 'moderator' });
 
-    expect(note).toHaveClass('border-agent-moderator');
+    expect(note.style.boxShadow).toBe(aiRing({ look: 'moderator', color: null }));
+    expect(note.querySelector('.animate-ring')).toBeInTheDocument();
     expect(screen.getByText('Gerade gezeichnet')).not.toHaveClass('invisible');
   });
 
@@ -169,9 +174,9 @@ describe('FrameNode', () => {
   it('shows title and the number of its blocks as in the handoff', () => {
     const { frame } = renderFrame();
 
-    expect(frame).toHaveClass('rounded-frame', 'border-frame-border', 'bg-bg-panel/55');
+    expect(frame).toHaveClass('rounded-frame', 'bg-bg-frame', 'inset-ring-border');
     expect(screen.getByText('Architektur')).toHaveClass('truncate');
-    expect(screen.getByText('5 Blöcke')).toHaveClass('text-status', 'text-text-3');
+    expect(screen.getByText('5 Blöcke')).toHaveClass('rounded-full', 'text-status', 'text-text-3');
     expect(frame.querySelector('.lucide-frame')).toBeInTheDocument();
   });
 
@@ -368,22 +373,23 @@ describe('CanvasArrow', () => {
     return { arrow: screen.getByTestId('arrow'), actions };
   }
 
-  it('draws the curve in the edge color with a filled head and a mono label', () => {
+  it('draws the curve in the edge color with an open head and a mono label pill', () => {
     const { arrow } = renderArrow();
 
     expect(arrow).toHaveAttribute('d', geometry.path);
     expect(arrow).toHaveAttribute('marker-end', 'url(#covibes-arrowhead-edge)');
     expect(arrow.style.stroke).toBe('var(--color-edge)');
-    expect(arrow.style.strokeWidth).toBe('1.5');
-    expect(screen.getByText('REST')).toHaveClass('font-mono', 'text-badge', 'border-border-float');
+    expect(arrow.style.strokeWidth).toBe('2');
+    expect(arrow.style.strokeLinecap).toBe('round');
+    expect(screen.getByText('REST')).toHaveClass('font-mono', 'text-badge', 'rounded-full');
   });
 
-  it('shows an agent change in the agent color at 1.75 px, also on the label', () => {
+  it('shows an agent change in the agent color at 2.25 px, also on the label', () => {
     const { arrow } = renderArrow({ changedByAgent: 'moderator' });
 
     expect(arrow).toHaveAttribute('marker-end', 'url(#covibes-arrowhead-moderator)');
     expect(arrow.style.stroke).toBe('var(--color-agent-moderator)');
-    expect(arrow.style.strokeWidth).toBe('1.75');
+    expect(arrow.style.strokeWidth).toBe('2.25');
     expect(screen.getByText('REST')).toHaveClass(
       'bg-agent-moderator-tint-2',
       'border-agent-moderator-border-2',

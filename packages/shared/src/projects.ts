@@ -78,6 +78,24 @@ export type ProjectSummary = {
   updatedAt: string;
   /** How much waits for the person in the project (spec 22a): proposals, raised hands, votes. */
   waiting: number;
+  /** Where the project stands (spec 24), for its card (spec 36c). */
+  phase: Phase;
+  /** The people of the project: the signed-in person first, then in the order they joined. */
+  members: ProjectCardMember[];
+  /** The project's team in the order of the workspace: the moderator first. */
+  agents: ProjectCardAgent[];
+};
+
+/** A person on the card of a project (spec 36c). */
+export type ProjectCardMember = { userId: string; name: string };
+
+/**
+ * An agent on the card of a project (spec 36c): a catalog agent by its key, a custom agent with
+ * what its mark needs, since the list has no directory of the project.
+ */
+export type ProjectCardAgent = {
+  key: string;
+  custom: Pick<CustomAgentSummary, 'name' | 'color' | 'mark'> | null;
 };
 
 export type ProjectMember = {

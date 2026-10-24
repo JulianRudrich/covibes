@@ -8,7 +8,7 @@ import { Logo } from '@web/components/logo';
 export function AppHeader({ children }: { children?: ReactNode }) {
   const { t } = useTranslation();
   return (
-    <header className="flex h-[52px] items-center justify-between px-4">
+    <header className="flex h-16 items-center justify-between px-5">
       <Link
         to="/"
         className="flex items-center gap-2.5 text-text no-underline hover:text-text"
@@ -19,7 +19,7 @@ export function AppHeader({ children }: { children?: ReactNode }) {
           {t('common.wordmark')}
         </span>
       </Link>
-      <div className="flex items-center gap-2.5">{children}</div>
+      <div className="flex items-center gap-2">{children}</div>
     </header>
   );
 }

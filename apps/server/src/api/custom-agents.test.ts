@@ -345,3 +345,57 @@ describe('custom agents in a team', () => {
     publish.mockRestore();
   });
 });
+
+describe('the mark of a custom agent (spec 36c)', () => {
+  it('is none until its creator picks one of the twelve, and the directory carries it', async () => {
+    const owner = await test.signIn();
+    const projectId = await createProject(owner);
+    const agent = await created(owner, { projectId });
+    expect(agent.mark).toBeNull();
+
+    expect((await create(owner, { mark: 'heart' })).status).toBe(400);
+    expect((await update(owner, agent.key, { mark: 'heart' })).status).toBe(400);
+    const changed = await update(owner, agent.key, { mark: 'leaf' });
+    expect(changed.status).toBe(200);
+    expect(((await changed.json()) as CustomAgent).mark).toBe('leaf');
+
+    const details = await detailsOf(projectId, owner);
+    expect(details.customAgents.find((entry) => entry.key === agent.key)?.mark).toBe('leaf');
+    expect((await created(owner, { mark: 'moon' })).mark).toBe('moon');
+  });
+});
+
+describe('the cards of the project list (spec 36c)', () => {
+  it('show phase, people and team, the signed-in person first', async () => {
+    const owner = await test.signIn();
+    const editor = await test.signIn();
+    const stranger = await test.signIn();
+    const projectId = await createProject(owner);
+    await addMember(projectId, editor, 'editor');
+    const agent = await created(editor, { name: freshName('Texter'), color: 4, mark: 'star' });
+    expect((await addToTeam(projectId, editor, agent.key)).status).toBe(204);
+    expect((await addToTeam(projectId, editor, 'critic')).status).toBe(204);
+
+    const ownerList = (await (await request('/api/projects', owner)).json()) as ProjectSummary[];
+    const card = ownerList.find((project) => project.id === projectId);
+    expect(card).toMatchObject({ phase: 'brainstorming', waiting: 0 });
+    expect(card?.agents).toEqual([
+      { key: 'moderator', custom: null },
+      { key: 'critic', custom: null },
+      { key: agent.key, custom: { name: agent.name, color: 4, mark: 'star' } },
+    ]);
+    const details = await detailsOf(projectId, owner);
+    const ownerId = details.members.find((member) => member.role === 'owner')?.userId;
+    const editorId = details.members.find((member) => member.role === 'editor')?.userId;
+    expect(card?.members.map((member) => member.userId)).toEqual([ownerId, editorId]);
+
+    // The same project from the editor's side: the editor comes first.
+    const editorList = (await (await request('/api/projects', editor)).json()) as ProjectSummary[];
+    expect(
+      editorList
+        .find((project) => project.id === projectId)
+        ?.members.map((member) => member.userId),
+    ).toEqual([editorId, ownerId]);
+    expect(await (await request('/api/projects', stranger)).json()).toEqual([]);
+  });
+});

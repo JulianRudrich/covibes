@@ -1,4 +1,4 @@
-import type { AgentKey } from '@covibes/shared';
+import { CUSTOM_AGENT_MARKS, type AgentKey, type CustomAgentMark } from '@covibes/shared';
 
 // The marks of the agents (spec 36a; handoff "Agent marks"): filled glyphs on a 24 × 24 grid,
 // drawn with `fill-rule: evenodd`, so a ring is a circle with a circle cut out. They replace the
@@ -36,40 +36,39 @@ export const CATALOG_MARKS: Readonly<Record<AgentKey, string>> = {
     'M4 11c0-4 2.2-6.6 5.5-7.5l.8 1.8C8.4 6.2 7.4 7.6 7.2 9.5H9a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM13 11c0-4 2.2-6.6 5.5-7.5l.8 1.8c-1.9.9-2.9 2.3-3.1 4.2H18a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2z',
 };
 
-/** The glyphs for custom agents: plain shapes that none of the catalog uses. */
-export const CUSTOM_MARKS: readonly string[] = [
-  // circle
-  'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18z',
-  // diamond
-  'M10.6 2.9a2 2 0 0 1 2.8 0l7.7 7.7a2 2 0 0 1 0 2.8l-7.7 7.7a2 2 0 0 1-2.8 0l-7.7-7.7a2 2 0 0 1 0-2.8z',
-  // triangle
-  'M10.3 3.9a2 2 0 0 1 3.4 0l7.6 13.1A2 2 0 0 1 19.6 20H4.4a2 2 0 0 1-1.7-3z',
-  // framed square
-  'M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zM8 7.5a.5.5 0 0 0-.5.5v8c0 .3.2.5.5.5h8c.3 0 .5-.2.5-.5V8a.5.5 0 0 0-.5-.5z',
-  // plus
-  'M10.5 3h3a1 1 0 0 1 1 1v5.5H20a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-5.5V20a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-5.5H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h5.5V4a1 1 0 0 1 1-1z',
-  // drop
-  'M12 2.5c3.3 4 6.5 7.8 6.5 11.5a6.5 6.5 0 0 1-13 0c0-3.7 3.2-7.5 6.5-11.5z',
-  // leaf
-  'M20 4c0 9-5 15-12.5 15-1 0-2-.2-2.8-.5L3 20.5 2 19.5l2-1.8C3.7 16.9 3.5 16 3.5 15 3.5 8.5 10 4 20 4z',
-  // crescent
-  'M14 3a9 9 0 1 0 7 14.6A8 8 0 0 1 14 3z',
-  // star
-  'M12 2.8l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.6l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z',
-  // two dots
-  'M7.5 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zM16.5 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z',
-  // wide ring
-  'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zM12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z',
-  // arrow up
-  'M11.3 3.3a1 1 0 0 1 1.4 0l7.2 7.2a.9.9 0 0 1-.6 1.5H15v8a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-8H4.7a.9.9 0 0 1-.6-1.5z',
-];
+/**
+ * The glyphs for custom agents by the name they are stored under (spec 36c): plain shapes that
+ * none of the catalog uses, in the order of the picker.
+ */
+export const CUSTOM_MARKS: Readonly<Record<CustomAgentMark, string>> = {
+  circle: 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18z',
+  diamond:
+    'M10.6 2.9a2 2 0 0 1 2.8 0l7.7 7.7a2 2 0 0 1 0 2.8l-7.7 7.7a2 2 0 0 1-2.8 0l-7.7-7.7a2 2 0 0 1 0-2.8z',
+  triangle: 'M10.3 3.9a2 2 0 0 1 3.4 0l7.6 13.1A2 2 0 0 1 19.6 20H4.4a2 2 0 0 1-1.7-3z',
+  frame:
+    'M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zM8 7.5a.5.5 0 0 0-.5.5v8c0 .3.2.5.5.5h8c.3 0 .5-.2.5-.5V8a.5.5 0 0 0-.5-.5z',
+  plus: 'M10.5 3h3a1 1 0 0 1 1 1v5.5H20a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-5.5V20a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-5.5H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h5.5V4a1 1 0 0 1 1-1z',
+  drop: 'M12 2.5c3.3 4 6.5 7.8 6.5 11.5a6.5 6.5 0 0 1-13 0c0-3.7 3.2-7.5 6.5-11.5z',
+  leaf: 'M20 4c0 9-5 15-12.5 15-1 0-2-.2-2.8-.5L3 20.5 2 19.5l2-1.8C3.7 16.9 3.5 16 3.5 15 3.5 8.5 10 4 20 4z',
+  moon: 'M14 3a9 9 0 1 0 7 14.6A8 8 0 0 1 14 3z',
+  star: 'M12 2.8l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.6l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z',
+  dots: 'M7.5 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zM16.5 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z',
+  ring: 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zM12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z',
+  arrow:
+    'M11.3 3.3a1 1 0 0 1 1.4 0l7.2 7.2a.9.9 0 0 1-.6 1.5H15v8a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-8H4.7a.9.9 0 0 1-.6-1.5z',
+};
 
 /**
- * The glyph of a custom agent, until its creator can choose one (spec 36c): it follows from the
- * agent's id, so the agent looks the same everywhere and for everyone.
+ * The mark a custom agent wears without a picked one: it follows from the agent's id, so the agent
+ * looks the same everywhere and for everyone (spec 36a).
  */
-export function customMark(agentKey: string): string {
+export function derivedMark(agentKey: string): CustomAgentMark {
   let hash = 0;
   for (const char of agentKey) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return CUSTOM_MARKS[hash % CUSTOM_MARKS.length] ?? CUSTOM_MARKS[0] ?? '';
+  return CUSTOM_AGENT_MARKS[hash % CUSTOM_AGENT_MARKS.length] ?? 'circle';
+}
+
+/** The glyph of a custom agent: the mark its creator picked, or the one its id gives it. */
+export function customMark(agentKey: string, mark?: CustomAgentMark | null): string {
+  return CUSTOM_MARKS[mark ?? derivedMark(agentKey)];
 }

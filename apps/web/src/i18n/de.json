@@ -28,7 +28,19 @@
       "generic": "Das hat nicht geklappt. Bitte versuch es noch einmal."
     },
     "invited": "Du wurdest zu einem Projekt eingeladen. Melde dich an, dann geht es weiter zur Einladung.",
-    "tagline": "Gemeinsam planen mit Chat, Canvas und KI-Agents."
+    "hero": {
+      "title": "Gemeinsam planen.\nCoding-Agents bauen.",
+      "text": "Chat und Canvas für dein Team und spezialisierte KI-Agents. Ein neutraler Moderator führt euch von der Idee bis zum Plan, der direkt ins Repository geht.",
+      "idea": "Idee",
+      "decision": "Entscheidung",
+      "comparison": "Vergleich A/B",
+      "note": "Plan bis Freitag",
+      "question": "Was spricht für einen eigenen Server?",
+      "objection": "Und wer betreibt ihn nachts?",
+      "person": "Alex",
+      "agents": "Moderator, Backend, Kritiker, Daten und sechs weitere Spezialisten"
+    },
+    "noPassword": "Kein Passwort nötig: Der Link in der Mail meldet dich direkt an."
   },
   "account": {
     "menu": "Konto",
@@ -69,7 +81,25 @@
       "languageHint": "In dieser Sprache entstehen der Plan, die Exporte und alles, was Covibes ins Repository schreibt. Die Agents antworten in der Sprache der Nachricht."
     },
     "waiting_one": "{{count}} wartet auf dich",
-    "waiting_other": "{{count}} warten auf dich"
+    "waiting_other": "{{count}} warten auf dich",
+    "heading": "Deine Projekte",
+    "greeting": {
+      "morning": "Guten Morgen, {{name}}",
+      "day": "Hallo, {{name}}",
+      "evening": "Guten Abend, {{name}}"
+    },
+    "search": "Projekte durchsuchen",
+    "noMatch": "Kein Projekt heißt so.",
+    "step": "Schritt {{step}} von {{total}}",
+    "people": "Menschen im Projekt",
+    "team": "Agents im Team",
+    "more": "+{{count}}",
+    "moreLabel": "{{count}} weitere",
+    "you": "Du",
+    "newCard": {
+      "title": "Neues Projekt",
+      "text": "Der Moderator schlägt passende Spezialisten vor"
+    }
   },
   "workspace": {
     "projectMenu": "Projektmenü",
@@ -393,7 +423,30 @@
     "deleteConfirm": "Endgültig löschen",
     "deleteHint": "Der Agent verlässt jedes Team. Seine Nachrichten bleiben.",
     "limitReached": "Mehr als 20 eigene Agenten gehen hier nicht.",
-    "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal."
+    "failed": "Das hat nicht geklappt. Bitte versuche es noch einmal.",
+    "mark": "Zeichen",
+    "marks": {
+      "circle": "Kreis",
+      "diamond": "Raute",
+      "triangle": "Dreieck",
+      "frame": "Rahmen",
+      "plus": "Plus",
+      "drop": "Tropfen",
+      "leaf": "Blatt",
+      "moon": "Mond",
+      "star": "Stern",
+      "dots": "Zwei Punkte",
+      "ring": "Ring",
+      "arrow": "Pfeil"
+    },
+    "preview": {
+      "title": "Vorschau",
+      "unnamed": "Neuer Agent",
+      "message": "Ich sehe mir das an und schlage euch eine Lösung vor.",
+      "block": "Erster Entwurf",
+      "blockType": "Block",
+      "everywhere": "Zeichen und Farbe sind überall gleich: im Chat, auf dem Canvas und in der Übersicht."
+    }
   },
   "agentTemplates": {
     "critic": "Du suchst Schwachstellen: Risiken, Widersprüche, ungeprüfte Annahmen, fehlende Teile und Kosten, die noch niemand genannt hat.\nSei konstruktiv und konkret: Nenne das wichtigste Problem zuerst, warum es zählt und wie das Team es prüfen oder lösen kann. Ein starker Punkt ist besser als fünf schwache.\nSag klar, was du denkst. Kritisiere Ideen, nie Personen, und sag auch, wenn etwas solide ist.",

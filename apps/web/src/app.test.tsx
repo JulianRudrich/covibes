@@ -13,6 +13,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { CUSTOM_MARKS } from '@web/components/ui/agent-marks';
 import { authClient } from '@web/lib/auth-client';
 import { renderApp, stubApi } from '@web/test-utils';
 
@@ -225,6 +226,9 @@ const PROJECT: ProjectSummary = {
   role: 'owner',
   updatedAt: new Date().toISOString(),
   waiting: 0,
+  phase: 'brainstorming',
+  members: [{ userId: '11111111-1111-4111-8111-111111111111', name: 'Olga' }],
+  agents: [{ key: 'moderator', custom: null }],
 };
 const DETAILS: ProjectDetails = {
   id: PROJECT.id,
@@ -364,9 +368,9 @@ describe('without a session', () => {
   it('offers the two languages on the login page, and asks for the mail in the one shown', async () => {
     renderApp('/login');
     const languages = within(await screen.findByRole('group', { name: 'Sprache' }));
-    // The page says in one line what Covibes is (spec 33).
+    // The scene beside the form says what Covibes is (spec 33, looks of spec 36c).
     expect(
-      screen.getByText('Gemeinsam planen mit Chat, Canvas und KI-Agents.'),
+      screen.getByRole('heading', { name: /Gemeinsam planen\.\s*Coding-Agents bauen\./ }),
     ).toBeInTheDocument();
     expect(languages.getByRole('button', { name: 'Deutsch' })).toHaveAttribute(
       'aria-pressed',
@@ -560,7 +564,7 @@ describe('with a session', () => {
     stubApi({ 'GET /api/projects': () => ({ body: [] }) });
     const router = renderApp('/login?redirect=%2F');
 
-    expect(await screen.findByRole('heading', { name: 'Projekte' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Deine Projekte' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/');
   });
 
@@ -600,8 +604,7 @@ describe('with a session', () => {
 
     const link = await screen.findByRole('link', { name: /Covibes V1/ });
     expect(link).toHaveAttribute('href', `/p/${PROJECT.id}`);
-    expect(within(link).getByText('Owner')).toBeInTheDocument();
-    expect(within(link).getByText('geändert jetzt')).toBeInTheDocument();
+    expect(link).toHaveTextContent('Owner · geändert jetzt');
   });
 
   it('shows on the project list how much waits in a project (spec 22a)', async () => {
@@ -619,9 +622,92 @@ describe('with a session', () => {
     const rows = within(await screen.findByRole('list', { name: 'Projekte' })).getAllByRole(
       'listitem',
     );
-    expect(rows[0]).toHaveTextContent('Covibes V13 warten auf dich');
+    expect(rows[0]).toHaveTextContent('3 warten auf dich');
     expect(rows[1]).not.toHaveTextContent(/wartet|warten/);
-    expect(rows[2]).toHaveTextContent('Eins1 wartet auf dich');
+    expect(rows[2]).toHaveTextContent('1 wartet auf dich');
+  });
+
+  it('shows the phase, the people and the team on a project card (spec 36c)', async () => {
+    const custom = '99999999-9999-4999-8999-999999999999';
+    stubApi({
+      'GET /api/projects': () => ({
+        body: [
+          {
+            ...PROJECT,
+            phase: 'architecture',
+            members: [
+              { userId: OLGA.id, name: 'Olga' },
+              { userId: '22222222-2222-4222-8222-222222222222', name: 'Sam Beispiel' },
+              ...['Ana', 'Ben', 'Cem', 'Dora'].map((name, index) => ({
+                userId: `3333333${String(index)}-3333-4333-8333-333333333333`,
+                name,
+              })),
+            ],
+            agents: [
+              { key: 'moderator', custom: null },
+              { key: 'critic', custom: null },
+              { key: custom, custom: { name: 'UX Writer', color: 3, mark: 'leaf' } },
+            ],
+          },
+        ],
+      }),
+    });
+    renderApp('/');
+
+    const card = await screen.findByRole('link', { name: /Covibes V1/ });
+    expect(card).toHaveTextContent('ArchitekturSchritt 3 von 4');
+    const people = within(card).getByRole('group', { name: 'Menschen im Projekt' });
+    expect(
+      within(people)
+        .getAllByRole('img')
+        .map((img) => img.getAttribute('aria-label')),
+    ).toEqual(['Du', 'Sam Beispiel', 'Ana', 'Ben', '2 weitere']);
+    const team = within(card).getByRole('group', { name: 'Agents im Team' });
+    expect(
+      within(team)
+        .getAllByRole('img')
+        .map((img) => img.getAttribute('aria-label')),
+    ).toEqual(['Moderator', 'Kritiker', 'UX Writer']);
+    expect(within(team).getByRole('img', { name: 'UX Writer' })).toHaveClass('agent-color-3');
+    expect(
+      within(team).getByRole('img', { name: 'UX Writer' }).querySelector('path'),
+    ).toHaveAttribute('d', CUSTOM_MARKS.leaf);
+  });
+
+  it('greets by the time of day and filters the projects by name (spec 36c)', async () => {
+    stubApi({
+      'GET /api/projects': () => ({
+        body: [
+          PROJECT,
+          { ...PROJECT, id: '77777777-7777-4777-8777-777777777777', name: 'Vereins-App' },
+        ],
+      }),
+    });
+    renderApp('/');
+
+    expect(await screen.findByText(/^(Guten Morgen|Hallo|Guten Abend), Olga$/)).toBeInTheDocument();
+    const list = await screen.findByRole('list', { name: 'Projekte' });
+    // Two projects and the card for a new one.
+    expect(within(list).getAllByRole('listitem')).toHaveLength(3);
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Projekte durchsuchen' }), {
+      target: { value: 'verein' },
+    });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(1);
+    expect(list).toHaveTextContent('Vereins-App');
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Projekte durchsuchen' }), {
+      target: { value: 'nichts' },
+    });
+    expect(screen.getByText('Kein Projekt heißt so.')).toBeInTheDocument();
+  });
+
+  it('opens "Neues Projekt" from the last card (spec 36c)', async () => {
+    stubApi({ 'GET /api/projects': () => ({ body: [PROJECT] }) });
+    renderApp('/');
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Neues Projekt/ }));
+    expect(await screen.findByRole('dialog', { name: 'Neues Projekt' })).toBeInTheDocument();
   });
 
   it('creates a project and opens it', async () => {

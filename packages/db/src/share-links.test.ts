@@ -183,7 +183,9 @@ describe('a read-only link', () => {
   it('names the custom agents of its project, without their instructions or creator', async () => {
     await withLink(token, async (client) => {
       const { rows } = await client.query('select * from public.shared_agent_directory()');
-      expect(rows).toEqual([{ id: AGENT, name: 'Teilen Jurist', color: 1, deleted: false }]);
+      expect(rows).toEqual([
+        { id: AGENT, name: 'Teilen Jurist', color: 1, mark: null, deleted: false },
+      ]);
     });
     // Without a link the directory is empty, also for a member.
     const forMember = await asUser(app, OWNER, (client) =>

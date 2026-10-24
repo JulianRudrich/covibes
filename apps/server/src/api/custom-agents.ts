@@ -37,6 +37,7 @@ function selectAgents(trx: Transaction<DB>) {
       'custom_agents.can_draw',
       'custom_agents.model',
       'custom_agents.color',
+      'custom_agents.mark',
       'custom_agents.template',
       'users.name as owner_name',
     ]);
@@ -50,6 +51,7 @@ function toCustomAgent(row: AgentRow): CustomAgent | undefined {
     name: row.name,
     role: row.role,
     color: row.color,
+    mark: row.mark,
     model: isAgentModel(row.model) ? row.model : null,
     canDraw: row.can_draw,
     scope: row.project_id === null ? 'personal' : 'project',
@@ -182,6 +184,7 @@ export function customAgentRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
             can_draw: input.data.canDraw,
             model: input.data.model,
             color: input.data.color,
+            mark: input.data.mark,
             template: input.data.template,
           })
           .returning('id')

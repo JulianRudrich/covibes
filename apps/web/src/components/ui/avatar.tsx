@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 
 import { cn } from '@web/lib/cn';
 
-type AvatarSize = 16 | 20 | 24 | 26 | 28 | 30 | 32;
+type AvatarSize = 16 | 20 | 24 | 26 | 28 | 30 | 32 | 52;
 
 type CommonProps = {
   /** Accessible name, usually the person's or agent's name. */
@@ -39,6 +39,7 @@ const SIZE_CLASSES: Record<AvatarSize, string> = {
   28: 'size-7 text-badge',
   30: 'size-[30px] text-meta',
   32: 'size-8 text-status',
+  52: 'size-[52px] text-display',
 };
 
 // Agents are rounded squares whose radius is about a third of their size (handoff: 30 px → 10).
@@ -50,6 +51,7 @@ const AGENT_RADIUS: Record<AvatarSize, string> = {
   28: 'rounded-[9px]',
   30: 'rounded-[10px]',
   32: 'rounded-[10px]',
+  52: 'rounded-[17px]',
 };
 
 // The glyph fills about half of the mark.
@@ -61,6 +63,7 @@ const GLYPH_SIZE: Record<AvatarSize, number> = {
   28: 15,
   30: 16,
   32: 17,
+  52: 27,
 };
 
 // The mark sits on the agent's tint with a fine inner line, the glyph in the agent's color.

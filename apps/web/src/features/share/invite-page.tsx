@@ -74,7 +74,7 @@ export function InvitePage() {
   if (dead) {
     return (
       <PageMessage below={<LanguageSwitch />} title={t(`invite.dead.${dead}.title`)}>
-        <p className="m-0 text-ui text-text-3">{t(`invite.dead.${dead}.text`)}</p>
+        <p className="m-0 text-body text-text-3">{t(`invite.dead.${dead}.text`)}</p>
         <BackToProjects />
       </PageMessage>
     );
@@ -84,12 +84,13 @@ export function InvitePage() {
   if (status === 'member' && projectId) {
     return (
       <PageMessage below={<LanguageSwitch />} title={t('invite.member.title')}>
-        <p className="m-0 text-ui text-text-3">
+        <p className="m-0 text-body text-text-3">
           {t('invite.member.text', { project: projectName ?? '' })}
         </p>
         <Button
           variant="primary"
-          className="mx-auto mt-2"
+          size="l"
+          className="mx-auto mt-3"
           onClick={() => {
             void open(projectId);
           }}
@@ -105,7 +106,7 @@ export function InvitePage() {
       below={<LanguageSwitch />}
       title={t('invite.title', { project: projectName ?? '' })}
     >
-      <p className="m-0 text-ui text-text-3">
+      <p className="m-0 text-body text-text-3">
         {t('invite.text', {
           name: invitedBy ?? t('invite.someone'),
           role: role ? t(`projects.roles.${role}`) : '',
@@ -117,8 +118,9 @@ export function InvitePage() {
           {t('invite.failed')}
         </Notice>
       ) : null}
-      <div className="mt-2 flex justify-center gap-2">
+      <div className="mt-3 flex justify-center gap-2">
         <Button
+          size="l"
           onClick={() => {
             void navigate({ to: '/' });
           }}
@@ -127,6 +129,7 @@ export function InvitePage() {
         </Button>
         <Button
           variant="primary"
+          size="l"
           disabled={accept.isPending}
           onClick={() => {
             void join();

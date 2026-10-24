@@ -343,6 +343,41 @@ describe('the directory of a project', () => {
   });
 });
 
+describe('the mark of a custom agent (spec 36c)', () => {
+  it('is one of the twelve shapes, set by who may change the agent, and listed in the directory', async () => {
+    const id = await createAgent(EDITOR, PROJECT);
+    expect(
+      (
+        await admin.query<{ mark: string | null }>('select mark from custom_agents where id = $1', [
+          id,
+        ])
+      ).rows[0]?.mark,
+    ).toBeNull();
+
+    await committed(EDITOR, (client) =>
+      client.query(`update custom_agents set mark = 'leaf' where id = $1`, [id]),
+    );
+    await expect(
+      asUser(app, EDITOR, (client) =>
+        client.query(`update custom_agents set mark = 'heart' where id = $1`, [id]),
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+    // A viewer sees the agent but changes nothing of it, its mark included.
+    const byViewer = await asUser(app, VIEWER, (client) =>
+      client.query(`update custom_agents set mark = 'star' where id = $1`, [id]),
+    );
+    expect(byViewer.rowCount).toBe(0);
+
+    const { rows } = await asUser(app, VIEWER, (client) =>
+      client.query<{ id: string; mark: string | null }>(
+        'select id, mark from public.project_agent_directory($1)',
+        [PROJECT],
+      ),
+    );
+    expect(rows.find((row) => row.id === id)?.mark).toBe('leaf');
+  });
+});
+
 describe('deleting a custom agent', () => {
   const remove = (userId: string, agentId: string) =>
     committed(userId, (client) => client.query('select public.delete_custom_agent($1)', [agentId]));

@@ -16,6 +16,31 @@ export const CUSTOM_AGENT_INSTRUCTIONS_MAX_LENGTH = 4000;
 export const CUSTOM_AGENT_COLORS = [1, 2, 3, 4, 5, 6] as const;
 export type CustomAgentColor = (typeof CUSTOM_AGENT_COLORS)[number];
 
+/**
+ * The twelve marks a custom agent can wear (spec 36c), by name (`custom_agents.mark`). Null in the
+ * data means none was picked; the web app then derives one from the agent's id.
+ */
+export const CUSTOM_AGENT_MARKS = [
+  'circle',
+  'diamond',
+  'triangle',
+  'frame',
+  'plus',
+  'drop',
+  'leaf',
+  'moon',
+  'star',
+  'dots',
+  'ring',
+  'arrow',
+] as const;
+export type CustomAgentMark = (typeof CUSTOM_AGENT_MARKS)[number];
+export const customAgentMarkSchema = z.enum(CUSTOM_AGENT_MARKS);
+
+export function isCustomAgentMark(value: unknown): value is CustomAgentMark {
+  return customAgentMarkSchema.safeParse(value).success;
+}
+
 /** Personal agents per person, and shared agents per project. */
 export const MAX_PERSONAL_AGENTS = 20;
 export const MAX_SHARED_AGENTS = 20;
@@ -83,6 +108,8 @@ const customAgentFields = {
   /** Null is the default model of all agents. */
   model: z.enum(AGENT_MODELS).nullable(),
   color: z.literal([...CUSTOM_AGENT_COLORS]),
+  /** Null keeps the mark the agent's id gives it. */
+  mark: customAgentMarkSchema.nullable(),
   /** The project the agent is shared in; null for a personal agent. */
   projectId: z.uuid().nullable(),
 };
@@ -93,6 +120,7 @@ export const createCustomAgentInputSchema = z.object({
   instructions: customAgentFields.instructions.default(''),
   canDraw: customAgentFields.canDraw.default(true),
   model: customAgentFields.model.default(null),
+  mark: customAgentFields.mark.default(null),
   projectId: customAgentFields.projectId.default(null),
   /** The catalog specialist the agent was created from, if any. */
   template: z.enum(AGENT_KEYS).exclude(['moderator']).nullable().default(null),
@@ -118,6 +146,8 @@ export const customAgentSummarySchema = z.object({
   name: z.string(),
   role: z.string(),
   color: z.number().int().min(1).max(CUSTOM_AGENT_COLORS.length),
+  /** An unknown name (from a later version) reads as none. */
+  mark: customAgentMarkSchema.nullable().catch(null),
   model: z.enum(AGENT_MODELS).nullable(),
   canDraw: z.boolean(),
   scope: z.enum(CUSTOM_AGENT_SCOPES),

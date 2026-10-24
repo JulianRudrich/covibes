@@ -146,6 +146,7 @@ describe('Composer', () => {
       name: 'UX Writer',
       role: 'Texte',
       color: 3,
+      mark: null,
       model: null,
       canDraw: true,
       scope: 'personal' as const,

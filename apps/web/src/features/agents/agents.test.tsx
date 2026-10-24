@@ -17,6 +17,7 @@ const WRITER: CustomAgentSummary = {
   name: 'UX Writer',
   role: 'Texte und Tonalität',
   color: 3,
+  mark: null,
   model: null,
   canDraw: true,
   scope: 'personal',

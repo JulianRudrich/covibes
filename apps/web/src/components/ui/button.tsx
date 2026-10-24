@@ -20,6 +20,8 @@ const buttonVariants = cva(
       size: {
         m: 'h-8 px-3.5 text-ui',
         s: 'h-7 px-3 text-small',
+        /** The actions of the login and the message pages (spec 36c). */
+        l: 'h-[46px] px-5 text-[14px]',
       },
     },
     defaultVariants: {

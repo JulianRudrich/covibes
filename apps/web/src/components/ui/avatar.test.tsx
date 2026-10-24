@@ -42,8 +42,13 @@ describe('Avatar', () => {
 
   it('keeps the mark of a custom agent the same for the same id', () => {
     expect(customMark('agent-a')).toBe(customMark('agent-a'));
-    expect(CUSTOM_MARKS).toContain(customMark('agent-a'));
+    expect(Object.values(CUSTOM_MARKS)).toContain(customMark('agent-a'));
     expect(Object.values(CATALOG_MARKS)).not.toContain(customMark('agent-a'));
+  });
+
+  it('gives a custom agent the mark its creator picked (spec 36c)', () => {
+    expect(customMark('agent-a', 'leaf')).toBe(CUSTOM_MARKS.leaf);
+    expect(customMark('agent-a', null)).toBe(customMark('agent-a'));
   });
 
   it.each([

@@ -36,7 +36,7 @@ Third part of spec 36 (the design pass).
 
 ### Shared (`packages/shared`)
 - `agents/custom.ts`: `CUSTOM_AGENT_MARKS` (the twelve names), `customAgentMarkSchema`; `mark` (nullable) in the fields of create and update and in `customAgentSummarySchema`.
-- `projects.ts`: `ProjectSummary` gets `phase`, `members` (`{ userId, name }`, the signed-in person first, then by joining) and `agents` (the team in the order of `loadProjectAgents`, each `{ key }` plus, for a custom agent, `{ name, color, mark }`). Tests for the schemas.
+- `projects.ts`: `ProjectSummary` gets `phase`, `members` (`{ userId, name }`, the signed-in person first, then by joining) and `agents` (the team in the order of `loadProjectAgents`, each `{ key }` plus, for a custom agent, `{ name, color, mark }`). Answer formats are types here like every other answer of the API; the input schemas carry the mark and have tests.
 
 ### Server (`apps/server`)
 - `api/custom-agents.ts`: stores and returns `mark`; `api/agents.ts` and `api/share.ts`: the directories carry it.
@@ -51,7 +51,7 @@ Third part of spec 36 (the design pass).
 - `components/page-message.tsx`: the message pages in the new type.
 - `components/app-header.tsx`: 64 px, the larger avatar.
 - `features/projects/project-list-page.tsx` and a new `project-card.tsx`: greeting, search, cards, the new-project card; `create-project-dialog.tsx` opens from both buttons.
-- `components/ui/phase-segments.tsx`: the four segments, shared by the phase bar and the cards.
+- `components/ui/phase-segments.tsx`: one segment of the phase bar, shared by the phase bar and the cards.
 - **i18n:** `auth.hero.*`, `auth.noPassword`, `projects.greeting.*`, `projects.search*`, `projects.newCard.*`, `projects.step`, `projects.more`, `agentEditor.mark`, `agentEditor.marks.*`, `agentEditor.preview.*` (German and English).
 
 ### Docs
@@ -66,10 +66,20 @@ Third part of spec 36 (the design pass).
 - Spec 36a and 36b, spec 19 (custom agents), 22a (what waits), 24 (phases), 33 (welcome), 21a (invitations)
 
 ## Checklist
-- [ ] The login matches draft E at 1440 × 900 in light and dark; sign-in by link and by GitLab work as before; below 960 px the form stands alone.
-- [ ] Invitation and message pages show in the new type, with every state as before.
-- [ ] The project list matches draft F in light and dark: greeting, search, cards with phase, team and what waits, the new-project card; the search filters; the welcome still shows without projects.
-- [ ] The server's project list delivers phase, members and team under RLS; tests cover it.
-- [ ] The agent editor matches draft G in light and dark; the chosen mark is stored, shows everywhere the agent shows (chat, canvas, team, "Im Raum", project cards), and agents without one keep their mark.
-- [ ] Text reaches 4.5:1 on its background in both themes on the new screens.
-- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm format:check`, `pnpm test`, `pnpm db:types:check` and `pnpm build` pass; `progress-tracker.md` and `ui-context.md` are updated.
+- [x] The login matches draft E at 1440 × 900 in light and dark; sign-in by link and by GitLab work as before; below 960 px the form stands alone.
+- [x] Invitation and message pages show in the new type, with every state as before.
+- [x] The project list matches draft F in light and dark: greeting, search, cards with phase, team and what waits, the new-project card; the search filters; the welcome still shows without projects.
+- [x] The server's project list delivers phase, members and team under RLS; tests cover it.
+- [x] The agent editor matches draft G in light and dark; the chosen mark is stored, shows everywhere the agent shows (chat, canvas, team, "Im Raum", project cards), and agents without one keep their mark.
+- [x] Text reaches 4.5:1 on its background in both themes on the new screens.
+- [x] `pnpm lint`, `pnpm typecheck`, `pnpm format:check`, `pnpm test`, `pnpm db:types:check` and `pnpm build` pass; `progress-tracker.md` and `ui-context.md` are updated.
+
+## Implementation notes (2026-10-24)
+- **Split:** the rest of the design pass was too large for one unit; 36d (the other dialogs and screens, and confirming the derived looks) and 36e (the mobile view) follow, recorded in `00-overview.md`.
+- **Database:** migration `0043_custom_agent_marks.sql` adds `custom_agents.mark` (null or one of the twelve names, checked), grants insert and update of the column to `covibes_app`, and drops and creates `project_agent_directory` and `shared_agent_directory` with the mark (the return type changed). Database tests: the mark is stored, a wrong name is refused (23514), a viewer changes nothing, both directories return it.
+- **Shared:** `CUSTOM_AGENT_MARKS`, `customAgentMarkSchema`, `isCustomAgentMark`; `mark` in the create (default null) and update input and in `customAgentSummarySchema` (an unknown name reads as null). `ProjectSummary` has `phase`, `members` and `agents` (`ProjectCardMember`, `ProjectCardAgent`).
+- **Server:** the custom-agent routes store and return the mark; both directories carry it. The project list reads the people and teams of all listed projects in one query each inside the same `withUser` transaction and reads a project's directory only when its team has a custom agent; the ordering of a team moved into `orderTeam` (`api/agents.ts`), so the cards and the workspace order it alike. Creating a project answers with the same summary.
+- **Web:** `CUSTOM_MARKS` is keyed by name; `derivedMark(id)` keeps the shape existing agents had, `customMark(id, mark)` prefers a picked one. `DialogContent` got `aside`; `Avatar` the size 52; `Button` the size `l` (46 px). New: `login-scene.tsx`, `agent-preview.tsx`, `project-card.tsx`, `greeting.ts`, `phase-segments.tsx`. `PageMessage` and `AppHeader` changed for every page that uses them. `CreateProjectDialog` takes a `trigger`, so the dashed card opens it. The i18n key `auth.tagline` left, since the scene's headline says it now.
+- **Tests:** database (mark), shared (mark input), server (mark through create, update and the directory; the cards' phase, people with the signed-in person first, and team with a custom agent's look), web (login headline, the project cards with "+N" and a custom mark, greeting, search, the dashed card, the mark picker, the preview following name, color and mark, an existing agent keeping its mark until another is picked, a picked mark winning in `customMark`). Seven tests of the old looks were updated.
+- **Verified** with the running `pnpm dev` (the migration applied once to the development database by a throwaway script) and the browser as olga at 1440 × 900: the project list in dark and light (column 1120 px, header 64 px, three columns, cards with phase, "You", marks and "+1"/"+2"), the agent editor of "Vereinsjurist" in light (its derived mark "Rahmen" shown as chosen; a horizontal scroll bar in the form was found and fixed) and "Create your own agent" in dark; picking "Blatt" and saving showed the leaf in the chat and in the project list's answer, then the agent got its former shape back as a stored "frame". The login on a signed-out origin in dark and light (scene 868 px, form 560 px, fields and buttons 46 px) and at 800 px without the scene; the not-found page; no console errors. The theme was switched in the page only, so the device's choice stayed as it was.
+- **Contrast:** the new screens use only token pairs that spec 36a checked in both themes (`text-3` on app, panel and canvas, an agent's dark on its tint, `on-ink` on ink, `note-text` on the note); no new colors.

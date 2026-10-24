@@ -23,7 +23,9 @@ export function AgentAvatar({
       kind="agent"
       agent={agent.look}
       label={agent.name}
-      mark={isAgentKey(agent.key) ? CATALOG_MARKS[agent.key] : customMark(agent.key)}
+      mark={
+        isAgentKey(agent.key) ? CATALOG_MARKS[agent.key] : customMark(agent.key, agent.custom?.mark)
+      }
       size={size}
       style={style}
       className={cn(

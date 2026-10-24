@@ -185,7 +185,13 @@ export function shareViewRoutes(db: AppDb, documents: BoardDocuments, limiter: R
         .execute();
       // The join on `users` finds nobody here, so no decision says who confirmed it.
       const decisions = await loadDecisions(trx, project.id);
-      const agents = await sql<{ id: string; name: string; color: number; deleted: boolean }>`
+      const agents = await sql<{
+        id: string;
+        name: string;
+        color: number;
+        mark: string | null;
+        deleted: boolean;
+      }>`
         select * from public.shared_agent_directory()
       `.execute(trx);
       return { project, boards, criteria, decisions, agents: agents.rows };
@@ -208,6 +214,7 @@ export function shareViewRoutes(db: AppDb, documents: BoardDocuments, limiter: R
           name: agent.name,
           role: '',
           color: agent.color,
+          mark: agent.mark,
           model: null,
           canDraw: true,
           scope: 'project',

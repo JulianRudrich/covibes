@@ -1,15 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
 import { getRouteApi, Link } from '@tanstack/react-router';
+import { GitBranch } from 'lucide-react';
 import { useState, type SubmitEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
 import { Logo } from '@web/components/logo';
 import { Button } from '@web/components/ui/button';
-import { Card, Notice } from '@web/components/ui/card';
+import { Notice } from '@web/components/ui/card';
 import { Input, Label } from '@web/components/ui/input';
 import { LanguageSwitch } from '@web/features/account/language-switch';
 import { authErrorKey, redirectErrorKey, type AuthErrorKey } from '@web/features/auth/auth-errors';
+import { LoginScene } from '@web/features/auth/login-scene';
 import { safeRedirectPath } from '@web/features/auth/redirect-path';
 import { configQuery } from '@web/features/auth/session';
 import { currentLanguage } from '@web/i18n/language';
@@ -70,18 +72,29 @@ export function LoginPage() {
   const emailReady = config?.emailLogin !== false;
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-bg-app p-6 text-text">
-      <div className="w-full max-w-[380px]">
-        <div className="flex items-center justify-center gap-2.5">
-          <Logo />
-          <span className="font-display text-[18px] font-bold tracking-[-0.025em]">
-            {t('common.wordmark')}
-          </span>
-        </div>
-        <p className="mt-2 mb-5 text-center text-ui text-text-3">{t('auth.tagline')}</p>
-        <Card className="p-6">
-          <h1 className="m-0 text-display font-semibold">{t('auth.title')}</h1>
-          <p className="mt-1 mb-5 text-ui text-text-3">{t('auth.subtitle')}</p>
+    <main className="grid min-h-dvh grid-cols-[minmax(0,1fr)_560px] bg-bg-app text-text max-[960px]:grid-cols-1">
+      <div className="contents max-[960px]:hidden">
+        <LoginScene />
+      </div>
+      <section
+        aria-labelledby="login-title"
+        className="flex flex-col justify-center px-[88px] py-10 max-[960px]:items-center max-[960px]:px-6"
+      >
+        <div className="w-full max-w-[384px]">
+          {/* Without the scene the brand stands above the form. */}
+          <div className="mb-10 hidden items-center gap-2.5 max-[960px]:flex">
+            <Logo />
+            <span className="font-display text-[18px] font-bold tracking-[-0.025em]">
+              {t('common.wordmark')}
+            </span>
+          </div>
+          <h2
+            id="login-title"
+            className="m-0 font-display text-[28px] font-semibold tracking-[-0.02em]"
+          >
+            {t('auth.title')}
+          </h2>
+          <p className="mt-2 mb-7 text-body text-text-3">{t('auth.subtitle')}</p>
 
           {target.startsWith('/invite/') ? (
             <Notice className="mb-4">{t('auth.invited')}</Notice>
@@ -94,11 +107,13 @@ export function LoginPage() {
           ) : null}
 
           <Button
+            size="l"
             className="w-full"
             disabled={!gitlabReady}
             aria-describedby={gitlabReady ? undefined : 'gitlab-hint'}
             onClick={() => void signInWithGitlab()}
           >
+            <GitBranch size={17} strokeWidth={2} aria-hidden="true" />
             {t('auth.gitlab')}
           </Button>
           {gitlabReady ? null : (
@@ -109,10 +124,10 @@ export function LoginPage() {
 
           {emailReady ? (
             <>
-              <div className="my-5 flex items-center gap-3 text-small text-text-4">
-                <span aria-hidden="true" className="h-px flex-1 bg-border" />
+              <div className="my-[22px] flex items-center gap-3 text-small text-text-3">
+                <span aria-hidden="true" className="h-px flex-1 bg-border-strong" />
                 {t('auth.or')}
-                <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                <span aria-hidden="true" className="h-px flex-1 bg-border-strong" />
               </div>
 
               {sentTo ? (
@@ -125,6 +140,7 @@ export function LoginPage() {
                   ) : null}
                   <Button
                     variant="ghost"
+                    size="l"
                     onClick={() => {
                       setSentTo(undefined);
                     }}
@@ -133,14 +149,21 @@ export function LoginPage() {
                   </Button>
                 </div>
               ) : (
-                <form className="grid gap-2" noValidate onSubmit={(event) => void sendLink(event)}>
-                  <Label htmlFor="login-email">{t('auth.emailLabel')}</Label>
+                <form
+                  className="grid gap-1.5"
+                  noValidate
+                  onSubmit={(event) => void sendLink(event)}
+                >
+                  <Label htmlFor="login-email" className="font-semibold">
+                    {t('auth.emailLabel')}
+                  </Label>
                   <Input
                     id="login-email"
                     type="email"
                     autoComplete="email"
                     placeholder={t('auth.emailPlaceholder')}
                     value={email}
+                    className="h-[46px] rounded-[14px] px-4 text-[14px]"
                     aria-invalid={error === 'auth.errors.invalidEmail'}
                     aria-describedby={error ? 'login-error' : undefined}
                     onChange={(event) => {
@@ -150,18 +173,23 @@ export function LoginPage() {
                   <Button
                     variant="primary"
                     type="submit"
-                    className="mt-1 w-full"
+                    size="l"
+                    className="mt-1.5 w-full"
                     disabled={sending}
                   >
                     {sending ? t('auth.sending') : t('auth.sendLink')}
                   </Button>
                 </form>
               )}
+              <p className="mt-[22px] mb-0 text-small leading-normal text-text-3">
+                {t('auth.noPassword')}
+              </p>
             </>
           ) : null}
-        </Card>
-        <LanguageSwitch className="mt-4" />
-      </div>
+
+          <LanguageSwitch className="mt-12 -ml-1 justify-start" />
+        </div>
+      </section>
     </main>
   );
 }

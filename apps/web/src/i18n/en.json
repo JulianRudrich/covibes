@@ -28,7 +28,19 @@
       "generic": "That did not work. Please try again."
     },
     "invited": "You were invited to a project. Sign in to continue to the invitation.",
-    "tagline": "Plan together with chat, canvas and AI agents."
+    "hero": {
+      "title": "Plan together.\nCoding agents build.",
+      "text": "Chat and canvas for your team and specialized AI agents. A neutral moderator guides you from the idea to the plan, which goes straight into the repository.",
+      "idea": "Idea",
+      "decision": "Decision",
+      "comparison": "Comparison A/B",
+      "note": "Plan by Friday",
+      "question": "What speaks for our own server?",
+      "objection": "And who runs it at night?",
+      "person": "Alex",
+      "agents": "Moderator, Backend, Critic, Data and six more specialists"
+    },
+    "noPassword": "No password needed: the link in the mail signs you in directly."
   },
   "account": {
     "menu": "Account",
@@ -69,7 +81,25 @@
       "languageHint": "The plan, the exports and everything Covibes writes into the repository are written in this language. The agents answer in the language of the message."
     },
     "waiting_one": "{{count}} waiting for you",
-    "waiting_other": "{{count}} waiting for you"
+    "waiting_other": "{{count}} waiting for you",
+    "heading": "Your projects",
+    "greeting": {
+      "morning": "Good morning, {{name}}",
+      "day": "Hello, {{name}}",
+      "evening": "Good evening, {{name}}"
+    },
+    "search": "Search projects",
+    "noMatch": "No project has that name.",
+    "step": "Step {{step}} of {{total}}",
+    "people": "People in the project",
+    "team": "Agents on the team",
+    "more": "+{{count}}",
+    "moreLabel": "{{count}} more",
+    "you": "You",
+    "newCard": {
+      "title": "New project",
+      "text": "The moderator suggests fitting specialists"
+    }
   },
   "workspace": {
     "projectMenu": "project menu",
@@ -393,7 +423,30 @@
     "deleteConfirm": "Delete for good",
     "deleteHint": "The agent leaves every team. Its messages stay.",
     "limitReached": "You cannot have more than 20 custom agents here.",
-    "failed": "That did not work. Please try again."
+    "failed": "That did not work. Please try again.",
+    "mark": "Mark",
+    "marks": {
+      "circle": "Circle",
+      "diamond": "Diamond",
+      "triangle": "Triangle",
+      "frame": "Frame",
+      "plus": "Plus",
+      "drop": "Drop",
+      "leaf": "Leaf",
+      "moon": "Moon",
+      "star": "Star",
+      "dots": "Two dots",
+      "ring": "Ring",
+      "arrow": "Arrow"
+    },
+    "preview": {
+      "title": "Preview",
+      "unnamed": "New agent",
+      "message": "I'll look into it and suggest a solution.",
+      "block": "First draft",
+      "blockType": "Block",
+      "everywhere": "Mark and color are the same everywhere: in the chat, on the canvas and in the overview."
+    }
   },
   "agentTemplates": {
     "critic": "You look for weak points: risks, contradictions, unchecked assumptions, missing parts and costs nobody has named yet.\nBe constructive and specific: name the most important problem first, say why it matters and how the team could check or solve it. One strong point beats five weak ones.\nSay clearly what you think. Criticize ideas, never people, and say so when something is sound.",

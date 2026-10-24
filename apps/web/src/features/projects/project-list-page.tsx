@@ -1,44 +1,19 @@
-import type { ProjectSummary } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Plus, Search } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AppHeader } from '@web/components/app-header';
 import { Avatar } from '@web/components/ui/avatar';
-import { Badge } from '@web/components/ui/badge';
 import { Card, Notice } from '@web/components/ui/card';
 import { AccountMenu } from '@web/features/account/account-menu';
 import { sessionQuery } from '@web/features/auth/session';
 import { NotificationBell } from '@web/features/notifications/notification-bell';
 import { CreateProjectDialog } from '@web/features/projects/create-project-dialog';
+import { greetingKey } from '@web/features/projects/greeting';
+import { ProjectCard } from '@web/features/projects/project-card';
 import { projectsQuery } from '@web/features/projects/queries';
-import { formatRelativeTime, initialsOf } from '@web/lib/format';
-
-function ProjectRow({ project }: { project: ProjectSummary }) {
-  const { t, i18n } = useTranslation();
-  return (
-    <li>
-      <Link
-        to="/p/$projectId"
-        params={{ projectId: project.id }}
-        className="flex items-center justify-between gap-4 rounded-card border border-border bg-bg-panel px-4 py-3 text-text no-underline shadow-panel transition-colors hover:border-border-strong hover:text-text"
-      >
-        <span className="truncate text-body font-medium">{project.name}</span>
-        <span className="flex shrink-0 items-center gap-3 text-small text-text-3">
-          {project.waiting > 0 ? (
-            <span className="flex h-5 items-center rounded-[10px] bg-ink px-2 text-badge font-semibold whitespace-nowrap text-on-ink tabular-nums">
-              {t('projects.waiting', { count: project.waiting })}
-            </span>
-          ) : null}
-          <Badge>{t(`projects.roles.${project.role}`)}</Badge>
-          {t('projects.updated', {
-            time: formatRelativeTime(project.updatedAt, i18n.language),
-          })}
-        </span>
-      </Link>
-    </li>
-  );
-}
+import { initialsOf } from '@web/lib/format';
 
 const WELCOME_STEPS = ['collect', 'decide', 'handOver'] as const;
 
@@ -50,8 +25,10 @@ const WELCOME_STEPS = ['collect', 'decide', 'handOver'] as const;
 function Welcome() {
   const { t } = useTranslation();
   return (
-    <Card className="flex flex-col items-center px-8 py-10 text-center">
-      <h2 className="m-0 text-[20px] font-semibold tracking-[-0.01em]">{t('welcome.title')}</h2>
+    <Card className="mx-auto flex max-w-[760px] flex-col items-center px-8 py-10 text-center">
+      <h2 className="m-0 font-display text-[22px] font-semibold tracking-[-0.02em]">
+        {t('welcome.title')}
+      </h2>
       <p className="mt-2 mb-0 max-w-[440px] text-body leading-normal text-text-2">
         {t('welcome.text')}
       </p>
@@ -64,7 +41,7 @@ function Welcome() {
             >
               {index + 1}
             </span>
-            <h3 className="m-0 text-ui font-semibold text-text">
+            <h3 className="m-0 font-sans text-ui font-semibold text-text">
               {t(`welcome.steps.${step}.title`)}
             </h3>
             <p className="m-0 text-small leading-snug text-text-3">
@@ -74,9 +51,37 @@ function Welcome() {
         ))}
       </ol>
       <div className="mt-8">
-        <CreateProjectDialog label={t('welcome.create')} />
+        <CreateProjectDialog label={t('welcome.create')} className="h-10 px-[18px]" />
       </div>
     </Card>
+  );
+}
+
+/** The last card of the list (draft F): a dashed card that opens "Neues Projekt". */
+function NewProjectCard() {
+  const { t } = useTranslation();
+  return (
+    <li className="flex">
+      <CreateProjectDialog
+        trigger={
+          <button
+            type="button"
+            className="group flex min-h-[196px] w-full cursor-pointer flex-col items-center justify-center gap-2.5 rounded-surface border-2 border-dashed border-border-strong bg-transparent p-5 text-small text-text-3 transition-colors hover:border-edge focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          >
+            <span
+              aria-hidden="true"
+              className="grid size-10 place-items-center rounded-full bg-bg-panel text-text-2 shadow-panel transition-colors group-hover:text-text"
+            >
+              <Plus size={17} strokeWidth={2.2} />
+            </span>
+            <span className="text-body font-semibold text-text-2">
+              {t('projects.newCard.title')}
+            </span>
+            <span>{t('projects.newCard.text')}</span>
+          </button>
+        }
+      />
+    </li>
   );
 }
 
@@ -84,6 +89,14 @@ export function ProjectListPage() {
   const { t } = useTranslation();
   const user = useQuery(sessionQuery).data;
   const projects = useQuery(projectsQuery);
+  const [query, setQuery] = useState('');
+
+  const needle = query.trim().toLocaleLowerCase();
+  const shown = (projects.data ?? []).filter((project) =>
+    project.name.toLocaleLowerCase().includes(needle),
+  );
+  const none = projects.data?.length === 0;
+  const firstName = user?.name.split(' ')[0] ?? '';
 
   return (
     <div className="min-h-dvh bg-bg-app text-text">
@@ -94,7 +107,7 @@ export function ProjectListPage() {
             <Avatar
               kind="human"
               tone="strong"
-              size={28}
+              size={32}
               label={user.name}
               initials={initialsOf(user.name)}
             />
@@ -102,27 +115,60 @@ export function ProjectListPage() {
         ) : null}
       </AppHeader>
 
-      <main className="mx-auto w-full max-w-[760px] px-6 pt-8 pb-16">
-        <div className="mb-5 flex items-center justify-between gap-4">
-          <h1 className="m-0 text-[20px] font-semibold tracking-[-0.01em]">
-            {t('projects.title')}
-          </h1>
-          {/* The welcome below has the button for the first project; this one steps back. */}
-          <CreateProjectDialog quiet={projects.data?.length === 0} />
+      <main className="mx-auto w-full max-w-[1168px] px-6 pt-7 pb-16">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            {firstName ? (
+              <p className="mt-0 mb-1.5 text-body text-text-3">
+                {t(greetingKey(new Date().getHours()), { name: firstName })}
+              </p>
+            ) : null}
+            <h1 className="m-0 font-display text-[34px] font-semibold tracking-[-0.03em]">
+              {t('projects.heading')}
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            {none ? null : (
+              <label className="flex h-10 w-[240px] items-center gap-2 rounded-full bg-bg-panel px-3.5 text-text-3 inset-ring inset-ring-border focus-within:inset-ring-ink">
+                <Search size={15} strokeWidth={2} aria-hidden="true" className="shrink-0" />
+                <input
+                  type="search"
+                  value={query}
+                  placeholder={t('projects.search')}
+                  aria-label={t('projects.search')}
+                  className="h-full min-w-0 flex-1 border-0 bg-transparent text-ui text-text outline-none placeholder:text-text-3"
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                  }}
+                />
+              </label>
+            )}
+            {/* The welcome below has the button for the first project; this one steps back. */}
+            <CreateProjectDialog quiet={none} className="h-10 px-[18px]" />
+          </div>
         </div>
 
         {projects.isPending ? (
           <p className="text-ui text-text-3">{t('common.loading')}</p>
         ) : projects.isError ? (
           <Notice tone="danger">{t('projects.loadError')}</Notice>
-        ) : projects.data.length === 0 ? (
+        ) : none ? (
           <Welcome />
         ) : (
-          <ul className="m-0 grid list-none gap-2 p-0" aria-label={t('projects.title')}>
-            {projects.data.map((project) => (
-              <ProjectRow key={project.id} project={project} />
-            ))}
-          </ul>
+          <>
+            <ul
+              className="m-0 grid list-none grid-cols-3 gap-4 p-0 max-[1080px]:grid-cols-2 max-[720px]:grid-cols-1"
+              aria-label={t('projects.title')}
+            >
+              {shown.map((project) => (
+                <ProjectCard key={project.id} project={project} userId={user?.id} />
+              ))}
+              {needle === '' ? <NewProjectCard /> : null}
+            </ul>
+            {shown.length === 0 ? (
+              <p className="mt-2 text-body text-text-3">{t('projects.noMatch')}</p>
+            ) : null}
+          </>
         )}
       </main>
     </div>

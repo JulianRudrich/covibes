@@ -153,6 +153,7 @@ export interface CustomAgents {
   deleted_at: Timestamp | null;
   id: Generated<string>;
   instructions: Generated<string>;
+  mark: string | null;
   model: string | null;
   name: string;
   owner_id: string;

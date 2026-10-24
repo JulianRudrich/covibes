@@ -4,9 +4,11 @@ import {
   agentInitials,
   agentKeySchema,
   createCustomAgentInputSchema,
+  CUSTOM_AGENT_MARKS,
   customAgentNameSchema,
   isCatalogAgentName,
   isCustomAgentKey,
+  isCustomAgentMark,
   mentionHandle,
   teamMentionNames,
   updateCustomAgentInputSchema,
@@ -69,6 +71,7 @@ describe('custom agent input', () => {
       canDraw: true,
       model: null,
       color: 3,
+      mark: null,
       projectId: null,
       template: null,
     });
@@ -83,6 +86,15 @@ describe('custom agent input', () => {
         template: 'moderator',
       }).success,
     ).toBe(false);
+  });
+
+  it('takes one of the twelve marks, or none', () => {
+    expect(updateCustomAgentInputSchema.parse({ mark: 'leaf' })).toEqual({ mark: 'leaf' });
+    expect(updateCustomAgentInputSchema.parse({ mark: null })).toEqual({ mark: null });
+    expect(updateCustomAgentInputSchema.safeParse({ mark: 'heart' }).success).toBe(false);
+    expect(CUSTOM_AGENT_MARKS).toHaveLength(12);
+    expect(isCustomAgentMark('moon')).toBe(true);
+    expect(isCustomAgentMark('crescent')).toBe(false);
   });
 
   it('changes at least one field', () => {

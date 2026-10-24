@@ -30,6 +30,7 @@ type DirectoryRow = {
   name: string;
   role: string;
   color: number;
+  mark: string | null;
   model: string | null;
   can_draw: boolean;
   scope: string;
@@ -40,7 +41,7 @@ type DirectoryRow = {
 
 /**
  * The custom agents the project refers to (spec 19), through the database function that checks
- * membership: members see name, role and color of every such agent, never its instructions.
+ * membership: members see name, role, color and mark of every such agent, never its instructions.
  */
 export async function loadAgentDirectory(
   db: Kysely<DB> | Transaction<DB>,
@@ -55,6 +56,7 @@ export async function loadAgentDirectory(
       name: row.name,
       role: row.role,
       color: row.color,
+      mark: row.mark,
       model: isAgentModel(row.model) ? row.model : null,
       canDraw: row.can_draw,
       scope: row.scope,
@@ -80,6 +82,17 @@ export async function loadProjectAgents(
     .select(['agent_key', 'model'])
     .where('project_id', '=', projectId)
     .execute();
+  return orderTeam(rows, directory);
+}
+
+/**
+ * The rows of a team in the order every view shows it: catalog agents in catalog order, then the
+ * custom agents of the directory by name. Keys that are neither are left out.
+ */
+export function orderTeam(
+  rows: readonly { agent_key: string; model: string | null }[],
+  directory: readonly CustomAgentSummary[],
+): ProjectAgent[] {
   const custom = directory.filter((agent) => !agent.deleted).map((agent) => agent.key);
   const position = (key: string) =>
     isAgentKey(key) ? AGENT_KEYS.indexOf(key) : AGENT_KEYS.length + custom.indexOf(key);

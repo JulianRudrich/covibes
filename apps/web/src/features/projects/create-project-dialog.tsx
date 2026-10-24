@@ -6,7 +6,7 @@ import {
 } from '@covibes/shared';
 import { useNavigate } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
-import { useState, type SubmitEvent } from 'react';
+import { useState, type ReactElement, type SubmitEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
@@ -19,9 +19,20 @@ import { currentLanguage } from '@web/i18n/language';
 /**
  * The button that opens the dialog "Neues Projekt". `label` names it differently, e.g. for the
  * first project of someone new (spec 33); `quiet` makes it the second choice where another
- * button of the page is the first.
+ * button of the page is the first. `trigger` replaces the button, e.g. with the card "Neues
+ * Projekt" of the project list (spec 36c); `className` sizes the button.
  */
-export function CreateProjectDialog({ label, quiet = false }: { label?: string; quiet?: boolean }) {
+export function CreateProjectDialog({
+  label,
+  quiet = false,
+  trigger,
+  className,
+}: {
+  label?: string;
+  quiet?: boolean;
+  trigger?: ReactElement;
+  className?: string;
+}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const createProject = useCreateProject();
@@ -63,10 +74,12 @@ export function CreateProjectDialog({ label, quiet = false }: { label?: string; 
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
       <DialogTrigger asChild>
-        <Button variant={quiet ? 'secondary' : 'primary'}>
-          <Plus size={14} strokeWidth={2.2} aria-hidden="true" />
-          {label ?? t('projects.create')}
-        </Button>
+        {trigger ?? (
+          <Button variant={quiet ? 'secondary' : 'primary'} className={className}>
+            <Plus size={15} strokeWidth={2.2} aria-hidden="true" />
+            {label ?? t('projects.create')}
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent
         title={t('projects.dialog.title')}

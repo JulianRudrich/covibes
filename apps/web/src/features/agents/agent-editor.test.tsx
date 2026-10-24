@@ -1,9 +1,9 @@
-import type { CustomAgent } from '@covibes/shared';
+import type { CustomAgent, CustomAgentMark } from '@covibes/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { customMark } from '@web/components/ui/agent-marks';
+import { CUSTOM_MARKS, customMark, derivedMark } from '@web/components/ui/agent-marks';
 import { Dialog } from '@web/components/ui/dialog';
 import { TooltipProvider } from '@web/components/ui/tooltip';
 import { AgentEditor } from '@web/features/agents/agent-editor';
@@ -20,6 +20,7 @@ const JURIST: CustomAgent = {
   role: 'Prüft Verträge',
   instructions: 'Nenne die Rechtsgrundlage.',
   color: 2,
+  mark: null,
   model: null,
   canDraw: true,
   scope: 'personal',
@@ -122,6 +123,7 @@ describe('AgentEditor: a new agent', () => {
       canDraw: false,
       model: 'claude-sonnet-5-5',
       color: 2,
+      mark: 'circle',
       projectId: PROJECT.id,
       template: 'critic',
     });
@@ -154,6 +156,7 @@ describe('AgentEditor: a new agent', () => {
       canDraw: true,
       model: null,
       color: 4,
+      mark: 'circle',
       projectId: null,
       template: null,
     });
@@ -295,6 +298,7 @@ describe('custom agents in the team menu', () => {
     name: 'Gast',
     role: 'Zu Besuch',
     color: 6,
+    mark: null,
     model: null,
     canDraw: true,
     scope: 'personal' as const,
@@ -378,5 +382,77 @@ describe('custom agents in the team menu', () => {
     const { popover } = renderMenu({ canEdit: false });
     expect(popover).toHaveTextContent('UX WriterTexte und Tonalität · Geteilt');
     expect(within(popover).queryAllByRole('button')).toEqual([]);
+  });
+});
+
+describe('AgentEditor: the mark (spec 36c)', () => {
+  const MARK_NAMES: Record<CustomAgentMark, string> = {
+    circle: 'Kreis',
+    diamond: 'Raute',
+    triangle: 'Dreieck',
+    frame: 'Rahmen',
+    plus: 'Plus',
+    drop: 'Tropfen',
+    leaf: 'Blatt',
+    moon: 'Mond',
+    star: 'Stern',
+    dots: 'Zwei Punkte',
+    ring: 'Ring',
+    arrow: 'Pfeil',
+  };
+
+  it('stores the mark the creator picks, and the preview follows name, color and mark', async () => {
+    const calls = stubApi(() => json(JURIST, 201));
+    renderEditor(null);
+    const preview = screen.getByRole('complementary');
+    expect(preview).toHaveTextContent('Neuer Agent');
+    expect(
+      screen.getAllByRole('radio', {
+        name: /^(Kreis|Raute|Dreieck|Rahmen|Plus|Tropfen|Blatt|Mond|Stern|Zwei Punkte|Ring|Pfeil)$/,
+      }),
+    ).toHaveLength(12);
+    expect(screen.getByRole('radio', { name: 'Kreis' })).toBeChecked();
+
+    type('Name', 'Jurist');
+    type('Rolle', 'Prüft Verträge');
+    fireEvent.click(screen.getByRole('radio', { name: 'Blatt' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Rot' }));
+    expect(preview).toHaveTextContent('JuristPrüft Verträge');
+    expect(
+      within(preview).getAllByRole('img', { name: 'Jurist' })[0]?.querySelector('path'),
+    ).toHaveAttribute('d', CUSTOM_MARKS.leaf);
+    expect(preview.firstElementChild).toHaveClass('agent-color-2');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Erstellen' }));
+    await waitFor(() => {
+      expect(calls).toHaveLength(1);
+    });
+    expect(calls[0]?.body).toMatchObject({ mark: 'leaf', color: 2 });
+  });
+
+  it('shows the mark an agent wears without a picked one, and sends one only once another is picked', async () => {
+    const calls = stubApi(() => json(JURIST));
+    const { onDone } = renderEditor(JURIST);
+    expect(screen.getByRole('radio', { name: MARK_NAMES[derivedMark(JURIST.key)] })).toBeChecked();
+
+    type('Rolle', 'Prüft Mietverträge');
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
+    await waitFor(() => {
+      expect(onDone).toHaveBeenCalledOnce();
+    });
+    expect(calls[0]?.body).toEqual({ role: 'Prüft Mietverträge' });
+  });
+
+  it('keeps a picked mark and changes it', async () => {
+    const calls = stubApi(() => json(JURIST));
+    const { onDone } = renderEditor({ ...JURIST, mark: 'star' });
+    expect(screen.getByRole('radio', { name: 'Stern' })).toBeChecked();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Mond' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
+    await waitFor(() => {
+      expect(onDone).toHaveBeenCalledOnce();
+    });
+    expect(calls[0]?.body).toEqual({ mark: 'moon' });
   });
 });

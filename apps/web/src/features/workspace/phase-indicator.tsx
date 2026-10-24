@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
+import { PhaseSegment } from '@web/components/ui/phase-segments';
 import { Popover, PopoverContent, PopoverTrigger } from '@web/components/ui/popover';
-import { cn } from '@web/lib/cn';
 
 type PhaseIndicatorProps = {
   active: Phase;
@@ -52,17 +52,7 @@ export function PhaseIndicator({ active, onSelect, onAsk }: PhaseIndicatorProps)
               // A 6 px segment in a target large enough to hit.
               className="group grid h-7 w-[34px] cursor-pointer place-items-center rounded-full hover:bg-wash focus-visible:outline-2 focus-visible:outline-ink"
             >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  'relative h-1.5 w-[30px] overflow-hidden rounded-full',
-                  status === 'done' ? 'bg-text' : 'bg-track',
-                )}
-              >
-                {status === 'active' ? (
-                  <span className="absolute inset-y-0 left-0 w-[60%] rounded-full bg-text opacity-55" />
-                ) : null}
-              </span>
+              <PhaseSegment status={status} className="w-[30px]" />
             </PopoverTrigger>
             <PopoverContent
               align="center"

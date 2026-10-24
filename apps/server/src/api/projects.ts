@@ -1,6 +1,7 @@
 import type { DB } from '@covibes/db';
 import {
   createProjectInputSchema,
+  isAgentKey,
   projectIdSchema,
   projectSettingsSchema,
   setPhaseInputSchema,
@@ -13,7 +14,7 @@ import {
 import { Hono } from 'hono';
 import { sql, type Transaction } from 'kysely';
 
-import { loadAgentDirectory, loadProjectAgents } from '@server/api/agents';
+import { loadAgentDirectory, loadProjectAgents, orderTeam } from '@server/api/agents';
 import { apiError } from '@server/api/errors';
 import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
@@ -31,25 +32,76 @@ function summaries(trx: Transaction<DB>, userId: string) {
       'projects.name',
       'project_members.role',
       'projects.updated_at',
+      'projects.phase',
       // What waits for the user there (spec 22a).
       sql<number>`public.project_waiting_count(projects.id)`.as('waiting'),
     ]);
 }
 
-function toSummary(row: {
+type SummaryRow = {
   id: string;
   name: string;
   role: ProjectSummary['role'];
   updated_at: Date;
+  phase: string;
   waiting: number;
-}): ProjectSummary {
-  return {
-    id: row.id,
-    name: row.name,
-    role: row.role,
-    updatedAt: row.updated_at.toISOString(),
-    waiting: row.waiting,
-  };
+};
+
+/**
+ * The summaries with what their cards show (spec 36c): the phase, the people and the team. The
+ * people and teams of all projects come in one query each; only a team with custom agents reads
+ * the project's directory, which names them.
+ */
+async function toSummaries(
+  trx: Transaction<DB>,
+  userId: string,
+  rows: readonly SummaryRow[],
+): Promise<ProjectSummary[]> {
+  const ids = rows.map((row) => row.id);
+  if (ids.length === 0) return [];
+  const members = await trx
+    .selectFrom('project_members')
+    .innerJoin('users', 'users.id', 'project_members.user_id')
+    .where('project_members.project_id', 'in', ids)
+    .select(['project_members.project_id', 'users.id as userId', 'users.name'])
+    .orderBy('project_members.created_at')
+    .orderBy('users.id')
+    .execute();
+  const teams = await trx
+    .selectFrom('project_agents')
+    .where('project_id', 'in', ids)
+    .select(['project_id', 'agent_key', 'model'])
+    .execute();
+
+  return Promise.all(
+    rows.map(async (row): Promise<ProjectSummary> => {
+      const people = members.filter((member) => member.project_id === row.id);
+      const team = teams.filter((agent) => agent.project_id === row.id);
+      const directory = team.some((agent) => !isAgentKey(agent.agent_key))
+        ? await loadAgentDirectory(trx, row.id)
+        : [];
+      const custom = new Map(directory.map((agent) => [agent.key, agent]));
+      return {
+        id: row.id,
+        name: row.name,
+        role: row.role,
+        updatedAt: row.updated_at.toISOString(),
+        waiting: row.waiting,
+        phase: toPhase(row.phase),
+        members: [
+          ...people.filter((member) => member.userId === userId),
+          ...people.filter((member) => member.userId !== userId),
+        ].map((member) => ({ userId: member.userId, name: member.name })),
+        agents: orderTeam(team, directory).map(({ key }) => {
+          const agent = custom.get(key);
+          return {
+            key,
+            custom: agent ? { name: agent.name, color: agent.color, mark: agent.mark } : null,
+          };
+        }),
+      };
+    }),
+  );
 }
 
 /** `/api/projects`: every route needs a session and reads through `withUser`. */
@@ -60,10 +112,14 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
   routes.get('/', async (c) => {
     const user = c.get('user');
     if (!user) return apiError(c, 'unauthorized');
-    const rows = await withUser(db, user.id, (trx) =>
-      summaries(trx, user.id).orderBy('projects.updated_at', 'desc').execute(),
+    const list = await withUser(db, user.id, async (trx) =>
+      toSummaries(
+        trx,
+        user.id,
+        await summaries(trx, user.id).orderBy('projects.updated_at', 'desc').execute(),
+      ),
     );
-    return c.json<ProjectSummary[]>(rows.map(toSummary));
+    return c.json<ProjectSummary[]>(list);
   });
 
   routes.post('/', async (c) => {
@@ -91,9 +147,14 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
       }>`select id from public.create_project(${input.data.name}, ${language})`.execute(trx);
       const id = created.rows[0]?.id;
       if (!id) throw new Error('create_project returned no project');
-      return summaries(trx, user.id).where('projects.id', '=', id).executeTakeFirstOrThrow();
+      const project = await summaries(trx, user.id)
+        .where('projects.id', '=', id)
+        .executeTakeFirstOrThrow();
+      const [summary] = await toSummaries(trx, user.id, [project]);
+      if (!summary) throw new Error('the new project has no summary');
+      return summary;
     });
-    return c.json<ProjectSummary>(toSummary(row), 201);
+    return c.json<ProjectSummary>(row, 201);
   });
 
   routes.get('/:projectId', async (c) => {
@@ -106,7 +167,7 @@ export function projectRoutes(db: AppDb, auth: Auth, live: LivePublisher) {
     const details = await withUser(db, user.id, async (trx) => {
       const project = await summaries(trx, user.id)
         .where('projects.id', '=', projectId.data)
-        .select(['projects.settings', 'projects.phase', 'projects.language'])
+        .select(['projects.settings', 'projects.language'])
         .executeTakeFirst();
       if (!project) return undefined;
       const settings = projectSettingsSchema.safeParse(project.settings);

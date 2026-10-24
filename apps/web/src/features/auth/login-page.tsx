@@ -74,7 +74,7 @@ export function LoginPage() {
       <div className="w-full max-w-[380px]">
         <div className="flex items-center justify-center gap-2.5">
           <Logo />
-          <span className="text-display font-semibold tracking-[-0.02em]">
+          <span className="font-display text-[18px] font-bold tracking-[-0.025em]">
             {t('common.wordmark')}
           </span>
         </div>

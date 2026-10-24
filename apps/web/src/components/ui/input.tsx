@@ -7,7 +7,7 @@ export function Input({ className, type = 'text', ...props }: ComponentProps<'in
     <input
       type={type}
       className={cn(
-        'h-[34px] w-full rounded-md border border-border-strong bg-bg-panel px-3 text-ui text-text',
+        'h-9 w-full rounded-md border border-border-strong bg-bg-panel px-3 text-ui text-text',
         'transition-colors focus-visible:border-ink focus-visible:outline-none',
         'aria-invalid:border-danger disabled:opacity-50',
         className,

@@ -18,16 +18,16 @@ type DialogContentProps = {
 export function DialogContent({ title, description, children, className }: DialogContentProps) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-overlay" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-overlay backdrop-blur-[2px]" />
       <DialogPrimitive.Content
         className={cn(
           'fixed top-1/2 left-1/2 z-50 w-[min(420px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2',
-          'rounded-panel border border-border bg-bg-panel p-5 shadow-float',
+          'animate-pop rounded-surface bg-bg-panel p-6 shadow-float',
           className,
         )}
         {...(description ? {} : { 'aria-describedby': undefined })}
       >
-        <DialogPrimitive.Title className="m-0 text-display font-semibold">
+        <DialogPrimitive.Title className="m-0 font-display text-heading font-semibold tracking-[-0.01em]">
           {title}
         </DialogPrimitive.Title>
         {description ? (

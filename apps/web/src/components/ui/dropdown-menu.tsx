@@ -26,7 +26,7 @@ export function DropdownMenuContent({
         onCloseAutoFocus={onCloseAutoFocus}
         sideOffset={6}
         className={cn(
-          'z-50 min-w-[200px] rounded-card border border-border bg-bg-panel p-1 shadow-float',
+          'z-50 min-w-[200px] animate-pop rounded-panel bg-bg-panel p-1.5 shadow-float',
           className,
         )}
       >
@@ -43,7 +43,7 @@ export function DropdownMenuLabel({
 }: ComponentProps<typeof MenuPrimitive.Label>) {
   return (
     <MenuPrimitive.Label
-      className={cn('px-2 pt-1.5 pb-1 text-small text-text-3', className)}
+      className={cn('px-2.5 pt-1.5 pb-1 text-small text-text-3', className)}
       {...props}
     />
   );
@@ -60,7 +60,7 @@ export function DropdownMenuRadioItem({
   return (
     <MenuPrimitive.RadioItem
       className={cn(
-        'flex h-8 cursor-pointer items-center gap-2 rounded-sm px-2 text-ui text-text-body outline-none select-none',
+        'flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-ui text-text-body outline-none select-none',
         'data-highlighted:bg-bg-subtle data-disabled:pointer-events-none data-disabled:opacity-50',
         className,
       )}
@@ -88,7 +88,7 @@ export function DropdownMenuItem({
   return (
     <MenuPrimitive.Item
       className={cn(
-        'flex h-8 cursor-pointer items-center gap-2 rounded-sm px-2 text-ui text-text-body outline-none select-none',
+        'flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-ui text-text-body outline-none select-none',
         'data-highlighted:bg-bg-subtle',
         className,
       )}
@@ -106,7 +106,7 @@ export function DropdownMenuCheckboxItem({
   return (
     <MenuPrimitive.CheckboxItem
       className={cn(
-        'flex h-8 cursor-pointer items-center gap-2 rounded-sm px-2 text-ui text-text-body outline-none select-none',
+        'flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-ui text-text-body outline-none select-none',
         'data-highlighted:bg-bg-subtle data-disabled:pointer-events-none data-disabled:opacity-50',
         className,
       )}

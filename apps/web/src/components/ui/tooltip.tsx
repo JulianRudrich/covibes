@@ -21,7 +21,7 @@ export function Tooltip({ content, children, side = 'bottom' }: TooltipProps) {
           side={side}
           sideOffset={6}
           className={cn(
-            'z-50 rounded-sm bg-ink px-2 py-1 text-status text-on-ink shadow-float',
+            'z-50 rounded-md bg-ink px-2.5 py-1 text-status text-on-ink shadow-float',
             'data-[state=closed]:opacity-0',
           )}
         >

@@ -9,7 +9,13 @@ describe('Button', () => {
     const button = screen.getByRole('button', { name: 'Später' });
 
     expect(button).toHaveAttribute('type', 'button');
-    expect(button).toHaveClass('border-border-strong', 'bg-bg-panel', 'h-[30px]', 'text-ui');
+    expect(button).toHaveClass(
+      'border-border-strong',
+      'bg-bg-panel',
+      'h-8',
+      'text-ui',
+      'rounded-full',
+    );
   });
 
   it.each([
@@ -22,18 +28,18 @@ describe('Button', () => {
     expect(screen.getByRole('button')).toHaveClass(...classes);
   });
 
-  it('renders size s at 28 px with the smaller radius', () => {
+  it('renders size s at 28 px, round as well', () => {
     render(<Button size="s">Übernehmen</Button>);
 
-    expect(screen.getByRole('button')).toHaveClass('h-7', 'rounded-btn-s', 'text-small');
+    expect(screen.getByRole('button')).toHaveClass('h-7', 'rounded-full', 'text-small');
   });
 
   it('lets callers override classes', () => {
-    render(<Button className="px-3.5">Teilen</Button>);
+    render(<Button className="px-5">Teilen</Button>);
     const button = screen.getByRole('button');
 
-    expect(button).toHaveClass('px-3.5');
-    expect(button).not.toHaveClass('px-3');
+    expect(button).toHaveClass('px-5');
+    expect(button).not.toHaveClass('px-3.5');
   });
 
   it('can be disabled', () => {

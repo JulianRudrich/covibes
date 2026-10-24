@@ -1,5 +1,7 @@
 /*
- * Design tokens from context/ui-context.md (source: Claude Design handoff "Main screen").
+ * Design tokens from context/ui-context.md (source: the handoff "Covibes Studio", spec 36a).
+ * The @theme block holds the light values; :root[data-theme='dark'] below sets the dark ones on
+ * the same variables, so components never branch on the theme.
  * This is the only file in apps/web allowed to contain raw color values; `pnpm check:tokens` enforces it.
  */
 @theme {
@@ -7,86 +9,91 @@
   --color-*: initial;
   --shadow-*: initial;
 
-  /* Neutral */
-  --color-bg-app: #eef1f5;
+  /* Neutral: warm stone */
+  --color-bg-app: #eceae6;
   --color-bg-panel: #ffffff;
-  --color-bg-canvas: #f6f7f9;
-  --color-canvas-dot: #d3d9e1;
-  --color-bg-subtle: #f1f4f7;
-  --color-bg-muted: #f3f5f8;
-  --color-bg-hover-app: #e3e8ee;
-  --color-bg-secondary-hover: #f5f7f9;
-  --color-track: #e2e7ed;
-  --color-border-subtle: #eef1f4;
-  --color-border: #e1e6ec;
-  --color-border-block: #dbe1e8;
-  --color-border-strong: #d9dfe7;
-  --color-border-soft: #e3e8ee;
-  --color-frame-border: #cfd7e1;
-  --color-border-float: #dfe4ea;
-  --color-divider-strong: #cfd6df;
-  --color-divider-row: #f1f3f6;
-  --color-edge: #8792a2;
-  --color-text: #0f1720;
-  --color-text-body: #1e2733;
-  --color-text-2: #3f4a5a;
-  --color-text-2b: #4a5565;
-  --color-text-3: #6b7686;
-  --color-text-4: #7a8595;
-  --color-text-5: #9aa4b2;
-  --color-text-chip: #253041;
-  --color-text-faint: #b4bdc8;
-  --color-text-upcoming: #5b6676;
-  --color-ring-upcoming: #aab3bf;
-  --color-ink: #151b24;
-  --color-ink-hover: #2a3340;
+  --color-bg-canvas: #f8f7f4;
+  --color-canvas-dot: #d8d4cc;
+  --color-bg-subtle: #f4f2ef;
+  --color-bg-muted: #f1efeb;
+  --color-bg-hover-app: #e2dfd9;
+  --color-bg-secondary-hover: #f7f5f2;
+  /* A frame on the canvas: the canvas shows through. */
+  --color-bg-frame: rgba(255, 255, 255, 0.6);
+  --color-track: #e3e0da;
+  --color-border-subtle: #efece7;
+  --color-border: #e7e4df;
+  --color-border-block: #e2ded8;
+  --color-border-strong: #d9d5ce;
+  --color-border-soft: #e7e4df;
+  --color-frame-border: #dedad3;
+  --color-border-float: #e7e4df;
+  --color-divider-strong: #d9d5ce;
+  --color-divider-row: #f1efeb;
+  --color-edge: #a09a90;
+  --color-text: #1b1a18;
+  --color-text-body: #262421;
+  --color-text-2: #4a4741;
+  --color-text-2b: #57534c;
+  /* Meta and subtitles: 4.5:1 also on bg-subtle */
+  --color-text-3: #66625b;
+  /* Times, placeholders */
+  --color-text-4: #69655e;
+  /* Chevrons, the ring of an open decision: decoration only */
+  --color-text-5: #a39e95;
+  --color-text-chip: #38352f;
+  --color-text-faint: #bdb8af;
+  --color-text-upcoming: #66625a;
+  --color-ring-upcoming: #b3aea5;
+  --color-ink: #1b1a18;
+  --color-ink-hover: #34322e;
+  /* Text on ink and on every agent base */
   --color-on-ink: #ffffff;
-  --color-human: #1e2733;
-  --color-bg-locked: #fafbfc;
-  --color-human-avatar-bg: #e6eaf0;
-  --color-human-avatar-bg-strong: #dfe4ea;
-  --color-human-avatar-fg: #253041;
-  --color-success: #1b7a43;
-  --color-success-bg: #e5f4ea;
+  /* Locks and live cursors of people */
+  --color-human: #1b1a18;
+  --color-bg-locked: #faf9f7;
+  --color-human-avatar-bg: #eae7e1;
+  --color-human-avatar-bg-strong: #e2dfd9;
+  --color-human-avatar-fg: #38352f;
+  --color-success: #1f7a45;
+  --color-success-bg: #e4f2e8;
   --color-danger: #b42318;
   --color-danger-bg: #fef3f2;
   --color-danger-border: #fecdca;
-  --color-overlay: rgba(15, 23, 32, 0.32);
-  --color-note: #fdf6d3;
-  --color-note-border: #ecdd98;
+  --color-overlay: rgba(27, 26, 24, 0.36);
+  --color-note: #fcefb4;
+  --color-note-border: #ebda8c;
   --color-note-text: #3a3312;
   --color-note-meta: #5e5424;
-  --color-note-avatar: #f1e5ad;
-  --color-link: #2346b0;
-  --color-link-hover: #16317f;
-  --color-focus-soft: #d5dde6;
-  /* Derived for the usage overview (spec 31b): the marks of a chart, a step lighter than ink so
-     the figure above them stays the loudest; spec 36 revisits it. */
-  --color-chart: #4a5565;
+  --color-note-avatar: #f1e09a;
+  --color-link: #2a44a8;
+  --color-link-hover: #1e3380;
+  --color-focus-soft: #dcd8d1;
+  /* The marks of a chart, a step lighter than ink so the figure above them stays the loudest */
+  --color-chart: #57534c;
 
-  /* Agents: base (avatar, border), dark (text), tint (background), border */
-  --color-agent-moderator: #0f7f8a;
-  --color-agent-moderator-dark: #0b5f68;
-  --color-agent-moderator-tint: #dcf0f2;
-  --color-agent-moderator-tint-2: #f4fafb;
-  --color-agent-moderator-border: #cde6e9;
-  --color-agent-moderator-border-2: #bfe3e6;
-  --color-agent-moderator-divider: #d7ecee;
-  --color-agent-backend: #3563e9;
-  --color-agent-backend-dark: #2346b0;
-  --color-agent-backend-tint: #eef2fe;
-  --color-agent-backend-border: #c9d6fb;
-  --color-agent-critic: #c84a14;
-  --color-agent-critic-dark: #9a360a;
-  --color-agent-critic-tint: #fbe7dc;
-  --color-agent-critic-tint-2: #fdf5f0;
-  --color-agent-critic-border: #f3cfbb;
-  --color-agent-critic-border-2: #e9b89d;
-  --color-agent-data: #8b4fd6;
-  --color-agent-data-dark: #6532a8;
-  --color-agent-data-tint: #f3ecfc;
-  --color-agent-data-border: #dccaf5;
-  /* Derived for the catalog of spec 14 in the same system; spec 36 revisits them. */
+  /* Agents: base (mark, borders), dark (text on tint), tint (backgrounds), border (lines on tint) */
+  --color-agent-moderator: #0e7c74;
+  --color-agent-moderator-dark: #0a5c56;
+  --color-agent-moderator-tint: #e3f2ef;
+  --color-agent-moderator-tint-2: #eef7f5;
+  --color-agent-moderator-border: #c3e2dc;
+  --color-agent-moderator-border-2: #c3e2dc;
+  --color-agent-moderator-divider: #cfe6e1;
+  --color-agent-backend: #3b5bdb;
+  --color-agent-backend-dark: #2a44a8;
+  --color-agent-backend-tint: #edf0fd;
+  --color-agent-backend-border: #cad5f8;
+  --color-agent-critic: #c9501b;
+  --color-agent-critic-dark: #97380d;
+  --color-agent-critic-tint: #fbece3;
+  --color-agent-critic-tint-2: #fdf4ef;
+  --color-agent-critic-border: #f1cdb8;
+  --color-agent-critic-border-2: #e9bfa6;
+  --color-agent-data: #8a4fd0;
+  --color-agent-data-dark: #6634a6;
+  --color-agent-data-tint: #f3ecfb;
+  --color-agent-data-border: #ddcbf3;
   --color-agent-product: #c2185b;
   --color-agent-product-dark: #8e1244;
   --color-agent-product-tint: #fce4ee;
@@ -160,9 +167,11 @@
   --color-input: var(--color-border-strong);
   --color-ring: var(--color-ink);
 
-  /* Typography */
-  --font-sans: 'Geist Variable', 'Geist', system-ui, sans-serif;
-  --font-mono: 'Geist Mono Variable', 'Geist Mono', ui-monospace, monospace;
+  /* Typography: Figtree for the interface, Bricolage Grotesque for titles, JetBrains Mono for code */
+  --font-sans: 'Figtree Variable', 'Figtree', system-ui, sans-serif;
+  --font-display:
+    'Bricolage Grotesque Variable', 'Bricolage Grotesque', 'Figtree Variable', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
   --text-badge: 11px;
   --text-meta: 11.5px;
   --text-status: 12px;
@@ -170,32 +179,39 @@
   --text-ui: 13px;
   --text-body: 13.5px;
   --text-title: 14px;
-  --text-display: 15px;
+  --text-display: 15.5px;
+  --text-heading: 17px;
 
-  /* Radii */
-  --radius-xs: 5px;
-  --radius-sm: 6px;
-  --radius-btn-s: 7px;
-  --radius-md: 8px;
-  --radius-card: 10px;
-  --radius-panel: 12px;
-  --radius-frame: 14px;
+  /* Radii: soft surfaces; buttons, chips and pills are fully round (rounded-full) */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-btn-s: 10px;
+  --radius-md: 10px;
+  --radius-card: 16px;
+  /* Blocks, composer, menus, dialogs */
+  --radius-panel: 18px;
+  --radius-frame: 28px;
+  /* The main panels: chat, canvas, overview */
+  --radius-surface: 24px;
 
   /* Shadows */
-  --shadow-panel: 0 1px 2px rgba(16, 24, 40, 0.04);
-  --shadow-block: 0 1px 2px rgba(16, 24, 40, 0.05), 0 2px 8px rgba(16, 24, 40, 0.04);
-  --shadow-float: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.08);
-  --shadow-lock: 0 0 0 4px rgba(30, 39, 51, 0.07);
-  --shadow-note: 0 1px 2px rgba(110, 90, 20, 0.08), 0 6px 14px rgba(110, 90, 20, 0.08);
-  --shadow-button-primary:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 1px 2px rgba(16, 24, 40, 0.24);
-  --shadow-button-secondary: 0 1px 2px rgba(16, 24, 40, 0.05);
-  --shadow-phase-active: 0 1px 2px rgba(16, 24, 40, 0.1), 0 0 0 1px rgba(16, 24, 40, 0.05);
+  --shadow-panel: 0 1px 2px rgba(40, 30, 10, 0.04), 0 10px 30px rgba(40, 30, 10, 0.06);
+  --shadow-block: 0 1px 2px rgba(40, 30, 10, 0.05), 0 4px 14px rgba(40, 30, 10, 0.07);
+  --shadow-float: 0 2px 6px rgba(40, 30, 10, 0.06), 0 16px 40px rgba(40, 30, 10, 0.14);
+  --shadow-lock: 0 0 0 5px rgba(27, 26, 24, 0.08);
+  --shadow-note: 0 2px 4px rgba(110, 90, 20, 0.1), 0 10px 22px rgba(110, 90, 20, 0.1);
+  --shadow-button-primary: 0 1px 2px rgba(27, 26, 24, 0.16);
+  --shadow-button-secondary: 0 1px 2px rgba(40, 30, 10, 0.06);
+  --shadow-phase-active: 0 1px 2px rgba(40, 30, 10, 0.08), 0 0 0 1px rgba(40, 30, 10, 0.05);
 
-  /* Motion: typing dots (handoff: 1.2 s, 0.16 s offset per dot) */
+  /* Motion (handoff "Motion"); all of it stops under prefers-reduced-motion (base.css). */
   --animate-typing-dot: typing-dot 1.2s ease-in-out infinite;
-  /* Streaming caret (handoff: blinks once per second) */
   --animate-caret-blink: caret-blink 1s step-end infinite;
+  --animate-rise: rise 0.45s ease-out both;
+  --animate-pop: pop 0.3s ease-out both;
+  --animate-ring: ring 2s ease-out infinite;
+  --animate-twinkle: twinkle 1.6s ease-in-out infinite;
+  --animate-glow: glow 1.6s ease-in-out infinite;
 
   @keyframes caret-blink {
     50% {
@@ -215,6 +231,210 @@
       transform: translateY(-2px);
     }
   }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* The outline of a block an agent just drew widens and fades. */
+  @keyframes ring {
+    from {
+      opacity: 0.75;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.14, 1.3);
+    }
+  }
+
+  @keyframes twinkle {
+    0%,
+    100% {
+      transform: scale(1) rotate(0);
+    }
+    50% {
+      transform: scale(1.25) rotate(20deg);
+    }
+  }
+
+  /* The mark of an agent that is writing; --glow is set to the agent's color by the element. */
+  @keyframes glow {
+    0%,
+    100% {
+      box-shadow:
+        0 0 0 2px var(--glow-gap, transparent),
+        0 0 0 4px var(--glow),
+        0 0 6px var(--glow);
+    }
+    50% {
+      box-shadow:
+        0 0 0 2px var(--glow-gap, transparent),
+        0 0 0 4px var(--glow),
+        0 0 16px var(--glow);
+    }
+  }
+}
+
+:root {
+  color-scheme: light;
+}
+
+/* Dark theme: the same tokens with dark values (handoff "Themes"). */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-bg-app: #0f0e0d;
+  --color-bg-panel: #1a1917;
+  --color-bg-canvas: #141312;
+  --color-canvas-dot: #2b2926;
+  --color-bg-subtle: #24221f;
+  --color-bg-muted: #22201d;
+  --color-bg-hover-app: #24221f;
+  --color-bg-secondary-hover: #22201d;
+  --color-bg-frame: rgba(255, 250, 240, 0.025);
+  --color-track: #34322e;
+  --color-border-subtle: #262421;
+  --color-border: #2e2c29;
+  --color-border-block: #2e2c29;
+  --color-border-strong: #3d3b36;
+  --color-border-soft: #2e2c29;
+  --color-frame-border: #34322e;
+  --color-border-float: #34322e;
+  --color-divider-strong: #3d3b36;
+  --color-divider-row: #262421;
+  --color-edge: #716c64;
+  --color-text: #f2f0ec;
+  --color-text-body: #e6e2db;
+  --color-text-2: #c8c4bc;
+  --color-text-2b: #b7b2a9;
+  --color-text-3: #99948b;
+  --color-text-4: #8e897f;
+  --color-text-5: #6a655e;
+  --color-text-chip: #dcd8d1;
+  --color-text-faint: #4f4b45;
+  --color-text-upcoming: #a39e95;
+  --color-ring-upcoming: #5c5852;
+  --color-ink: #f2f0ec;
+  --color-ink-hover: #ffffff;
+  --color-on-ink: #141311;
+  --color-human: #f2f0ec;
+  --color-bg-locked: #1f1d1b;
+  --color-human-avatar-bg: #35322e;
+  --color-human-avatar-bg-strong: #35322e;
+  --color-human-avatar-fg: #e6e2db;
+  --color-success: #5bd08c;
+  --color-success-bg: #1d2f24;
+  --color-danger: #ff8a7a;
+  --color-danger-bg: #2e1b19;
+  --color-danger-border: #5c2a24;
+  --color-overlay: rgba(0, 0, 0, 0.55);
+  --color-note: #4a4120;
+  --color-note-border: #5e5329;
+  --color-note-text: #f7edc4;
+  --color-note-meta: #d6ca94;
+  --color-note-avatar: #5e5329;
+  --color-link: #b3c1ff;
+  --color-link-hover: #d3dcff;
+  --color-focus-soft: #3d3b36;
+  --color-chart: #b7b2a9;
+
+  --color-agent-moderator: #3cc2b4;
+  --color-agent-moderator-dark: #8fe0d6;
+  --color-agent-moderator-tint: #1e2f2b;
+  --color-agent-moderator-tint-2: #1d2724;
+  --color-agent-moderator-border: #265650;
+  --color-agent-moderator-border-2: #244843;
+  --color-agent-moderator-divider: #244843;
+  --color-agent-backend: #7b95ff;
+  --color-agent-backend-dark: #b3c1ff;
+  --color-agent-backend-tint: #272935;
+  --color-agent-backend-border: #3d466b;
+  --color-agent-critic: #f0844e;
+  --color-agent-critic-dark: #ffbc97;
+  --color-agent-critic-tint: #36271e;
+  --color-agent-critic-tint-2: #2b221b;
+  --color-agent-critic-border: #67402b;
+  --color-agent-critic-border-2: #563726;
+  --color-agent-data: #b98bf5;
+  --color-agent-data-dark: #d9c3ff;
+  --color-agent-data-tint: #2f2834;
+  --color-agent-data-border: #534267;
+  --color-agent-product: #ea477b;
+  --color-agent-product-dark: #ff84a2;
+  --color-agent-product-tint: #351f24;
+  --color-agent-product-border: #652a3b;
+  --color-agent-frontend: #cc58be;
+  --color-agent-frontend-dark: #f57ee6;
+  --color-agent-frontend-tint: #31212d;
+  --color-agent-frontend-border: #5a3053;
+  --color-agent-devops: #b9762e;
+  --color-agent-devops-dark: #e19b56;
+  --color-agent-devops-tint: #2f251a;
+  --color-agent-devops-border: #533a1f;
+  --color-agent-security: #7487aa;
+  --color-agent-security-dark: #98acd0;
+  --color-agent-security-tint: #26272a;
+  --color-agent-security-border: #3a414c;
+  --color-agent-ml: #7776fc;
+  --color-agent-ml-dark: #9ca2fe;
+  --color-agent-ml-tint: #262535;
+  --color-agent-ml-border: #3b3a69;
+  --color-agent-content: #718f2d;
+  --color-agent-content-dark: #95b555;
+  --color-agent-content-tint: #25281a;
+  --color-agent-content-border: #39431f;
+  --color-agent-custom-1: #419758;
+  --color-agent-custom-1-dark: #68bd7c;
+  --color-agent-custom-1-tint: #1f291f;
+  --color-agent-custom-1-border: #28462e;
+  --color-agent-custom-2: #ea4e47;
+  --color-agent-custom-2-dark: #ff877c;
+  --color-agent-custom-2-tint: #35201d;
+  --color-agent-custom-2-border: #652c28;
+  --color-agent-custom-3: #ad7b59;
+  --color-agent-custom-3-dark: #d4a07d;
+  --color-agent-custom-3-tint: #2d2620;
+  --color-agent-custom-3-border: #4f3c2f;
+  --color-agent-custom-4: #488cb5;
+  --color-agent-custom-4-dark: #6db1dc;
+  --color-agent-custom-4-tint: #20282c;
+  --color-agent-custom-4-border: #2b4250;
+  --color-agent-custom-5: #858590;
+  --color-agent-custom-5-dark: #aaaab5;
+  --color-agent-custom-5-tint: #282727;
+  --color-agent-custom-5-border: #414043;
+  --color-agent-custom-6: #cb677d;
+  --color-agent-custom-6-dark: #f48ca1;
+  --color-agent-custom-6-tint: #312324;
+  --color-agent-custom-6-border: #5a353c;
+
+  --shadow-panel: 0 0 0 1px rgba(255, 250, 240, 0.04), 0 10px 30px rgba(0, 0, 0, 0.35);
+  --shadow-block: 0 0 0 1px rgba(255, 250, 240, 0.04), 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow-float: 0 0 0 1px rgba(255, 250, 240, 0.05), 0 16px 40px rgba(0, 0, 0, 0.55);
+  --shadow-lock: 0 0 0 5px rgba(242, 240, 236, 0.12);
+  --shadow-note: 0 10px 24px rgba(0, 0, 0, 0.4);
+  --shadow-button-primary: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-button-secondary: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-phase-active: 0 0 0 1px rgba(255, 250, 240, 0.06), 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 /* The color of a custom agent: sets what the agent-custom utilities resolve to on the element. */

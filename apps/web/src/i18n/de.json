@@ -35,6 +35,12 @@
     "emailNotifications": "E-Mail-Benachrichtigungen",
     "signOut": "Abmelden"
   },
+  "theme": {
+    "label": "Design",
+    "system": "Wie das System",
+    "light": "Hell",
+    "dark": "Dunkel"
+  },
   "language": {
     "label": "Sprache"
   },

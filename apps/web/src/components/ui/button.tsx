@@ -4,7 +4,7 @@ import type { ComponentProps } from 'react';
 import { cn } from '@web/lib/cn';
 
 const buttonVariants = cva(
-  'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap font-medium transition-colors disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full whitespace-nowrap font-semibold transition-[background-color,box-shadow,transform] duration-150 active:translate-y-px active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
@@ -16,8 +16,8 @@ const buttonVariants = cva(
         danger: 'bg-danger text-on-ink shadow-button-primary hover:bg-danger/90',
       },
       size: {
-        m: 'h-[30px] rounded-md px-3 text-ui',
-        s: 'h-7 rounded-btn-s px-2.5 text-small',
+        m: 'h-8 px-3.5 text-ui',
+        s: 'h-7 px-3 text-small',
       },
     },
     defaultVariants: {

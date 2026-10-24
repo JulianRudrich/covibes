@@ -11,12 +11,12 @@ type BadgeProps = {
   className?: string;
 };
 
-/** Small label such as "Agent" (18 px high, radius 5). */
+/** Small label such as "Agent" (18 px high, round). */
 export function Badge({ children, agent, className }: BadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex h-[18px] items-center rounded-xs px-1.5 text-badge font-medium whitespace-nowrap',
+        'inline-flex h-[18px] items-center rounded-full px-2 text-badge font-semibold whitespace-nowrap',
         agent ? agentClass(AGENT_TONE, agent) : 'bg-bg-subtle text-text-2',
         className,
       )}
@@ -31,7 +31,7 @@ export function Pill({ children, className }: { children: ReactNode; className?:
   return (
     <span
       className={cn(
-        'inline-flex h-[26px] items-center gap-2 rounded-[13px] bg-bg-muted px-2.5 text-status whitespace-nowrap text-text-2',
+        'inline-flex h-7 items-center gap-2 rounded-full bg-bg-subtle px-3 text-status whitespace-nowrap text-text-2',
         className,
       )}
     >
@@ -40,12 +40,12 @@ export function Pill({ children, className }: { children: ReactNode; className?:
   );
 }
 
-/** Chip for short values such as criteria (26 px high, radius 7). */
+/** Chip for short values such as criteria: an outlined pill (handoff "Kriterien"). */
 export function Chip({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <span
       className={cn(
-        'inline-flex h-[26px] items-center rounded-btn-s border border-border-soft bg-bg-muted px-[9px] text-small whitespace-nowrap text-human-avatar-fg',
+        'inline-flex h-7 items-center rounded-full border border-border-strong px-3 text-small whitespace-nowrap text-text-2',
         className,
       )}
     >

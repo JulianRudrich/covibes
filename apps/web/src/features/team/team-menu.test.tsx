@@ -2,6 +2,7 @@ import type { ProjectAgent } from '@covibes/shared';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { CATALOG_MARKS } from '@web/components/ui/agent-marks';
 import { TooltipProvider } from '@web/components/ui/tooltip';
 import { TeamMenu } from '@web/features/team/team-menu';
 
@@ -23,7 +24,7 @@ function renderMenu({ canEdit = true, canChooseModel = true } = {}) {
 }
 
 describe('TeamMenu', () => {
-  it('shows the team in the header with the avatar letters of the agents', () => {
+  it('shows the team in the header with the marks of the agents (spec 36a)', () => {
     render(
       <TooltipProvider>
         <TeamMenu
@@ -38,8 +39,10 @@ describe('TeamMenu', () => {
     );
     const trigger = screen.getByRole('button', { name: 'Team: Moderator, Kritiker, Sicherheit' });
     expect(
-      Array.from(trigger.querySelectorAll('[role="img"]')).map((avatar) => avatar.textContent),
-    ).toEqual(['M', 'K', 'S']);
+      Array.from(trigger.querySelectorAll('[role="img"] path')).map((path) =>
+        path.getAttribute('d'),
+      ),
+    ).toEqual([CATALOG_MARKS.moderator, CATALOG_MARKS.critic, CATALOG_MARKS.security]);
   });
 
   it('lists every agent with role and model, and lets editors remove specialists only', () => {

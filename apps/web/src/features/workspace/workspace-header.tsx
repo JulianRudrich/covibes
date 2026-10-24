@@ -66,7 +66,7 @@ export function WorkspaceHeader({
     <header className="grid grid-cols-[380px_minmax(0,1fr)_300px] items-center gap-2 px-2">
       <div className="flex min-w-0 items-center gap-2.5 pl-2">
         <Logo />
-        <span className="text-display font-semibold tracking-[-0.02em]">
+        <span className="font-display text-[18px] font-bold tracking-[-0.025em]">
           {t('common.wordmark')}
         </span>
         <span aria-hidden="true" className="text-display text-text-faint">

@@ -1,249 +1,168 @@
 # UI Context
 
-> As of 2026-09-27. Source: the design handoff "Covibes V1 – Main screen" from Claude Design, stored in `context/design/main-screen/`.
-> **The pixel-exact reference is the `README.md` there.** The prototype `Covibes Main Screen.dc.html` opens in the browser when `support.js` sits next to it. This file summarizes the rules that apply to **every** screen.
+> As of 2026-10-24 (spec 36a). Source: the design handoff "Covibes Studio", stored in `context/design/studio/`, which the owner approved for the design pass. **The reference for looks is the `README.md` there;** the prototype `Covibes Studio.dc.html` opens in the browser with `support.js` next to it. The earlier handoff `context/design/main-screen/` stays the reference for behavior (states, interactions, contents). This file summarizes the rules that apply to **every** screen.
 
 ## Design principles
 - **Color belongs to the agents.**
   - Every agent has exactly one color.
-  - Humans always stay neutral (graphite and gray).
-  - The main action is always graphite (`#151B24`), never an agent color.
+  - Humans always stay neutral (warm stone grays).
+  - The main action is always ink, never an agent color.
 - **Authorship is always visible.**
   - Every chat message shows avatar and name in the author's color.
   - Every canvas block has an author line at the bottom.
 - **Humans and agents have different shapes.**
   - Humans have round avatars with initials.
-  - Agents have rounded squares in their color with a white letter. In the chat they also carry the badge "Agent".
-- **The style is cool, calm and precise.** No gradients, no emojis, no photos.
+  - Agents have rounded squares with their **mark**: a glyph in the agent's color on its tint with a fine inner line. Never letters (owner decision, 2026-10-24). In the chat they also carry the badge "Agent".
+- **The style is soft, calm and precise:** rounded surfaces, pill buttons, a warm neutral palette, little color besides the agents. No gradients, no emojis, no photos.
+- **Light and dark** are both part of V1 and equal in care (see "Themes").
 - **UI language:** German first, English via i18n. Texts are never hard-coded.
 
 ## Layout (desktop, reference 1440 × 900)
-- The root element is a grid with `grid-template-rows: 52px 1fr` on `bg-app`.
-- Header and main area share the columns `380px minmax(0,1fr) 300px`, with `gap: 8px`, `padding: 0 8px` and an additional `8px` at the bottom.
-- The columns are chat, canvas and overview. Every panel is white with a `1px` border, radius 12, a panel shadow and its own 52 px header.
+Until spec 36b the screens keep their structure from spec 03: a grid with `grid-template-rows: 52px 1fr` on `bg-app`, the columns chat, canvas and overview (`380px minmax(0,1fr) 300px`, gap 8). Spec 36b moves the main screen to the layout of the handoff: rows `64px 1fr`, columns `372px minmax(0,1fr) 300px`, gap 12, padding `0 12px 12px`, the phase bar with segments and "Im Raum" in the top bar.
+
+The main panels (chat, canvas, overview) use the `Panel` building block: `bg-panel`, radius `surface` (24), `shadow-panel`, **no border**.
+
+## Themes
+- The `@theme` block in `apps/web/src/styles/theme.css` holds the light values; `:root[data-theme='dark']` in the same file sets the dark values on the same variables. Components never branch on the theme; Tailwind's `dark:` variant is not used.
+- `<html data-theme>` is set by `apps/web/public/theme.js` before the first paint (a file, not inline, because the CSP allows only own scripts) and by `apps/web/src/lib/theme.ts` afterwards.
+- The theme follows the system until a person picks "Hell" or "Dunkel" in the account menu ("Design"). The choice is stored per device under `covibes.theme`, not in the account.
+- `color-scheme` follows the theme, so scroll bars and native form controls match.
 
 ## Design tokens
-In `apps/web` the tokens are a Tailwind v4 theme in `apps/web/src/styles/theme.css` (since spec 03). Tailwind's default palette is switched off there, so only these tokens exist.
+The tokens are a Tailwind v4 theme in `apps/web/src/styles/theme.css`. Tailwind's default palette is switched off there, so only these tokens exist.
 - The code contains **no** raw color values (hex, `rgb()`, `hsl()`). `pnpm lint` checks this with `check:tokens`.
-- A new color goes into this block first and then into `theme.css`.
-- Spec 03 added values from the handoff (prototype and README) that had no name before:
-  - the colors `bg-hover-app`, `bg-secondary-hover`, `border-soft`, `divider-strong`, `text-5`, `text-faint`, `text-upcoming`, `ring-upcoming`, `on-ink`, `human-avatar-bg-strong`, `link`, `link-hover` and `focus-soft`
-  - the font sizes
-  - the shadows for buttons and the active phase
+- A new color gets a light **and** a dark value in `theme.css` and is listed here.
+- Every text token reaches 4.5:1 on `bg-panel`, `bg-subtle`, `bg-app` and `bg-canvas` in both themes; the text on an agent base (`on-ink`) and an agent's `-dark` on its tint reach 4.5:1, the mark (base) on its tint at least 3:1. This was checked by computation for every pair (spec 36a).
 
-```css
-@theme {
-  /* Neutral */
-  --color-bg-app: #EEF1F5;
-  --color-bg-panel: #FFFFFF;
-  --color-bg-canvas: #F6F7F9;
-  --color-canvas-dot: #D3D9E1;
-  --color-bg-subtle: #F1F4F7;
-  --color-bg-muted: #F3F5F8;
-  --color-bg-hover-app: #E3E8EE;       /* hover on bg-app, e.g. the project button */
-  --color-bg-secondary-hover: #F5F7F9; /* hover of the secondary button */
-  --color-track: #E2E7ED;
-  --color-border-subtle: #EEF1F4;
-  --color-border: #E1E6EC;
-  --color-border-block: #DBE1E8;
-  --color-border-strong: #D9DFE7;
-  --color-border-soft: #E3E8EE;    /* chips */
-  --color-frame-border: #CFD7E1;
-  --color-border-float: #DFE4EA; /* toolbar, edge labels */
-  --color-divider-strong: #CFD6DF; /* divider between humans and agents in the header */
-  --color-divider-row: #F1F3F6;    /* between the rows of the decisions in the overview */
-  --color-edge: #8792A2;
-  --color-text: #0F1720;
-  --color-text-body: #1E2733;
-  --color-text-2: #3F4A5A;
-  --color-text-2b: #4A5565;
-  --color-text-3: #6B7686;   /* meta, subtitles: 4.6:1 on white */
-  --color-text-4: #7A8595;   /* times, placeholders */
-  --color-text-5: #9AA4B2;   /* chevrons of the phase bar, the ring of an open decision */
-  --color-text-chip: #253041; /* criteria chips */
-  --color-text-faint: #B4BDC8; /* divider "/" after the wordmark */
-  --color-text-upcoming: #5B6676; /* upcoming phase */
-  --color-ring-upcoming: #AAB3BF; /* ring of the upcoming phase */
-  --color-ink: #151B24;      /* primary */
-  --color-ink-hover: #2A3340;
-  --color-on-ink: #FFFFFF;   /* text on graphite and agent colors */
-  --color-human: #1E2733;    /* lock, live cursor */
-  --color-bg-locked: #FAFBFC; /* block that a human is editing */
-  --color-human-avatar-bg: #E6EAF0;
-  --color-human-avatar-bg-strong: #DFE4EA; /* human avatars on bg-app (header) */
-  --color-human-avatar-fg: #253041;
-  --color-success: #1B7A43;
-  --color-success-bg: #E5F4EA;
-  --color-danger: #B42318;   /* error messages (spec 04): 6.5:1 on white */
-  --color-danger-bg: #FEF3F2;
-  --color-danger-border: #FECDCA;
-  --color-overlay: rgba(15, 23, 32, 0.32); /* backdrop behind dialogs */
-  --color-note: #FDF6D3;
-  --color-note-border: #ECDD98;
-  --color-note-text: #3A3312;
-  --color-note-meta: #5E5424;   /* footer "Notiz · name" */
-  --color-note-avatar: #F1E5AD; /* avatar in the note footer */
-  --color-link: #2346B0;
-  --color-link-hover: #16317F;
-  --color-focus-soft: #D5DDE6; /* composer focus */
-  --color-chart: #4A5565; /* derived (spec 31b): marks of a chart, a step lighter than ink */
+### Neutral colors (light / dark)
+| Token | Light | Dark | Use |
+|---|---|---|---|
+| `bg-app` | `#ECEAE6` | `#0F0E0D` | app background, top bar |
+| `bg-panel` | `#FFFFFF` | `#1A1917` | panels, blocks, cards, menus, dialogs |
+| `bg-canvas` | `#F8F7F4` | `#141312` | canvas surface |
+| `canvas-dot` | `#D8D4CC` | `#2B2926` | dot grid |
+| `bg-frame` | white @ 60 % | warm white @ 2.5 % | frames on the canvas |
+| `bg-subtle` | `#F4F2EF` | `#24221F` | bubbles, composer, icon tiles, hover |
+| `bg-muted` | `#F1EFEB` | `#22201D` | info boxes |
+| `bg-hover-app` / `bg-secondary-hover` | `#E2DFD9` / `#F7F5F2` | `#24221F` / `#22201D` | hover on the app background / of the secondary button |
+| `track` | `#E3E0DA` | `#34322E` | empty segments, tracks |
+| `border-subtle` / `border` / `border-strong` | `#EFECE7` / `#E7E4DF` / `#D9D5CE` | `#262421` / `#2E2C29` / `#3D3B36` | dividers / lines / inputs, outlined chips |
+| `edge` | `#A09A90` | `#716C64` | arrows on the canvas |
+| `text` / `text-body` | `#1B1A18` / `#262421` | `#F2F0EC` / `#E6E2DB` | titles / body |
+| `text-2` / `text-2b` | `#4A4741` / `#57534C` | `#C8C4BC` / `#B7B2A9` | secondary text |
+| `text-3` / `text-4` | `#66625B` / `#69655E` | `#99948B` / `#8E897F` | meta, subtitles / times, placeholders |
+| `text-5`, `text-faint` | decoration only | | chevrons, separators |
+| `ink` / `ink-hover` / `on-ink` | `#1B1A18` / `#34322E` / `#FFFFFF` | `#F2F0EC` / `#FFFFFF` / `#141311` | primary action and the text on it; `on-ink` is also the text on every agent base |
+| `human` | `#1B1A18` | `#F2F0EC` | locks and live cursors of people |
+| `success`, `danger` (+ `-bg`, `danger-border`) | `#1F7A45`, `#B42318` | `#5BD08C`, `#FF8A7A` | states |
+| `note` (+ `-border`, `-text`, `-meta`, `-avatar`) | `#FCEFB4` … | `#4A4120` … | sticky notes |
+| `link` / `link-hover` | `#2A44A8` / `#1E3380` | `#B3C1FF` / `#D3DCFF` | links |
+| `overlay` | stone @ 36 % | black @ 55 % | backdrop behind dialogs (with a 2 px blur) |
 
-  /* Agents: base (avatar, border), dark (text), tint (background), border */
-  --color-agent-moderator: #0F7F8A;
-  --color-agent-moderator-dark: #0B5F68;
-  --color-agent-moderator-tint: #DCF0F2;
-  --color-agent-moderator-tint-2: #F4FAFB;
-  --color-agent-moderator-border: #CDE6E9;
-  --color-agent-moderator-border-2: #BFE3E6; /* edge labels, canvas references */
-  --color-agent-moderator-divider: #D7ECEE; /* line above the confirmation in the moderator's card */
-  --color-agent-backend: #3563E9;
-  --color-agent-backend-dark: #2346B0;
-  --color-agent-backend-tint: #EEF2FE;
-  --color-agent-backend-border: #C9D6FB;
-  --color-agent-critic: #C84A14;
-  --color-agent-critic-dark: #9A360A;
-  --color-agent-critic-tint: #FBE7DC;
-  --color-agent-critic-tint-2: #FDF5F0;
-  --color-agent-critic-border: #F3CFBB;
-  --color-agent-critic-border-2: #E9B89D;
-  --color-agent-data: #8B4FD6;
-  --color-agent-data-dark: #6532A8;
-  --color-agent-data-tint: #F3ECFC;
-  --color-agent-data-border: #DCCAF5;
-  /* Derived in spec 14 for the remaining catalog agents, same system; spec 36 revisits them. */
-  --color-agent-product: #C2185B;
-  --color-agent-product-dark: #8E1244;
-  --color-agent-product-tint: #FCE4EE;
-  --color-agent-product-border: #F5C6D9;
-  --color-agent-frontend: #A02D95;
-  --color-agent-frontend-dark: #7A2072;
-  --color-agent-frontend-tint: #F7E6F5;
-  --color-agent-frontend-border: #E9C6E4;
-  --color-agent-devops: #9A5A00;
-  --color-agent-devops-dark: #6F4100;
-  --color-agent-devops-tint: #FBEFDC;
-  --color-agent-devops-border: #EFD3A6;
-  --color-agent-security: #4A5B7C;
-  --color-agent-security-dark: #34415A;
-  --color-agent-security-tint: #E9EDF4;
-  --color-agent-security-border: #CBD3E2;
-  --color-agent-ml: #5046C8;
-  --color-agent-ml-dark: #3A3196;
-  --color-agent-ml-tint: #ECEBFB;
-  --color-agent-ml-border: #CFCBF3;
-  --color-agent-content: #5D7A0F;
-  --color-agent-content-dark: #43590A;
-  --color-agent-content-tint: #EEF4DC;
-  --color-agent-content-border: #D3E2A8;
+The remaining neutral tokens (`border-block`, `border-soft`, `frame-border`, `border-float`, `divider-*`, `text-chip`, `text-upcoming`, `ring-upcoming`, `bg-locked`, `human-avatar-*`, `focus-soft`, `chart`) keep their roles from spec 03 with values from the same palette.
 
-  /* Fonts (served locally via @fontsource-variable, never from Google Fonts) */
-  --font-sans: "Geist Variable", "Geist", system-ui, sans-serif;
-  --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
+### Agents
+Every agent has five tokens: base (`agent-x`: mark, borders, pills), dark (`agent-x-dark`: text on tint and on the panel), tint (`agent-x-tint`: backgrounds, the mark's ground), border (`agent-x-border`: lines on tint, the mark's inner line). The moderator and the critic have a second, lighter tint and border (`-tint-2`, `-border-2`) for their cards and references.
+- Moderator `#0E7C74` / dark `#3CC2B4`, backend `#3B5BDB` / `#7B95FF`, critic `#C9501B` / `#F0844E`, data `#8A4FD0` / `#B98BF5` (values of the handoff).
+- Product, frontend, DevOps, security, ML and content keep their light colors of spec 14; the six custom colors of spec 19 keep theirs. Their dark values follow the rule of the handoff: the base gets lighter until dark text on it reaches 5:1, the dark text color reaches 7.5:1 on the panel, the tint is the base at 13 % over the panel, the border at 36 %.
+- Custom agents use `agent-custom-*`; the class `agent-color-N` on the element picks one of the six colors.
+- `aiRing(agent)` in `apps/web/src/lib/styles.ts` builds the ring of a block an agent just changed from the base color via `color-mix()`.
 
-  /* Font sizes, as classes text-badge … text-display */
-  --text-badge: 11px;
-  --text-meta: 11.5px;
-  --text-status: 12px;
-  --text-small: 12.5px;
-  --text-ui: 13px;
-  --text-body: 13.5px;
-  --text-title: 14px;
-  --text-display: 15px;
+### Agent marks
+`apps/web/src/components/ui/agent-marks.ts` holds the glyphs: filled paths on a 24 × 24 grid, drawn with `fill-rule: evenodd`.
+| Agent | Glyph |
+|---|---|
+| Moderator | ring with a center dot |
+| Backend | three stacked layers |
+| Critic | lightning bolt |
+| Data | three rising bars |
+| Product | flag |
+| Frontend | window |
+| DevOps | hexagonal nut |
+| Security | shield |
+| ML | a node with three around it |
+| Content | quotation mark |
 
-  /* Radii */
-  --radius-xs: 5px;   /* badges, mini avatars */
-  --radius-sm: 6px;   /* pills, edge labels, reference chip */
-  --radius-btn-s: 7px;
-  --radius-md: 8px;   /* buttons M, icon tiles, tabs */
-  --radius-card: 10px;
-  --radius-panel: 12px; /* panels, blocks, composer, toolbar */
-  --radius-frame: 14px;
-
-  /* Shadows */
-  --shadow-panel: 0 1px 2px rgba(16,24,40,.04);
-  --shadow-block: 0 1px 2px rgba(16,24,40,.05), 0 2px 8px rgba(16,24,40,.04);
-  --shadow-float: 0 1px 2px rgba(16,24,40,.06), 0 8px 24px rgba(16,24,40,.08);
-  --shadow-lock: 0 0 0 4px rgba(30,39,51,.07);
-  --shadow-note: 0 1px 2px rgba(110,90,20,.08), 0 6px 14px rgba(110,90,20,.08);
-  --shadow-button-primary: inset 0 1px 0 rgba(255,255,255,.12), 0 1px 2px rgba(16,24,40,.24);
-  --shadow-button-secondary: 0 1px 2px rgba(16,24,40,.05);
-  --shadow-phase-active: 0 1px 2px rgba(16,24,40,.10), 0 0 0 1px rgba(16,24,40,.05);
-}
-```
-
-- `aiRing(agent)` in `apps/web/src/lib/styles.ts` builds the AI ring from the agent color: `0 0 0 4px <base @16 %>, 0 6px 16px <base @14 %>`, via `color-mix()` on the token.
-- The base line height is `normal`, as in the prototype. Multi-line text sets its own (messages 1.55).
-- White text on every agent base color reaches at least about 4.5:1.
+Custom agents get one of twelve plain shapes (circle, diamond, triangle, framed square, plus, drop, leaf, crescent, star, two dots, wide ring, arrow up); until spec 36c lets the creator choose, the shape follows from the agent's id (`customMark`). The `Avatar` building block draws a mark at about half its size, in the base color on the tint with the border as inner line; its radius is about a third of its size.
 
 ### Typography
-Geist (400–700) for the UI, Geist Mono (400–500) for edge labels and repository names. Plus `-webkit-font-smoothing: antialiased`; numbers always with `tabular-nums`.
+Fonts are served locally via `@fontsource-variable`, never from a font service; all three are OFL-1.1.
+- **Figtree** (`font-sans`) for the interface, 400–700.
+- **Bricolage Grotesque** (`font-display`) for the wordmark, panel titles, dialog titles and `h1`–`h3`.
+- **JetBrains Mono** (`font-mono`) for edge labels, repository names, branches and code.
+- `-webkit-font-smoothing: antialiased`; numbers in lists, counters and times with `tabular-nums`.
 
 | Role | Size / weight |
 |---|---|
-| Wordmark | 15 / 600, −0.02em |
-| Panel title | 14 / 600 |
-| Note title | 15 / 600 |
-| Block title / chat text | 13.5 / 600 or 400, lh 1.55 |
-| UI base, buttons | 13 / 500 |
-| Small buttons, chips | 12.5 / 500 |
-| Status, meta | 12 / 400 |
-| Subtitles, times, authors | 11.5 / 400–500 |
-| Badges, edge labels | 11 / 500 (labels in mono) |
+| Wordmark | 18 / 700, −0.025em, display |
+| Panel and dialog titles (`text-heading`) | 17 / 600, −0.01em, display |
+| Section titles, phase name (`text-display`) | 15.5 / 600 |
+| Block title (`text-title`) | 14 / 600 |
+| Chat text (`text-body`) | 13.5 / 400, lh 1.5–1.55 |
+| UI base, buttons (`text-ui`) | 13 / 500–600 |
+| Small buttons, chips (`text-small`) | 12.5 / 500 |
+| Status, meta (`text-status`, `text-meta`) | 12 / 11.5 |
+| Badges, edge labels (`text-badge`) | 11 / 500–600 |
+
+### Shapes
+| Token | Radius | Use |
+|---|---|---|
+| `rounded-full` | round | buttons, icon buttons, chips, badges, pills, avatars of people |
+| `rounded-surface` | 24 | main panels, dialogs, cards like the login card |
+| `rounded-panel` | 18 | blocks, composer, menus, popovers |
+| `rounded-card` | 16 | cards inside panels, info boxes |
+| `rounded-md` / `rounded-btn-s` | 10 | inputs, menu items, tabs, icon tiles |
+| `rounded-sm` / `rounded-xs` | 8 / 6 | small tiles, inline chips |
+| `rounded-frame` | 28 | frames on the canvas |
+
+### Shadows
+`shadow-panel`, `shadow-block`, `shadow-float` (toolbar, menus, dialogs), `shadow-lock`, `shadow-note`, `shadow-button-primary`, `shadow-button-secondary`, `shadow-phase-active`; each has a light and a dark value (dark adds a faint warm outline, since shadows hardly show on dark surfaces).
 
 ### Spacing
-A 4 px grid with the values 2, 4, 6, 8, 10, 12, 14, 16, 18 and 24 px. Panels have 16 px padding inside and 8 px outside and between each other.
+A 4 px grid with the values 2, 4, 6, 8, 10, 12, 14, 16, 18 and 24 px. Panels have 16 px padding inside.
 
-## Building blocks (quick reference; exact values are in the handoff README)
-- **Buttons:**
-  - Primary is graphite with white text (hover `#2A3340`).
-  - Secondary is white with `border-strong`.
-  - Ghost is transparent (hover `bg-subtle`).
-  - Sizes: M = 30 px (radius 8), S = 28 px (radius 7).
-  - Focus: `outline: 2px solid #151B24; outline-offset: 2px`.
-- **Avatars:**
-  - Human: round, 26/28 px, `human-avatar`.
-  - Agent: square, 24 px with radius 7 or 28 px with radius 8.
-  - Mini avatar: 16 px (radius 5 for agents).
-- **Chat:**
-  - Messages of humans and agents sit in the grid `28px 1fr`.
-  - The moderator answers as a card in its tint, with the badge "Agent · neutral" and action buttons. After a click a confirmation line replaces the buttons.
-  - Mentions are inline chips in backend blue.
-  - **Canvas references** are inline buttons in the color of the block's author. A click highlights the block and centers it.
-  - Streaming shows typing dots, the hint "is typing", the line "↳ reply to …" and a blinking caret.
-- **Raised hand:** a card in the agent's tint with a hand icon and the button "Listen".
-- **Composer:** 44 px input. Below it a tool row with "@" (opens the agent menu), "Attach", the hint "Enter to send" and a send button (primary, arrow-up).
-- **Phase indicator:** a bar in `track`. Completed steps have a check circle, the active one is white with a shadow, upcoming ones show a ring with a number.
-- **Canvas:**
-  - The surface is `bg-canvas` with a dot grid at 20 px spacing.
-  - Frames: radius 14, `frame-border`, semi-transparent white.
-  - Arrows: cubic Béziers in `edge`, 1.5 px, with a filled head. The label pill is set in mono.
-  - Sticky notes: yellow, slightly rotated, with the footer "Note · name".
-  - Live cursors of humans are always graphite and carry a name pill.
-  - The toolbar floats at the bottom center: block, note, frame, connect, auto-layout and zoom from 30 to 200 % in steps of 10.
-- **Overview:**
-  - "Waiting for you" shows cards with a meta line (agent, kind, time) and a live counter. Completed items appear as a green line.
-  - Decisions have a status symbol: decided or open (dashed, with a chip). During a comparison the status reads "Comparison A/B in progress".
-  - Criteria appear as chips.
+## Building blocks (`apps/web/src/components/ui/`)
+- **Buttons:** fully round, 600. Primary in ink (hover `ink-hover`), secondary on the panel with `border-strong`, ghost transparent (hover `bg-subtle`), danger in `danger`. Sizes M = 32 px, S = 28 px. Pressed: 1 px down and 98 %. Focus: `outline: 2px solid ink; outline-offset: 2px`.
+- **Icon buttons:** round, 28 px, ghost; pressed 95 %.
+- **Avatars:** humans round with initials on `human-avatar-bg`; agents as their mark. Sizes 16, 20, 24, 26, 28, 30 and 32.
+- **Badge** ("Agent"): a round 18 px label in the agent's tint and dark color. **Pill** (status): round, 28 px, `bg-subtle`. **Chip** (criteria): an outlined round pill, 28 px.
+- **Panel:** see "Layout". **Card:** `rounded-surface`, `shadow-panel`, no border. **Notice:** `rounded-card`.
+- **Dialog:** `rounded-surface`, `shadow-float`, padding 24, the title in the display font; the backdrop `overlay` with a 2 px blur; it appears with `animate-pop`.
+- **Dropdown menu and popover:** `rounded-panel`, `shadow-float`, no border, items `rounded-md`; they appear with `animate-pop`.
+- **Tooltip:** ink with `on-ink`, `rounded-md`.
+- **Input:** 36 px, `rounded-md`, `border-strong`, the border turns ink on focus.
+- **Logo:** two overlapping circles, the upper left one filled; a placeholder until there is a final logo.
+
+The building blocks of the chat, the canvas and the overview (bubbles, moderator card, raised hand, composer, phase bar, "Im Raum", blocks, toolbar, overview cards) are described in the handoff and move to it with spec 36b.
 
 ## The four block states (core requirement)
-Every block is 180 × 96, has radius 12, a 30 px icon tile, title and subtitle and an author line at the bottom.
+Behavior as in the main-screen handoff; the looks of the studio handoff come with spec 36b.
 
-| State | Border | Background / shadow | Extra |
-|---|---|---|---|
-| Normal | `1px solid border-block` | white, `shadow-block` | – |
-| Just changed by AI | `1.5px solid <agent base>` | white, AI ring | pill "Just drawn" with sparkle icon above the block. After 4–6 s the block returns to normal (200 ms transition). |
-| Proposal | `1.5px dashed <agent base>` | agent tint | header "Proposal · agent", plus "Apply" and "Reject". The edge is dashed (`5 4`) and has no head. |
-| Locked (a human is editing) | `1.5px solid human` | `#FAFBFC`, `shadow-lock`, `cursor: not-allowed` | pill with a lock icon and "name is editing", plus a blinking caret in the title |
+| State | Look (studio handoff) |
+|---|---|
+| Normal | panel, `shadow-block`, no border |
+| Just changed by AI | a 2 px ring in the agent's base plus its glow, a pulsing outline (`animate-ring`), the pill "Gerade gezeichnet" with a twinkling sparkle above it; back to normal after 4–6 s |
+| Proposal | 2 px dashed base on the tint, header "Vorschlag vom <Agent>", "Übernehmen" and "Ablehnen"; the edge dotted without a head |
+| Locked (a human is editing) | a 2 px ring in `human` plus `shadow-lock`, the pill "<Name> bearbeitet" with a lock, a blinking caret in the title, `cursor: not-allowed` |
 
-## Motion and states
-- **Typing dots:** `cvdot` runs 1.2 s with a 0.16 s offset per dot. The caret uses `cvblink` with 1 s.
-- **Hover colors:** primary `#151B24 → #2A3340`, secondary `#FFF → #F5F7F9`, ghost `→ #F1F4F7`.
-- **Composer focus:** `box-shadow: 0 0 0 3px #D5DDE6`.
+## Motion
+Tokens in `theme.css` (`animate-*`), all switched off by `prefers-reduced-motion: reduce` in `base.css` together with every transition.
+| Token | What | Timing |
+|---|---|---|
+| `animate-typing-dot` | typing dots | 1.2 s, 0.16 s offset per dot |
+| `animate-caret-blink` | streaming and editing caret | 1 s, hard on/off |
+| `animate-rise` | a message or card appears from 8 px below | 0.45 s ease-out |
+| `animate-pop` | dialogs, menus, confirmations, badges appear from 96 % | 0.3 s ease-out |
+| `animate-ring` | the outline of a block just drawn widens and fades | 2 s, repeating |
+| `animate-twinkle` | the sparkle of "Gerade gezeichnet" | 1.6 s |
+| `animate-glow` | the mark of an agent that is writing (`--glow` is the agent's color) | 1.6 s |
+
+Hover: buttons and icon buttons change their background in 150 ms; blocks lift by 2 px (spec 36b).
 
 ## Icons and assets
-- Icons come from **Lucide** (`lucide-react`) with a stroke width of 1.8–2. The list of icons in use is in the handoff README.
+- Icons come from **Lucide** (`lucide-react`) with a stroke width of 1.8–2.
 - The **sparkle** (marker for AI) is a custom four-pointed star with the SVG path `M12 3c.5 4.8 3.2 7.5 8 8-4.8.5-7.5 3.2-8 8-.5-4.8-3.2-7.5-8-8 4.8-.5 7.5-3.2 8-8z`, filled.
-- **Logo:** two overlapping squares, a placeholder until there is a final logo.
+- Agent marks: see "Agent marks".
 
 ## Deviations from the handoff (`architecture.md` is binding)
 - **Locks and live cursors** run through the **Yjs awareness** of Hocuspocus. The look stays the same.
@@ -309,8 +228,7 @@ Since 2026-09-30 the app is built with the prototype design; design changes, imp
 - diagram types (spec 12): the type icon and name in the frame header and its menu, the block types of mind map, data model, flow and sitemap as block cards with their own icons, entity cards with fields in Geist Mono, arrows from the right to the left edge in mind maps and data models
 
 ## Still to be designed
-To be designed in Claude Design in spec 36; until then derived from the tokens and building blocks as above:
-- **Agent colors:** a final design of the six colors derived in spec 14 and of the six custom colors derived in spec 19. The system stays the same: base, dark, tint and border, white text with at least 4.5:1.
+Derived by the coding agent from the studio handoff in spec 36b and 36c (owner decision, 2026-10-24):
 - own shapes per diagram type (e.g. decisions, mind map nodes)
 - the building block overview (design system page)
 - the variant comparison A/B on the canvas
@@ -323,4 +241,3 @@ To be designed in Claude Design in spec 36; until then derived from the tokens a
   - "Since you were away" and notifications
   - the read-only view
   - the mobile view (reading and chatting)
-- dark mode: not decided yet

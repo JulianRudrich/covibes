@@ -14,6 +14,7 @@ import {
 import { Check } from 'lucide-react';
 import { Trans, useTranslation } from 'react-i18next';
 
+import { CATALOG_MARKS } from '@web/components/ui/agent-marks';
 import { Avatar } from '@web/components/ui/avatar';
 import { Button } from '@web/components/ui/button';
 import { AgentAvatar } from '@web/features/agents/agent-avatar';
@@ -542,7 +543,7 @@ function TeamSummary({ proposal }: { proposal: TeamProposal }) {
                 agent={operation.agentKey}
                 size={16}
                 label={name}
-                initials={t(`agentInitials.${operation.agentKey}`)}
+                mark={CATALOG_MARKS[operation.agentKey]}
                 className="mt-px"
               />
               <span className="min-w-0 text-small leading-snug text-text-3">

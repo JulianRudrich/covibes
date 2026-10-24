@@ -9,6 +9,7 @@ import '@web/styles/index.css';
 import { App } from '@web/app';
 import { startLanguage } from '@web/i18n/language';
 import { createQueryClient } from '@web/lib/query-client';
+import { startTheme } from '@web/lib/theme';
 import { createAppRouter } from '@web/router';
 
 const rootElement = document.getElementById('root');
@@ -17,6 +18,7 @@ if (!rootElement) {
 }
 
 startLanguage();
+startTheme();
 
 const queryClient = createQueryClient();
 const router = createAppRouter(queryClient);

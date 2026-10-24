@@ -35,6 +35,12 @@
     "emailNotifications": "Email notifications",
     "signOut": "Sign out"
   },
+  "theme": {
+    "label": "Theme",
+    "system": "Match system",
+    "light": "Light",
+    "dark": "Dark"
+  },
   "language": {
     "label": "Language"
   },

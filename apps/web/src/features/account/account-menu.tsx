@@ -25,6 +25,7 @@ import {
   useUpdateNotificationSettings,
 } from '@web/features/notifications/queries';
 import { authClient } from '@web/lib/auth-client';
+import { chooseTheme, isThemeChoice, THEME_CHOICES, themeChoice } from '@web/lib/theme';
 
 type AccountMenuProps = {
   user: SessionUser;
@@ -34,8 +35,8 @@ type AccountMenuProps = {
 
 /**
  * The account menu behind the own avatar: who is signed in, the switch for notification mails
- * (spec 22b), the own GitLab account (spec 29a), the language of the interface (spec 32a) and
- * signing out.
+ * (spec 22b), the own GitLab account (spec 29a), the language of the interface (spec 32a), the
+ * theme (spec 36a) and signing out.
  */
 export function AccountMenu({ user, children }: AccountMenuProps) {
   const { t, i18n } = useTranslation();
@@ -52,6 +53,7 @@ export function AccountMenu({ user, children }: AccountMenuProps) {
   const { gitAccount: gitReturned } = useSearch({ strict: false });
   const { projectId } = useParams({ strict: false });
   const [gitOpen, setGitOpen] = useState(gitReturned !== undefined);
+  const [theme, setTheme] = useState(themeChoice);
 
   async function signOut() {
     await authClient.signOut();
@@ -105,6 +107,23 @@ export function AccountMenu({ user, children }: AccountMenuProps) {
             {LANGUAGES.map((language) => (
               <DropdownMenuRadioItem key={language} value={language} lang={language}>
                 {LANGUAGE_NAMES[language]}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>{t('theme.label')}</DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            aria-label={t('theme.label')}
+            value={theme}
+            onValueChange={(choice) => {
+              if (!isThemeChoice(choice)) return;
+              chooseTheme(choice);
+              setTheme(choice);
+            }}
+          >
+            {THEME_CHOICES.map((choice) => (
+              <DropdownMenuRadioItem key={choice} value={choice}>
+                {t(`theme.${choice}`)}
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>

@@ -134,10 +134,13 @@ describe('BlockNode', () => {
       expect(later.block.querySelector('.lucide-square')).toBeInTheDocument();
     });
 
-    it('names an agent author with its letter in the agent color', () => {
+    it('names an agent author with its mark in the agent color', () => {
       renderBlock({ createdBy: MODERATOR });
 
-      expect(screen.getByRole('img', { name: 'Moderator' })).toHaveClass('bg-agent-moderator');
+      expect(screen.getByRole('img', { name: 'Moderator' })).toHaveClass(
+        'bg-agent-moderator-tint',
+        'text-agent-moderator',
+      );
       expect(screen.getByText('Moderator')).toHaveClass('font-medium', 'text-agent-moderator-dark');
     });
 

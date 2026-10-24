@@ -3,6 +3,7 @@ import { render, renderHook, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 
+import { customMark } from '@web/components/ui/agent-marks';
 import { TooltipProvider } from '@web/components/ui/tooltip';
 import { AgentAvatar } from '@web/features/agents/agent-avatar';
 import { AgentDirectoryProvider } from '@web/features/agents/agent-directory';
@@ -97,14 +98,14 @@ describe('the look of an agent', () => {
     expect(agentColor({ look: 'custom', color: null })).toBe('var(--color-agent-custom-5)');
   });
 
-  it('shows a custom agent with two letters in its color', () => {
+  it('shows a custom agent with its mark in its color', () => {
     function Probe() {
       return <AgentAvatar agent={useAgents()(WRITER.key)} size={24} />;
     }
     render(<Probe />, { wrapper });
     const avatar = screen.getByRole('img', { name: 'UX Writer' });
-    expect(avatar).toHaveTextContent('UW');
-    expect(avatar).toHaveClass('bg-agent-custom', 'agent-color-3', 'text-on-ink');
+    expect(avatar.querySelector('path')).toHaveAttribute('d', customMark(WRITER.key));
+    expect(avatar).toHaveClass('bg-agent-custom-tint', 'agent-color-3', 'text-agent-custom');
   });
 });
 
@@ -121,7 +122,7 @@ describe('custom agents in the chat', () => {
     updatedAt: CREATED_AT,
   };
 
-  it('answer under their name, with their initials, color and the badge "Agent"', () => {
+  it('answer under their name, with their mark, color and the badge "Agent"', () => {
     render(
       <ChatMessageView
         item={{ ...message, author: { kind: 'agent', agentKey: WRITER.key } }}
@@ -132,7 +133,7 @@ describe('custom agents in the chat', () => {
     );
 
     const article = screen.getByRole('article', { name: 'UX Writer Agent 14:05' });
-    expect(article.querySelector('[role="img"]')).toHaveTextContent('UW');
+    expect(article.querySelector('[role="img"] path')).toHaveAttribute('d', customMark(WRITER.key));
     expect(article.querySelector('[role="img"]')).toHaveClass('agent-color-3');
     expect(screen.getByText('UX Writer')).toHaveClass('text-agent-custom-dark', 'agent-color-3');
     expect(screen.getByText('Agent')).toHaveClass('bg-agent-custom-tint', 'agent-color-3');

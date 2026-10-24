@@ -106,7 +106,7 @@ describe('Composer', () => {
     });
 
     const items = await screen.findAllByRole('menuitem');
-    expect(items.map((item) => item.textContent)).toEqual(['MModerator', 'MLML']);
+    expect(items.map((item) => item.textContent)).toEqual(['Moderator', 'ML']);
   });
 
   it('offers the four agents under "@"', async () => {
@@ -165,7 +165,7 @@ describe('Composer', () => {
       key: 'Enter',
     });
     const item = await screen.findByRole('menuitem', { name: 'UX Writer' });
-    expect(item).toHaveTextContent('UWUX Writer');
+    expect(item).toHaveTextContent('UX Writer');
     fireEvent.click(item);
 
     await waitFor(() => {
@@ -195,7 +195,7 @@ describe('Composer', () => {
     });
     const items = await screen.findAllByRole('menuitem');
     expect(items.map((item) => item.textContent)).toEqual([
-      'MModerator',
+      'Moderator',
       'ABAlex Berg',
       'Ssam.smith',
     ]);

@@ -163,7 +163,7 @@ function AuthorLine({ data, agent }: { data: BlockNodeData; agent: AgentInfo | n
 }
 
 /**
- * The fields of an entity in Geist Mono, name left and type right (spec 12); after 8 fields a row
+ * The fields of an entity in the mono font, name left and type right (spec 12); after 8 fields a row
  * says how many more there are.
  */
 function EntityFields({ fields, agent }: { fields: EntityField[]; agent: AgentInfo | null }) {

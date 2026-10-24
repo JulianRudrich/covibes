@@ -636,7 +636,7 @@ describe('the feature specs in the PackageDialog (spec 27d)', () => {
     expect(posts(calls)).toEqual([`${SPECS}/2`]);
     expect(await milestones(dialog)).toEqual([
       'Meilenstein 1: Grundgerüst0 von 2 ausgearbeitetAusarbeiten',
-      'Meilenstein 2: Mitglieder0 von 1 ausgearbeitetMDer Moderator schreibt …',
+      'Meilenstein 2: Mitglieder0 von 1 ausgearbeitetDer Moderator schreibt …',
     ]);
   });
 
@@ -674,7 +674,7 @@ describe('the feature specs in the PackageDialog (spec 27d)', () => {
     });
 
     expect(await milestones(dialog)).toEqual([
-      'Meilenstein 1: Grundgerüst0 von 2 ausgearbeitetMDer Moderator schreibt …',
+      'Meilenstein 1: Grundgerüst0 von 2 ausgearbeitetDer Moderator schreibt …',
       // A failed run can be asked for again.
       'Meilenstein 2: Mitglieder0 von 1 ausgearbeitetAusarbeitenDie Specs konnten nicht ausgearbeitet werden. Bitte versuche es noch einmal.',
     ]);

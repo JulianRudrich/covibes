@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { customMark } from '@web/components/ui/agent-marks';
 import { Dialog } from '@web/components/ui/dialog';
 import { TooltipProvider } from '@web/components/ui/tooltip';
 import { AgentEditor } from '@web/features/agents/agent-editor';
@@ -333,12 +334,14 @@ describe('custom agents in the team menu', () => {
     return { ...handlers, popover: screen.getByRole('dialog', { name: 'Team' }) };
   }
 
-  it('show in the team with their initials, role, scope and own default model', () => {
+  it('show in the team with their mark, role, scope and own default model', () => {
     const { popover } = renderMenu();
 
     expect(popover).toHaveTextContent('UX WriterTexte und Tonalität · GeteiltHaiku 4.5');
     expect(popover).toHaveTextContent('GastZu Besuch · PersönlichOpus 5.5');
-    expect(within(popover).getAllByRole('img', { name: 'UX Writer' })[0]).toHaveTextContent('UW');
+    expect(
+      within(popover).getAllByRole('img', { name: 'UX Writer' })[0]?.querySelector('path'),
+    ).toHaveAttribute('d', customMark(WRITER.key));
     expect(within(popover).getByLabelText('Modell von UX Writer: Haiku 4.5')).toBeInTheDocument();
   });
 

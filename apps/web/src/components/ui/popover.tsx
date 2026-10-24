@@ -24,7 +24,7 @@ export function PopoverContent({
         sideOffset={6}
         collisionPadding={8}
         className={cn(
-          'z-50 rounded-card border border-border bg-bg-panel shadow-float outline-none',
+          'z-50 animate-pop rounded-panel bg-bg-panel shadow-float outline-none',
           className,
         )}
         {...props}

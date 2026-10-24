@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
 
+import { CATALOG_MARKS } from '@web/components/ui/agent-marks';
 import { ChatMessageView } from '@web/features/chat/chat-message';
 import { MentionText } from '@web/features/chat/mention-text';
 import type { ChatItem } from '@web/features/chat/types';
@@ -88,17 +89,17 @@ describe('ChatMessageView', () => {
   });
 
   it.each([
-    ['backend', 'Backend', 'B'],
-    ['critic', 'Kritiker', 'K'],
-    ['data', 'Daten', 'D'],
-  ] as const)('shows the %s agent in its colors with the badge "Agent"', (key, name, initial) => {
+    ['backend', 'Backend'],
+    ['critic', 'Kritiker'],
+    ['data', 'Daten'],
+  ] as const)('shows the %s agent in its colors with the badge "Agent"', (key, name) => {
     render(<ChatMessageView item={agentMessage(key)} isOwn={false} />);
     const article = screen.getByRole('article', { name: `${name} Agent 14:05` });
 
     const avatar = article.querySelector('[role="img"]');
-    expect(avatar).toHaveClass(`bg-agent-${key}`, 'rounded-md', 'size-7', 'text-status');
+    expect(avatar).toHaveClass(`bg-agent-${key}-tint`, `text-agent-${key}`, 'size-7');
     expect(avatar).not.toHaveClass('rounded-full');
-    expect(avatar).toHaveTextContent(initial);
+    expect(avatar?.querySelector('path')).toHaveAttribute('d', CATALOG_MARKS[key]);
     expect(within(article).getByText(name)).toHaveClass(`text-agent-${key}-dark`, 'font-semibold');
     expect(within(article).getByText('Agent')).toHaveClass(
       `bg-agent-${key}-tint`,
@@ -117,8 +118,8 @@ describe('ChatMessageView', () => {
       'p-3',
     );
     const avatar = card.querySelector('[role="img"]');
-    expect(avatar).toHaveClass('bg-agent-moderator', 'size-6', 'rounded-btn-s');
-    expect(avatar).toHaveTextContent('M');
+    expect(avatar).toHaveClass('bg-agent-moderator-tint', 'size-6');
+    expect(avatar?.querySelector('path')).toHaveAttribute('d', CATALOG_MARKS.moderator);
     expect(within(card).getByText('Moderator')).toHaveClass('text-agent-moderator-dark');
     expect(within(card).getByText('Agent · neutral')).toHaveClass('bg-agent-moderator-tint');
     expect(within(card).getByText('14:05')).toHaveClass('ml-auto');
@@ -380,11 +381,11 @@ describe('ChatMessageView', () => {
     expect(chips.map((chip) => chip.textContent)).toEqual(['@Backend']);
   });
 
-  it('shows the avatar letters of the catalog agents', () => {
+  it('shows the marks of the catalog agents instead of letters (spec 36a)', () => {
     render(<ChatMessageView item={agentMessage('ml')} isOwn={false} />);
-    // The name is right next to it, so the avatar itself is hidden from screen readers.
-    const avatar = screen.getByRole('article').querySelector('.bg-agent-ml');
-    expect(avatar).toHaveTextContent('ML');
+    const avatar = screen.getByRole('article').querySelector('.bg-agent-ml-tint');
+    expect(avatar?.querySelector('path')).toHaveAttribute('d', CATALOG_MARKS.ml);
+    expect(avatar).toHaveTextContent('');
   });
 
   it('keeps line breaks and lets long words wrap', () => {

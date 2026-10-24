@@ -164,9 +164,9 @@ describe('UsageDialog', () => {
     const rows = within(await section('Je Agent')).getAllByRole('listitem');
 
     expect(rows.map((row) => plain(row.textContent))).toEqual([
-      'MModerator4,10 $30 Läufe',
-      'BBackend2,06 $11 Läufe',
-      '?Agent0,01 $1 Lauf',
+      'Moderator4,10 $30 Läufe',
+      'Backend2,06 $11 Läufe',
+      'Agent0,01 $1 Lauf',
     ]);
   });
 

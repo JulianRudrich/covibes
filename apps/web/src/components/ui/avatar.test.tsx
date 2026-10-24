@@ -2,6 +2,7 @@ import { AGENT_KEYS } from '@covibes/shared';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import { CATALOG_MARKS, CUSTOM_MARKS, customMark } from './agent-marks';
 import { Avatar } from './avatar';
 
 describe('Avatar', () => {
@@ -22,19 +23,42 @@ describe('Avatar', () => {
     );
   });
 
-  it.each(AGENT_KEYS)('renders the %s agent as a square in its color', (agent) => {
-    render(<Avatar kind="agent" agent={agent} size={24} label={agent} initials="X" />);
+  it.each(AGENT_KEYS)('renders the %s agent as its mark on its tint', (agent) => {
+    render(
+      <Avatar kind="agent" agent={agent} size={24} label={agent} mark={CATALOG_MARKS[agent]} />,
+    );
     const avatar = screen.getByRole('img', { name: agent });
 
-    expect(avatar).toHaveClass(`bg-agent-${agent}`, 'text-on-ink', 'rounded-btn-s', 'size-6');
+    expect(avatar).toHaveClass(`bg-agent-${agent}-tint`, `text-agent-${agent}`, 'size-6');
     expect(avatar).not.toHaveClass('rounded-full');
+    expect(avatar.querySelector('path')).toHaveAttribute('d', CATALOG_MARKS[agent]);
+    // No letters: the mark alone stands for the agent.
+    expect(avatar).toHaveTextContent('');
+  });
+
+  it('gives every catalog agent its own mark', () => {
+    expect(new Set(Object.values(CATALOG_MARKS)).size).toBe(AGENT_KEYS.length);
+  });
+
+  it('keeps the mark of a custom agent the same for the same id', () => {
+    expect(customMark('agent-a')).toBe(customMark('agent-a'));
+    expect(CUSTOM_MARKS).toContain(customMark('agent-a'));
+    expect(Object.values(CATALOG_MARKS)).not.toContain(customMark('agent-a'));
   });
 
   it.each([
-    [16, 'rounded-xs'],
-    [28, 'rounded-md'],
+    [16, 'rounded-[5px]'],
+    [30, 'rounded-[10px]'],
   ] as const)('scales the agent radius with size %i', (size, radius) => {
-    render(<Avatar kind="agent" agent="moderator" size={size} label="Moderator" initials="M" />);
+    render(
+      <Avatar
+        kind="agent"
+        agent="moderator"
+        size={size}
+        label="Moderator"
+        mark={CATALOG_MARKS.moderator}
+      />,
+    );
 
     expect(screen.getByRole('img', { name: 'Moderator' })).toHaveClass(radius);
   });

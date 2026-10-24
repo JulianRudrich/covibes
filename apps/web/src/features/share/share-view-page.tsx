@@ -79,7 +79,7 @@ function SharedWorkspace({ token, project }: { token: string; project: SharedPro
     <div className="grid h-dvh min-w-[760px] grid-rows-[52px_minmax(0,1fr)] bg-bg-app text-text">
       <header className="flex items-center gap-2.5 px-4">
         <Logo />
-        <span className="text-display font-semibold tracking-[-0.02em]">
+        <span className="font-display text-[18px] font-bold tracking-[-0.025em]">
           {t('common.wordmark')}
         </span>
         <span aria-hidden="true" className="text-display text-text-faint">

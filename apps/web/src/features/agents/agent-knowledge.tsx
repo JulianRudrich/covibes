@@ -232,7 +232,7 @@ function KnowledgeRow({
 }) {
   const Icon = item.kind === 'file' ? FileText : Link2;
   return (
-    <li className="flex h-[34px] min-w-0 items-center gap-2 rounded-md border border-border-soft bg-bg-muted pr-1 pl-2 text-small text-text-body">
+    <li className="flex h-10 min-w-0 items-center gap-2 rounded-card bg-bg-subtle pr-1.5 pl-3 text-small text-text-body">
       <Icon size={15} className="shrink-0 text-text-3" aria-hidden="true" />
       <a
         href={href}
@@ -254,7 +254,7 @@ function KnowledgeRow({
         aria-label={removeLabel}
         title={removeLabel}
         disabled={disabled}
-        className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-sm text-text-3 hover:bg-bg-subtle hover:text-text focus-visible:outline-2 focus-visible:outline-ink disabled:pointer-events-none disabled:opacity-50"
+        className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-full text-text-3 hover:bg-wash hover:text-text focus-visible:outline-2 focus-visible:outline-ink disabled:pointer-events-none disabled:opacity-50"
         onClick={onRemove}
       >
         <X size={13} strokeWidth={2.2} aria-hidden="true" />

@@ -1,16 +1,13 @@
-import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
-import { PageMessage } from '@web/components/page-message';
+import { PageMessage, PageMessageLink } from '@web/components/page-message';
 import { Button } from '@web/components/ui/button';
 
 export function NotFoundPage() {
   const { t } = useTranslation();
   return (
     <PageMessage title={t('errors.notFound')}>
-      <Link to="/" className="mt-2 text-ui">
-        {t('errors.toStart')}
-      </Link>
+      <PageMessageLink to="/">{t('errors.toStart')}</PageMessageLink>
     </PageMessage>
   );
 }
@@ -20,9 +17,11 @@ export function ErrorPage() {
   const { t } = useTranslation();
   return (
     <PageMessage title={t('errors.unavailable')}>
-      <p className="m-0 text-ui text-text-3">{t('errors.unavailableText')}</p>
+      <p className="m-0 text-body text-text-3">{t('errors.unavailableText')}</p>
       <Button
-        className="mt-2 justify-self-center"
+        variant="primary"
+        size="l"
+        className="mt-3 justify-self-center"
         onClick={() => {
           window.location.reload();
         }}

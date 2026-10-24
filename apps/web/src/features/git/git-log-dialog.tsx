@@ -45,7 +45,7 @@ export function GitLogDialog({ projectId }: { projectId: string }) {
         </ul>
       )}
 
-      <div className="mt-4 flex justify-end">
+      <div className="mt-6 flex justify-end gap-2">
         <DialogClose asChild>
           <Button variant="ghost">{t('common.close')}</Button>
         </DialogClose>
@@ -85,7 +85,7 @@ function LogEntry({ request }: { request: GitRequest }) {
       : null;
 
   return (
-    <li className="flex flex-col gap-1.5 border-b border-border-soft py-2.5 first:pt-0 last:border-b-0">
+    <li className="flex flex-col gap-1.5 border-b border-border-subtle py-2.5 first:pt-0 last:border-b-0">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1 text-ui leading-snug text-text-body">
           <GitRequestSummary request={request} done={request.status === 'done'} />

@@ -74,14 +74,16 @@ export function NotificationBell() {
       </PopoverTrigger>
       <PopoverContent
         aria-label={t('notifications.title')}
-        className="flex max-h-[min(70vh,520px)] w-[min(360px,calc(100vw-24px))] flex-col p-0"
+        className="flex max-h-[min(70vh,520px)] w-[min(380px,calc(100vw-24px))] flex-col p-0"
       >
-        <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-3.5 py-2.5">
-          <h2 className="m-0 text-ui font-semibold text-text">{t('notifications.title')}</h2>
+        <div className="flex items-center justify-between gap-3 px-4 pt-3.5 pb-2">
+          <h2 className="m-0 font-display text-heading font-semibold tracking-[-0.01em] text-text">
+            {t('notifications.title')}
+          </h2>
           {unread > 0 ? (
             <button
               type="button"
-              className="cursor-pointer rounded-xs text-meta text-text-3 underline-offset-2 hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-ink"
+              className="h-7 cursor-pointer rounded-full px-2.5 text-small font-medium text-text-2 transition-colors hover:bg-wash hover:text-text focus-visible:outline-2 focus-visible:outline-ink"
               onClick={() => {
                 markRead.mutate({ all: true });
               }}
@@ -91,11 +93,11 @@ export function NotificationBell() {
           ) : null}
         </div>
         {notifications.length === 0 ? (
-          <p className="m-0 px-3.5 py-6 text-center text-small text-text-3">
+          <p className="m-0 px-4 pt-4 pb-7 text-center text-small text-text-3">
             {t('notifications.empty')}
           </p>
         ) : (
-          <ul className="m-0 min-h-0 list-none overflow-y-auto p-1.5">
+          <ul className="m-0 min-h-0 list-none overflow-y-auto px-2 pb-2">
             {notifications.map((notification) => {
               const Icon = ICONS[notification.kind];
               return (
@@ -103,7 +105,7 @@ export function NotificationBell() {
                   <button
                     type="button"
                     className={cn(
-                      'flex w-full cursor-pointer items-start gap-2.5 rounded-md px-2 py-2 text-left hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-ink',
+                      'flex w-full cursor-pointer items-start gap-3 rounded-card px-2.5 py-2.5 text-left transition-colors hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-ink',
                       notification.kind === 'removed' && notification.read && 'cursor-default',
                     )}
                     onClick={() => {
@@ -112,9 +114,9 @@ export function NotificationBell() {
                   >
                     <span
                       aria-hidden="true"
-                      className="mt-px grid size-6 shrink-0 place-items-center rounded-full bg-bg-subtle text-text-2"
+                      className="grid size-8 shrink-0 place-items-center rounded-full bg-bg-subtle text-text-2"
                     >
-                      <Icon size={13} />
+                      <Icon size={15} strokeWidth={1.9} />
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span

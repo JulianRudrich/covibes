@@ -16,9 +16,17 @@ import { z } from 'zod';
 
 import { Avatar } from '@web/components/ui/avatar';
 import { Button } from '@web/components/ui/button';
-import { DialogClose, DialogContent } from '@web/components/ui/dialog';
+import { Inset } from '@web/components/ui/card';
+import { Checkbox } from '@web/components/ui/checkbox';
+import {
+  DIALOG_SECTION_TITLE,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+} from '@web/components/ui/dialog';
 import { IconButton } from '@web/components/ui/icon-button';
 import { FieldError, Input } from '@web/components/ui/input';
+import { Select } from '@web/components/ui/select';
 import {
   invitationsQuery,
   shareLinkQuery,
@@ -27,15 +35,11 @@ import {
   useShareLinkMutations,
 } from '@web/features/share/queries';
 import { ApiError } from '@web/lib/api';
-import { cn } from '@web/lib/cn';
 import { initialsOf } from '@web/lib/format';
 
 const emailSchema = z.email();
 
-const SELECT =
-  'h-7 rounded-md border border-border-strong bg-bg-panel px-2 text-small text-text transition-colors focus-visible:border-ink focus-visible:outline-none disabled:opacity-50';
-
-const SECTION_TITLE = 'm-0 text-small font-medium text-text-2';
+const SECTION_TITLE = DIALOG_SECTION_TITLE;
 
 type Problem =
   'invalidEmail' | 'alreadyMember' | 'tooManyMails' | 'tooManyInvitations' | 'lastOwner' | 'failed';
@@ -98,12 +102,12 @@ export function ShareDialog({
       description={t(isOwner ? 'share.hintOwner' : 'share.hintMember')}
       className="w-[min(520px,calc(100vw-32px))]"
     >
-      <div className="flex max-h-[min(68vh,620px)] flex-col gap-5 overflow-y-auto pr-1">
+      <div className="-mx-1 flex max-h-[min(68vh,620px)] flex-col gap-6 overflow-y-auto px-1 pb-1">
         {isOwner ? (
           <Invite projectId={project.id} emailInvites={emailInvites} devMailbox={devMailbox} />
         ) : null}
 
-        <section aria-label={t('share.members.title')} className="flex flex-col gap-1.5">
+        <section aria-label={t('share.members.title')} className="flex flex-col gap-1">
           <h3 className={SECTION_TITLE}>
             {t('share.members.count', { count: project.members.length })}
           </h3>
@@ -157,48 +161,49 @@ export function ShareDialog({
 
       {problem ? <FieldError className="mt-3">{t(`share.problems.${problem}`)}</FieldError> : null}
 
-      <div className="mt-4 flex items-center gap-2">
-        {confirmingLeave ? (
-          <>
-            <Button
-              variant="danger"
-              disabled={members.leave.isPending}
-              onClick={() => {
-                void leave();
-              }}
-            >
-              {t('share.leave.confirm')}
-            </Button>
-            <span className="min-w-0 text-small leading-snug text-text-3">
-              {t('share.leave.hint')}
-            </span>
-          </>
-        ) : (
-          <>
-            <Button
-              variant="ghost"
-              className="text-danger"
-              disabled={lastOwner}
-              aria-describedby={lastOwner ? 'share-last-owner' : undefined}
-              onClick={() => {
-                setConfirmingLeave(true);
-              }}
-            >
-              {t('share.leave.action')}
-            </Button>
-            {lastOwner ? (
-              <span id="share-last-owner" className="min-w-0 text-small leading-snug text-text-3">
-                {t('share.leave.lastOwner')}
+      <DialogFooter
+        start={
+          confirmingLeave ? (
+            <>
+              <Button
+                variant="danger"
+                disabled={members.leave.isPending}
+                onClick={() => {
+                  void leave();
+                }}
+              >
+                {t('share.leave.confirm')}
+              </Button>
+              <span className="min-w-0 text-small leading-snug text-text-3">
+                {t('share.leave.hint')}
               </span>
-            ) : null}
-          </>
-        )}
-        <div className="ml-auto flex shrink-0 gap-2">
-          <DialogClose asChild>
-            <Button variant="primary">{t('common.close')}</Button>
-          </DialogClose>
-        </div>
-      </div>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                className="text-danger"
+                disabled={lastOwner}
+                aria-describedby={lastOwner ? 'share-last-owner' : undefined}
+                onClick={() => {
+                  setConfirmingLeave(true);
+                }}
+              >
+                {t('share.leave.action')}
+              </Button>
+              {lastOwner ? (
+                <span id="share-last-owner" className="min-w-0 text-small leading-snug text-text-3">
+                  {t('share.leave.lastOwner')}
+                </span>
+              ) : null}
+            </>
+          )
+        }
+      >
+        <DialogClose asChild>
+          <Button variant="primary">{t('common.close')}</Button>
+        </DialogClose>
+      </DialogFooter>
     </DialogContent>
   );
 }
@@ -264,7 +269,7 @@ function Invite({
 
   return (
     <>
-      <section aria-label={t('share.invite.title')} className="flex flex-col gap-2">
+      <section aria-label={t('share.invite.title')} className="flex flex-col gap-2.5">
         <h3 className={SECTION_TITLE}>{t('share.invite.title')}</h3>
         <form
           noValidate
@@ -282,17 +287,17 @@ function Invite({
               placeholder={t('auth.emailPlaceholder')}
               aria-label={t('share.invite.email')}
               aria-invalid={problem === 'invalidEmail'}
-              className="h-[30px] min-w-[180px] flex-1"
+              className="h-9 min-w-[180px] flex-1 rounded-full px-4"
               onChange={(event) => {
                 setEmail(event.target.value);
                 if (problem === 'invalidEmail') setProblem(null);
               }}
             />
           ) : null}
-          <select
+          <Select
             value={role}
             aria-label={t('share.invite.role')}
-            className={cn(SELECT, 'h-[30px]')}
+            className="h-9"
             onChange={(event) => {
               const next = INVITATION_ROLES.find((option) => option === event.target.value);
               if (next) setRole(next);
@@ -303,9 +308,14 @@ function Invite({
                 {t(`share.invite.as.${option}`)}
               </option>
             ))}
-          </select>
+          </Select>
           {emailInvites ? (
-            <Button type="submit" variant="primary" disabled={busy || email.trim() === ''}>
+            <Button
+              type="submit"
+              variant="primary"
+              className="h-9 px-4"
+              disabled={busy || email.trim() === ''}
+            >
               {t('share.invite.send')}
             </Button>
           ) : null}
@@ -349,9 +359,9 @@ function Invite({
       </section>
 
       {invitations.length > 0 ? (
-        <section aria-label={t('share.open.title')} className="flex flex-col gap-1.5">
+        <section aria-label={t('share.open.title')} className="flex flex-col gap-2.5">
           <h3 className={SECTION_TITLE}>{t('share.open.title')}</h3>
-          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+          <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
             {invitations.map((invitation) => (
               <InvitationRow
                 key={invitation.id}
@@ -402,13 +412,13 @@ function LinkBox({ url, label, hint }: { url: string; label: string; hint: strin
   }
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-md border border-border-soft bg-bg-muted p-2.5">
+    <Inset className="flex flex-col gap-2 p-3">
       <div className="flex items-center gap-2">
         <Input
           readOnly
           value={url}
           aria-label={label}
-          className="h-7 flex-1 font-mono text-meta"
+          className="h-8 flex-1 rounded-full px-3.5 font-mono text-meta"
           onFocus={(event) => {
             event.target.select();
           }}
@@ -423,8 +433,8 @@ function LinkBox({ url, label, hint }: { url: string; label: string; hint: strin
           {t(copied ? 'share.invite.copied' : 'share.invite.copy')}
         </Button>
       </div>
-      <p className="m-0 text-small leading-snug text-text-3">{hint}</p>
-    </div>
+      <p className="m-0 px-1 text-small leading-snug text-text-3">{hint}</p>
+    </Inset>
   );
 }
 
@@ -466,9 +476,9 @@ function ReadOnlyLink({ projectId, canManage }: { projectId: string; canManage: 
   }
 
   return (
-    <section aria-label={t('share.readOnly.title')} className="flex flex-col gap-2">
+    <section aria-label={t('share.readOnly.title')} className="flex flex-col gap-2.5">
       <h3 className={SECTION_TITLE}>{t('share.readOnly.title')}</h3>
-      <p className="m-0 text-small leading-snug text-text-3">
+      <p className="-mt-1 m-0 text-small leading-snug text-text-3">
         {status === undefined
           ? t('share.readOnly.what')
           : `${
@@ -535,8 +545,10 @@ function InvitationRow({
   const Icon = invitation.kind === 'email' ? Mail : Link2;
   const name = invitation.email ?? t('share.open.link');
   return (
-    <li className="flex min-h-[34px] min-w-0 items-center gap-2 rounded-md border border-border-soft bg-bg-muted py-1 pr-1.5 pl-2 text-small text-text-body">
-      <Icon size={15} className="shrink-0 text-text-3" aria-hidden="true" />
+    <li className="flex min-h-[52px] min-w-0 items-center gap-2.5 rounded-card bg-bg-subtle py-2 pr-2 pl-2.5 text-small text-text-body">
+      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-bg-panel text-text-3">
+        <Icon size={15} aria-hidden="true" />
+      </span>
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate font-medium">{name}</span>
         <span className="truncate text-meta text-text-3">
@@ -596,18 +608,16 @@ function MemberRow({
   const name = isSelf ? `${member.name} (${t('common.you')})` : member.name;
 
   return (
-    <li className="flex min-h-[44px] min-w-0 items-center gap-2.5 border-b border-border-soft py-1.5 last:border-b-0">
-      <Avatar kind="human" size={28} label={member.name} initials={initialsOf(member.name)} />
+    <li className="flex min-h-[52px] min-w-0 items-center gap-3 border-b border-border-subtle py-2 last:border-b-0">
+      <Avatar kind="human" size={32} label={member.name} initials={initialsOf(member.name)} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-ui font-medium text-text">{name}</span>
         {member.role === 'editor' && canManage ? (
-          <span className="flex items-center gap-1.5 text-meta text-text-3">
-            <input
+          <span className="mt-1 flex items-center gap-2 text-meta text-text-3">
+            <Checkbox
               id={`${id}-git`}
-              type="checkbox"
               checked={member.canApproveGit}
               disabled={busy}
-              className="size-3 accent-ink enabled:cursor-pointer"
               onChange={(event) => {
                 onApproveGit(event.target.checked);
               }}
@@ -646,12 +656,12 @@ function MemberRow({
       ) : (
         <>
           {canManage ? (
-            <select
+            <Select
+              size="s"
               value={member.role}
               disabled={busy || roleLocked}
               aria-label={t('share.members.roleOf', { name: member.name })}
               title={roleLocked ? t('share.members.lastOwner') : undefined}
-              className={SELECT}
               onChange={(event) => {
                 const next = PROJECT_ROLES.find((option) => option === event.target.value);
                 if (next && next !== member.role) onRole(next);
@@ -663,7 +673,7 @@ function MemberRow({
                   {t(`projects.roles.${option}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           ) : (
             <span className="shrink-0 text-small text-text-3">
               {t(`projects.roles.${member.role}`)}

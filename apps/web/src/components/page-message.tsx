@@ -1,8 +1,11 @@
+import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@web/components/logo';
+import { buttonVariants } from '@web/components/ui/button-variants';
 import { Card } from '@web/components/ui/card';
+import { cn } from '@web/lib/cn';
 
 /**
  * Full-screen centered card for loading, not-found and error states, and for the invitation (spec
@@ -37,5 +40,20 @@ export function PageMessage({
         {below ? <div className="mt-4">{below}</div> : null}
       </div>
     </main>
+  );
+}
+
+/** A link that is the action of a message page: a 46 px secondary pill, centered (spec 36d). */
+export function PageMessageLink({ to, children }: { to: '/'; children: ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className={cn(
+        buttonVariants({ variant: 'secondary', size: 'l' }),
+        'mt-3 justify-self-center text-text-body no-underline hover:no-underline',
+      )}
+    >
+      {children}
+    </Link>
   );
 }

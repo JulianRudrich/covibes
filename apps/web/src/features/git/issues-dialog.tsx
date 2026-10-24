@@ -4,6 +4,7 @@ import { CircleCheck, ExternalLink } from 'lucide-react';
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
+import { Checkbox } from '@web/components/ui/checkbox';
 import { Button } from '@web/components/ui/button';
 import { DialogClose, DialogContent } from '@web/components/ui/dialog';
 import { FieldError } from '@web/components/ui/input';
@@ -68,7 +69,7 @@ export function IssuesDialog({ projectId }: { projectId: string }) {
 function Footer({ children }: { children?: ReactNode }) {
   const { t } = useTranslation();
   return (
-    <div className="mt-4 flex justify-end gap-2">
+    <div className="mt-6 flex justify-end gap-2">
       <DialogClose asChild>
         <Button variant="ghost">{t('common.close')}</Button>
       </DialogClose>
@@ -176,10 +177,9 @@ function Tasks({
             const headingId = `${ids}-m${String(milestone.number)}`;
             return (
               <section key={milestone.number} aria-labelledby={headingId}>
-                <div className="flex items-center gap-2 border-b border-border-soft pb-1">
+                <div className="flex items-center gap-2.5 border-b border-border pb-1.5">
                   {plan.canRequest && own.length > 0 ? (
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       aria-label={t('git.issues.allOf', { title: milestone.title })}
                       checked={ownChosen.length === own.length}
                       ref={(input) => {
@@ -189,7 +189,6 @@ function Tasks({
                         }
                       }}
                       disabled={busy}
-                      className="size-3.5 accent-ink enabled:cursor-pointer"
                       onChange={(event) => {
                         toggle(own, event.target.checked);
                       }}
@@ -197,7 +196,7 @@ function Tasks({
                   ) : null}
                   <h3
                     id={headingId}
-                    className="m-0 min-w-0 truncate text-small font-medium text-text-2"
+                    className="m-0 min-w-0 truncate text-ui font-semibold text-text"
                   >
                     {t('git.issues.milestone', {
                       number: milestone.number,
@@ -286,14 +285,13 @@ function TaskRow({
   const id = useId();
   const free = isFree(task);
   return (
-    <li className="flex min-h-[30px] items-start gap-2 border-b border-border-soft py-1.5 last:border-b-0">
+    <li className="flex min-h-[34px] items-start gap-2.5 border-b border-border-subtle py-1.5 last:border-b-0">
       {canRequest ? (
-        <input
+        <Checkbox
           id={id}
-          type="checkbox"
           checked={checked}
           disabled={disabled || !free}
-          className="mt-[3px] size-3.5 shrink-0 accent-ink enabled:cursor-pointer"
+          wrapperClassName="mt-0.5"
           onChange={(event) => {
             onToggle(event.target.checked);
           }}

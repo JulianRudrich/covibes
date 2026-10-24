@@ -1,15 +1,15 @@
 import type { SharedProject } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
-import { getRouteApi, Link } from '@tanstack/react-router';
+import { getRouteApi } from '@tanstack/react-router';
 import { ReactFlowProvider } from '@xyflow/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@web/components/logo';
-import { PageMessage } from '@web/components/page-message';
+import { PageMessage, PageMessageLink } from '@web/components/page-message';
 import { LanguageSwitch } from '@web/features/account/language-switch';
 import { Badge } from '@web/components/ui/badge';
-import { Panel, PanelHeader, PanelTitle } from '@web/components/ui/panel';
+import { Panel } from '@web/components/ui/panel';
 import { AgentDirectoryProvider } from '@web/features/agents/agent-directory';
 import { CriteriaSection } from '@web/features/decisions/criteria-section';
 import { DecisionsSection } from '@web/features/decisions/decisions-section';
@@ -45,10 +45,8 @@ export function ShareViewPage() {
         below={<LanguageSwitch />}
         title={t(dead ? 'shareView.dead.title' : 'shareView.loadError')}
       >
-        {dead ? <p className="m-0 text-ui text-text-3">{t('shareView.dead.text')}</p> : null}
-        <Link to="/" className="mt-2 text-ui">
-          {t('shareView.toCovibes')}
-        </Link>
+        {dead ? <p className="m-0 text-body text-text-3">{t('shareView.dead.text')}</p> : null}
+        <PageMessageLink to="/">{t('shareView.toCovibes')}</PageMessageLink>
       </PageMessage>
     );
   }
@@ -76,27 +74,27 @@ function SharedWorkspace({ token, project }: { token: string; project: SharedPro
     : null;
 
   return (
-    <div className="grid h-dvh min-w-[760px] grid-rows-[52px_minmax(0,1fr)] bg-bg-app text-text">
-      <header className="flex items-center gap-2.5 px-4">
+    <div className="grid h-dvh min-w-[760px] grid-rows-[64px_minmax(0,1fr)] bg-bg-app text-text">
+      <header className="flex items-center gap-2.5 pr-4 pl-5">
         <Logo />
         <span className="font-display text-[18px] font-bold tracking-[-0.025em]">
           {t('common.wordmark')}
         </span>
-        <span aria-hidden="true" className="text-display text-text-faint">
+        <span aria-hidden="true" className="mx-0.5 text-text-3">
           /
         </span>
-        <h1 className="m-0 min-w-0 truncate text-ui font-medium">{project.name}</h1>
-        <Badge>{t('shareView.readOnly')}</Badge>
-        <span className="ml-auto text-small text-text-3">
+        <h1 className="m-0 min-w-0 truncate text-ui font-semibold">{project.name}</h1>
+        <Badge className="h-[22px] px-2.5">{t('shareView.readOnly')}</Badge>
+        <span className="ml-auto text-small text-text-3 tabular-nums">
           {updated ? t('shareView.updated', { time: updated }) : null}
         </span>
         <LanguageSwitch />
       </header>
 
-      <main className="grid min-h-0 grid-cols-[minmax(0,1fr)_300px] gap-2 px-2 pb-2">
-        <Panel aria-label={t('panels.canvas')}>
-          <PanelHeader className="gap-1 px-3">
-            <div role="tablist" aria-label={t('shareView.boards')} className="flex h-8 gap-1">
+      <main className="grid min-h-0 grid-cols-[minmax(0,1fr)_300px] gap-3 px-3 pb-3">
+        <Panel aria-label={t('panels.canvas')} className="relative grid-rows-[minmax(0,1fr)]">
+          <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex *:pointer-events-auto">
+            <div role="tablist" aria-label={t('shareView.boards')} className="flex gap-1">
               {project.boards.map((entry) => {
                 const active = entry.id === board?.id;
                 return (
@@ -106,8 +104,10 @@ function SharedWorkspace({ token, project }: { token: string; project: SharedPro
                     role="tab"
                     aria-selected={active}
                     className={cn(
-                      'flex h-full max-w-[200px] cursor-pointer items-center truncate rounded-md px-3 text-ui font-medium whitespace-nowrap focus-visible:outline-2 focus-visible:outline-ink',
-                      active ? 'bg-bg-subtle text-text' : 'text-text-2 hover:bg-bg-subtle',
+                      'flex h-[34px] max-w-[200px] cursor-pointer items-center truncate rounded-full text-ui whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+                      active
+                        ? 'bg-bg-panel px-4 font-semibold text-text shadow-block'
+                        : 'px-3.5 font-medium text-text-2 hover:bg-wash hover:text-text',
                     )}
                     onClick={() => {
                       setOpenBoard(entry.id);
@@ -118,7 +118,7 @@ function SharedWorkspace({ token, project }: { token: string; project: SharedPro
                 );
               })}
             </div>
-          </PanelHeader>
+          </div>
           <div role="tabpanel" className="relative min-h-0 bg-bg-canvas">
             {board && content.data ? (
               <ReactFlowProvider key={board.id}>
@@ -141,16 +141,15 @@ function SharedWorkspace({ token, project }: { token: string; project: SharedPro
           </div>
         </Panel>
 
-        <Panel aria-label={t('panels.overview')}>
-          <PanelHeader>
-            <PanelTitle>{t('panels.overview')}</PanelTitle>
-          </PanelHeader>
-          <div className="min-h-0 overflow-y-auto">
-            {/* Without the decision log: it names who decided what. */}
-            <DecisionsSection decisions={project.decisions} log={undefined} />
-            <CriteriaSection criteria={project.criteria} />
-          </div>
-        </Panel>
+        {/* Like the main screen's overview: no title of its own (spec 36b). */}
+        <aside
+          aria-label={t('panels.overview')}
+          className="flex min-h-0 min-w-0 flex-col gap-[22px] overflow-y-auto rounded-surface bg-bg-panel p-[18px] shadow-panel"
+        >
+          {/* Without the decision log: it names who decided what. */}
+          <DecisionsSection decisions={project.decisions} log={undefined} />
+          <CriteriaSection criteria={project.criteria} />
+        </aside>
       </main>
     </div>
   );

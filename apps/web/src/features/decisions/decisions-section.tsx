@@ -227,12 +227,12 @@ function DecisionDialog({
   }
 
   return (
-    <DialogContent title={decision.topic}>
+    <DialogContent title={decision.topic} className="w-[min(480px,calc(100vw-32px))]">
       {/* A decision with a comparison is long; it scrolls inside the dialog. */}
       <div className="flex max-h-[min(75vh,680px)] flex-col gap-3 overflow-y-auto pr-1 text-ui text-text-body">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 rounded-card bg-bg-subtle px-3.5 py-3">
           <StatusSymbol decided={decided} />
-          <span className="text-title font-semibold text-text">
+          <span className="font-display text-display font-semibold text-text">
             {decided
               ? decision.value
               : t(comparing ? 'decisions.comparing' : 'decisions.notDecided')}
@@ -268,7 +268,7 @@ function DecisionDialog({
         {/* The snapshot of the variants already names the discarded ones. */}
         {decision.alternatives.length > 0 && !decision.variants ? (
           <div>
-            <h4 className="m-0 mb-1 text-small font-medium text-text-2">
+            <h4 className="m-0 mb-1.5 text-ui font-semibold text-text">
               {t('decisions.alternatives')}
             </h4>
             <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
@@ -314,7 +314,7 @@ function DecisionDialog({
             </div>
           </form>
         ) : (
-          <div className="mt-1 flex justify-end gap-2">
+          <div className="mt-3 flex justify-end gap-2">
             {decided && onReopen ? (
               <Button
                 onClick={() => {
@@ -345,13 +345,16 @@ function DecisionLogDialog({ log }: { log: readonly DecisionLogEntry[] | undefin
       ) : log.length === 0 ? (
         <p className="m-0 text-ui text-text-3">{t('decisions.logEmpty')}</p>
       ) : (
-        <ol className="m-0 flex max-h-[min(60vh,520px)] list-none flex-col gap-3 overflow-y-auto p-0 pr-1">
+        <ol className="m-0 flex max-h-[min(60vh,520px)] list-none flex-col overflow-y-auto p-0 pr-1">
           {log.map((entry) => {
             const by = [entry.user, entry.agentKey ? t(`agents.${entry.agentKey}`) : null].filter(
               (name) => name !== null,
             );
             return (
-              <li key={entry.id} className="flex flex-col gap-0.5 text-ui text-text-body">
+              <li
+                key={entry.id}
+                className="flex flex-col gap-0.5 border-b border-border-subtle py-3 text-ui text-text-body first:pt-0 last:border-b-0"
+              >
                 <span className="leading-snug">
                   <Trans
                     i18nKey={`decisions.entry.${entry.kind}`}
@@ -402,7 +405,7 @@ function DecisionLogDialog({ log }: { log: readonly DecisionLogEntry[] | undefin
           })}
         </ol>
       )}
-      <div className="mt-4 flex justify-end">
+      <div className="mt-6 flex justify-end gap-2">
         <DialogClose asChild>
           <Button variant="primary">{t('common.close')}</Button>
         </DialogClose>

@@ -86,7 +86,7 @@ export function BoardHistoryDialog({
     <DialogContent
       title={t('history.title')}
       description={t('history.hint', { days: HISTORY_DAYS })}
-      className="w-[min(560px,calc(100vw-32px))]"
+      className="w-[min(600px,calc(100vw-32px))]"
     >
       {!history.data ? (
         history.isError ? (
@@ -120,7 +120,7 @@ export function BoardHistoryDialog({
         </ol>
       )}
 
-      <div className="mt-4 flex justify-end">
+      <div className="mt-6 flex justify-end gap-2">
         <DialogClose asChild>
           <Button variant="ghost">{t('common.close')}</Button>
         </DialogClose>
@@ -161,7 +161,7 @@ function HistoryEntry({
   const { undone } = entry;
 
   return (
-    <li className="flex gap-2.5 border-b border-border-soft py-3 first:pt-0 last:border-b-0">
+    <li className="flex gap-3 border-b border-border-subtle py-3.5 first:pt-0 last:border-b-0">
       <span aria-hidden="true" className="mt-px shrink-0">
         {agent ? (
           <AgentAvatar agent={agent} size={24} />
@@ -181,7 +181,7 @@ function HistoryEntry({
             {' · '}
             {entry.reverts ? (
               <>
-                <span className="rounded-sm bg-bg-muted px-1.5 py-px text-meta font-medium text-text-3">
+                <span className="rounded-full bg-bg-subtle px-2 py-px text-meta font-medium text-text-3">
                   {t('history.reverts')}
                 </span>{' '}
               </>
@@ -297,9 +297,9 @@ function HistoryElement({
   const Icon = KIND_ICON[item.kind];
   const name = item.label.trim() || t(`history.kinds.${item.kind}`);
   const className = cn(
-    'inline-flex h-[22px] max-w-full items-center gap-1 rounded-sm border px-1.5 text-small leading-none whitespace-nowrap',
+    'inline-flex h-[22px] max-w-full items-center gap-1 rounded-full border px-2 text-small leading-none whitespace-nowrap transition-colors',
     item.action === 'removed'
-      ? 'border-border-soft bg-bg-muted text-text-3 line-through'
+      ? 'border-transparent bg-bg-subtle text-text-3 line-through'
       : 'border-border-strong bg-bg-panel text-text-2',
   );
   const content = (
@@ -322,7 +322,7 @@ function HistoryElement({
       aria-label={t('history.goTo', { name })}
       className={cn(
         className,
-        'cursor-pointer hover:border-edge hover:bg-bg-subtle hover:text-text focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink',
+        'cursor-pointer hover:border-edge hover:bg-bg-secondary-hover hover:text-text focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink',
       )}
       onClick={() => {
         onOpen(item.id);

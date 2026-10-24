@@ -7,6 +7,10 @@ export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
+/** The heading of a section inside a dialog, for sections that build their own markup. */
+export const DIALOG_SECTION_TITLE =
+  'm-0 font-display text-display font-semibold tracking-[-0.01em] text-text';
+
 type DialogContentProps = {
   title: string;
   description?: string;
@@ -66,5 +70,57 @@ export function DialogContent({
         )}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
+  );
+}
+
+/**
+ * A section of a dialog (spec 36d): the heading in the display font, an optional gray hint below
+ * it and an action at the right.
+ */
+export function DialogSection({
+  title,
+  hint,
+  action,
+  children,
+  className,
+  headingLevel = 3,
+}: {
+  title: string;
+  hint?: ReactNode;
+  action?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+  headingLevel?: 3 | 4;
+}) {
+  const Heading = headingLevel === 3 ? 'h3' : 'h4';
+  return (
+    <section aria-label={title} className={cn('flex min-w-0 flex-col gap-2.5', className)}>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <Heading className={cn(DIALOG_SECTION_TITLE, 'min-w-0 flex-1')}>{title}</Heading>
+          {action}
+        </div>
+        {hint ? <p className="m-0 text-small leading-snug text-text-3">{hint}</p> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** The foot of a dialog: something on the left (e.g. a destructive action), the actions at the right. */
+export function DialogFooter({
+  start,
+  children,
+  className,
+}: {
+  start?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn('mt-6 flex items-center gap-2', className)}>
+      {start}
+      <div className="ml-auto flex shrink-0 gap-2">{children}</div>
+    </div>
   );
 }

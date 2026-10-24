@@ -12,7 +12,13 @@ import { useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
-import { DialogClose, DialogContent } from '@web/components/ui/dialog';
+import { Choice } from '@web/components/ui/choice';
+import {
+  DIALOG_SECTION_TITLE,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+} from '@web/components/ui/dialog';
 import { cn } from '@web/lib/cn';
 
 /** The settings of a project that its owners change (specs 13, 15, 16b, 20b and 32b). */
@@ -40,54 +46,11 @@ function Group({
   children: ReactNode;
 }) {
   return (
-    <fieldset className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0">
-      <legend className="mb-1 p-0 text-ui font-semibold text-text">{title}</legend>
+    <fieldset className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0">
+      <legend className={cn(DIALOG_SECTION_TITLE, 'mb-2.5 p-0')}>{title}</legend>
       {children}
-      {note ? <p className="m-0 px-1.5 text-small leading-snug text-text-3">{note}</p> : null}
+      {note ? <p className="m-0 mt-0.5 px-1 text-small leading-snug text-text-3">{note}</p> : null}
     </fieldset>
-  );
-}
-
-/** A radio button or checkbox with its label and one line of explanation. */
-function Choice({
-  type,
-  name,
-  checked,
-  disabled,
-  label,
-  text,
-  onChange,
-}: {
-  type: 'radio' | 'checkbox';
-  name: string;
-  checked: boolean;
-  disabled: boolean;
-  label: string;
-  text: string;
-  onChange: (checked: boolean) => void;
-}) {
-  const id = useId();
-  return (
-    <div className="flex items-start gap-2.5 rounded-sm px-1.5 py-1 has-[input:enabled]:hover:bg-bg-subtle">
-      <input
-        id={id}
-        type={type}
-        name={name}
-        checked={checked}
-        disabled={disabled}
-        aria-describedby={`${id}-text`}
-        className="mt-[3px] size-3.5 shrink-0 accent-ink enabled:cursor-pointer"
-        onChange={(event) => {
-          onChange(event.target.checked);
-        }}
-      />
-      <label htmlFor={id} className={cn('flex min-w-0 flex-col', !disabled && 'cursor-pointer')}>
-        <span className="text-ui font-medium text-text">{label}</span>
-        <span id={`${id}-text`} className="text-small leading-snug text-text-3">
-          {text}
-        </span>
-      </label>
-    </div>
   );
 }
 
@@ -107,9 +70,9 @@ export function ProjectSettingsDialog({ settings }: { settings: ProjectSettings 
     <DialogContent
       title={t('settings.title')}
       description={disabled ? t('settings.ownerOnly') : undefined}
-      className="w-[min(480px,calc(100vw-32px))]"
+      className="w-[min(520px,calc(100vw-32px))]"
     >
-      <div className="flex max-h-[min(70vh,620px)] flex-col gap-4 overflow-y-auto">
+      <div className="-mx-1 flex max-h-[min(70vh,640px)] flex-col gap-6 overflow-y-auto px-1 pb-1">
         <Group title={t('settings.stance.title')}>
           {MODERATOR_STANCES.map((stance) => (
             <Choice
@@ -194,11 +157,11 @@ export function ProjectSettingsDialog({ settings }: { settings: ProjectSettings 
           ))}
         </Group>
       </div>
-      <div className="mt-4 flex justify-end">
+      <DialogFooter>
         <DialogClose asChild>
           <Button variant="primary">{t('common.close')}</Button>
         </DialogClose>
-      </div>
+      </DialogFooter>
     </DialogContent>
   );
 }

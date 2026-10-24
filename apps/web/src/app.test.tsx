@@ -509,7 +509,7 @@ describe('a read-only link', () => {
     expect(await screen.findByTestId('shared-board')).toHaveTextContent('API');
 
     // The overview: decisions and criteria, without the log and without anything to edit.
-    const overview = screen.getByRole('region', { name: 'Überblick' });
+    const overview = screen.getByRole('complementary', { name: 'Überblick' });
     expect(overview).toHaveTextContent('DatenbankPostgreSQL');
     expect(overview).toHaveTextContent('Kleines Budget');
     expect(within(overview).queryByRole('button', { name: 'Protokoll' })).not.toBeInTheDocument();

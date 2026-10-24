@@ -27,3 +27,11 @@ export function Notice({
     />
   );
 }
+
+/**
+ * A soft box inside a dialog or card (spec 36d): the subtle surface with the card radius and no
+ * border, e.g. a link box, an account card or a list of files.
+ */
+export function Inset({ className, ...props }: ComponentProps<'div'>) {
+  return <div className={cn('rounded-card bg-bg-subtle', className)} {...props} />;
+}

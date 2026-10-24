@@ -93,7 +93,7 @@ export function AccountMenu({ user, children }: AccountMenuProps) {
               setGitOpen(true);
             }}
           >
-            <GitBranch size={14} aria-hidden="true" />
+            <GitBranch size={15} aria-hidden="true" />
             {t('git.account.menu')}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -129,7 +129,7 @@ export function AccountMenu({ user, children }: AccountMenuProps) {
           </DropdownMenuRadioGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => void signOut()}>
-            <LogOut size={14} aria-hidden="true" />
+            <LogOut size={15} aria-hidden="true" />
             {t('account.signOut')}
           </DropdownMenuItem>
         </DropdownMenuContent>

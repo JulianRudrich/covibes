@@ -73,7 +73,7 @@ export function PlanPanel({
         id={PLAN_PANEL_ID}
         role="region"
         aria-label={t('plan.tab')}
-        className="relative min-h-0 bg-bg-panel"
+        className="relative min-h-0 bg-bg-canvas"
       >
         <PlanEditor
           {...editor}

@@ -4,6 +4,7 @@ import { ExternalLink, GitPullRequestArrow } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
+import { DIALOG_SECTION_TITLE } from '@web/components/ui/dialog';
 import { Button } from '@web/components/ui/button';
 import { FieldError } from '@web/components/ui/input';
 import {
@@ -14,7 +15,7 @@ import {
 import { ApiError } from '@web/lib/api';
 import { cn } from '@web/lib/cn';
 
-const SECTION_TITLE = 'm-0 text-small font-medium text-text-2';
+const SECTION_TITLE = DIALOG_SECTION_TITLE;
 const NOTE = 'm-0 text-small leading-snug text-text-3';
 const REPOSITORY = (
   <code className="rounded-sm bg-bg-subtle px-1 py-px font-mono text-small text-text-body" />
@@ -168,7 +169,7 @@ function Compared({
               <summary className="cursor-pointer text-small font-medium text-text-2 select-none hover:text-text">
                 {t('git.mergeRequest.files')}
               </summary>
-              <ul className="mt-1.5 mb-0 flex max-h-[220px] list-none flex-col gap-0.5 overflow-y-auto rounded-md bg-bg-subtle px-3 py-2 font-mono text-meta text-text-2">
+              <ul className="mt-1.5 mb-0 flex max-h-[220px] list-none flex-col gap-0.5 overflow-y-auto rounded-card bg-bg-subtle px-3.5 py-2.5 font-mono text-meta text-text-2">
                 {files.map((file) => (
                   <li key={file.path} className="flex items-baseline gap-2">
                     <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{file.path}</span>

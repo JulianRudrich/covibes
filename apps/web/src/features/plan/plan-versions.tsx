@@ -5,7 +5,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
-import { Dialog, DialogClose, DialogContent } from '@web/components/ui/dialog';
+import { Dialog, DialogClose, DialogContent, DialogFooter } from '@web/components/ui/dialog';
+import { SegmentedToggle } from '@web/components/ui/segmented';
 import { PlanContent } from '@web/features/plan/plan-content';
 import { PlanDiffView } from '@web/features/plan/plan-diff-view';
 import { planVersionQuery, planVersionsQuery } from '@web/features/plan/queries';
@@ -93,7 +94,7 @@ function VersionsDialog({ projectId, current }: PlanVersionsProps) {
                     type="button"
                     aria-current={active ? 'true' : undefined}
                     className={cn(
-                      'flex w-full cursor-pointer flex-col gap-0.5 rounded-md px-2.5 py-2 text-left focus-visible:outline-2 focus-visible:outline-ink',
+                      'flex w-full cursor-pointer flex-col gap-0.5 rounded-card px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-ink',
                       active ? 'bg-bg-subtle' : 'hover:bg-bg-subtle',
                     )}
                     onClick={() => {
@@ -114,28 +115,24 @@ function VersionsDialog({ projectId, current }: PlanVersionsProps) {
           </ul>
 
           <div className="flex min-h-0 flex-col gap-3">
-            <div
-              role="group"
-              aria-label={t('plan.versions.show')}
-              className="flex flex-wrap gap-1.5"
-            >
-              {(['current', 'previous', 'text'] as const).map((option) =>
-                option === 'previous' && !previous ? null : (
-                  <Button
-                    key={option}
-                    size="s"
-                    variant={shown === option ? 'secondary' : 'ghost'}
-                    aria-pressed={shown === option}
-                    onClick={() => {
-                      setView(option);
-                    }}
-                  >
-                    {t(`plan.versions.view.${option}`, { number: previous?.number ?? 0 })}
-                  </Button>
-                ),
+            <SegmentedToggle
+              label={t('plan.versions.show')}
+              items={(['current', 'previous', 'text'] as const).flatMap((option) =>
+                option === 'previous' && !previous
+                  ? []
+                  : [
+                      {
+                        id: option,
+                        label: t(`plan.versions.view.${option}`, { number: previous?.number ?? 0 }),
+                        pressed: shown === option,
+                        onPress: () => {
+                          setView(option);
+                        },
+                      },
+                    ],
               )}
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto rounded-card border border-border p-4">
+            />
+            <div className="min-h-0 flex-1 overflow-y-auto rounded-card bg-bg-subtle p-5">
               {content === undefined || (shown === 'previous' && before === undefined) ? (
                 <p className="m-0 text-ui text-text-3">{t('plan.versions.loading')}</p>
               ) : shown === 'text' ? (
@@ -156,11 +153,11 @@ function VersionsDialog({ projectId, current }: PlanVersionsProps) {
           </div>
         </div>
       )}
-      <div className="mt-4 flex justify-end">
+      <DialogFooter>
         <DialogClose asChild>
           <Button variant="primary">{t('common.close')}</Button>
         </DialogClose>
-      </div>
+      </DialogFooter>
     </DialogContent>
   );
 }

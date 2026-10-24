@@ -10,13 +10,13 @@ import {
   type RoadmapAssignee,
 } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
-import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
+import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AgentDirectoryProvider } from '@web/features/agents/agent-directory';
 
-import { PageMessage } from '@web/components/page-message';
+import { PageMessage, PageMessageLink } from '@web/components/page-message';
 import { Dialog } from '@web/components/ui/dialog';
 import { sessionQuery, type SessionUser } from '@web/features/auth/session';
 import { awayQuery, useDismissAway } from '@web/features/away/queries';
@@ -98,15 +98,13 @@ export function WorkspacePage() {
         }
       >
         {notFound ? (
-          <p className="m-0 text-ui text-text-3">
+          <p className="m-0 text-body text-text-3">
             {lost
               ? t('workspace.accessLost.text', { project: project.data.name })
               : t('workspace.notFound.text')}
           </p>
         ) : null}
-        <Link to="/" className="mt-2 text-ui">
-          {t('workspace.notFound.back')}
-        </Link>
+        <PageMessageLink to="/">{t('workspace.notFound.back')}</PageMessageLink>
       </PageMessage>
     );
   }

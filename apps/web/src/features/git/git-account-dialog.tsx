@@ -65,7 +65,7 @@ export function GitAccountDialog({
           )
         ) : data.account ? (
           <>
-            <div className="flex items-center gap-3 rounded-card border border-border bg-bg-subtle px-3.5 py-3">
+            <div className="flex items-center gap-3 rounded-card bg-bg-subtle px-4 py-3.5">
               <GitBranch
                 size={16}
                 strokeWidth={2}
@@ -157,7 +157,7 @@ export function GitAccountDialog({
         ) : null}
       </div>
 
-      <div className="mt-4 flex justify-end">
+      <div className="mt-6 flex justify-end gap-2">
         <DialogClose asChild>
           <Button variant="ghost">{t('common.close')}</Button>
         </DialogClose>

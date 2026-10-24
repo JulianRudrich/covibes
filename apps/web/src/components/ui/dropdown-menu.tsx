@@ -60,7 +60,7 @@ export function DropdownMenuRadioItem({
   return (
     <MenuPrimitive.RadioItem
       className={cn(
-        'flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-ui text-text-body outline-none select-none',
+        'flex h-[34px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-ui text-text-body outline-none select-none [&>svg]:shrink-0 [&>svg]:text-text-3',
         'data-highlighted:bg-bg-subtle data-disabled:pointer-events-none data-disabled:opacity-50',
         className,
       )}
@@ -88,7 +88,7 @@ export function DropdownMenuItem({
   return (
     <MenuPrimitive.Item
       className={cn(
-        'flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-ui text-text-body outline-none select-none',
+        'flex h-[34px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-ui text-text-body outline-none select-none [&>svg]:shrink-0 [&>svg]:text-text-3',
         'data-highlighted:bg-bg-subtle',
         className,
       )}
@@ -106,7 +106,7 @@ export function DropdownMenuCheckboxItem({
   return (
     <MenuPrimitive.CheckboxItem
       className={cn(
-        'flex h-8 cursor-pointer items-center gap-2 rounded-md px-2.5 text-ui text-text-body outline-none select-none',
+        'flex h-[34px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-ui text-text-body outline-none select-none [&>svg]:shrink-0 [&>svg]:text-text-3',
         'data-highlighted:bg-bg-subtle data-disabled:pointer-events-none data-disabled:opacity-50',
         className,
       )}

@@ -72,7 +72,7 @@ export function PackageSuggestionNote({
       <section
         aria-label={t('export.package.suggestion.titleFor', { text: label })}
         className={cn(
-          'flex flex-col gap-2 rounded-card border border-dashed px-3 py-2.5',
+          'flex flex-col gap-2 rounded-card border-2 border-dashed px-3.5 py-3',
           agentClass(AGENT_PROPOSAL, moderator),
         )}
       >

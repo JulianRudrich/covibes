@@ -2,6 +2,7 @@ import type { CodingPackageOverview } from '@covibes/shared';
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { DIALOG_SECTION_TITLE } from '@web/components/ui/dialog';
 import { Button } from '@web/components/ui/button';
 import { FieldError } from '@web/components/ui/input';
 import { AgentAvatar } from '@web/features/agents/agent-avatar';
@@ -38,7 +39,7 @@ export function PackageSpecsSection({
   return (
     <section aria-labelledby={titleId} className="flex flex-col gap-2">
       <div className="flex flex-col gap-0.5">
-        <h3 id={titleId} className="m-0 text-small font-medium text-text-2">
+        <h3 id={titleId} className={DIALOG_SECTION_TITLE}>
           {t('export.package.specs.title')}
         </h3>
         <p className="m-0 text-small leading-snug text-text-3">{t('export.package.specs.hint')}</p>
@@ -50,7 +51,7 @@ export function PackageSpecsSection({
           return (
             <li
               key={milestone.number}
-              className="flex flex-col gap-1 border-t border-border-soft py-2 first:border-t-0"
+              className="flex flex-col gap-1 border-t border-border-subtle py-2 first:border-t-0"
             >
               <div className="flex min-h-7 items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-col">

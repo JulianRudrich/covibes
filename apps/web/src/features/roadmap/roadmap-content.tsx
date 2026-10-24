@@ -83,7 +83,7 @@ export function RoadmapContent({ roadmap }: { roadmap: Roadmap | undefined }) {
       ) : null}
       <ol
         aria-label={t('roadmap.label', { count: roadmap.milestones.length })}
-        className="absolute m-0 flex list-none overflow-hidden rounded-card border border-border bg-bg-panel p-0"
+        className="absolute m-0 flex list-none overflow-hidden rounded-surface bg-bg-panel p-0 shadow-panel"
         // The border comes on top of the columns' height.
         style={{ top: layout.top, left: ROADMAP.side, height: layout.columnHeight + 2 }}
       >
@@ -144,7 +144,7 @@ function Milestone({
       <div className="flex items-center gap-2" style={{ height: ROADMAP.title }}>
         <span
           aria-hidden="true"
-          className="grid size-5 shrink-0 place-items-center rounded-xs bg-ink text-meta font-semibold text-on-ink"
+          className="grid size-[22px] shrink-0 place-items-center rounded-[7px] bg-ink text-meta font-semibold text-on-ink tabular-nums"
         >
           {milestone.number}
         </span>
@@ -189,7 +189,7 @@ function Milestone({
             // its place tells it apart.
             <li
               key={task.id ?? index}
-              className="flex items-center gap-1.5 rounded-md border border-border bg-bg-panel py-1.5 pr-1.5 pl-2"
+              className="flex items-center gap-1.5 rounded-[12px] bg-bg-subtle py-1.5 pr-1.5 pl-2.5"
               style={{ height: ROADMAP.task }}
             >
               {task.issue?.closed ? (
@@ -251,7 +251,9 @@ function EmptyRoadmap() {
       className="absolute flex flex-col items-start gap-2"
       style={{ top: ROADMAP.top, left: ROADMAP.side, right: ROADMAP.side }}
     >
-      <p className="m-0 text-ui font-semibold text-text">{t('roadmap.emptyTitle')}</p>
+      <p className="m-0 font-display text-display font-semibold text-text">
+        {t('roadmap.emptyTitle')}
+      </p>
       <p className="m-0 text-small leading-snug text-text-2">{t('roadmap.emptyText')}</p>
       {onOpenPlan ? (
         <Button size="s" className="nodrag mt-1" onClick={onOpenPlan}>

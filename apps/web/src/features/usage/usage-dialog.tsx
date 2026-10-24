@@ -6,7 +6,8 @@ import { useTranslation } from 'react-i18next';
 
 import { Avatar } from '@web/components/ui/avatar';
 import { Button } from '@web/components/ui/button';
-import { DialogClose, DialogContent } from '@web/components/ui/dialog';
+import { DialogClose, DialogContent, DialogFooter } from '@web/components/ui/dialog';
+import { SegmentedToggle } from '@web/components/ui/segmented';
 import { FieldError } from '@web/components/ui/input';
 import { AgentAvatar } from '@web/features/agents/agent-avatar';
 import { useAgents } from '@web/features/agents/agents';
@@ -54,44 +55,29 @@ export function UsageDialog({ projectId }: { projectId: string }) {
       className="w-[min(580px,calc(100vw-32px))]"
     >
       {running !== null && before !== null ? (
-        <div
-          role="group"
-          aria-label={t('usage.month')}
-          className="mb-4 inline-flex items-center gap-0.5 rounded-card bg-track p-[3px]"
-        >
-          {[before, running].map((month) => {
-            const pressed = (month === before) === earlier;
-            return (
-              <button
-                key={month}
-                type="button"
-                aria-pressed={pressed}
-                onClick={() => {
-                  setEarlier(month === before);
-                }}
-                className={cn(
-                  'h-7 cursor-pointer rounded-btn-s px-2.5 text-ui whitespace-nowrap focus-visible:outline-2 focus-visible:outline-ink',
-                  pressed
-                    ? 'bg-bg-panel font-semibold text-text shadow-phase-active'
-                    : 'text-text-upcoming hover:text-text',
-                )}
-              >
-                {formatMonth(month, i18n.language)}
-              </button>
-            );
-          })}
-        </div>
+        <SegmentedToggle
+          label={t('usage.month')}
+          className="mb-5"
+          items={[before, running].map((month) => ({
+            id: month,
+            label: formatMonth(month, i18n.language),
+            pressed: (month === before) === earlier,
+            onPress: () => {
+              setEarlier(month === before);
+            },
+          }))}
+        />
       ) : null}
 
-      <div className="max-h-[min(720px,calc(100dvh-230px))] overflow-y-auto pr-1">
+      <div className="max-h-[min(680px,calc(100dvh-280px))] overflow-y-auto pr-1">
         <UsageMonth projectId={projectId} month={earlier ? before : null} />
       </div>
 
-      <div className="mt-4 flex justify-end">
+      <DialogFooter>
         <DialogClose asChild>
-          <Button variant="ghost">{t('common.close')}</Button>
+          <Button variant="primary">{t('common.close')}</Button>
         </DialogClose>
-      </div>
+      </DialogFooter>
     </DialogContent>
   );
 }
@@ -191,7 +177,7 @@ function UsageTotal({ overview }: { overview: UsageOverview }) {
   return (
     <section aria-label={t('usage.total.label')}>
       <div className="flex items-baseline justify-between gap-3">
-        <p className="m-0 text-[24px] leading-none font-semibold tracking-[-0.02em] text-text">
+        <p className="m-0 font-display text-[28px] leading-none font-semibold tracking-[-0.02em] text-text tabular-nums">
           {amount}
           {limited ? (
             <span className="ml-1.5 text-ui font-normal tracking-normal text-text-3">
@@ -237,11 +223,13 @@ function UsageTotal({ overview }: { overview: UsageOverview }) {
           {t(limited ? 'usage.total.resets' : 'usage.total.noLimit', { time })}
         </p>
       ) : null}
-      <dl className="m-0 mt-3.5 grid grid-cols-3 gap-3 border-t border-border-soft pt-3">
+      <dl className="m-0 mt-4 grid grid-cols-3 gap-2">
         {stats.map(([label, value]) => (
-          <div key={label} className="flex flex-col gap-0.5">
+          <div key={label} className="flex flex-col gap-1 rounded-card bg-bg-subtle px-3.5 py-3">
             <dt className="text-meta text-text-3">{label}</dt>
-            <dd className="m-0 text-ui font-medium text-text">{value}</dd>
+            <dd className="m-0 font-display text-display font-semibold text-text tabular-nums">
+              {value}
+            </dd>
           </div>
         ))}
       </dl>
@@ -262,7 +250,7 @@ function UsageRanking({ title, rows }: { title: string; rows: RankedRow[] }) {
 
   return (
     <section aria-labelledby={id}>
-      <h3 id={id} className="m-0 mb-2 text-small font-semibold text-text-2">
+      <h3 id={id} className="m-0 mb-2.5 font-display text-display font-semibold text-text">
         {title}
       </h3>
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -348,7 +336,7 @@ function UsageDays({ overview }: { overview: UsageOverview }) {
 
   return (
     <section aria-labelledby={id}>
-      <h3 id={id} className="m-0 mb-2 text-small font-semibold text-text-2">
+      <h3 id={id} className="m-0 mb-2.5 font-display text-display font-semibold text-text">
         {t('usage.days.title')}
       </h3>
       {/* Keys on the group move between its buttons, as in a toolbar. */}

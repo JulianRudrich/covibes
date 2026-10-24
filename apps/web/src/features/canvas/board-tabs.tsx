@@ -343,7 +343,7 @@ export function BoardTabs({
             title={t('canvas.boards.deleteTitle', { title: deleting.title })}
             description={t('canvas.boards.deleteText')}
           >
-            <div className="flex justify-end gap-2">
+            <div className="mt-2 flex justify-end gap-2">
               <DialogClose asChild>
                 <Button>{t('common.cancel')}</Button>
               </DialogClose>

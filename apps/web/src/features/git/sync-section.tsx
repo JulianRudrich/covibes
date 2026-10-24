@@ -4,6 +4,7 @@ import { Check, Copy, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { DIALOG_SECTION_TITLE } from '@web/components/ui/dialog';
 import { Button } from '@web/components/ui/button';
 import { FieldError, Input } from '@web/components/ui/input';
 import { gitWebhookQuery, useRenewGitWebhook, useRequestGitSync } from '@web/features/git/queries';
@@ -12,7 +13,7 @@ import { formatRelativeTime } from '@web/lib/format';
 /** How long "Wird abgeglichen …" waits for the reading to arrive before it gives up. */
 const SYNC_WAIT_MS = 15_000;
 
-const TITLE = 'm-0 text-small font-medium text-text-2';
+const TITLE = DIALOG_SECTION_TITLE;
 const NOTE = 'm-0 text-small leading-snug text-text-3';
 
 type SyncSectionProps = {
@@ -70,7 +71,7 @@ export function SyncSection({ projectId, sync, loadedAt, canSetUpWebhook }: Sync
   return (
     <section
       aria-labelledby={`${ids}-title`}
-      className="flex flex-col gap-2 border-t border-border-soft pt-3"
+      className="flex flex-col gap-2 border-t border-border-subtle pt-3"
     >
       <h3 id={`${ids}-title`} className={TITLE}>
         {t('git.sync.title')}
@@ -130,7 +131,7 @@ function Webhook({ projectId }: { projectId: string }) {
   return (
     <section
       aria-labelledby={`${ids}-title`}
-      className="flex flex-col gap-2 rounded-md border border-border-soft bg-bg-muted p-2.5"
+      className="flex flex-col gap-2 rounded-card bg-bg-subtle p-3.5"
     >
       <h4 id={`${ids}-title`} className={TITLE}>
         {t('git.webhook.title')}

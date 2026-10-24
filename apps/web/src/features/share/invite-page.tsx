@@ -1,10 +1,10 @@
 import type { AcceptInvitationResult, InvitationPreview } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
-import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
+import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { PageMessage } from '@web/components/page-message';
+import { PageMessage, PageMessageLink } from '@web/components/page-message';
 import { LanguageSwitch } from '@web/features/account/language-switch';
 import { Button } from '@web/components/ui/button';
 import { Notice } from '@web/components/ui/card';
@@ -144,9 +144,5 @@ export function InvitePage() {
 
 function BackToProjects() {
   const { t } = useTranslation();
-  return (
-    <Link to="/" className="mt-2 text-ui">
-      {t('workspace.notFound.back')}
-    </Link>
-  );
+  return <PageMessageLink to="/">{t('workspace.notFound.back')}</PageMessageLink>;
 }

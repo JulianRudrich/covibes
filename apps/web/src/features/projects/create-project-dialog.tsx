@@ -11,7 +11,14 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
 import { Notice } from '@web/components/ui/card';
-import { Dialog, DialogClose, DialogContent, DialogTrigger } from '@web/components/ui/dialog';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogTrigger,
+} from '@web/components/ui/dialog';
+import { Segmented } from '@web/components/ui/segmented';
 import { FieldError, Input, Label } from '@web/components/ui/input';
 import { useCreateProject } from '@web/features/projects/queries';
 import { currentLanguage } from '@web/i18n/language';
@@ -106,29 +113,19 @@ export function CreateProjectDialog({
             </FieldError>
           ) : null}
           <fieldset className="m-0 mt-2 grid min-w-0 gap-1.5 border-0 p-0">
-            <legend className="mb-1.5 p-0 text-ui font-medium text-text">
+            <legend className="mb-1.5 p-0 text-small font-medium text-text-2">
               {t('projects.dialog.language')}
             </legend>
-            <div className="flex gap-5">
-              {LANGUAGES.map((option) => (
-                <label
-                  key={option}
-                  className="flex cursor-pointer items-center gap-2 text-ui text-text-body"
-                >
-                  <input
-                    type="radio"
-                    name="project-language"
-                    checked={language === option}
-                    aria-describedby="project-language-hint"
-                    className="size-3.5 shrink-0 cursor-pointer accent-ink"
-                    onChange={() => {
-                      setLanguage(option);
-                    }}
-                  />
-                  <span lang={option}>{LANGUAGE_NAMES[option]}</span>
-                </label>
-              ))}
-            </div>
+            <Segmented
+              name="project-language"
+              value={language}
+              options={LANGUAGES.map((option) => ({
+                value: option,
+                label: LANGUAGE_NAMES[option],
+              }))}
+              describedBy="project-language-hint"
+              onChange={setLanguage}
+            />
             <p id="project-language-hint" className="m-0 text-small leading-snug text-text-3">
               {t('projects.dialog.languageHint')}
             </p>
@@ -136,7 +133,7 @@ export function CreateProjectDialog({
           {createProject.isError ? (
             <Notice tone="danger">{t('projects.dialog.error')}</Notice>
           ) : null}
-          <div className="mt-3 flex justify-end gap-2">
+          <DialogFooter className="mt-4">
             <DialogClose asChild>
               <Button>{t('common.cancel')}</Button>
             </DialogClose>
@@ -145,7 +142,7 @@ export function CreateProjectDialog({
                 ? t('projects.dialog.creating')
                 : t('projects.dialog.submit')}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

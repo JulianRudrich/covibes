@@ -185,7 +185,7 @@ export function TeamMenu({
             {team.map((agent) => {
               const { name } = agent.info;
               return (
-                <li key={agent.key} className="flex items-center gap-2.5 rounded-sm px-2 py-1.5">
+                <li key={agent.key} className="flex items-center gap-2.5 rounded-md px-2 py-1.5">
                   <AgentLine agent={agent.info} />
                   <ModelChoice
                     name={name}
@@ -234,7 +234,7 @@ export function TeamMenu({
                         <button
                           type="button"
                           aria-label={t('team.addAgent', { name: agent.name })}
-                          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-left hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-ink"
+                          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-ink"
                           onClick={() => {
                             onAdd(key);
                           }}
@@ -253,7 +253,7 @@ export function TeamMenu({
               {onCreateAgent ? (
                 <button
                   type="button"
-                  className="mt-0.5 flex w-full cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5 text-left text-ui font-medium text-text hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-ink"
+                  className="mt-0.5 flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-ui font-medium text-text hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-ink"
                   onClick={() => {
                     edit(null);
                   }}
@@ -326,7 +326,7 @@ function ModelChoice({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={t('team.modelOf', { name, model: label })}
-        className="flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-sm px-1.5 text-meta text-text-2b hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-ink"
+        className="flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2 text-meta text-text-2b hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-ink"
       >
         {label}
         <ChevronDown size={12} aria-hidden="true" />

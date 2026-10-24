@@ -41,7 +41,7 @@ export function PlanDiffView({ lines }: { lines: readonly PlanDiffLine[] }) {
           <li key={index}>
             <button
               type="button"
-              className="w-full cursor-pointer rounded-xs border-0 bg-transparent px-2 py-0.5 text-left text-small text-text-3 hover:bg-bg-subtle hover:text-text-body focus-visible:outline-2 focus-visible:outline-ink"
+              className="w-full cursor-pointer rounded-sm border-0 bg-transparent px-2 py-0.5 text-left text-small text-text-3 hover:bg-wash hover:text-text-body focus-visible:outline-2 focus-visible:outline-ink"
               onClick={() => {
                 setOpened((before) => [...before, row.fold]);
               }}
@@ -53,7 +53,7 @@ export function PlanDiffView({ lines }: { lines: readonly PlanDiffLine[] }) {
           <li
             key={index}
             className={cn(
-              'rounded-xs px-2 py-0.5 whitespace-pre-wrap',
+              'rounded-sm px-2 py-0.5 whitespace-pre-wrap',
               row.kind === 'removed' && 'bg-danger-bg text-danger line-through',
               row.kind === 'added' && 'bg-success-bg text-success',
               row.kind === 'same' && 'text-text-3',

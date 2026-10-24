@@ -133,9 +133,9 @@ export function ReviewView({ projectId, reviewId, onBack }: ReviewViewProps) {
           <p
             role="status"
             className={cn(
-              'm-0 flex items-center rounded-md border px-3 py-2 text-ui font-medium',
+              'm-0 flex items-center rounded-card border px-3.5 py-2.5 text-ui font-medium',
               review.status !== 'done'
-                ? 'border-border-soft bg-bg-muted'
+                ? 'border-transparent bg-bg-subtle'
                 : review.verdict === 'fits'
                   ? 'border-transparent bg-success-bg'
                   : 'border-danger-border bg-danger-bg',
@@ -156,10 +156,7 @@ export function ReviewView({ projectId, reviewId, onBack }: ReviewViewProps) {
               className="m-0 flex list-none flex-col gap-2 p-0"
             >
               {review.findings.map((finding, index) => (
-                <li
-                  key={index}
-                  className="flex flex-col gap-1.5 rounded-card border border-border bg-bg-panel p-3"
-                >
+                <li key={index} className="flex flex-col gap-1.5 rounded-card bg-bg-subtle p-3.5">
                   <h4 className="m-0 text-ui leading-snug font-semibold text-text [overflow-wrap:anywhere]">
                     {finding.title}
                   </h4>

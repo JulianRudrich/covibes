@@ -33,7 +33,8 @@ type PlanSuggestionsProps = {
   onUpdate?: () => void;
 };
 
-const NOTE = 'm-0 rounded-card bg-bg-subtle px-3.5 py-2.5 text-body text-text-2';
+/** A note above the plan's sheet: a card on the canvas color, like a block (spec 36d). */
+const NOTE = 'm-0 rounded-card bg-bg-panel px-4 py-3 text-body text-text-2 shadow-block';
 
 /** What changed in the project, as one short phrase per change. */
 function useChangeList() {
@@ -101,10 +102,12 @@ export function PlanSuggestions({
       {showOutdated ? (
         <div
           role="status"
-          className="flex items-center justify-between gap-3 rounded-card border border-border-strong bg-bg-panel px-3.5 py-2.5"
+          className="flex items-center justify-between gap-3 rounded-card bg-bg-panel py-3 pr-3 pl-4 shadow-block"
         >
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-ui font-semibold text-text">{t('plan.outdated.title')}</span>
+            <span className="font-display text-display font-semibold text-text">
+              {t('plan.outdated.title')}
+            </span>
             <span className="text-small leading-snug text-text-2">
               {t('plan.outdated.since', { changes: changeList(outdated.changes, outdated.more) })}
             </span>
@@ -183,10 +186,10 @@ function SuggestionCard({
   return (
     <li
       aria-label={label}
-      className={cn('flex flex-col gap-2.5 rounded-card border-[1.5px] border-dashed p-4', look)}
+      className={cn('flex flex-col gap-3 rounded-[20px] border-2 border-dashed p-[18px]', look)}
     >
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-title font-semibold text-text">{title}</span>
+        <span className="font-display text-display font-semibold text-text">{title}</span>
         <span className={cn('shrink-0 text-meta font-medium', accentText)}>
           {t(
             suggestion.kind === 'update' ? 'plan.suggestions.kindUpdate' : 'plan.suggestions.kind',

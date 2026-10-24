@@ -210,7 +210,7 @@ function PlanDocument({
       {readOnly ? (
         // Viewers format nothing, but read the versions.
         extra ? (
-          <div className="flex shrink-0 justify-end border-b border-border-subtle px-3 py-1.5">
+          <div className="mx-3 mt-3 flex h-11 shrink-0 items-center justify-end gap-1.5 rounded-full bg-bg-panel px-2 shadow-block">
             {extra}
           </div>
         ) : null
@@ -271,56 +271,61 @@ function PlanDocument({
         </DropdownMenu>
       ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-10 py-8">
+        <div className="mx-auto flex w-full max-w-[760px] flex-col gap-3 px-3 pt-3 pb-4">
           {above?.(plan)}
-          {empty && !generation?.busy ? (
-            <div className="flex flex-col items-start gap-2.5 rounded-card border border-border bg-bg-subtle p-4">
-              <div className="text-ui font-semibold text-text">{t('plan.empty.title')}</div>
-              <p className="m-0 text-body leading-normal text-text-body">
-                {t(
-                  readOnly
-                    ? 'plan.empty.readOnly'
-                    : generation
-                      ? 'plan.empty.textGenerate'
-                      : 'plan.empty.text',
-                )}
-              </p>
-              {readOnly ? null : (
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="primary"
-                    size="s"
-                    onClick={() => {
-                      editor
-                        .chain()
-                        .setContent(planTemplate(language))
-                        // The caret goes below the first heading, where the writing starts.
-                        .command(({ tr }) => {
-                          const heading = tr.doc.firstChild;
-                          if (heading) {
-                            tr.setSelection(
-                              TextSelection.near(tr.doc.resolve(heading.nodeSize + 1)),
-                            );
-                          }
-                          return true;
-                        })
-                        .focus()
-                        .run();
-                    }}
-                  >
-                    {t('plan.empty.template')}
-                  </Button>
-                  {generation ? (
-                    <Button size="s" onClick={generation.onGenerate}>
-                      <Sparkle />
-                      {t('plan.generate')}
-                    </Button>
-                  ) : null}
+          {/* The document as a sheet on the canvas color (spec 36d). */}
+          <div className="flex flex-col gap-4 rounded-surface bg-bg-panel px-12 py-10 shadow-panel">
+            {empty && !generation?.busy ? (
+              <div className="flex flex-col items-start gap-2.5 rounded-card bg-bg-subtle p-4">
+                <div className="font-display text-display font-semibold text-text">
+                  {t('plan.empty.title')}
                 </div>
-              )}
-            </div>
-          ) : null}
-          <EditorContent editor={editor} />
+                <p className="m-0 text-body leading-normal text-text-body">
+                  {t(
+                    readOnly
+                      ? 'plan.empty.readOnly'
+                      : generation
+                        ? 'plan.empty.textGenerate'
+                        : 'plan.empty.text',
+                  )}
+                </p>
+                {readOnly ? null : (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="primary"
+                      size="s"
+                      onClick={() => {
+                        editor
+                          .chain()
+                          .setContent(planTemplate(language))
+                          // The caret goes below the first heading, where the writing starts.
+                          .command(({ tr }) => {
+                            const heading = tr.doc.firstChild;
+                            if (heading) {
+                              tr.setSelection(
+                                TextSelection.near(tr.doc.resolve(heading.nodeSize + 1)),
+                              );
+                            }
+                            return true;
+                          })
+                          .focus()
+                          .run();
+                      }}
+                    >
+                      {t('plan.empty.template')}
+                    </Button>
+                    {generation ? (
+                      <Button size="s" onClick={generation.onGenerate}>
+                        <Sparkle />
+                        {t('plan.generate')}
+                      </Button>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            ) : null}
+            <EditorContent editor={editor} />
+          </div>
         </div>
       </div>
     </div>

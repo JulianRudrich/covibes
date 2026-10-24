@@ -5,7 +5,7 @@ import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
-import { DialogClose, DialogContent } from '@web/components/ui/dialog';
+import { DIALOG_SECTION_TITLE, DialogClose, DialogContent } from '@web/components/ui/dialog';
 import { FieldError, Input } from '@web/components/ui/input';
 import {
   gitRepositoriesQuery,
@@ -130,7 +130,7 @@ export function GitDialog({
         {problem ? <FieldError>{t('git.connect.failed')}</FieldError> : null}
       </div>
 
-      <div className="mt-4 flex justify-end">
+      <div className="mt-6 flex justify-end gap-2">
         <DialogClose asChild>
           <Button variant="ghost">{t('common.close')}</Button>
         </DialogClose>
@@ -173,7 +173,7 @@ function Connected({
 
   return (
     <>
-      <div className="flex items-center gap-3 rounded-card border border-border bg-bg-subtle px-3.5 py-3">
+      <div className="flex items-center gap-3 rounded-card bg-bg-subtle px-4 py-3.5">
         <GitBranch size={16} strokeWidth={2} aria-hidden="true" className="shrink-0 text-text-3" />
         <div className="flex min-w-0 flex-col">
           <span className="truncate text-ui font-semibold text-text">{repository.name}</span>
@@ -277,7 +277,7 @@ function RepositoryPicker({
 
   return (
     <section aria-labelledby={`${ids}-title`} className="flex flex-col gap-2">
-      <h3 id={`${ids}-title`} className="m-0 text-small font-medium text-text-2">
+      <h3 id={`${ids}-title`} className={DIALOG_SECTION_TITLE}>
         {t('git.repository.pick')}
       </h3>
       <div className="relative">
@@ -322,7 +322,7 @@ function RepositoryPicker({
                 disabled={pick.isPending}
                 aria-pressed={repository.id === current?.id}
                 className={cn(
-                  'flex w-full cursor-pointer flex-col rounded-md border px-3 py-2 text-left transition-colors hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:pointer-events-none disabled:opacity-60',
+                  'flex w-full cursor-pointer flex-col rounded-card border px-3.5 py-2.5 text-left transition-colors hover:bg-bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:pointer-events-none disabled:opacity-60',
                   repository.id === current?.id ? 'border-ink' : 'border-border',
                 )}
                 onClick={() => {

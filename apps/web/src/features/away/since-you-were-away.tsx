@@ -56,9 +56,14 @@ function useAuthorList() {
 /** One line of the summary: an icon and what happened. */
 function Row({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
   return (
-    <li className="flex items-start gap-2 text-body leading-snug text-text-body">
-      <Icon size={14} aria-hidden="true" className="mt-[3px] shrink-0 text-text-3" />
-      <span className="min-w-0">{children}</span>
+    <li className="flex items-start gap-2.5 text-body leading-snug text-text-body">
+      <span
+        aria-hidden="true"
+        className="grid size-6 shrink-0 place-items-center rounded-full bg-bg-subtle text-text-3"
+      >
+        <Icon size={13} strokeWidth={1.9} />
+      </span>
+      <span className="min-w-0 pt-px">{children}</span>
     </li>
   );
 }
@@ -179,7 +184,7 @@ export function SinceYouWereAway({
         </div>
       ) : null}
 
-      <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+      <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {summary.decisions.map((decision) => (
           <DecisionRow key={decision.id} decision={decision} onOpen={onOpenDecision} />
         ))}

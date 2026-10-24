@@ -24,8 +24,11 @@ import { useTranslation } from 'react-i18next';
 
 import { CUSTOM_MARKS, derivedMark } from '@web/components/ui/agent-marks';
 import { Button } from '@web/components/ui/button';
+import { Choice } from '@web/components/ui/choice';
 import { DialogClose, DialogContent } from '@web/components/ui/dialog';
 import { FieldError, Input, Label } from '@web/components/ui/input';
+import { Segmented } from '@web/components/ui/segmented';
+import { Select } from '@web/components/ui/select';
 import { AgentKnowledge } from '@web/features/agents/agent-knowledge';
 import { AgentPreview } from '@web/features/agents/agent-preview';
 import { useCustomAgentMutations } from '@web/features/agents/queries';
@@ -343,10 +346,11 @@ export function AgentEditor({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`${ids}-model`}>{t('agentEditor.model')}</Label>
-            <select
+            <Select
               id={`${ids}-model`}
+              size="field"
+              wrapperClassName="w-full"
               value={model}
-              className={cn(FIELD, 'h-9')}
               onChange={(event) => {
                 if (isAgentModel(event.target.value)) setModel(event.target.value);
               }}
@@ -358,10 +362,11 @@ export function AgentEditor({
                     : t(`team.models.${option}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
-          <Option
+          <Choice
+            type="checkbox"
             name={`${ids}-draw`}
             checked={canDraw}
             label={t('agentEditor.canDraw.label')}
@@ -372,26 +377,17 @@ export function AgentEditor({
           <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
             <legend className={LEGEND}>{t('agentEditor.scope.title')}</legend>
             {/* A segmented switch (draft G); the line below says what the chosen one means. */}
-            <div className="flex w-fit gap-0.5 rounded-full bg-bg-subtle p-[3px]">
-              {(['personal', 'project'] as const).map((option) => (
-                <label key={option} className="relative flex">
-                  <input
-                    type="radio"
-                    name={`${ids}-scope`}
-                    checked={scope === option}
-                    disabled={!canChangeScope}
-                    aria-describedby={`${ids}-scope-text`}
-                    className="peer absolute inset-0 opacity-0 enabled:cursor-pointer"
-                    onChange={() => {
-                      setScope(option);
-                    }}
-                  />
-                  <span className="flex h-[30px] items-center rounded-full px-3.5 text-ui text-text-3 transition-colors peer-checked:bg-bg-panel peer-checked:font-semibold peer-checked:text-text peer-checked:shadow-block peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-enabled:peer-hover:text-text peer-disabled:opacity-60">
-                    {t(`agentEditor.scope.${option}.label`)}
-                  </span>
-                </label>
-              ))}
-            </div>
+            <Segmented
+              name={`${ids}-scope`}
+              value={scope}
+              options={(['personal', 'project'] as const).map((option) => ({
+                value: option,
+                label: t(`agentEditor.scope.${option}.label`),
+              }))}
+              disabled={!canChangeScope}
+              describedBy={`${ids}-scope-text`}
+              onChange={setScope}
+            />
             <p id={`${ids}-scope-text`} className="m-0 text-small leading-snug text-text-3">
               {scope === 'project'
                 ? t('agentEditor.scope.project.text', { project: project.name })
@@ -454,43 +450,5 @@ export function AgentEditor({
         </div>
       </form>
     </DialogContent>
-  );
-}
-
-/** A checkbox with its label and one line of explanation. */
-function Option({
-  name,
-  checked,
-  label,
-  text,
-  onChange,
-}: {
-  name: string;
-  checked: boolean;
-  label: string;
-  text: string;
-  onChange: (checked: boolean) => void;
-}) {
-  const id = useId();
-  return (
-    <div className="-mx-1.5 flex items-start gap-2.5 rounded-sm px-1.5 py-1 hover:bg-bg-subtle">
-      <input
-        id={id}
-        type="checkbox"
-        name={name}
-        checked={checked}
-        aria-describedby={`${id}-text`}
-        className="mt-[3px] size-3.5 shrink-0 cursor-pointer accent-ink"
-        onChange={(event) => {
-          onChange(event.target.checked);
-        }}
-      />
-      <label htmlFor={id} className="flex min-w-0 cursor-pointer flex-col">
-        <span className="text-ui font-medium text-text">{label}</span>
-        <span id={`${id}-text`} className="text-small leading-snug text-text-3">
-          {text}
-        </span>
-      </label>
-    </div>
   );
 }

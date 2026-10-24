@@ -11,7 +11,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
-import { DialogClose, DialogContent } from '@web/components/ui/dialog';
+import { DIALOG_SECTION_TITLE, DialogClose, DialogContent } from '@web/components/ui/dialog';
 import { FieldError, Label } from '@web/components/ui/input';
 import {
   acceptPackageSuggestion,
@@ -31,7 +31,7 @@ import { gitMergeRequestQueryKey } from '@web/features/git/request-queries';
 import { ApiError } from '@web/lib/api';
 import { cn } from '@web/lib/cn';
 
-const SECTION_TITLE = 'm-0 text-small font-medium text-text-2';
+const SECTION_TITLE = DIALOG_SECTION_TITLE;
 
 const FIELD =
   'w-full resize-y rounded-md border border-border-strong bg-bg-panel px-3 py-2 text-ui leading-normal text-text transition-colors placeholder:text-text-4 focus-visible:border-ink focus-visible:outline-none read-only:bg-bg-subtle';
@@ -72,7 +72,7 @@ export function PackageDialog({ projectId, outdated }: PackageDialogProps) {
               {t('common.loading')}
             </p>
           )}
-          <div className="mt-4 flex justify-end">
+          <div className="mt-6 flex justify-end gap-2">
             <DialogClose asChild>
               <Button variant="ghost">{t('common.close')}</Button>
             </DialogClose>
@@ -444,7 +444,7 @@ function PackageBody({
             <summary className="cursor-pointer text-small font-medium text-text-2 select-none hover:text-text">
               {t('export.package.files', { count: overview.files.length })}
             </summary>
-            <ul className="mt-1.5 mb-0 flex list-none flex-col gap-0.5 rounded-md bg-bg-subtle px-3 py-2 font-mono text-meta text-text-2">
+            <ul className="mt-1.5 mb-0 flex list-none flex-col gap-0.5 rounded-card bg-bg-subtle px-3.5 py-2.5 font-mono text-meta text-text-2">
               {overview.files.map((path) => (
                 <li key={path} className="pl-3 -indent-3 [overflow-wrap:anywhere]">
                   {path}
@@ -461,7 +461,7 @@ function PackageBody({
 
       {failed ? <FieldError className="mt-3">{t('export.failed')}</FieldError> : null}
 
-      <div className="mt-4 flex items-center justify-end gap-2">
+      <div className="mt-6 flex items-center justify-end gap-2">
         <DialogClose asChild>
           <Button variant="ghost">{t('common.close')}</Button>
         </DialogClose>

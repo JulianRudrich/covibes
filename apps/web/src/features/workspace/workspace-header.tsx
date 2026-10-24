@@ -1,6 +1,14 @@
 import type { Phase } from '@covibes/shared';
 import { useNavigate } from '@tanstack/react-router';
-import { ChevronDown } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronDown,
+  Gauge,
+  GitBranch,
+  GitMerge,
+  ScrollText,
+  Settings2,
+} from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -137,6 +145,7 @@ function ProjectMenu({
               void navigate({ to: '/' });
             }}
           >
+            <ArrowLeft size={15} aria-hidden="true" />
             {t('workspace.toProjects')}
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -144,6 +153,7 @@ function ProjectMenu({
               setSettingsOpen(true);
             }}
           >
+            <Settings2 size={15} aria-hidden="true" />
             {t('workspace.settings')}
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -151,6 +161,7 @@ function ProjectMenu({
               setRepositoryOpen(true);
             }}
           >
+            <GitBranch size={15} aria-hidden="true" />
             {t('workspace.repository')}
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -158,6 +169,7 @@ function ProjectMenu({
               setMergeOpen(true);
             }}
           >
+            <GitMerge size={15} aria-hidden="true" />
             {t('workspace.mergeRequests')}
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -165,6 +177,7 @@ function ProjectMenu({
               setLogOpen(true);
             }}
           >
+            <ScrollText size={15} aria-hidden="true" />
             {t('workspace.gitLog')}
           </DropdownMenuItem>
           {showUsage ? (
@@ -173,6 +186,7 @@ function ProjectMenu({
                 setUsageOpen(true);
               }}
             >
+              <Gauge size={15} aria-hidden="true" />
               {t('workspace.usage')}
             </DropdownMenuItem>
           ) : null}

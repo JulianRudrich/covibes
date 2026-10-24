@@ -80,7 +80,7 @@ export function PlanToolbar({ editor, end }: { editor: Editor; end?: ReactNode }
     <div
       role="toolbar"
       aria-label={t('plan.toolbar.label')}
-      className="flex shrink-0 items-center gap-0.5 border-b border-border-subtle px-3 py-1.5"
+      className="mx-3 mt-3 flex h-11 shrink-0 items-center gap-0.5 rounded-full bg-bg-panel px-2 shadow-block"
     >
       <ToolButton
         icon={Heading2}
@@ -133,7 +133,7 @@ export function PlanToolbar({ editor, end }: { editor: Editor; end?: ReactNode }
         disabled={!state.canRedo}
         onClick={() => run().redo().run()}
       />
-      {end ? <div className="ml-auto flex items-center gap-2 pl-2">{end}</div> : null}
+      {end ? <div className="ml-auto flex items-center gap-1.5 pl-2">{end}</div> : null}
     </div>
   );
 }

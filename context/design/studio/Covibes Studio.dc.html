@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Covibes · Studio</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&amp;family=Figtree:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+@keyframes cvdot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
+@keyframes cvblink{50%{opacity:0}}
+@keyframes cvrise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes cvpop{0%{opacity:0;transform:scale(.96)}100%{opacity:1;transform:none}}
+@keyframes cvring{0%{transform:scale(1);opacity:.75}100%{transform:scale(1.14,1.3);opacity:0}}
+@keyframes cvtwinkle{0%,100%{transform:scale(1) rotate(0)}50%{transform:scale(1.25) rotate(20deg)}}
+@keyframes cvdrift{0%,100%{transform:translate(0,0)}35%{transform:translate(16px,7px)}70%{transform:translate(5px,14px)}}
+@keyframes cvglow{0%,100%{box-shadow:0 0 0 2px var(--cvbg),0 0 0 4px var(--cvag),0 0 6px var(--cvag)}50%{box-shadow:0 0 0 2px var(--cvbg),0 0 0 4px var(--cvag),0 0 16px var(--cvag)}}
+.cvb{transition:background-color .15s ease,box-shadow .15s ease,transform .08s ease,opacity .15s ease}
+.cvb:hover{filter:brightness(1.08)}
+.cvb:active{transform:translateY(1px) scale(.98)}
+.cvg:hover{background-color:rgba(128,120,110,.12) !important}
+.cvblock{transition:box-shadow .2s ease,transform .2s ease}
+.cvblock:hover{transform:translateY(-2px)}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: grid; grid-template-rows: 64px minmax(0, 1fr); background: {{c.app}}; color: {{c.text}}; font-family: 'Figtree', system-ui, sans-serif; font-size: 13.5px; -webkit-font-smoothing: antialiased; overflow: hidden; transition: background-color .3s ease, color .3s ease">
+
+  <!-- ================= top bar ================= -->
+  <header style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 16px 0 20px">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <div aria-hidden="true" style="position: relative; width: 22px; height: 22px">
+        <div style="position: absolute; left: 0; top: 0; width: 14px; height: 14px; border-radius: 7px; background: {{c.text}}"></div>
+        <div style="position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; border-radius: 7px; box-sizing: border-box; border: 2.25px solid {{c.text}}"></div>
+      </div>
+      <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: -0.025em">covibes</span>
+      <span aria-hidden="true" style="color: {{c.text3}}; margin: 0 2px">/</span>
+      <button class="cvb cvg" style="display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px 0 12px; border: 0; border-radius: 17px; background: transparent; color: {{c.text}}; font: inherit; font-weight: 600; cursor: pointer">Covibes V1<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{c.text3}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+    </div>
+
+    <nav aria-label="Phasen" style="height: 44px; display: flex; align-items: center; gap: 14px; padding: 0 18px 0 16px; border-radius: 22px; background: {{c.panel}}; box-shadow: {{c.panelShadow}}">
+      <span style="font-size: 12.5px; color: {{c.text3}}; font-variant-numeric: tabular-nums">Schritt 3 von 4</span>
+      <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 15.5px; letter-spacing: -0.01em">Architektur</span>
+      <span role="img" aria-label="Brainstorming und Entscheiden erledigt, Architektur läuft, Projektplan folgt" style="display: flex; gap: 4px">
+        <span title="Brainstorming" style="width: 30px; height: 6px; border-radius: 3px; background: {{c.text}}"></span>
+        <span title="Entscheiden" style="width: 30px; height: 6px; border-radius: 3px; background: {{c.text}}"></span>
+        <span title="Architektur" style="position: relative; width: 30px; height: 6px; border-radius: 3px; background: {{c.track}}; overflow: hidden"><span style="position: absolute; left: 0; top: 0; bottom: 0; width: 60%; border-radius: 3px; background: {{c.text}}; opacity: .55"></span></span>
+        <span title="Projektplan" style="width: 30px; height: 6px; border-radius: 3px; background: {{c.track}}"></span>
+      </span>
+      <span style="font-size: 12.5px; color: {{c.text3}}">Danach: Projektplan</span>
+    </nav>
+
+    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px">
+      <div aria-label="Im Raum" style="height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 8px; border-radius: 22px; background: {{c.panel}}; box-shadow: {{c.panelShadow}}; --cvbg: {{c.panel}}">
+        <div style="display: flex; align-items: center">
+          <span title="Du" style="width: 30px; height: 30px; border-radius: 15px; display: grid; place-items: center; background: {{c.human}}; color: {{c.humanFg}}; font-size: 11px; font-weight: 700; box-shadow: 0 0 0 2.5px {{c.panel}}">Du</span>
+          <span title="Alex" style="margin-left: -8px; width: 30px; height: 30px; border-radius: 15px; display: grid; place-items: center; background: {{c.human}}; color: {{c.humanFg}}; font-size: 11.5px; font-weight: 700; box-shadow: 0 0 0 2.5px {{c.panel}}">A</span>
+          <span title="Sam bearbeitet Covibes-Server" style="position: relative; margin-left: -8px; width: 30px; height: 30px; border-radius: 15px; display: grid; place-items: center; background: {{c.human}}; color: {{c.humanFg}}; font-size: 11.5px; font-weight: 700; box-shadow: 0 0 0 2.5px {{c.panel}}">S<span style="position: absolute; right: -1px; bottom: -1px; width: 9px; height: 9px; border-radius: 5px; background: {{c.ok}}; box-shadow: 0 0 0 2px {{c.panel}}"></span></span>
+        </div>
+        <span aria-hidden="true" style="width: 1px; height: 20px; background: {{c.line}}"></span>
+        <div style="display: flex; align-items: center">
+          <span title="Moderator" style="width: 30px; height: 30px; box-sizing: border-box; border-radius: 10px; display: grid; place-items: center; background: {{c.mod.tint}}; color: {{c.mod.base}}; box-shadow: inset 0 0 0 1px {{c.mod.line}}, 0 0 0 2.5px {{c.panel}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="{{g.mod}}"/></svg></span>
+          <span title="{{beTitle}}" style="margin-left: -6px; width: 30px; height: 30px; box-sizing: border-box; border-radius: 10px; display: grid; place-items: center; background: {{c.be.tintSolid}}; color: {{c.be.base}}; box-shadow: inset 0 0 0 1px {{c.be.line}}, 0 0 0 2.5px {{c.panel}}; --cvag: {{c.be.glow}}; animation: {{beGlow}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="{{g.be}}"/></svg></span>
+          <span title="Kritiker" style="position: relative; margin-left: -6px; width: 30px; height: 30px; box-sizing: border-box; border-radius: 10px; display: grid; place-items: center; background: {{c.cr.tintSolid}}; color: {{c.cr.base}}; box-shadow: inset 0 0 0 1px {{c.cr.line}}, 0 0 0 2.5px {{c.panel}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="{{g.cr}}"/></svg><sc-if value="{{handOpen}}" hint-placeholder-val="{{true}}"><span style="position: absolute; right: -5px; top: -5px; width: 16px; height: 16px; border-radius: 8px; display: grid; place-items: center; background: {{c.cr.base}}; color: {{c.cr.on}}; box-shadow: 0 0 0 2px {{c.panel}}; animation: cvpop .3s ease-out both"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v2"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg></span></sc-if></span>
+          <span title="Daten" style="margin-left: -6px; width: 30px; height: 30px; box-sizing: border-box; border-radius: 10px; display: grid; place-items: center; background: {{c.da.tintSolid}}; color: {{c.da.base}}; box-shadow: inset 0 0 0 1px {{c.da.line}}, 0 0 0 2.5px {{c.panel}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="{{g.da}}"/></svg></span>
+        </div>
+      </div>
+      <button class="cvb cvg" aria-label="{{themeLabel}}" onClick="{{toggleTheme}}" style="width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 17px; background: transparent; color: {{c.text2}}; cursor: pointer">
+        <sc-if value="{{dark}}" hint-placeholder-val="{{false}}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></sc-if>
+        <sc-if value="{{light}}" hint-placeholder-val="{{true}}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></sc-if>
+      </button>
+      <button class="cvb" style="height: 36px; padding: 0 18px; border: 0; border-radius: 18px; background: {{c.ink}}; color: {{c.onInk}}; font: inherit; font-weight: 600; cursor: pointer">Teilen</button>
+    </div>
+  </header>
+
+  <!-- ================= panels ================= -->
+  <div style="display: grid; grid-template-columns: 372px minmax(0, 1fr) 300px; gap: 12px; padding: 0 12px 12px; min-height: 0">
+
+    <!-- ===== Chat ===== -->
+    <section aria-label="Chat" style="display: grid; grid-template-rows: 58px minmax(0, 1fr) auto; min-height: 0; border-radius: 24px; background: {{c.panel}}; box-shadow: {{c.panelShadow}}; overflow: hidden">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 18px 0 20px">
+        <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 17px; letter-spacing: -0.01em">Chat</h2>
+        <span aria-live="polite" style="display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 12px; border-radius: 14px; background: {{c.sub}}; font-size: 12px; color: {{c.text2}}">
+          <sc-if value="{{typing}}" hint-placeholder-val="{{true}}"><span aria-hidden="true" style="display: flex; gap: 3px"><span style="width: 5px; height: 5px; border-radius: 3px; background: {{c.be.base}}; animation: cvdot 1.2s ease-in-out infinite"></span><span style="width: 5px; height: 5px; border-radius: 3px; background: {{c.be.base}}; animation: cvdot 1.2s ease-in-out .16s infinite"></span><span style="width: 5px; height: 5px; border-radius: 3px; background: {{c.be.base}}; animation: cvdot 1.2s ease-in-out .32s infinite"></span></span></sc-if>
+          {{statusText}}
+        </span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; justify-content: flex-end; gap: 14px; padding: 4px 16px 14px; overflow: hidden">
+        <div style="display: flex; gap: 10px; align-items: flex-end; animation: cvrise .45s ease-out both">
+          <span style="flex: none; width: 30px; height: 30px; border-radius: 15px; display: grid; place-items: center; background: {{c.human}}; color: {{c.humanFg}}; font-size: 11px; font-weight: 700">A</span>
+          <div style="max-width: 272px">
+            <div style="font-size: 12px; color: {{c.text3}}; margin: 0 0 4px 12px"><b style="font-weight: 600; color: {{c.text2}}">Alex</b> · 10:41</div>
+            <p style="margin: 0; padding: 10px 14px; border-radius: 18px 18px 18px 6px; background: {{c.sub}}; line-height: 1.5">Wir brauchen eine Entscheidung zum Hosting, bevor wir den Plan schreiben.</p>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; animation: cvrise .45s ease-out .08s both">
+          <div style="max-width: 272px">
+            <div style="font-size: 12px; color: {{c.text3}}; margin: 0 12px 4px 0; text-align: right">10:42</div>
+            <p style="margin: 0; padding: 10px 14px; border-radius: 18px 18px 6px 18px; background: {{c.ink}}; color: {{c.onInk}}; line-height: 1.5">Lasst uns beide Wege sauber vergleichen.</p>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 20px; background: {{c.mod.tint}}; box-shadow: inset 0 0 0 1px {{c.mod.line}}; animation: cvrise .45s ease-out .16s both">
+          <div style="display: flex; align-items: center; gap: 8px">
+            <span style="width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: {{c.panel}}; color: {{c.mod.base}}; box-shadow: inset 0 0 0 1px {{c.mod.line}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="{{g.mod}}"/></svg></span>
+            <span style="font-weight: 700; color: {{c.mod.ink}}">Moderator</span>
+            <span style="height: 20px; padding: 0 8px; display: flex; align-items: center; border-radius: 10px; background: {{c.panel}}; font-size: 11.5px; font-weight: 600; color: {{c.mod.ink}}">neutral</span>
+            <span style="margin-left: auto; font-size: 12px; color: {{c.text3}}">10:43</span>
+          </div>
+          <p style="margin: 0; line-height: 1.55">Ihr habt zwei Wege genannt: ein eigener Server oder Managed Hosting. Soll ich beide als Varianten A und B auf dem Canvas vergleichen?</p>
+          <sc-if value="{{compareOpen}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; gap: 6px">
+              <button class="cvb" onClick="{{compareYes}}" style="height: 34px; padding: 0 16px; border: 0; border-radius: 17px; background: {{c.ink}}; color: {{c.onInk}}; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Ja, vergleichen</button>
+              <button class="cvb" onClick="{{compareLater}}" style="height: 34px; padding: 0 16px; border: 0; border-radius: 17px; background: {{c.panel}}; color: {{c.text}}; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Später</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{compareDone}}" hint-placeholder-val="{{false}}">
+            <div style="display: flex; align-items: center; gap: 7px; padding-top: 10px; border-top: 1px solid {{c.mod.line}}; font-size: 13px; font-weight: 600; color: {{c.mod.ink}}; animation: cvpop .3s ease-out both"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>{{compareMsg}}</div>
+          </sc-if>
+        </div>
+
+        <div style="display: flex; gap: 10px; align-items: flex-end; animation: cvrise .45s ease-out .24s both">
+          <span style="flex: none; width: 30px; height: 30px; border-radius: 15px; display: grid; place-items: center; background: {{c.human}}; color: {{c.humanFg}}; font-size: 11px; font-weight: 700">S</span>
+          <div style="max-width: 272px">
+            <div style="font-size: 12px; color: {{c.text3}}; margin: 0 0 4px 12px"><b style="font-weight: 600; color: {{c.text2}}">Sam</b> · 10:44</div>
+            <p style="margin: 0; padding: 10px 14px; border-radius: 18px 18px 18px 6px; background: {{c.sub}}; line-height: 1.5"><span style="padding: 1px 6px; border-radius: 7px; background: {{c.be.tint}}; color: {{c.be.ink}}; font-weight: 600">@Backend</span> was spricht für einen eigenen Server?</p>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; align-items: flex-end; animation: cvrise .45s ease-out .32s both">
+          <span style="flex: none; width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; background: {{c.be.tintSolid}}; color: {{c.be.base}}; box-shadow: inset 0 0 0 1px {{c.be.line}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="{{g.be}}"/></svg></span>
+          <div style="max-width: 290px">
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: {{c.text3}}; margin: 0 0 4px 12px"><b style="font-weight: 600; color: {{c.be.ink}}">Backend</b><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 10 20 15 15 20"/><path d="M4 4v7a4 4 0 0 0 4 4h12"/></svg>Sam</div>
+            <p style="margin: 0; min-height: 21px; padding: 10px 14px; border-radius: 18px 18px 18px 6px; background: {{c.be.tint}}; line-height: 1.55">{{streamA}}<sc-if value="{{showChip}}" hint-placeholder-val="{{true}}"><button class="cvb" onClick="{{focusGateway}}" style="display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 9px 0 7px; margin: 0 1px; vertical-align: 0; border: 0; border-radius: 11px; background: {{c.mod.base}}; color: {{c.mod.on}}; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; animation: cvpop .25s ease-out both"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></svg>AI-Gateway</button></sc-if>{{streamB}}<sc-if value="{{typing}}" hint-placeholder-val="{{true}}"><span aria-hidden="true" style="display: inline-block; width: 2px; height: 15px; margin-left: 2px; vertical-align: -2px; background: {{c.be.base}}; animation: cvblink 1s steps(1) infinite"></span></sc-if></p>
+          </div>
+        </div>
+
+        <sc-if value="{{heard}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; gap: 10px; align-items: flex-end; animation: cvrise .45s ease-out both">
+            <span style="flex: none; width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; background: {{c.cr.tintSolid}}; color: {{c.cr.base}}; box-shadow: inset 0 0 0 1px {{c.cr.line}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="{{g.cr}}"/></svg></span>
+            <div style="max-width: 290px">
+              <div style="font-size: 12px; color: {{c.text3}}; margin: 0 0 4px 12px"><b style="font-weight: 600; color: {{c.cr.ink}}">Kritiker</b> · Einwand</div>
+              <p style="margin: 0; padding: 10px 14px; border-radius: 18px 18px 18px 6px; background: {{c.cr.tint}}; line-height: 1.55">Ein eigener Server heißt Betrieb und Bereitschaft. Ohne Kostenlimits pro Agent wird das teuer, deshalb habe ich einen Block vorgeschlagen.</p>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 0 12px 12px">
+        <sc-if value="{{handOpen}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 18px; background: {{c.cr.tint}}; animation: cvrise .45s ease-out .5s both">
+            <span style="position: relative; width: 32px; height: 32px; border-radius: 11px; display: grid; place-items: center; background: {{c.panel}}; color: {{c.cr.base}}; box-shadow: inset 0 0 0 1px {{c.cr.line}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="{{g.cr}}"/></svg><span style="position: absolute; right: -4px; top: -4px; width: 16px; height: 16px; border-radius: 8px; display: grid; place-items: center; background: {{c.cr.base}}; color: {{c.cr.on}}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v2"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg></span></span>
+            <span style="flex: 1; font-size: 13px; line-height: 1.35"><b style="font-weight: 700; color: {{c.cr.ink}}">Kritiker meldet sich</b><br><span style="color: {{c.text2}}">Einwand zu den Kosten</span></span>
+            <button class="cvb" onClick="{{hear}}" style="height: 32px; padding: 0 14px; border: 0; border-radius: 16px; background: {{c.panel}}; color: {{c.cr.ink}}; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Anhören</button>
+          </div>
+        </sc-if>
+        <form onSubmit="{{noSubmit}}" style="display: flex; align-items: center; gap: 2px; height: 52px; padding: 0 6px; border-radius: 26px; background: {{c.sub}}; box-shadow: inset 0 0 0 1px {{c.line}}">
+          <button type="button" class="cvb cvg" aria-label="Agent erwähnen" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 20px; background: transparent; color: {{c.text2}}; cursor: pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg></button>
+          <input aria-label="Nachricht" placeholder="Schreib dem Team, @ ruft einen Agenten" style="flex: 1; min-width: 0; height: 40px; border: 0; background: transparent; color: {{c.text}}; font: inherit; font-size: 14px; outline: none">
+          <button type="button" class="cvb cvg" aria-label="Anhängen" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 20px; background: transparent; color: {{c.text2}}; cursor: pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+          <button type="submit" class="cvb" aria-label="Senden" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 20px; background: {{c.ink}}; color: {{c.onInk}}; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ===== Canvas ===== -->
+    <section aria-label="Canvas" style="position: relative; min-width: 0; border-radius: 24px; background-color: {{c.canvas}}; background-image: radial-gradient({{c.dot}} 1.2px, transparent 1.5px); background-size: 24px 24px; box-shadow: {{c.panelShadow}}; overflow: hidden">
+      <div style="position: absolute; left: 12px; right: 12px; top: 12px; display: flex; align-items: center; gap: 4px; z-index: 3">
+        <span style="height: 34px; padding: 0 16px; display: flex; align-items: center; border-radius: 17px; background: {{c.panel}}; box-shadow: {{c.shadow}}; font-size: 13px; font-weight: 600">Haupt-Canvas</span>
+        <button class="cvb cvg" style="height: 34px; padding: 0 14px; border: 0; border-radius: 17px; background: transparent; color: {{c.text2}}; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer">Datenmodell</button>
+        <button class="cvb cvg" aria-label="Board hinzufügen" style="width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 17px; background: transparent; color: {{c.text2}}; cursor: pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
+        <button class="cvb cvg" style="margin-left: auto; height: 34px; padding: 0 12px; display: flex; align-items: center; gap: 6px; border: 0; border-radius: 17px; background: transparent; color: {{c.text2}}; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>Verlauf</button>
+      </div>
+
+      <div style="position: absolute; left: 6px; top: 50px; width: 720px; height: 680px">
+        <div style="position: absolute; left: 24px; top: 36px; width: 676px; height: 392px; border-radius: 28px; background: {{c.frame}}; box-shadow: inset 0 0 0 1px {{c.line}}"></div>
+        <div style="position: absolute; left: 46px; top: 54px; display: flex; align-items: center; gap: 8px"><span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 15px">Architektur</span><span style="height: 22px; padding: 0 9px; display: flex; align-items: center; border-radius: 11px; background: {{c.panel}}; font-size: 12px; color: {{c.text3}}; font-variant-numeric: tabular-nums">{{blockCount}} Blöcke</span></div>
+
+        <svg aria-hidden="true" width="720" height="680" style="position: absolute; left: 0; top: 0; overflow: visible">
+          <defs>
+            <marker id="dA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="{{c.edge}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+            <marker id="dM" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="{{c.mod.base}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+            <marker id="dK" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="{{c.cr.base}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+          </defs>
+          <path d="M232 132 L326 132" fill="none" stroke="{{c.edge}}" stroke-width="2" stroke-linecap="round" marker-end="url(#dA)"/>
+          <path d="M395 180 C395 240 142 230 142 286" fill="none" stroke="{{c.edge}}" stroke-width="2" stroke-linecap="round" marker-end="url(#dA)"/>
+          <path d="M425 180 C425 240 364 230 364 286" fill="none" stroke="{{c.edge}}" stroke-width="2" stroke-linecap="round" marker-end="url(#dA)"/>
+          <path d="M455 180 C455 240 586 230 586 286" fill="none" stroke="{{c.mod.base}}" stroke-width="2.25" stroke-linecap="round" marker-end="url(#dM)"/>
+          <path d="M586 388 L586 450" fill="none" stroke="{{c.cr.base}}" stroke-width="2" stroke-linecap="round" stroke-dasharray="{{sugEdge.dash}}" marker-end="{{sugEdge.marker}}" opacity="{{sugEdge.opacity}}" style="transition: opacity .3s ease"/>
+        </svg>
+        <span style="position: absolute; left: 258px; top: 121px; height: 22px; padding: 0 9px; display: flex; align-items: center; border-radius: 11px; background: {{c.panel}}; box-shadow: {{c.shadow}}; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: {{c.text2}}">REST</span>
+        <span style="position: absolute; left: 244px; top: 224px; height: 22px; padding: 0 9px; display: flex; align-items: center; border-radius: 11px; background: {{c.panel}}; box-shadow: {{c.shadow}}; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: {{c.text2}}">Jobs</span>
+        <span style="position: absolute; left: 372px; top: 224px; height: 22px; padding: 0 9px; display: flex; align-items: center; border-radius: 11px; background: {{c.panel}}; box-shadow: {{c.shadow}}; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: {{c.text2}}">Daten</span>
+        <span style="position: absolute; left: 504px; top: 224px; height: 22px; padding: 0 9px; display: flex; align-items: center; border-radius: 11px; background: {{c.mod.tint}}; box-shadow: inset 0 0 0 1px {{c.mod.line}}; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: {{c.mod.ink}}">API</span>
+
+        <!-- Web-App -->
+        <div class="cvblock" style="position: absolute; left: 52px; top: 84px; width: 180px; height: 96px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; padding: 12px 14px; border-radius: 18px; background: {{c.panel}}; box-shadow: {{c.shadow}}">
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 32px; height: 32px; border-radius: 16px; display: grid; place-items: center; background: {{c.sub}}; color: {{c.text2}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/></svg></span><div><div style="font-weight: 600; font-size: 14px">Web-App</div><div style="font-size: 12px; color: {{c.text3}}">Frontend</div></div></div>
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: {{c.text3}}"><span style="width: 18px; height: 18px; border-radius: 9px; display: grid; place-items: center; background: {{c.human}}; color: {{c.humanFg}}; font-size: 8.5px; font-weight: 700">Du</span>Du</div>
+        </div>
+
+        <!-- Server locked -->
+        <span style="position: absolute; left: 330px; top: 52px; height: 26px; padding: 0 11px 0 9px; display: flex; align-items: center; gap: 6px; border-radius: 13px; background: {{c.cursor}}; color: {{c.onInk}}; font-size: 12px; font-weight: 600"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Sam bearbeitet</span>
+        <div style="position: absolute; left: 330px; top: 84px; width: 180px; height: 96px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; padding: 12px 14px; border-radius: 18px; background: {{c.panel}}; box-shadow: 0 0 0 2px {{c.cursor}}, 0 0 0 7px {{c.lockRing}}; cursor: not-allowed">
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 32px; height: 32px; border-radius: 16px; display: grid; place-items: center; background: {{c.sub}}; color: {{c.text2}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></span><div><div style="font-weight: 600; font-size: 14px">Covibes-Server<span aria-hidden="true" style="display: inline-block; width: 2px; height: 15px; margin-left: 1px; vertical-align: -2px; background: {{c.cursor}}; animation: cvblink 1s steps(1) infinite"></span></div><div style="font-size: 12px; color: {{c.text3}}">{{serverSub}}</div></div></div>
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: {{c.be.ink}}"><span style="width: 20px; height: 20px; border-radius: 7px; display: grid; place-items: center; background: {{c.be.tintSolid}}; color: {{c.be.base}}; box-shadow: inset 0 0 0 1px {{c.be.line}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="{{g.be}}"/></svg></span>Backend</div>
+        </div>
+
+        <!-- GitLab -->
+        <div class="cvblock" style="position: absolute; left: 52px; top: 292px; width: 180px; height: 96px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; padding: 12px 14px; border-radius: 18px; background: {{c.panel}}; box-shadow: {{c.shadow}}">
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 32px; height: 32px; border-radius: 16px; display: grid; place-items: center; background: {{c.sub}}; color: {{c.text2}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></span><div><div style="font-weight: 600; font-size: 14px">GitLab</div><div style="font-size: 12px; color: {{c.text3}}">Repository</div></div></div>
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: {{c.text3}}"><span style="width: 18px; height: 18px; border-radius: 9px; display: grid; place-items: center; background: {{c.human}}; color: {{c.humanFg}}; font-size: 9px; font-weight: 700">A</span>Alex</div>
+        </div>
+
+        <!-- PostgreSQL -->
+        <div class="cvblock" style="position: absolute; left: 274px; top: 292px; width: 180px; height: 96px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; padding: 12px 14px; border-radius: 18px; background: {{c.panel}}; box-shadow: {{c.shadow}}">
+          <div style="display: flex; align-items: center; gap: 10px"><span style="width: 32px; height: 32px; border-radius: 16px; display: grid; place-items: center; background: {{c.sub}}; color: {{c.text2}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg></span><div><div style="font-weight: 600; font-size: 14px">PostgreSQL</div><div style="font-size: 12px; color: {{c.text3}}">Datenbank · EU</div></div></div>
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: {{c.da.ink}}"><span style="width: 20px; height: 20px; border-radius: 7px; display: grid; place-items: center; background: {{c.da.tintSolid}}; color: {{c.da.base}}; box-shadow: inset 0 0 0 1px {{c.da.line}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="{{g.da}}"/></svg></span>Daten</div>
+        </div>
+
+        <!-- AI-Gateway: just drawn -->
+        <span style="position: absolute; left: 556px; top: 258px; height: 26px; padding: 0 11px 0 9px; display: flex; align-items: center; gap: 5px; border-radius: 13px; background: {{c.mod.base}}; color: {{c.mod.on}}; font-size: 12px; font-weight: 600; opacity: {{gw.pill}}; transition: opacity .4s ease"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="animation: cvtwinkle 1.6s ease-in-out infinite"><path d="M12 3c.5 4.8 3.2 7.5 8 8-4.8.5-7.5 3.2-8 8-.5-4.8-3.2-7.5-8-8 4.8-.5 7.5-3.2 8-8z"/></svg>Gerade gezeichnet</span>
+        <div style="position: absolute; left: 496px; top: 292px; width: 180px; height: 96px">
+          <span aria-hidden="true" style="position: absolute; inset: 0; border-radius: 18px; box-shadow: 0 0 0 2px {{c.mod.base}}; opacity: {{gw.pill}}; animation: cvring 2s ease-out infinite"></span>
+          <div class="cvblock" style="position: absolute; inset: 0; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; padding: 12px 14px; border-radius: 18px; background: {{c.panel}}; box-shadow: {{gw.shadow}}">
+            <div style="display: flex; align-items: center; gap: 10px"><span style="width: 32px; height: 32px; border-radius: 16px; display: grid; place-items: center; background: {{c.mod.tint}}; color: {{c.mod.ink}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></svg></span><div><div style="font-weight: 600; font-size: 14px">AI-Gateway</div><div style="font-size: 12px; color: {{c.mod.ink}}">Dienst · neu</div></div></div>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: {{c.mod.ink}}"><span style="width: 20px; height: 20px; border-radius: 7px; display: grid; place-items: center; background: {{c.mod.tintSolid}}; color: {{c.mod.base}}; box-shadow: inset 0 0 0 1px {{c.mod.line}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="{{g.mod}}"/></svg></span>Moderator</div>
+          </div>
+        </div>
+
+        <!-- Kostenlimits: proposal -->
+        <sc-if value="{{sugOpen}}" hint-placeholder-val="{{true}}">
+          <div style="position: absolute; left: 472px; top: 456px; width: 224px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 2px dashed {{c.cr.base}}; border-radius: 20px; background: {{c.cr.tint}}; animation: cvpop .35s ease-out .4s both">
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: {{c.cr.ink}}"><span style="width: 20px; height: 20px; border-radius: 7px; display: grid; place-items: center; background: {{c.cr.tintSolid}}; color: {{c.cr.base}}; box-shadow: inset 0 0 0 1px {{c.cr.line}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="{{g.cr}}"/></svg></span>Vorschlag vom Kritiker</div>
+            <div style="display: flex; align-items: center; gap: 10px"><span style="width: 32px; height: 32px; box-sizing: border-box; border-radius: 16px; display: grid; place-items: center; border: 1.5px dashed {{c.cr.base}}; color: {{c.cr.ink}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg></span><div><div style="font-weight: 600; font-size: 14px">Kostenlimits</div><div style="font-size: 12px; color: {{c.text2}}">Budget pro Agent und Tag</div></div></div>
+            <div style="display: flex; gap: 6px">
+              <button class="cvb" onClick="{{applySug}}" style="height: 32px; padding: 0 14px; border: 0; border-radius: 16px; background: {{c.ink}}; color: {{c.onInk}}; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Übernehmen</button>
+              <button class="cvb" onClick="{{rejectSug}}" style="height: 32px; padding: 0 14px; border: 0; border-radius: 16px; background: {{c.panel}}; color: {{c.text}}; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Ablehnen</button>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{sugApplied}}" hint-placeholder-val="{{false}}">
+          <div class="cvblock" style="position: absolute; left: 496px; top: 456px; width: 180px; height: 96px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; padding: 12px 14px; border-radius: 18px; background: {{c.panel}}; box-shadow: {{c.shadow}}; animation: cvpop .35s ease-out both">
+            <div style="display: flex; align-items: center; gap: 10px"><span style="width: 32px; height: 32px; border-radius: 16px; display: grid; place-items: center; background: {{c.sub}}; color: {{c.text2}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg></span><div><div style="font-weight: 600; font-size: 14px">Kostenlimits</div><div style="font-size: 12px; color: {{c.text3}}">Übernommen von dir</div></div></div>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: {{c.cr.ink}}"><span style="width: 20px; height: 20px; border-radius: 7px; display: grid; place-items: center; background: {{c.cr.tintSolid}}; color: {{c.cr.base}}; box-shadow: inset 0 0 0 1px {{c.cr.line}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="{{g.cr}}"/></svg></span>Kritiker</div>
+          </div>
+        </sc-if>
+
+        <!-- Note -->
+        <div class="cvblock" style="position: absolute; left: 60px; top: 462px; width: 180px; height: 128px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; padding: 16px; border-radius: 6px 6px 22px 6px; background: {{c.note.bg}}; box-shadow: {{c.note.shadow}}; transform: rotate(-2deg)">
+          <div style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 17px; color: {{c.note.text}}">Offline-Modus?</div>
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: {{c.note.meta}}"><span style="width: 18px; height: 18px; border-radius: 9px; display: grid; place-items: center; background: {{c.note.avatar}}; font-size: 9px; font-weight: 700">A</span>Notiz · Alex</div>
+        </div>
+
+        <!-- live cursor -->
+        <div aria-hidden="true" style="position: absolute; left: 410px; top: 146px; animation: cvdrift 7s ease-in-out infinite">
+          <svg width="18" height="20" viewBox="0 0 16 18"><path d="M1 1l13 6.5-5.6 1.6L6 15z" fill="{{c.cursor}}" stroke="{{c.panel}}" stroke-width="1.3" stroke-linejoin="round"/></svg>
+          <span style="position: absolute; left: 14px; top: 17px; height: 22px; padding: 0 9px; display: flex; align-items: center; border-radius: 11px; background: {{c.cursor}}; color: {{c.onInk}}; font-size: 12px; font-weight: 600">Sam</span>
+        </div>
+      </div>
+
+      <!-- toolbar -->
+      <div role="toolbar" aria-label="Werkzeuge" style="position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 2px; padding: 6px; border-radius: 28px; background: {{c.panel}}; box-shadow: {{c.float}}; z-index: 3">
+        <sc-for list="{{tools}}" as="t" hint-placeholder-count="6">
+          <button class="cvb cvg" aria-label="{{t.label}}" aria-pressed="{{t.pressed}}" onClick="{{t.pick}}" title="{{t.label}}" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 20px; background: {{t.bg}}; color: {{t.fg}}; cursor: pointer">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"/></svg>
+          </button>
+        </sc-for>
+        <span aria-hidden="true" style="width: 1px; height: 24px; margin: 0 6px; background: {{c.line2}}"></span>
+        <button class="cvb cvg" aria-label="Verkleinern" onClick="{{zoomOut}}" style="width: 36px; height: 40px; border: 0; border-radius: 20px; background: transparent; color: {{c.text2}}; font: inherit; font-size: 18px; cursor: pointer">−</button>
+        <span style="min-width: 48px; text-align: center; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums">{{zoom}} %</span>
+        <button class="cvb cvg" aria-label="Vergrößern" onClick="{{zoomIn}}" style="width: 36px; height: 40px; border: 0; border-radius: 20px; background: transparent; color: {{c.text2}}; font: inherit; font-size: 18px; cursor: pointer">+</button>
+      </div>
+    </section>
+
+    <!-- ===== Overview ===== -->
+    <aside aria-label="Übersicht" style="display: flex; flex-direction: column; gap: 22px; padding: 18px; box-sizing: border-box; min-height: 0; border-radius: 24px; background: {{c.panel}}; box-shadow: {{c.panelShadow}}; overflow: hidden">
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 8px"><h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 17px; letter-spacing: -0.01em">Wartet auf dich</h2><sc-if value="{{hasWaiting}}" hint-placeholder-val="{{true}}"><span style="min-width: 22px; height: 22px; padding: 0 7px; box-sizing: border-box; display: grid; place-items: center; border-radius: 11px; background: {{c.ink}}; color: {{c.onInk}}; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums">{{waitCount}}</span></sc-if></div>
+
+        <sc-if value="{{sugOpen}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 18px; background: {{c.sub}}; animation: cvrise .45s ease-out .2s both">
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: {{c.text3}}"><span style="width: 20px; height: 20px; border-radius: 7px; display: grid; place-items: center; background: {{c.cr.tintSolid}}; color: {{c.cr.base}}; box-shadow: inset 0 0 0 1px {{c.cr.line}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="{{g.cr}}"/></svg></span><b style="font-weight: 600; color: {{c.cr.ink}}">Kritiker</b>schlägt vor<span style="margin-left: auto">vor 2 min</span></div>
+            <div style="line-height: 1.4">Block <b style="font-weight: 700">Kostenlimits</b> hinzufügen</div>
+            <div style="display: flex; gap: 6px"><button class="cvb" onClick="{{applySug}}" style="height: 32px; padding: 0 14px; border: 0; border-radius: 16px; background: {{c.ink}}; color: {{c.onInk}}; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Übernehmen</button><button class="cvb" onClick="{{rejectSug}}" style="height: 32px; padding: 0 14px; border: 0; border-radius: 16px; background: {{c.panel}}; color: {{c.text}}; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Ablehnen</button></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{relOpen}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 18px; background: {{c.sub}}; animation: cvrise .45s ease-out .28s both">
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: {{c.text3}}"><span style="width: 20px; height: 20px; border-radius: 7px; display: grid; place-items: center; background: {{c.be.tintSolid}}; color: {{c.be.base}}; box-shadow: inset 0 0 0 1px {{c.be.line}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="{{g.be}}"/></svg></span><b style="font-weight: 600; color: {{c.be.ink}}">Backend</b>bittet um Freigabe<span style="margin-left: auto">vor 5 min</span></div>
+            <div style="line-height: 1.4">3 Issues in <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 6px; border-radius: 6px; background: {{c.panel}}">covibes</code> anlegen</div>
+            <sc-if value="{{detail}}" hint-placeholder-val="{{false}}">
+              <ul style="margin: 0; padding: 10px 12px; list-style: none; display: flex; flex-direction: column; gap: 6px; border-radius: 12px; background: {{c.panel}}; font-size: 12.5px; color: {{c.text2}}; animation: cvpop .25s ease-out both">
+                <li>AI-Gateway mit Warteschlange</li>
+                <li>Datenbankschema für Boards</li>
+                <li>Hosting-Varianten vergleichen</li>
+              </ul>
+            </sc-if>
+            <div style="display: flex; gap: 6px"><button class="cvb" onClick="{{release}}" style="height: 32px; padding: 0 14px; border: 0; border-radius: 16px; background: {{c.ink}}; color: {{c.onInk}}; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Freigeben</button><button class="cvb" onClick="{{toggleDetail}}" style="height: 32px; padding: 0 14px; border: 0; border-radius: 16px; background: {{c.panel}}; color: {{c.text}}; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">{{detailLabel}}</button></div>
+          </div>
+        </sc-if>
+
+        <sc-for list="{{doneLines}}" as="d" hint-placeholder-count="0">
+          <div style="display: flex; align-items: center; gap: 8px; padding: 2px 4px; font-size: 13px; color: {{c.text2}}; animation: cvrise .35s ease-out both"><span style="width: 20px; height: 20px; border-radius: 10px; display: grid; place-items: center; background: {{c.okBg}}; color: {{c.ok}}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>{{d.text}}</div>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 15.5px">Entscheidungen</h2>
+        <div style="display: flex; align-items: center; gap: 10px"><span style="width: 22px; height: 22px; border-radius: 11px; display: grid; place-items: center; background: {{c.okBg}}; color: {{c.ok}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span style="color: {{c.text3}}">Canvas</span><span style="margin-left: auto; font-weight: 600">React Flow</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span style="width: 22px; height: 22px; border-radius: 11px; display: grid; place-items: center; background: {{c.okBg}}; color: {{c.ok}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span style="color: {{c.text3}}">Backend</span><span style="margin-left: auto; font-weight: 600">PostgreSQL</span></div>
+        <div style="display: flex; align-items: center; gap: 10px"><span style="width: 22px; height: 22px; box-sizing: border-box; border-radius: 11px; border: 2px dashed {{c.text3}}"></span><span style="color: {{c.text3}}">Server-Hosting</span><span style="margin-left: auto; height: 24px; padding: 0 10px; display: flex; align-items: center; border-radius: 12px; background: {{hosting.bg}}; font-size: 12px; font-weight: 600; color: {{hosting.fg}}; transition: background-color .3s ease">{{hosting.text}}</span></div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600; font-size: 15.5px">Kriterien</h2>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px">
+          <span style="height: 30px; padding: 0 13px; display: flex; align-items: center; border-radius: 15px; box-shadow: inset 0 0 0 1px {{c.line2}}; font-size: 12.5px; color: {{c.text2}}">EU-Hosting</span>
+          <span style="height: 30px; padding: 0 13px; display: flex; align-items: center; border-radius: 15px; box-shadow: inset 0 0 0 1px {{c.line2}}; font-size: 12.5px; color: {{c.text2}}">Qualität vor Kosten</span>
+          <span style="height: 30px; padding: 0 13px; display: flex; align-items: center; border-radius: 15px; box-shadow: inset 0 0 0 1px {{c.line2}}; font-size: 12.5px; color: {{c.text2}}">Team: 3 Devs</span>
+        </div>
+      </div>
+
+      <button class="cvb cvg" onClick="{{replay}}" style="margin-top: auto; align-self: flex-start; height: 30px; padding: 0 12px; display: flex; align-items: center; gap: 6px; border: 0; border-radius: 15px; background: transparent; color: {{c.text3}}; font: inherit; font-size: 12.5px; cursor: pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Szene neu abspielen</button>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+var CV_A = 'Ein eigener Server hält Chat, Canvas und Jobs an einem Ort. Das ';
+var CV_B = ' läuft getrennt mit Warteschlange, damit lange Antworten den Chat nie blockieren.';
+var CV_TOTAL = CV_A.length + 1 + CV_B.length;
+var CV_INIT = { n: 0, dark: null, compare: 'open', heard: false, sug: 'open', rel: 'open', detail: false, tool: 'select', zoom: 100, gwHot: true };
+
+class Component extends DCLogic {
+  componentDidMount() { this.start(); }
+  componentWillUnmount() { clearInterval(this.timer); clearTimeout(this.gwTimer); }
+  start() {
+    clearInterval(this.timer); clearTimeout(this.gwTimer);
+    var self = this;
+    this.timer = setInterval(function () {
+      var n = (self.state && self.state.n) || 0;
+      if (n >= CV_TOTAL) { clearInterval(self.timer); return; }
+      self.setState({ n: n + 1 });
+    }, 34);
+    this.gwTimer = setTimeout(function () { self.setState({ gwHot: false }); }, 6000);
+  }
+  renderVals() {
+    var st = Object.assign({}, CV_INIT, this.state || {});
+    var self = this;
+    var set = function (p) { return function () { self.setState(p); }; };
+    var dark = st.dark === null ? !!this.props.dark : st.dark;
+
+    var light = {
+      app: '#ECEAE6', panel: '#FFFFFF', sub: '#F4F2EF', line: '#E7E4DF', line2: '#D9D5CE', track: '#E3E0DA',
+      canvas: '#F8F7F4', dot: '#D8D4CC', frame: 'rgba(255,255,255,.6)',
+      text: '#1B1A18', text2: '#4A4741', text3: '#736F67', ink: '#1B1A18', onInk: '#FFFFFF',
+      human: '#EAE7E1', humanFg: '#38352F', edge: '#A09A90', cursor: '#1B1A18', lockRing: 'rgba(27,26,24,.08)',
+      ok: '#1F7A45', okBg: '#E4F2E8',
+      shadow: '0 1px 2px rgba(40,30,10,.05), 0 4px 14px rgba(40,30,10,.07)',
+      panelShadow: '0 1px 2px rgba(40,30,10,.04), 0 10px 30px rgba(40,30,10,.06)',
+      float: '0 2px 6px rgba(40,30,10,.06), 0 16px 40px rgba(40,30,10,.14)',
+      note: { bg: '#FCEFB4', text: '#3A3312', meta: '#5E5424', avatar: '#F1E09A', shadow: '0 2px 4px rgba(110,90,20,.10), 0 10px 22px rgba(110,90,20,.10)' },
+      mod: { base: '#0E7C74', ink: '#0A5C56', tint: '#E3F2EF', tintSolid: '#E3F2EF', line: '#C3E2DC', ring: 'rgba(14,124,116,.16)', on: '#FFFFFF' },
+      be: { base: '#3B5BDB', ink: '#2A44A8', tint: '#EDF0FD', tintSolid: '#EDF0FD', line: '#CAD5F8', glow: 'rgba(59,91,219,.55)', on: '#FFFFFF' },
+      cr: { base: '#C9501B', ink: '#97380D', tint: '#FBECE3', tintSolid: '#FBECE3', line: '#F1CDB8', on: '#FFFFFF' },
+      da: { base: '#8A4FD0', ink: '#6634A6', tint: '#F3ECFB', tintSolid: '#F3ECFB', line: '#DDCBF3', on: '#FFFFFF' }
+    };
+    var night = {
+      app: '#0F0E0D', panel: '#1A1917', sub: '#24221F', line: '#2E2C29', line2: '#3D3B36', track: '#34322E',
+      canvas: '#141312', dot: '#2B2926', frame: 'rgba(255,250,240,.025)',
+      text: '#F2F0EC', text2: '#C8C4BC', text3: '#99948B', ink: '#F2F0EC', onInk: '#141311',
+      human: '#35322E', humanFg: '#E6E2DB', edge: '#716C64', cursor: '#F2F0EC', lockRing: 'rgba(242,240,236,.12)',
+      ok: '#5BD08C', okBg: 'rgba(91,208,140,.14)',
+      shadow: '0 2px 10px rgba(0,0,0,.35)',
+      panelShadow: '0 0 0 1px rgba(255,250,240,.04), 0 10px 30px rgba(0,0,0,.35)',
+      float: '0 0 0 1px rgba(255,250,240,.05), 0 16px 40px rgba(0,0,0,.55)',
+      note: { bg: '#4A4120', text: '#F7EDC4', meta: '#D6CA94', avatar: '#5E5329', shadow: '0 10px 24px rgba(0,0,0,.4)' },
+      mod: { base: '#3CC2B4', ink: '#8FE0D6', tint: 'rgba(60,194,180,.12)', tintSolid: '#1C2E2B', line: 'rgba(60,194,180,.34)', ring: 'rgba(60,194,180,.22)', on: '#05201D' },
+      be: { base: '#7B95FF', ink: '#B3C1FF', tint: 'rgba(123,149,255,.13)', tintSolid: '#22263A', line: 'rgba(123,149,255,.36)', glow: 'rgba(123,149,255,.6)', on: '#0B1236' },
+      cr: { base: '#F0844E', ink: '#FFBC97', tint: 'rgba(240,132,78,.13)', tintSolid: '#352319', line: 'rgba(240,132,78,.38)', on: '#2B1104' },
+      da: { base: '#B98BF5', ink: '#D9C3FF', tint: 'rgba(185,139,245,.13)', tintSolid: '#2C2436', line: 'rgba(185,139,245,.36)', on: '#200D3D' }
+    };
+    var c = dark ? night : light;
+
+    var n = st.n;
+    var typing = n < CV_TOTAL;
+    var aLen = CV_A.length;
+    var streamA = CV_A.slice(0, Math.min(n, aLen));
+    var showChip = n > aLen;
+    var streamB = n > aLen + 1 ? CV_B.slice(0, n - aLen - 1) : '';
+
+    var handOpen = !st.heard;
+    var sugOpen = st.sug === 'open';
+    var relOpen = st.rel === 'open';
+    var waitCount = (sugOpen ? 1 : 0) + (relOpen ? 1 : 0);
+    var waitText = waitCount === 0 ? 'Niemand wartet' : waitCount + ' wartet';
+    var statusText = typing ? 'Backend schreibt · ' + waitText : (handOpen ? '1 meldet sich · ' + waitText : waitText);
+
+    var doneLines = [];
+    if (st.sug === 'applied') doneLines.push({ text: 'Kostenlimits übernommen' });
+    if (st.sug === 'rejected') doneLines.push({ text: 'Kostenlimits abgelehnt' });
+    if (st.rel === 'done') doneLines.push({ text: '3 Issues in covibes angelegt' });
+
+    var hosting = st.compare === 'yes'
+      ? { text: 'Vergleich A/B läuft', bg: c.mod.tint, fg: c.mod.ink }
+      : { text: 'offen', bg: c.sub, fg: c.text2 };
+
+    var icons = [
+      { id: 'select', label: 'Auswählen', d: 'M4 3l16 7-7 2-2 7z' },
+      { id: 'block', label: 'Block', d: 'M8 3h8a5 5 0 0 1 5 5v8a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V8a5 5 0 0 1 5-5z' },
+      { id: 'note', label: 'Notiz', d: 'M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3ZM15 3v6h6' },
+      { id: 'frame', label: 'Rahmen', d: 'M22 6H2M22 18H2M6 2v20M18 2v20' },
+      { id: 'connect', label: 'Verbinden', d: 'M5 17A12 12 0 0 1 17 5M21 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 19a2 2 0 1 1-4 0 2 2 0 0 1 4 0z' },
+      { id: 'layout', label: 'Automatisch anordnen', d: 'M4 3h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM15 3h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM15 14h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1zM4 14h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1z' }
+    ];
+    var tools = icons.map(function (t) {
+      var on = st.tool === t.id;
+      return { label: t.label, d: t.d, pressed: on ? 'true' : 'false', bg: on ? c.ink : 'transparent', fg: on ? c.onInk : c.text2, pick: set({ tool: t.id }) };
+    });
+
+    var gwHot = st.gwHot;
+    var gw = {
+      pill: gwHot ? 1 : 0,
+      shadow: gwHot ? '0 0 0 2px ' + c.mod.base + ', 0 0 0 7px ' + c.mod.ring + ', 0 10px 24px ' + c.mod.ring : c.shadow
+    };
+
+    var g = {
+      mod: 'M12 2.5a9.5 9.5 0 1 1 0 19 9.5 9.5 0 0 1 0-19zM12 5.2a6.8 6.8 0 1 0 0 13.6 6.8 6.8 0 0 0 0-13.6zM12 8.6a3.4 3.4 0 1 1 0 6.8 3.4 3.4 0 0 1 0-6.8z',
+      be: 'M7.5 3h9a2 2 0 0 1 0 4h-9a2 2 0 0 1 0-4zM4.5 10h15a2 2 0 0 1 0 4h-15a2 2 0 0 1 0-4zM7.5 17h9a2 2 0 0 1 0 4h-9a2 2 0 0 1 0-4z',
+      cr: 'M13.6 1.8 4.4 13.2c-.5.7 0 1.6.8 1.6h5.4l-1.1 6.9c-.1.6.6 1 1 .5l9.1-11.4c.5-.7 0-1.6-.8-1.6h-5.4l1.2-6.9c.1-.6-.6-1-1-.5z',
+      da: 'M5 13h2.5a1.5 1.5 0 0 1 1.5 1.5v5A1.5 1.5 0 0 1 7.5 21H5a1.5 1.5 0 0 1-1.5-1.5v-5A1.5 1.5 0 0 1 5 13zM10.75 8h2.5a1.5 1.5 0 0 1 1.5 1.5v10a1.5 1.5 0 0 1-1.5 1.5h-2.5a1.5 1.5 0 0 1-1.5-1.5v-10A1.5 1.5 0 0 1 10.75 8zM16.5 3H19a1.5 1.5 0 0 1 1.5 1.5v15A1.5 1.5 0 0 1 19 21h-2.5a1.5 1.5 0 0 1-1.5-1.5v-15A1.5 1.5 0 0 1 16.5 3z'
+    };
+
+    return {
+      c: c, g: g, dark: dark, light: !dark,
+      themeLabel: dark ? 'Helles Design' : 'Dunkles Design',
+      toggleTheme: set({ dark: !dark }),
+      typing: typing, streamA: streamA, showChip: showChip, streamB: streamB, statusText: statusText,
+      beGlow: typing ? 'cvglow 1.6s ease-in-out infinite' : 'none',
+      beTitle: typing ? 'Backend schreibt' : 'Backend',
+      compareOpen: st.compare === 'open', compareDone: st.compare !== 'open',
+      compareMsg: st.compare === 'yes' ? 'Varianten A und B werden erstellt' : 'Verschoben',
+      compareYes: set({ compare: 'yes' }), compareLater: set({ compare: 'later' }),
+      serverSub: st.compare === 'yes' ? 'Hosting · Vergleich läuft' : 'Hosting offen',
+      handOpen: handOpen, heard: st.heard, hear: set({ heard: true }),
+      sugOpen: sugOpen, sugApplied: st.sug === 'applied',
+      applySug: set({ sug: 'applied' }), rejectSug: set({ sug: 'rejected' }),
+      sugEdge: {
+        dash: sugOpen ? '2 6' : '0',
+        marker: st.sug === 'applied' ? 'url(#dK)' : 'none',
+        opacity: st.sug === 'rejected' ? 0 : 1
+      },
+      blockCount: st.sug === 'applied' ? 6 : 5,
+      relOpen: relOpen, release: set({ rel: 'done' }),
+      detail: st.detail, detailLabel: st.detail ? 'Schließen' : 'Ansehen', toggleDetail: set({ detail: !st.detail }),
+      hasWaiting: waitCount > 0, waitCount: waitCount, doneLines: doneLines, hosting: hosting,
+      gw: gw, focusGateway: function () { clearTimeout(self.gwTimer); self.setState({ gwHot: true }); self.gwTimer = setTimeout(function () { self.setState({ gwHot: false }); }, 2500); },
+      tools: tools, zoom: st.zoom,
+      zoomIn: set({ zoom: Math.min(200, st.zoom + 10) }), zoomOut: set({ zoom: Math.max(30, st.zoom - 10) }),
+      noSubmit: function (e) { if (e && e.preventDefault) e.preventDefault(); },
+      replay: function () { self.setState(Object.assign({}, CV_INIT, { dark: dark })); self.start(); }
+    };
+  }
+}
+</script>
+</body>
+</html>

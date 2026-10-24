@@ -9,7 +9,7 @@
 Polish the product (M7, specs 31 to 36): limits and usage first. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing. Spec 36a is complete; next is spec 36b (the main screen in the layout of the design "Covibes Studio").
+Spec 36b: the main screen in the layout of the design "Covibes Studio" (top bar with phase bar and "Im Raum", chat, canvas, overview).
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

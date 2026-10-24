@@ -335,7 +335,7 @@ The owner approved the design "Covibes Studio" on 2026-10-24 (`context/design/st
 - **36a** the design system: tokens light and dark, fonts, shapes, motion, agent marks, building blocks, choosing the theme
 - **36b** the main screen in the new layout: top bar with phase bar and "Im Raum", chat, canvas, overview, and their motion
 - **36c** the entry screens and the agent's mark: login, invitation and message pages, the project list with phase, team and what waits per project, and the agent editor where the creator chooses a custom agent's mark
-- **36d** every other dialog and screen of the workspace (share dialog, project settings, notifications and "Seit du weg warst", the read-only view, the plan editor, the usage dialog, the Git dialogs, the history, the error pages); with it every entry under "Derived looks" is confirmed or replaced
+- **36d** (`36d-workspace-dialogs-and-screens.md`) every other dialog and screen of the workspace (share dialog, project settings, notifications and "Seit du weg warst", the read-only view, the plan editor, the usage dialog, the Git dialogs, the history, the error pages); with it every entry under "Derived looks" is confirmed or replaced
 - **36e** the mobile view for reading and chatting
 
 - **Timing:** after the features of V1, before spec 34

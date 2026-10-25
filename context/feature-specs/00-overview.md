@@ -336,7 +336,7 @@ The owner approved the design "Covibes Studio" on 2026-10-24 (`context/design/st
 - **36b** the main screen in the new layout: top bar with phase bar and "Im Raum", chat, canvas, overview, and their motion
 - **36c** the entry screens and the agent's mark: login, invitation and message pages, the project list with phase, team and what waits per project, and the agent editor where the creator chooses a custom agent's mark
 - **36d** (`36d-workspace-dialogs-and-screens.md`) every other dialog and screen of the workspace (share dialog, project settings, notifications and "Seit du weg warst", the read-only view, the plan editor, the usage dialog, the Git dialogs, the history, the error pages); with it every entry under "Derived looks" is confirmed or replaced
-- **36e** the mobile view for reading and chatting
+- **36e** (`36e-mobile-view.md`) the mobile view for reading and chatting: header, one area at a time and tabs at the bottom; the canvas for reading on a phone
 
 - **Timing:** after the features of V1, before spec 34
 - **Goal:** the app takes on the approved design in both themes; what the handoff does not show (list in `ui-context.md`, "Derived looks", plus agent colors, diagram shapes, plan editor, settings and the mobile view) is derived from it by the coding agent.

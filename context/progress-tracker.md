@@ -9,7 +9,7 @@
 Polish the product (M7, specs 31 to 36): limits and usage first. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing. Spec 36d is complete; next is spec 36e (the mobile view), then 35 (launch preparation) and 34 (the dry run as an E2E test).
+**Spec 36e (the mobile view)**, on branch `spec/36e-mobile-view`: the workspace and the read-only view on a phone, the last part of the design pass. Then 35 (launch preparation) and 34 (the dry run as an E2E test).
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

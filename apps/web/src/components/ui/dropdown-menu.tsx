@@ -4,6 +4,10 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import { cn } from '@web/lib/cn';
 
+/** A menu item: 34 px, 44 px on a phone so a finger hits it (spec 36e). */
+const ITEM =
+  'flex h-[34px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-ui text-text-body outline-none select-none max-md:h-11 [&>svg]:shrink-0 [&>svg]:text-text-3';
+
 export const DropdownMenu = MenuPrimitive.Root;
 export const DropdownMenuTrigger = MenuPrimitive.Trigger;
 
@@ -60,7 +64,7 @@ export function DropdownMenuRadioItem({
   return (
     <MenuPrimitive.RadioItem
       className={cn(
-        'flex h-[34px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-ui text-text-body outline-none select-none [&>svg]:shrink-0 [&>svg]:text-text-3',
+        ITEM,
         'data-highlighted:bg-bg-subtle data-disabled:pointer-events-none data-disabled:opacity-50',
         className,
       )}
@@ -87,11 +91,7 @@ export function DropdownMenuItem({
 }: ComponentProps<typeof MenuPrimitive.Item>) {
   return (
     <MenuPrimitive.Item
-      className={cn(
-        'flex h-[34px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-ui text-text-body outline-none select-none [&>svg]:shrink-0 [&>svg]:text-text-3',
-        'data-highlighted:bg-bg-subtle',
-        className,
-      )}
+      className={cn(ITEM, 'data-highlighted:bg-bg-subtle', className)}
       {...props}
     />
   );
@@ -106,7 +106,7 @@ export function DropdownMenuCheckboxItem({
   return (
     <MenuPrimitive.CheckboxItem
       className={cn(
-        'flex h-[34px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-ui text-text-body outline-none select-none [&>svg]:shrink-0 [&>svg]:text-text-3',
+        ITEM,
         'data-highlighted:bg-bg-subtle data-disabled:pointer-events-none data-disabled:opacity-50',
         className,
       )}

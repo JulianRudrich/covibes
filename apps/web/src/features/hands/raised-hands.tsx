@@ -56,7 +56,7 @@ export function RaisedHands({ hands, onDecide }: RaisedHandsProps) {
               <div className="flex shrink-0 items-center gap-0.5">
                 <Button
                   variant="surface"
-                  className={cn('px-3.5', agentClass(AGENT_DARK_TEXT, agent))}
+                  className={cn('px-3.5 max-md:h-9', agentClass(AGENT_DARK_TEXT, agent))}
                   onClick={() => {
                     onDecide(hand, 'listen');
                   }}

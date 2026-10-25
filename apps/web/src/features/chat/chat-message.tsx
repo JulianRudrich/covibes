@@ -358,6 +358,7 @@ export function ChatMessageView({
         className={cn(
           'flex min-w-0 flex-col gap-1',
           agent === null ? 'max-w-[272px]' : 'max-w-[290px]',
+          'max-md:max-w-[80%]',
           isOwn && 'items-end',
         )}
       >
@@ -401,10 +402,10 @@ function OfferActions({
   if (offer.status === 'open') {
     if (!onOffer) return null;
     return (
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5 max-md:grid max-md:grid-cols-2 max-md:gap-2">
         <Button
           variant="primary"
-          className="h-[34px] px-4"
+          className="h-[34px] px-4 max-md:h-11 max-md:text-[14px]"
           onClick={() => {
             onOffer(item, true);
           }}
@@ -413,7 +414,7 @@ function OfferActions({
         </Button>
         <Button
           variant="surface"
-          className="h-[34px] px-4"
+          className="h-[34px] px-4 max-md:h-11 max-md:text-[14px]"
           onClick={() => {
             onOffer(item, false);
           }}

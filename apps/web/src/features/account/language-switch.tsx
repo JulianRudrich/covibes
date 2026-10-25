@@ -1,6 +1,7 @@
 import { LANGUAGE_NAMES, LANGUAGES } from '@covibes/shared';
 import { useTranslation } from 'react-i18next';
 
+import { TOUCH_TARGET } from '@web/components/ui/button-variants';
 import { useChooseLanguage } from '@web/features/account/language';
 import { cn } from '@web/lib/cn';
 
@@ -37,6 +38,7 @@ export function LanguageSwitch({ className }: { className?: string }) {
               }}
               className={cn(
                 'cursor-pointer rounded-xs border-0 bg-transparent px-1 py-0.5 focus-visible:outline-2 focus-visible:outline-ink',
+                TOUCH_TARGET,
                 shown ? 'font-semibold text-text' : 'text-text-3 hover:text-text',
               )}
             >

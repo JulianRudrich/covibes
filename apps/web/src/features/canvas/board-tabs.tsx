@@ -9,6 +9,7 @@ import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
+import { TOUCH_TARGET } from '@web/components/ui/button-variants';
 import { Dialog, DialogClose, DialogContent } from '@web/components/ui/dialog';
 import {
   DropdownMenu,
@@ -45,8 +46,8 @@ type BoardTabsProps = {
   onOpenHistory?: () => void;
 };
 
-const FOCUS_RING =
-  'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink';
+// The focus ring of the row's controls, and their 44 px target on a phone (spec 36e).
+const TAB_CONTROL = `outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink ${TOUCH_TARGET}`;
 
 /**
  * The board tabs in the canvas header (spec 11; handoff "Canvas", header). The main canvas comes
@@ -185,7 +186,7 @@ export function BoardTabs({
                 tabIndex={active || (planOpen && index === 0) ? 0 : -1}
                 className={cn(
                   'flex h-full max-w-[200px] cursor-pointer items-center rounded-full text-ui whitespace-nowrap',
-                  FOCUS_RING,
+                  TAB_CONTROL,
                   active ? 'px-4' : 'px-3.5',
                   active && editable && 'pr-1',
                 )}
@@ -224,7 +225,7 @@ export function BoardTabs({
                         aria-label={t('canvas.boards.menu', { title })}
                         className={cn(
                           'mr-1.5 grid size-6 cursor-pointer place-items-center rounded-full text-text-3 hover:bg-wash hover:text-text',
-                          FOCUS_RING,
+                          TAB_CONTROL,
                         )}
                       >
                         <ChevronDown size={13} strokeWidth={2} aria-hidden="true" />
@@ -277,7 +278,7 @@ export function BoardTabs({
             aria-label={t('canvas.boards.addLabel')}
             className={cn(
               'grid size-[34px] shrink-0 cursor-pointer place-items-center rounded-full text-text-2 transition-colors hover:bg-wash hover:text-text',
-              FOCUS_RING,
+              TAB_CONTROL,
             )}
             disabled={create.isPending}
             onClick={add}
@@ -295,7 +296,7 @@ export function BoardTabs({
           title={t('history.open')}
           className={cn(
             'ml-auto flex h-[34px] shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-ui font-medium whitespace-nowrap text-text-2 transition-colors hover:bg-wash hover:text-text',
-            FOCUS_RING,
+            TAB_CONTROL,
           )}
           onClick={onOpenHistory}
         >
@@ -312,7 +313,7 @@ export function BoardTabs({
             'flex h-[34px] shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-ui whitespace-nowrap transition-colors',
             // Pushed to the end of the row, unless the history's button already is.
             onOpenHistory && !planOpen ? '' : 'ml-auto',
-            FOCUS_RING,
+            TAB_CONTROL,
             planOpen
               ? 'bg-bg-panel font-semibold text-text shadow-block'
               : 'font-medium text-text-2 hover:bg-wash hover:text-text',

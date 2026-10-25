@@ -58,3 +58,15 @@
     }
   }
 }
+
+/*
+ * On a phone every field has 16 px text, so iOS does not zoom when it gets the focus (spec 36e).
+ * Outside the layers on purpose: it wins over the text sizes the fields set.
+ */
+@media (width < 48rem) {
+  input:not([type='checkbox'], [type='radio'], [type='file']),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}

@@ -1,11 +1,13 @@
-import type { GitReturn, Phase } from '@covibes/shared';
+import type { GitReturn, Phase, ProjectAgent } from '@covibes/shared';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Panel } from '@web/components/ui/panel';
 import type { SessionUser } from '@web/features/auth/session';
 import type { ProjectSettings } from '@web/features/workspace/project-settings-dialog';
+import { MobileWorkspace } from '@web/features/workspace/mobile-workspace';
 import { WorkspaceHeader } from '@web/features/workspace/workspace-header';
+import { usePhone } from '@web/lib/use-media-query';
 
 export type WorkspaceMember = { id: string; name: string; isCurrentUser: boolean };
 
@@ -46,11 +48,23 @@ type WorkspaceShellProps = {
   canvas: ReactNode;
   /** Sections of the overview: what waits for the user, decisions and criteria. */
   overview: ReactNode;
+  /** For the phone layout (spec 36e): the team's marks in its header. */
+  agents: readonly ProjectAgent[];
+  writing?: string | null;
+  raising?: ReadonlySet<string>;
+  /** What waits for the user, counted on the tab "Überblick". */
+  waiting: number;
+  /** The note of the workspace, shown by the phone layout while the canvas is not. */
+  notice: string | null;
+  /** The address names a board, the plan or an element. */
+  startOnCanvas: boolean;
+  /** Grows whenever the chat or the overview opens something on the canvas. */
+  canvasRequest: number;
 };
 
 /**
  * Main screen layout (handoff "Covibes Studio", "Layout"): the top bar on the app background
- * plus the chat, canvas and overview panels.
+ * plus the chat, canvas and overview panels. On a phone one area at a time (spec 36e).
  */
 export function WorkspaceShell({
   projectName,
@@ -68,8 +82,35 @@ export function WorkspaceShell({
   chat,
   canvas,
   overview,
+  agents,
+  writing,
+  raising,
+  waiting,
+  notice,
+  startOnCanvas,
+  canvasRequest,
 }: WorkspaceShellProps) {
   const { t } = useTranslation();
+  const phone = usePhone();
+
+  if (phone) {
+    return (
+      <MobileWorkspace
+        projectName={projectName}
+        activePhase={activePhase}
+        agents={agents}
+        writing={writing}
+        raising={raising}
+        waiting={waiting}
+        notice={notice}
+        startOnCanvas={startOnCanvas}
+        canvasRequest={canvasRequest}
+        chat={chat}
+        canvas={canvas}
+        overview={overview}
+      />
+    );
+  }
 
   return (
     <div className="grid h-dvh min-w-[1100px] grid-rows-[64px_minmax(0,1fr)] bg-bg-app text-text">

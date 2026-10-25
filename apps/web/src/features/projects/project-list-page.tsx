@@ -115,7 +115,7 @@ export function ProjectListPage() {
         ) : null}
       </AppHeader>
 
-      <main className="mx-auto w-full max-w-[1168px] px-6 pt-7 pb-16">
+      <main className="mx-auto w-full max-w-[1168px] px-6 pt-7 pb-16 max-md:px-4">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             {firstName ? (
@@ -127,9 +127,10 @@ export function ProjectListPage() {
               {t('projects.heading')}
             </h1>
           </div>
-          <div className="flex items-center gap-2">
+          {/* On a phone search and button share the full width (spec 36e). */}
+          <div className="flex items-center gap-2 max-md:w-full">
             {none ? null : (
-              <label className="flex h-10 w-[240px] items-center gap-2 rounded-full bg-bg-panel px-3.5 text-text-3 inset-ring inset-ring-border focus-within:inset-ring-ink">
+              <label className="flex h-10 w-[240px] min-w-0 items-center max-md:w-auto max-md:flex-1 gap-2 rounded-full bg-bg-panel px-3.5 text-text-3 inset-ring inset-ring-border focus-within:inset-ring-ink">
                 <Search size={15} strokeWidth={2} aria-hidden="true" className="shrink-0" />
                 <input
                   type="search"

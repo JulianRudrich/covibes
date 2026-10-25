@@ -70,7 +70,8 @@ type ComposerProps = {
 const NO_PEOPLE: readonly { userId: string; name: string }[] = [];
 
 /** The round 40 px buttons inside the pill. */
-const COMPOSER_BUTTON = 'size-10 text-text-2';
+// 44 px on a phone (spec 36e), so the pill is 52 px high there too.
+const COMPOSER_BUTTON = 'size-10 text-text-2 max-md:size-11';
 
 /** Enter that confirms an IME composition (e.g. Japanese input) must not send the message. */
 function isComposing(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -256,7 +257,7 @@ export function Composer({
           ))}
         </ul>
       ) : null}
-      <div className="flex items-end gap-0.5 px-1.5 py-1.5">
+      <div className="flex items-end gap-0.5 p-1.5 max-md:p-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild disabled={disabled}>
             <IconButton
@@ -323,8 +324,9 @@ export function Composer({
           aria-describedby={hintId}
           maxLength={MESSAGE_MAX_LENGTH}
           disabled={disabled}
-          // Ten lines of text at 20 px between 40 px buttons, then it scrolls.
-          className="block max-h-36 min-h-10 min-w-0 flex-1 resize-none self-center overflow-y-auto border-0 bg-transparent py-2.5 text-[14px] leading-5 text-text outline-none placeholder:text-text-3 placeholder-shown:overflow-hidden placeholder-shown:text-ellipsis placeholder-shown:whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
+          // Ten lines of text at 20 px between 40 px buttons, then it scrolls; 16 px on a phone, so
+          // iOS does not zoom into the field (spec 36e).
+          className="block max-h-36 min-h-10 min-w-0 flex-1 resize-none self-center overflow-y-auto border-0 bg-transparent py-2.5 text-[14px] leading-5 max-md:min-h-11 max-md:py-3 max-md:text-[16px] text-text outline-none placeholder:text-text-3 placeholder-shown:overflow-hidden placeholder-shown:text-ellipsis placeholder-shown:whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
         />
         {uploads ? (
           <>
@@ -364,7 +366,7 @@ export function Composer({
           variant="primary"
           aria-label={t('chat.send')}
           disabled={!canSend}
-          className="size-10 px-0"
+          className="size-10 px-0 max-md:size-11"
         >
           <ArrowUp size={16} strokeWidth={2.3} aria-hidden="true" />
         </Button>

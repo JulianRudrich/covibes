@@ -1,6 +1,6 @@
 # UI Context
 
-> As of 2026-10-24 (spec 36a, extended by 36b to 36d). Source: the design handoff "Covibes Studio", stored in `context/design/studio/`, which the owner approved for the design pass. **The reference for looks is the `README.md` there;** the prototype `Covibes Studio.dc.html` opens in the browser with `support.js` next to it. The earlier handoff `context/design/main-screen/` stays the reference for behavior (states, interactions, contents). This file summarizes the rules that apply to **every** screen.
+> As of 2026-10-25 (spec 36a, extended by 36b to 36e). Source: the design handoff "Covibes Studio", stored in `context/design/studio/`, which the owner approved for the design pass. **The reference for looks is the `README.md` there;** the prototype `Covibes Studio.dc.html` opens in the browser with `support.js` next to it. The earlier handoff `context/design/main-screen/` stays the reference for behavior (states, interactions, contents). This file summarizes the rules that apply to **every** screen.
 
 ## Design principles
 - **Color belongs to the agents.**
@@ -24,7 +24,7 @@ The main screen (spec 36b): rows `64px 1fr` on `bg-app`, columns `372px minmax(0
 - **"Im Raum":** a pill with the people overlapping (the signed-in user first as "Du", a green dot on who has the open board open) and the agents of the team overlapping as their marks (the writing agent glows, a raised hand shows a hand badge).
 - The main panels (chat, canvas, overview) use the `Panel` building block: `bg-panel`, radius `surface` (24), `shadow-panel`, **no border**; the overview has no panel title.
 
-The entry screens came with spec 36c (see "Entry screens"), every other dialog and screen of the workspace with spec 36d (see "Workspace dialogs and screens"); the mobile view comes with spec 36e.
+The entry screens came with spec 36c (see "Entry screens"), every other dialog and screen of the workspace with spec 36d (see "Workspace dialogs and screens"), the phone with spec 36e (see "Mobile view").
 
 ## Themes
 - The `@theme` block in `apps/web/src/styles/theme.css` holds the light values; `:root[data-theme='dark']` in the same file sets the dark values on the same variables. Components never branch on the theme; Tailwind's `dark:` variant is not used.
@@ -167,6 +167,20 @@ Derived by the coding agent from the handoff and the drafts of 36c; there is no 
 - **Message pages:** not found, unavailable, the dead read-only link, invitations that no longer work and a project one left share `PageMessage`; their action is a 46 px pill (back as secondary, "Erneut versuchen" as primary), the text in body size.
 - **Menus:** the project menu has an icon before every entry (back arrow, settings, branch, merge, log, gauge).
 
+### Mobile view (spec 36e)
+Draft H-Mobile (390 × 844) on the owner's design canvas, approved as a direction on 2026-10-24; the rest derived by the coding agent. Below 768 px (`usePhone()`, Tailwind's `max-md:`) the workspace and the read-only view take this layout; from 768 px on the desktop stays as it is.
+- **Layout:** rows `auto 1fr auto` on `bg-panel`, one column `minmax(0,1fr)`: the header, one area, the tabs.
+- **Header** on `bg-app`, padding `14px 12px 12px`: a 44 px round back button (chevron 20) to the project list; the project name in the display font (18 / 600, −0.015em); below it the phase line, 12.5 px in `text-3`: the four phase segments at 16 × 4 px with 3 px gap, then "Architektur · Schritt 3 von 4". At the right the team as 28 px marks (radius 9, a 2 px ring in `bg-app`, −6 px overlap), at most two, the writing agent and those with a raised hand first, then a square "+N" on the panel color with an inner line. The header only shows: phases, team, sharing and the project menu stay on the desktop.
+- **Tabs** (`MobileTabs`, `nav` "Bereiche"): equal columns on `bg-panel` with a 1 px `border` line on top, padding `6px 12px` and at least 10 px or the safe area below; a tab is 52 px high with a 19 px icon in a 52 × 28 pill and the label 12 px below; chosen: the pill on `bg-subtle`, the label `text` and semibold; others `text-3` and medium. "Chat" (message square), "Canvas" (workflow), "Überblick" (square check) with the count of what waits as a 16 px ink badge on the icon. The read-only view has "Canvas" and "Überblick".
+- **Chat:** the chat fills the area without a panel title; bubbles up to 80 % of the width; the moderator card's buttons are two 44 px pills side by side (14 px text); the raised hand's "Anhören" 36 px.
+- **Composer:** 52 px high with 44 px round buttons (padding 4); the text 16 px.
+- **Canvas:** read-only for everyone on a phone (no tools, nothing moves or changes); the board tabs, "Verlauf", "Projektplan", panning, pinching and the zoom buttons stay; the plan opens read-only. A reference in the chat or a link in the overview switches to the canvas.
+- **Overview:** the sections in one scrolling column, padding 16, gap 22; every board counts as "elsewhere", so a proposal names its board as a link.
+- **Notes:** while chat or overview is open, the workspace's note stands as a pill on the panel with `shadow-float` (radius 14, wraps) 12 px above the tabs; on the canvas the note pill wraps instead of leaving the screen.
+- **Touch targets:** below 768 px every `Button`, `IconButton`, board tab and the language switch has an invisible 44 × 44 px target around its center (`TOUCH_TARGET` in `button-variants.ts`); only header, composer, moderator card, tabs and the items of menus (44 px) are drawn larger. References and mention chips inside a sentence keep their size (WCAG 2.5.8 exempts targets inside text). Every input, textarea and select has 16 px text, so iOS does not zoom (`base.css`).
+- **Read-only view:** the header with the logo, the project name (display 18) and "Nur lesen"; "Stand 15:19" and the language switch at the top of the overview tab.
+- **Project list:** on a phone the search and "Projekt anlegen" share the full width, padding 16.
+
 ### Chat, canvas and overview (spec 36b)
 - **Bubbles:** others on the left with a 30 px avatar and the corner at the author (`rounded-bl-[6px]`) on `bg-subtle`; own messages on the right in ink without an avatar (the name stays for screen readers); agents in their tint. Name and time stand above the bubble.
 - **Moderator card:** its tint, a 1 px inner line, radius 20, its mark on the panel color, the chip "neutral" (or "Agent" when it has its own opinion), pill buttons; after a choice a line with a check.
@@ -285,11 +299,11 @@ Since 2026-09-30 the app is built with the prototype design; design changes, imp
   - the theme button in the top bar switches between light and dark; "Wie das System" stays in the account menu
 
 ## Still to be designed
-Derived by the coding agent from the studio handoff in spec 36b to 36e (owner decision, 2026-10-24). Settled in spec 36d:
+Nothing: the design pass (spec 36) is complete with spec 36e. Derived by the coding agent from the studio handoff in spec 36b to 36e (owner decision, 2026-10-24). Settled in spec 36d:
 - own shapes per diagram type: the block cards with their own icons of spec 12 stay the shapes of the diagram types (confirmed)
 - the building block overview: this file and the components in `apps/web/src/components/ui/` are the overview; no page of its own in the product
 - the variant comparison A/B on the canvas: the derived look of spec 17 is confirmed
 - the "project plan" phase with plan editor, suggestions, versions and roadmap, the project settings, invitations and roles, "Since you were away" and notifications, and the read-only view: see "Workspace dialogs and screens"
 
-Still open:
-- the mobile view (reading and chatting), spec 36e
+Settled in spec 36e:
+- the mobile view (reading and chatting): see "Mobile view"

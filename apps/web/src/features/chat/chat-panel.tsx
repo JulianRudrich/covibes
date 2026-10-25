@@ -118,7 +118,8 @@ export function ChatPanel({
 
   return (
     <>
-      <PanelHeader className="justify-between">
+      {/* On a phone the tab names the chat (spec 36e). */}
+      <PanelHeader className="justify-between max-md:hidden">
         <PanelTitle>{t('panels.chat')}</PanelTitle>
         <ChatStatusPill status={chatStatus(runs.data ?? [], messages.data ?? [], hands.length)} />
       </PanelHeader>

@@ -878,7 +878,8 @@ function NoticePill({ children }: { children: string }) {
   return (
     <div
       role="status"
-      className="absolute top-[58px] left-1/2 z-10 flex h-[26px] -translate-x-1/2 animate-pop items-center rounded-full bg-bg-panel px-3 text-status whitespace-nowrap text-text-body shadow-float"
+      // On a phone a long note wraps instead of leaving the screen (spec 36e).
+      className="absolute top-[58px] left-1/2 z-10 flex h-[26px] -translate-x-1/2 animate-pop items-center rounded-full bg-bg-panel px-3 text-status whitespace-nowrap text-text-body shadow-float max-md:h-auto max-md:w-max max-md:max-w-[calc(100%-24px)] max-md:rounded-[14px] max-md:py-1.5 max-md:text-center max-md:whitespace-normal"
     >
       {children}
     </div>

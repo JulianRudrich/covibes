@@ -15,6 +15,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CUSTOM_MARKS } from '@web/components/ui/agent-marks';
 import { authClient } from '@web/lib/auth-client';
+import { PHONE_QUERY } from '@web/lib/use-media-query';
 import { renderApp, stubApi } from '@web/test-utils';
 
 vi.mock('@web/lib/auth-client', () => ({
@@ -304,6 +305,16 @@ const AWAY: AwaySummary = {
   messages: { count: 6, mentions: 0, by: [{ kind: 'human', name: 'Alex Berg' }], authors: 1 },
 };
 
+/** A screen as narrow as a phone (spec 36e); the stub goes with the test's other globals. */
+function onPhone() {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: query === PHONE_QUERY,
+    media: query,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  }));
+}
+
 function signedIn(user: (typeof OLGA & { locale?: string }) | null) {
   vi.mocked(authClient.getSession).mockResolvedValue({
     data: user ? { user, session: {} } : null,
@@ -540,6 +551,33 @@ describe('a read-only link', () => {
         body: JSON.stringify({ token: TOKEN, boardId: EXTRA_BOARD.id }),
       }),
     );
+  });
+
+  it('shows the canvas and the overview one at a time on a phone (spec 36e)', async () => {
+    onPhone();
+    signedIn(null);
+    stubApi({
+      'POST /api/share/view': () => ({ body: SHARED }),
+      'POST /api/share/board': () => ({ body: { nodes: [node('API')], edges: [] } }),
+    });
+    renderApp(`/share/${TOKEN}`);
+
+    expect(await screen.findByRole('heading', { name: 'Vereins-App' })).toBeInTheDocument();
+    expect(await screen.findByTestId('shared-board')).toHaveTextContent('API');
+    const areas = screen.getByRole('navigation', { name: 'Bereiche' });
+    expect(within(areas).getByRole('button', { name: 'Canvas' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    // The overview waits behind its tab, with the language switch.
+    expect(screen.queryByRole('complementary', { name: 'Überblick' })).not.toBeInTheDocument();
+
+    fireEvent.click(within(areas).getByRole('button', { name: 'Überblick' }));
+
+    const overview = screen.getByRole('complementary', { name: 'Überblick' });
+    expect(overview).toHaveTextContent('DatenbankPostgreSQL');
+    expect(within(overview).getByRole('group', { name: 'Sprache' })).toBeInTheDocument();
+    expect(screen.queryByTestId('shared-board')).not.toBeInTheDocument();
   });
 
   it('says so when the link shows nothing any more', async () => {
@@ -996,6 +1034,93 @@ describe('with a session', () => {
 
     expect(await screen.findByTestId('canvas-panel')).toHaveAttribute('data-readonly', 'true');
     expect(screen.getByTestId('chat-panel')).toHaveAttribute('data-readonly', 'true');
+  });
+
+  describe('on a phone (spec 36e)', () => {
+    beforeEach(onPhone);
+
+    it('shows one area at a time under a compact header, the canvas for reading', async () => {
+      stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({
+          body: { ...DETAILS, boards: [...DETAILS.boards, EXTRA_BOARD] },
+        }),
+      });
+      renderApp(`/p/${PROJECT.id}`);
+
+      expect(await screen.findByRole('heading', { name: 'Covibes V1' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Zur Projektliste' })).toHaveAttribute('href', '/');
+      expect(screen.getByText('Architektur · Schritt 3 von 4')).toBeInTheDocument();
+      expect(screen.getByRole('img', { name: 'Team: Moderator' })).toBeInTheDocument();
+      // The desktop's top bar is not there.
+      expect(screen.queryByRole('button', { name: 'Teilen' })).not.toBeInTheDocument();
+
+      const areas = screen.getByRole('navigation', { name: 'Bereiche' });
+      expect(within(areas).getByRole('button', { name: 'Chat' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+      expect(screen.getByTestId('chat-panel')).toBeVisible();
+      expect(screen.queryByTestId('canvas-panel')).not.toBeInTheDocument();
+
+      fireEvent.click(within(areas).getByRole('button', { name: 'Canvas' }));
+
+      // Nothing on the canvas changes on a phone; the chat stays, out of sight.
+      expect(screen.getByTestId('canvas-panel')).toHaveAttribute('data-readonly', 'true');
+      expect(screen.getByTestId('chat-panel')).not.toBeVisible();
+
+      fireEvent.click(within(areas).getByRole('button', { name: 'Chat' }));
+      expect(screen.queryByTestId('canvas-panel')).not.toBeInTheDocument();
+
+      // A reference in the chat brings the canvas up at its element.
+      fireEvent.click(
+        within(screen.getByTestId('chat-panel')).getByRole('button', { name: 'Verweis Ablauf' }),
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId('canvas-panel')).toHaveAttribute(
+          'data-focus',
+          REFERENCES.Ablauf.nodeId,
+        );
+      });
+      expect(within(areas).getByRole('button', { name: 'Canvas' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+    });
+
+    it('counts what waits on the overview tab', async () => {
+      stubApi({
+        [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }),
+        [`GET /api/projects/${PROJECT.id}/hands`]: () => ({
+          body: [
+            {
+              id: '77777777-7777-4777-8777-777777777777',
+              projectId: PROJECT.id,
+              agentKey: 'moderator',
+              reason: 'Das Hosting ist noch offen.',
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        }),
+      });
+      renderApp(`/p/${PROJECT.id}`);
+
+      const tab = await screen.findByRole('button', { name: 'Überblick, 1 wartet auf dich' });
+      expect(screen.queryByRole('complementary', { name: 'Überblick' })).not.toBeInTheDocument();
+
+      fireEvent.click(tab);
+
+      const overview = screen.getByRole('complementary', { name: 'Überblick' });
+      expect(overview).toBeVisible();
+      expect(overview).toHaveTextContent('Das Hosting ist noch offen.');
+    });
+
+    it('starts on the canvas when the address names the plan, and opens it read-only', async () => {
+      stubApi({ [`GET /api/projects/${PROJECT.id}`]: () => ({ body: DETAILS }) });
+      renderApp(`/p/${PROJECT.id}?view=plan`);
+
+      expect(await screen.findByTestId('plan-panel')).toHaveAttribute('data-readonly', 'true');
+      expect(screen.queryByRole('button', { name: 'Plan erzeugen' })).not.toBeInTheDocument();
+    });
   });
 
   it('shows the phase of the project and jumps to another one from its card (spec 24)', async () => {

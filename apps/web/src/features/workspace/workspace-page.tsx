@@ -66,6 +66,7 @@ import { useProjectLive } from '@web/features/workspace/use-project-live';
 import { useProjectSeen } from '@web/features/workspace/use-project-seen';
 import { WorkspaceShell, type WorkspaceMember } from '@web/features/workspace/workspace-shell';
 import { ApiError } from '@web/lib/api';
+import { usePhone } from '@web/lib/use-media-query';
 
 const route = getRouteApi('/_authed/p/$projectId');
 
@@ -140,6 +141,13 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
   // The project plan takes the place of the canvas while it is open (spec 25a).
   const planOpen = view === 'plan';
   const { notice, show: showNotice } = useNotice();
+  // On a phone the canvas and the plan are for reading (spec 36e), and the workspace shows one
+  // area at a time: what the chat or the overview opens on the canvas brings the canvas up.
+  const phone = usePhone();
+  const [canvasRequest, setCanvasRequest] = useState(0);
+  const toCanvas = useCallback(() => {
+    setCanvasRequest((count) => count + 1);
+  }, []);
   useProjectLive(project.id, user?.id);
   // The status of the tasks comes from the repository (spec 30a).
   useGitSync(project.id);
@@ -219,8 +227,9 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
   const openReference = useCallback(
     (reference: MessageReference) => {
       openElement(reference.boardId, reference.nodeId);
+      toCanvas();
     },
-    [openElement],
+    [openElement, toCanvas],
   );
   // The history of the open board (spec 38a), opened from the canvas toolbar.
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -339,6 +348,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
     .sort((a, b) => Number(b.isCurrentUser) - Number(a.isCurrentUser));
 
   const readOnly = project.role === 'viewer';
+  const readOnlyCanvas = readOnly || phone;
 
   // Proposals of agents (spec 13): on the canvas of their board and under "Wartet auf dich".
   const proposals = useQuery(proposalsQuery(project.id)).data ?? NO_PROPOSALS;
@@ -457,6 +467,26 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
   };
   // Suggestions for the plan wait for owners and editors, like proposals.
   const planSuggestions = readOnly ? 0 : (planState?.suggestions.length ?? 0);
+  const waiting = waitingCount({
+    proposals,
+    hands: waitingHands,
+    votes: votesToCast,
+    planSuggestions,
+    gitRequests: gitRequestsToDecide(git),
+    canDecide: !readOnly,
+    canConfirmDecisions,
+  });
+  // A board or the plan opened from the overview.
+  const openBoardFromOverview = (boardId: string) => {
+    void selectBoard(boardId);
+    toCanvas();
+  };
+  const openPlanFromOverview = planOpen
+    ? undefined
+    : () => {
+        void openPlan();
+        toCanvas();
+      };
 
   // A mention in the project that is open and visible is read: the person is looking at it.
   const notifications = useQuery(notificationsQuery).data;
@@ -509,7 +539,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
       projectId={project.id}
       boards={project.boards}
       activeBoardId={activeBoardId}
-      readOnly={readOnly}
+      readOnly={readOnlyCanvas}
       onSelect={(boardId) => selectBoard(boardId)}
       onNotice={showNotice}
       planOpen={planOpen}
@@ -574,6 +604,13 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
           />
         }
         share={<ProjectShare project={project} userId={user?.id ?? ''} />}
+        agents={project.agents}
+        writing={writing}
+        raising={raising}
+        waiting={waiting}
+        notice={notice}
+        startOnCanvas={requested !== undefined || planOpen || focus !== undefined}
+        canvasRequest={canvasRequest}
         chat={
           user ? (
             <ChatPanel
@@ -599,12 +636,12 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                 tabs={boardTabs(activeBoard.id)}
                 notice={notice}
                 user={{ id: user.id, name: user.name }}
-                readOnly={readOnly}
+                readOnly={readOnlyCanvas}
                 language={project.language}
                 plan={planState}
-                onGenerate={readOnly ? undefined : planActions.generate}
-                onDecide={readOnly ? undefined : planActions.decide}
-                onUpdate={readOnly ? undefined : planActions.update}
+                onGenerate={readOnlyCanvas ? undefined : planActions.generate}
+                onDecide={readOnlyCanvas ? undefined : planActions.decide}
+                onUpdate={readOnlyCanvas ? undefined : planActions.update}
                 onOpenRoadmap={openRoadmap}
                 roadmapBusy={roadmapOpening.isPending}
                 tasks={planTasks}
@@ -619,14 +656,14 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                   notice={notice}
                   user={{ id: user.id, name: user.name }}
                   members={project.members}
-                  readOnly={readOnly}
+                  readOnly={readOnlyCanvas}
                   proposals={proposals}
                   onDecide={decide}
                   canAdoptVariants={canConfirmDecisions}
                   focusId={focus}
                   onFocused={clearFocus}
                   onFocusMissing={focusMissing}
-                  onAsk={readOnly ? undefined : setAsk}
+                  onAsk={readOnlyCanvas ? undefined : setAsk}
                   exports={boardExports}
                   onPresence={showPresence}
                 />
@@ -639,18 +676,10 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
             {away ? (
               <SinceYouWereAway
                 summary={away}
-                waiting={waitingCount({
-                  proposals,
-                  hands: waitingHands,
-                  votes: votesToCast,
-                  planSuggestions,
-                  gitRequests: gitRequestsToDecide(git),
-                  canDecide: !readOnly,
-                  canConfirmDecisions,
-                })}
+                waiting={waiting}
                 onOpenDecision={setOpenDecisionId}
-                onOpenBoard={(boardId) => void selectBoard(boardId)}
-                onOpenPlan={planOpen ? undefined : () => void openPlan()}
+                onOpenBoard={openBoardFromOverview}
+                onOpenPlan={openPlanFromOverview}
                 onDismiss={() => {
                   dismissAway();
                 }}
@@ -668,7 +697,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                 reviews={reviews}
                 onOpenReview={setOpenReview}
                 planSuggestions={planSuggestions}
-                onOpenPlan={planOpen ? undefined : () => void openPlan()}
+                onOpenPlan={openPlanFromOverview}
                 proposals={proposals}
                 decided={decided}
                 hands={waitingHands}
@@ -679,8 +708,9 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                 canDecide={!readOnly}
                 canConfirmDecisions={canConfirmDecisions}
                 onDecide={decide}
-                activeBoardId={activeBoard?.id ?? null}
-                onOpenBoard={(boardId) => void selectBoard(boardId)}
+                // On a phone the canvas is not in view, so every board is one to open.
+                activeBoardId={phone ? null : (activeBoard?.id ?? null)}
+                onOpenBoard={openBoardFromOverview}
               />
             ) : null}
             <DecisionsOverview

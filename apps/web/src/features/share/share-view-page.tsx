@@ -2,6 +2,7 @@ import type { SharedProject } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
 import { ReactFlowProvider } from '@xyflow/react';
+import { SquareCheckBig, Workflow } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,6 +10,7 @@ import { Logo } from '@web/components/logo';
 import { PageMessage, PageMessageLink } from '@web/components/page-message';
 import { LanguageSwitch } from '@web/features/account/language-switch';
 import { Badge } from '@web/components/ui/badge';
+import { MobileTabs } from '@web/components/ui/mobile-tabs';
 import { Panel } from '@web/components/ui/panel';
 import { AgentDirectoryProvider } from '@web/features/agents/agent-directory';
 import { CriteriaSection } from '@web/features/decisions/criteria-section';
@@ -17,6 +19,7 @@ import { sharedBoardQuery, sharedProjectQuery } from '@web/features/share/querie
 import { SharedBoardCanvas } from '@web/features/share/shared-board';
 import { ApiError } from '@web/lib/api';
 import { cn } from '@web/lib/cn';
+import { usePhone } from '@web/lib/use-media-query';
 
 const route = getRouteApi('/share/$token');
 
@@ -61,6 +64,8 @@ export function ShareViewPage() {
 function SharedWorkspace({ token, project }: { token: string; project: SharedProject }) {
   const { t, i18n } = useTranslation();
   const [openBoard, setOpenBoard] = useState<string | null>(null);
+  const phone = usePhone();
+  const [area, setArea] = useState<'canvas' | 'overview'>('canvas');
   // The main canvas first; a board that was deleted meanwhile falls back to it.
   const board = project.boards.find((entry) => entry.id === openBoard) ?? project.boards[0];
   const content = useQuery({
@@ -72,6 +77,114 @@ function SharedWorkspace({ token, project }: { token: string; project: SharedPro
         content.dataUpdatedAt,
       )
     : null;
+
+  // The boards with their tabs, and the overview: side by side on a desktop, one at a time on a
+  // phone (spec 36e).
+  const boards = (
+    <>
+      <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex *:pointer-events-auto">
+        <div role="tablist" aria-label={t('shareView.boards')} className="flex gap-1">
+          {project.boards.map((entry) => {
+            const active = entry.id === board?.id;
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={cn(
+                  'flex h-[34px] max-w-[200px] cursor-pointer items-center truncate rounded-full text-ui whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+                  active
+                    ? 'bg-bg-panel px-4 font-semibold text-text shadow-block'
+                    : 'px-3.5 font-medium text-text-2 hover:bg-wash hover:text-text',
+                )}
+                onClick={() => {
+                  setOpenBoard(entry.id);
+                }}
+              >
+                {entry.kind === 'main' ? t('workspace.mainCanvas') : entry.title}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div role="tabpanel" className="relative min-h-0 bg-bg-canvas">
+        {board && content.data ? (
+          <ReactFlowProvider key={board.id}>
+            <SharedBoardCanvas
+              nodes={content.data.nodes}
+              edges={content.data.edges}
+              roadmap={content.data.roadmap}
+            />
+          </ReactFlowProvider>
+        ) : (
+          <div className="absolute inset-0 grid place-items-center p-6 text-center text-ui text-text-3">
+            {content.isError ? t('shareView.boardError') : t('canvas.loading')}
+          </div>
+        )}
+        {content.data?.nodes.length === 0 ? (
+          <div className="pointer-events-none absolute inset-0 grid place-items-center p-6 text-center text-ui text-text-3">
+            {t('shareView.emptyBoard')}
+          </div>
+        ) : null}
+      </div>
+    </>
+  );
+  const overview = (
+    <>
+      {/* Without the decision log: it names who decided what. */}
+      <DecisionsSection decisions={project.decisions} log={undefined} />
+      <CriteriaSection criteria={project.criteria} />
+    </>
+  );
+  const updatedLine = (
+    <span className="text-small text-text-3 tabular-nums">
+      {updated ? t('shareView.updated', { time: updated }) : null}
+    </span>
+  );
+
+  if (phone) {
+    return (
+      <div className="grid h-dvh grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto] bg-bg-panel text-text">
+        <header className="flex min-w-0 items-center gap-2.5 bg-bg-app px-4 pt-3.5 pb-3">
+          <Logo />
+          <h1 className="m-0 min-w-0 truncate font-display text-[18px] font-semibold tracking-[-0.015em]">
+            {project.name}
+          </h1>
+          <Badge className="h-[22px] shrink-0 px-2.5">{t('shareView.readOnly')}</Badge>
+        </header>
+        <main className="relative min-h-0">
+          {area === 'canvas' ? (
+            <section
+              aria-label={t('panels.canvas')}
+              className="absolute inset-0 grid grid-rows-[minmax(0,1fr)]"
+            >
+              {boards}
+            </section>
+          ) : null}
+          <aside
+            aria-label={t('panels.overview')}
+            hidden={area !== 'overview'}
+            className="absolute inset-0 flex flex-col gap-[22px] overflow-y-auto p-4"
+          >
+            <div className="flex items-center justify-between gap-3">
+              {updatedLine}
+              <LanguageSwitch />
+            </div>
+            {overview}
+          </aside>
+        </main>
+        <MobileTabs
+          tabs={[
+            { id: 'canvas', label: t('panels.canvas'), icon: Workflow },
+            { id: 'overview', label: t('panels.overview'), icon: SquareCheckBig },
+          ]}
+          active={area}
+          onSelect={setArea}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="grid h-dvh min-w-[760px] grid-rows-[64px_minmax(0,1fr)] bg-bg-app text-text">
@@ -85,60 +198,13 @@ function SharedWorkspace({ token, project }: { token: string; project: SharedPro
         </span>
         <h1 className="m-0 min-w-0 truncate text-ui font-semibold">{project.name}</h1>
         <Badge className="h-[22px] px-2.5">{t('shareView.readOnly')}</Badge>
-        <span className="ml-auto text-small text-text-3 tabular-nums">
-          {updated ? t('shareView.updated', { time: updated }) : null}
-        </span>
+        <span className="ml-auto">{updatedLine}</span>
         <LanguageSwitch />
       </header>
 
       <main className="grid min-h-0 grid-cols-[minmax(0,1fr)_300px] gap-3 px-3 pb-3">
         <Panel aria-label={t('panels.canvas')} className="relative grid-rows-[minmax(0,1fr)]">
-          <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex *:pointer-events-auto">
-            <div role="tablist" aria-label={t('shareView.boards')} className="flex gap-1">
-              {project.boards.map((entry) => {
-                const active = entry.id === board?.id;
-                return (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    className={cn(
-                      'flex h-[34px] max-w-[200px] cursor-pointer items-center truncate rounded-full text-ui whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
-                      active
-                        ? 'bg-bg-panel px-4 font-semibold text-text shadow-block'
-                        : 'px-3.5 font-medium text-text-2 hover:bg-wash hover:text-text',
-                    )}
-                    onClick={() => {
-                      setOpenBoard(entry.id);
-                    }}
-                  >
-                    {entry.kind === 'main' ? t('workspace.mainCanvas') : entry.title}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div role="tabpanel" className="relative min-h-0 bg-bg-canvas">
-            {board && content.data ? (
-              <ReactFlowProvider key={board.id}>
-                <SharedBoardCanvas
-                  nodes={content.data.nodes}
-                  edges={content.data.edges}
-                  roadmap={content.data.roadmap}
-                />
-              </ReactFlowProvider>
-            ) : (
-              <div className="absolute inset-0 grid place-items-center p-6 text-center text-ui text-text-3">
-                {content.isError ? t('shareView.boardError') : t('canvas.loading')}
-              </div>
-            )}
-            {content.data?.nodes.length === 0 ? (
-              <div className="pointer-events-none absolute inset-0 grid place-items-center p-6 text-center text-ui text-text-3">
-                {t('shareView.emptyBoard')}
-              </div>
-            ) : null}
-          </div>
+          {boards}
         </Panel>
 
         {/* Like the main screen's overview: no title of its own (spec 36b). */}
@@ -146,9 +212,7 @@ function SharedWorkspace({ token, project }: { token: string; project: SharedPro
           aria-label={t('panels.overview')}
           className="flex min-h-0 min-w-0 flex-col gap-[22px] overflow-y-auto rounded-surface bg-bg-panel p-[18px] shadow-panel"
         >
-          {/* Without the decision log: it names who decided what. */}
-          <DecisionsSection decisions={project.decisions} log={undefined} />
-          <CriteriaSection criteria={project.criteria} />
+          {overview}
         </aside>
       </main>
     </div>

@@ -459,6 +459,10 @@
     "ml": "You care for machine learning and AI models: whether a model fits the problem at all, which kind (a hosted language model, an own model or simple rules), the data it needs, evaluation, costs, latency and failure cases.\nSay honestly when a simpler solution without machine learning is enough.\nName how the team can measure whether the model works well enough.",
     "content": "You care for content: texts and tone, the information architecture, the structure of pages, findability in search engines, and who writes and maintains the content.\nThink from the questions readers have and the words they search for."
   },
+  "mobile": {
+    "areas": "Areas",
+    "team": "Team: {{names}}"
+  },
   "panels": {
     "chat": "Chat",
     "canvas": "Canvas",

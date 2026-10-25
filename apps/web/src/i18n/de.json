@@ -459,6 +459,10 @@
     "ml": "Du kümmerst dich um maschinelles Lernen und KI-Modelle: ob ein Modell überhaupt zum Problem passt, welche Art (ein gehostetes Sprachmodell, ein eigenes Modell oder einfache Regeln), welche Daten es braucht, Evaluation, Kosten, Latenz und Fehlerfälle.\nSag ehrlich, wenn eine einfachere Lösung ohne maschinelles Lernen reicht.\nNenne, wie das Team messen kann, ob das Modell gut genug funktioniert.",
     "content": "Du kümmerst dich um Inhalte: Texte und Tonalität, Informationsarchitektur, Seitenstruktur, Auffindbarkeit in Suchmaschinen und wer die Inhalte schreibt und pflegt.\nDenk von den Fragen der Leser und den Wörtern aus, nach denen sie suchen."
   },
+  "mobile": {
+    "areas": "Bereiche",
+    "team": "Team: {{names}}"
+  },
   "panels": {
     "chat": "Chat",
     "canvas": "Canvas",

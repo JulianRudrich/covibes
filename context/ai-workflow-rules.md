@@ -50,7 +50,7 @@ These rules apply to every coding agent working on Covibes, such as Claude Code,
 
 ## Git
 
-- **The repository is local only.** It has no remote; it is published at the very end, when the owner decides so (owner decision, 2026-09-28). Until then nothing is pushed anywhere.
+- **The source repository is private on GitHub.** The owner authorized publishing the existing main history to https://github.com/JulianRudrich/covibes on 2026-11-16; origin points there. This supersedes the local-only decision of 2026-09-28. Keep the repository private; a public launch or visibility change remains a separate owner decision.
 - **The coding agent maintains Git completely:** commits, branches, merges and branch cleanup. The owner handed this over on 2026-09-28. The history must look professional.
 - **Commits** follow [Conventional Commits](https://www.conventionalcommits.org/):
   - `type(scope): subject`, with the types `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `ci` and `chore`
@@ -66,6 +66,6 @@ These rules apply to every coding agent working on Covibes, such as Claude Code,
   - `main` gets exactly one commit per spec, e.g. `feat(auth): add magic-link login and projects`. Its body names the spec and sums up what is included and how it was verified.
   - afterwards the branch is deleted
 - **`main` stays linear:** its history is not rewritten unless the owner explicitly asks for it.
-- **Publishing:** when the repository goes public, `main` is pushed as it is. The CI workflow in `.github/workflows/ci.yml` then runs the same checks on every change.
+- **Publishing:** preserve the existing linear `main` history when pushing to the private origin. The CI workflow in `.github/workflows/ci.yml` runs on pushes to main and pull requests. The 2026-11-16 review records the remaining release-check gaps; private source hosting does not mean the application is publicly launched.
 - **Authorship:** everything in the repository is authored by the owner. Commits carry no co-author trailer and no reference to an AI tool (no `Co-Authored-By`, no "Generated with …"). In the documentation the role is called "coding agent". The owner decided this on 2026-09-28.
 - Never put secrets (API keys, tokens, contents of `.env` files) into code, commits or context files.

@@ -1,6 +1,6 @@
 # Feature Specs: V1 Overview
 
-> As of 2026-09-27. This overview is the map of V1. The individual specs are worked out shortly before their milestone: M0 and M1 first, the rest once the vertical slice runs.
+> As of 2026-09-27, with the rework M8 added on 2026-11-16. This overview is the map of V1. The individual specs are worked out shortly before their milestone: M0 and M1 first, the rest once the vertical slice runs.
 
 ## Structure of a spec
 
@@ -366,11 +366,114 @@ The owner approved the design "Covibes Studio" on 2026-10-24 (`context/design/st
 - **Design:** small (legal texts, possibly a pricing page)
 - **Done when:** the app runs under its own domain, backups are tested and the legal texts are online.
 
+## M8: Rework
+
+> Decided on 2026-11-16 after the review of the same day (`context/reviews/2026-11-16-product-and-code-review.md`; its findings are named R01 to R18 below). The owner chose a targeted rework: the stack stays (React, React Flow, Yjs with Hocuspocus, PostgreSQL with row-level security, Hono, Graphile Worker, Better Auth), and five areas are rebuilt: sign-in with workspaces, the AI gateway, a connector for own assistants, GitHub, and the product core. The security updates come first. M8 runs before 35 and 34.
+
+### 39 Dependency security and a green CI
+- **Goal:**
+  - the dependencies with known advisories are updated, first the login library (a critical advisory for the combination of login link and social login; R01, R02)
+  - the tests pass on Linux in CI (the timing of the live channel test, R03) and when all packages run at once
+  - CI also builds; a regular check keeps the dependencies current
+- **Needs:** –
+- **Design:** –
+- **Done when:** no critical or high advisory reaches the application (what stays is listed with its reason), signing in works as before, and CI is green including the build.
+
+### 40 Trustworthy AI budgets
+- **Goal:**
+  - a run reserves its share of the budget, so runs that start together cannot each spend the same rest (R04)
+  - every attempt is accounted for, also a failed or cancelled one (R05)
+  - a limit for the whole instance next to the limits per project and person, with a warning to the operator before it is reached (owner decision, 2026-10-24: 20 USD per month in the beta)
+- **Needs:** 31
+- **Design:** small (the message of the new limit)
+- **Done when:** runs started at the same moment stay within the limit, and a failed attempt that cost something shows in the usage.
+
+### 41 Safe recovery of interrupted work
+- **Goal:**
+  - a run that is retried after a crash repeats no change it already made (R06)
+  - one worker takes the jobs, or several do without taking each other's (R07)
+  - mail and Git jobs run while no model is usable (R08)
+  - the server says whether it is ready, not only whether it answers (R09), and the app says truthfully whether a change is saved (R14)
+- **Needs:** 07, 13
+- **Design:** small (the states of saving)
+- **Done when:** a worker stopped in the middle of a run leaves one block, one message and one consistent run after the restart.
+
+### 42 Sign-in and accounts
+- **Goal:**
+  - signing in by a code or link by mail, with passkeys, with GitHub and with Google; GitLab stays as a further way
+  - a profile (name), the list of sessions, two-factor sign-in, deleting the account and exporting its data (R18)
+  - in the closed beta only invited people and addresses the operator allows can create an account (owner decision, 2026-10-24)
+- **Needs:** 39
+- **Design:** **required**, derived from the studio design
+- **Done when:** a new person signs in each way, comes back with one click, and removes their account with everything that is theirs.
+
+### 43 Workspaces
+- **Goal:** a workspace above the projects: everyone has a personal one, teams share one. It holds its members, its projects and where its AI comes from (44), later the billing. Projects can be deleted, and their files go with them (R16).
+- **Needs:** 42
+- **Design:** **required**, derived from the studio design
+- **Done when:** a team works in a shared workspace, existing projects lie in the personal workspace of their owner, and a deleted project leaves nothing behind.
+
+### 44 AI gateway: providers, own keys and the choice of model
+- **Goal:**
+  - the gateway calls the provider's API itself instead of starting a process per run; the Claude Agent SDK stays as the route for local development
+  - a workspace can store its own API key, sealed like the tokens of the Git connections; its runs are then paid by that key (owner decision, 2026-11-16)
+  - without a key, runs use the credit of the instance within its limits (40)
+  - short classifications and the observer use a small model; a second provider is connected, so specialists can run on models of different providers
+- **Needs:** 40, 43
+- **Design:** small (the settings of the workspace)
+- **Done when:** a workspace with its own key causes no cost for the instance, a run needs no process of its own, and one specialist answers through the second provider.
+
+### 45 Connector for own assistants
+Planned in three parts:
+- **45a** Covibes as an MCP server with its own sign-in: a person connects their assistant and allows it to read chosen projects (plan, decisions, canvas, chat)
+- **45b** writing: the assistant acts through the same tools and rule engine as the built-in agents; what it does shows as "assistant of <person>" on the canvas and in the history (R15); the roles of the specialists are available to it
+- **45c** a small local companion: a command that signs in with a code and registers the connector with the coding agents on the machine
+
+- **Goal:** a person works in a project with their own assistant, on their own plan with its provider (owner decision, 2026-11-16). The built-in agents that answer mentions in the chat keep running through the gateway (44).
+- **Needs:** 42, 13
+- **Design:** small (connecting, consent, the mark of an assistant)
+- **Done when:** an assistant connected by a person reads a project, draws a block that everyone sees at once under that person's name, and can do nothing its person may not.
+
+### 46 GitHub
+- **Goal:** GitHub is the first Git platform (owner decision, 2026-11-16), connected as a GitHub App with rights per repository: reading the repository, issues from the plan, the plan package as a pull request, the review of pull requests against the architecture, merging after approval. GitLab stays, behind the same interface.
+- **Needs:** 28–30
+- **Design:** small (the dialogs name the platform)
+- **Done when:** the handover of `dry-run.md` runs against a real GitHub repository, and the GitLab tests pass unchanged.
+
+### 47 Long conversations
+- **Goal:** older messages load while scrolling back (R11), a search finds messages, decisions, blocks and plan sections, and answers show code and lists formatted.
+- **Needs:** 06
+- **Design:** small
+- **Done when:** the first message of a project with a thousand messages is reachable, and a reference opens a message outside the loaded part.
+
+### 48 Large boards
+- **Goal:**
+  - a board opens with everything in view; "show all" and a small map help on large boards
+  - a change redraws the changed elements only
+  - dragging no longer makes the document grow: only the position is written while dragging, who and when once at the end (measured on 2026-11-16: 15.7 KiB per ten seconds of dragging today, 0.05 KiB then)
+- **Needs:** 05, 08–10
+- **Design:** small (the map and the button)
+- **Done when:** a board with 500 blocks stays fluid while someone else drags, and a day of work adds little to its stored size.
+
+### 49 Loading and layout
+- **Goal:** every page loads only what it needs (R12), the width between phone and desktop has its own layout with panels that fold and resize (R13), and the app has its icon, a description and a preview for shared links.
+- **Needs:** 36
+- **Design:** **required** for the tablet layout, derived from the studio design
+- **Done when:** the login page loads without the workspace, and nothing is cut off at 768, 1024 and 1280 px.
+
+### 50 to 54 Product core
+Worked out one by one once 39 to 49 stand; the order follows what the beta shows.
+- **50** linked decisions: every block and task knows the decisions behind it; "what changes if this falls?" lists what to look at again
+- **51** starting from a repository: connect it and get today's architecture as a diagram
+- **52** a guided first session, from a short brief to a first canvas and a first decision, with a sample project
+- **53** a memory per project, so agents know more than the latest messages and the main canvas
+- **54** an evaluation set for the agents: grounded answers, useful dissent, safe tools, cost and time
 ## Order and parallelism
 - Specs generally run in numerical order. Exceptions:
   - 02b was pulled forward on 2026-09-28 (self-hosted instance with Docker).
   - 35 comes before 34, at the latest before other users use Covibes.
   - 36 comes before 34, so the acceptance test runs against the final design.
+  - M8 (39 to 49) comes before 35 and 34 (owner decision, 2026-11-16). 39 to 44 build on each other in this order; 45 and 46 can follow in either order; 47, 48 and 49 are independent of each other and of 45 and 46. 50 to 54 follow once the closed beta runs.
 - Possible in parallel:
   - 02a next to 03
   - 05 next to 06

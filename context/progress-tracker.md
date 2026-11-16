@@ -9,7 +9,7 @@
 Polish the product (M7, specs 31 to 36): limits and usage first. Covibes is developed locally; the public launch comes at the end.
 
 ## In progress
-Nothing. The rework M8 (specs 39 to 54) is planned in `feature-specs/00-overview.md`; spec 39 (dependency security and a green CI) is next and waits for the owner's go. 35 (launch preparation) and 34 (the dry run as an E2E test) follow after 39 to 49.
+- **Spec 39, dependency security and a green CI** (started 2026-11-16): the packages with known advisories are updated, first the login library; a test proves that the state of an OAuth sign-in is no login link; the tests pass on Linux and under load; CI builds, audits and also runs on spec branches. First spec of the rework M8.
 
 ## Done
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.

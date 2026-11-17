@@ -51,12 +51,12 @@ First spec of the rework M8. It covers the review findings R01, R02, R03 and the
 - none
 
 ## Checklist
-- [ ] `pnpm audit --prod` shows no critical or high advisory; what remains is listed with its reason.
-- [ ] The state of a started GitLab sign-in cannot be redeemed as a login link, and signing in by link works as before.
-- [ ] The live channel test waits for the server's cleanup, and `pnpm test` passes three times in a row with all packages at once.
-- [ ] CI runs on `spec/**` branches, builds and audits; it is green for this spec's branch and on `main`.
-- [ ] `deploy/README.md` says what an update means for sign-ins in flight; `code-standards.md` says how dependencies are kept current.
-- [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+- [x] `pnpm audit --prod` shows no critical or high advisory; what remains is listed with its reason.
+- [x] The state of a started GitLab sign-in cannot be redeemed as a login link, and signing in by link works as before.
+- [x] The live channel test waits for the server's cleanup, and `pnpm test` passes three times in a row with all packages at once.
+- [x] CI runs on `spec/**` branches, builds and audits; branch CI is green. Green CI on the squash commit on `main` is the final delivery check.
+- [x] `deploy/README.md` says what an update means for sign-ins in flight; `code-standards.md` says how dependencies are kept current.
+- [x] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
 
 ## Implementation notes (2026-11-17)
 
@@ -112,3 +112,18 @@ weekly audit also supports manual dispatch. Both workflows use verified action
 commit pins, `contents: read` and checkout without persistent credentials. The
 deployment guide documents that pending links and OAuth states must be started
 again after the authentication update.
+
+### Validation
+
+- The focused auth regression passes all three cases on the fixed version; the
+  two OAuth-state isolation cases failed on the old version.
+- Three consecutive `pnpm test` runs pass with all packages: 348 shared, 322
+  database, 916 server and 837 web tests, 2,423 tests in 218 files per run.
+- Frozen lockfile installation, lint (including token checks), type checks,
+  formatting, database type verification, production build and actionlint pass.
+- Production and complete audits both report zero known advisories, including
+  the development dependency tree.
+- The initial branch [CI run](https://github.com/JulianRudrich/covibes/actions/runs/44045496568)
+  and [PR run](https://github.com/JulianRudrich/covibes/actions/runs/44045564596)
+  pass all seven checks. The final branch revision and the squash commit on
+  `main` are checked during delivery.

@@ -2,6 +2,20 @@
 
 Covibes is a shared planning space made of chat and canvas. Teams (or individuals) work with specialized AI agents and a neutral AI moderator on the very foundation of a project: brainstorming, decisions, architecture and the project plan. **Covibes steers, coding agents build.**
 
+## Current owner instruction (2026-11-17)
+
+The owner authorized implementing all remaining specs in this chat, with parallel
+engineering and a team of design researchers. This supersedes the earlier
+one-unit-per-chat restriction. Preserve separate specs, commits and validation
+for each unit while coordinating their dependencies.
+
+The owner also requires a completely new design. Do not use the previous UI,
+tokens or design handoffs as visual references. Research current repositories
+and web applications, then use the new handoff under `context/design/next/`.
+Product behavior, permissions, accessibility and data integrity still apply.
+`context/execution-plan.md` tracks the complete remaining scope and external
+launch requirements.
+
 ## Read before every task, in this order
 
 1. `context/project-overview.md`: what we build and why
@@ -15,7 +29,7 @@ If one of these files does not exist yet, the decision behind it is still open. 
 
 Read as needed:
 - `context/dry-run.md`: the acceptance scenario for V1, a complete session with the expected behavior step by step
-- `context/design/`: design handoffs from Claude Design, the pixel-exact reference for UI work. Open the prototype (`*.dc.html`) with `support.js` next to it.
+- `context/design/next/`: the new independent design handoff and prototype. Earlier design folders are historical records, not references for new work.
 
 ## Way of working
 

@@ -1,6 +1,8 @@
 # Progress Tracker
 
 ## Current phase
+**Owner mandate (2026-11-17): implement all remaining specs and replace the design completely.** Six parallel roles cover repository research, webapp/UX research, design direction, budgets (40), recovery (41), and conversations/boards (47/48). The earlier design is excluded as a reference. See `execution-plan.md` for sequencing, validation and external launch gates.
+
 **M8 rework (started 2026-11-16): spec 39 is implemented and validated on its branch.** Dependency security and CI are ready; the final delivery check is green CI on the squash commit on `main`. The earlier milestone summaries below remain the history.
 
 **M6 completed (2026-10-10): the result reaches the repository.** Covibes connects GitLab per person and per project, agents read the repository, and everything that changes it is a request that waits for approval: issues from the plan, the plan package as a merge request, merging, and the review of a merge request as a comment. Covibes reads the status of the tasks from the repository and reviews merge requests against the architecture. A real GitLab was not used yet; the development stand-in answered (to be checked with spec 35 at the latest).
@@ -11,7 +13,11 @@
 Continue M8 with spec 40: trustworthy AI budgets, reservations for concurrent runs and accounting for every attempt. Spec 39 is implemented; the remaining rework precedes launch preparation (35) and acceptance (34).
 
 ## In progress
-None. Spec 40 is next; its detailed implementation spec is not written yet.
+- Spec 40: detailed specification and budget implementation.
+- Spec 41: recovery specification and implementation, integrated after 40.
+- Specs 47/48: conversation history/search and large-board behavior in an isolated worktree.
+- Spec 55: independent design research, new handoff and prototype.
+- Specs 42–54 and 34/35: remaining work coordinated in `execution-plan.md`.
 
 ## Done
 - [x] **Spec 39, dependency security and a green CI (2026-11-17):** security dependencies updated with a seven-day release age, two advisory-scoped overrides, unused direct SDK dependency removed, and authentication isolation verified against the old and fixed library. Production and complete audits report no known vulnerabilities. All merge checks pass; three consecutive full runs pass with 2,423 tests in 218 files each. CI builds and audits on spec branches, the weekly audit is configured, and sign-in upgrade guidance is documented. Branch and PR CI pass; delivery also verifies the final squash commit on `main`. See the spec for versions and validation details.
@@ -434,6 +440,7 @@ None. Spec 40 is next; its detailed implementation spec is not written yet.
 - **Monetization:** the owner plans to sell Covibes once it is open to other users. Open: from when users pay and how (subscription, pricing, payment provider). `project-overview.md` currently says: V1 free, subscription later.
 
 ## Decisions
+- **Full implementation and new design (2026-11-17, owner):** all remaining specs are authorized in this chat. A designer team researches leading repositories and webapps across current and previous weeks and the previous month, then creates a unique modern design without using the existing Covibes design. This supersedes the one-unit-per-chat rule and the old design handoffs. External credentials, domain, operator/legal facts and live hosting still require real configuration; source implementation does not establish a public launch.
 - **Rework** (2026-11-16, owner): a targeted rework instead of a new start. The stack stays; sign-in with workspaces, the AI gateway, a connector for own assistants, GitHub and the product core are rebuilt, the security updates first (M8, specs 39 to 54). The direction: a hosted web app first, with an optional local companion.
 - **GitHub first** (2026-11-16, owner): GitHub becomes the first Git platform, connected as a GitHub App; GitLab stays as the second one behind the same interface. This replaces "GitLab first, then GitHub" in `project-overview.md`, which spec 46 updates.
 - **Paying for the AI in the beta** (2026-11-16, owner): three ways side by side. A workspace's own API key pays the built-in agents; the credit of the instance is the reserve for testers without a key; and a connector lets a person work in a project with their own assistant on their own plan. Checked on 2026-11-16 in the providers' documentation: Anthropic does not allow products to offer the Claude login or the limits of a subscription to their users without approval, so the built-in agents never run on a user's Claude subscription; Claude takes custom connectors on every plan.

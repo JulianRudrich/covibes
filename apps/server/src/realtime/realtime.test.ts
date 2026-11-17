@@ -310,6 +310,8 @@ describe('losing access (spec 21a)', () => {
     expect(secondTab.events).toContainEqual({ type: 'project' });
     // The others stay connected, and the removed member does not get back in.
     expect(ownerLive.socket.readyState).toBe(WebSocket.OPEN);
+    // Client close events can arrive before the server removes the sockets from the channel.
+    await until(() => test.realtime.connectionCount(projectId) === 1);
     expect(test.realtime.connectionCount(projectId)).toBe(1);
     expect(await open(projectId, editor)).toBe(404);
     ownerLive.socket.close();

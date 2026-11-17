@@ -57,3 +57,58 @@ First spec of the rework M8. It covers the review findings R01, R02, R03 and the
 - [ ] CI runs on `spec/**` branches, builds and audits; it is green for this spec's branch and on `main`.
 - [ ] `deploy/README.md` says what an update means for sign-ins in flight; `code-standards.md` says how dependencies are kept current.
 - [ ] `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, `progress-tracker.md` is updated.
+
+## Implementation notes (2026-11-17)
+
+### Dependency selection
+
+Registry publication dates were checked on 2026-11-17. The selected direct
+versions are the newest fixed patches at least seven days old in the existing
+minor, or in the first minor with a fix where the existing minor has none:
+
+| Package | Before | After |
+| --- | --- | --- |
+| `better-auth` (server and web) | 1.7.6 | 1.7.18 |
+| `hono` | 4.13.9 | 4.13.17 |
+| `@hono/node-server` | 2.1.1 | 2.1.6 |
+| `@modelcontextprotocol/sdk` | 1.30.1 | 1.32.2 |
+| `nodemailer` | 10.0.10 | 10.1.7 |
+| `zod` (all packages) | 4.6.5 | 4.6.7 |
+| `@tanstack/react-router` | 1.170.39 | 1.170.46 |
+| `vite` | 8.3.1 | 8.3.7 |
+| `vitest` (all packages) | 5.0.2 | 5.0.5 |
+
+The unused direct `@anthropic-ai/sdk` dependency was removed. Compatible
+transitive resolutions were refreshed to `seroval` 1.6.12, `undici` 8.12.4,
+`source-map-js` 1.2.2, `body-parser` 2.4.0, `qs` 6.16.2, `fast-uri` 3.1.9 and
+`ip-address` 10.7.6, including the safe Hono, Node adapter and Zod versions in
+the MCP dependency tree. The collaboration, editor and query library pins stay
+as before.
+
+Two range-scoped overrides remain, each with its advisory in
+`pnpm-workspace.yaml`: esbuild 0.28.2 (tsup still requests 0.27) and minimatch
+11.0.5 (ESLint and typescript-eslint still request 10). They are removed when
+those parents accept a fixed release. The seven-day age is also enforced by
+pnpm for future resolutions. The final production and complete dependency
+audits report no known advisories; no exception or ignored advisory is needed.
+
+### Regression coverage and CI
+
+`auth/verification-purpose.test.ts` exercises the real HTTP endpoints and
+PostgreSQL adapter. It rejects an OAuth state used as a login link for both an
+existing and a new address, checks that no session or new account is created,
+and verifies that an ordinary mailed login link succeeds exactly once. Against
+Better Auth 1.7.6 the two state-isolation tests failed by issuing a session;
+against 1.7.18 all three pass. The provider callback is not completed, so this
+check needs no live GitLab or mail service.
+
+The realtime test waits for server-side socket cleanup using its bounded
+condition helper. Testing Library's async wait is five seconds, within the
+existing fifteen-second web test timeout. No fixed sleep or suite retry was
+added.
+
+CI checks spec branches, builds and audits production dependencies. A separate
+weekly audit also supports manual dispatch. Both workflows use verified action
+commit pins, `contents: read` and checkout without persistent credentials. The
+deployment guide documents that pending links and OAuth states must be started
+again after the authentication update.

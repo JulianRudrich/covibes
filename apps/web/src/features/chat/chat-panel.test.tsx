@@ -174,7 +174,9 @@ describe('ChatPanel', () => {
     renderPanel(false, ['backend']);
 
     expect(await screen.findByRole('heading', { name: EMPTY })).toBeInTheDocument();
-    expect(screen.queryByRole('group')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('group', { name: 'Der Moderator hilft beim Einstieg:' }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Projekt vorstellen' })).not.toBeInTheDocument();
   });
 

@@ -92,11 +92,17 @@ These three commands only work while `pnpm dev` is stopped.
 | `pnpm lint` | ESLint |
 | `pnpm typecheck` | TypeScript check of all packages |
 | `pnpm test` | tests (Vitest); database tests start their own temporary database |
+| `pnpm audit --prod --audit-level high` | audit production dependencies; fail on high or critical advisories |
 | `pnpm format` / `pnpm format:check` | Prettier |
 | `pnpm db:migration <name>` | create a new migration in `packages/db/migrations` |
 | `pnpm db:migrate` | apply migrations without starting server and web app |
 | `pnpm db:types` / `db:types:check` | generate or verify TypeScript types from the migrations |
 | `pnpm db:backup` / `db:restore` / `db:reset` | back up, restore or reset local data |
+
+CI runs these checks, a production build and the production dependency audit on
+pull requests and pushes to `main` and `spec/**`. A separate dependency audit runs
+weekly and can also be started manually in GitHub Actions. See
+`context/code-standards.md` for the dependency update policy.
 
 ## Structure
 

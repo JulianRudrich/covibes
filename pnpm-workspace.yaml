@@ -2,6 +2,17 @@ packages:
   - apps/*
   - packages/*
 
+# Let security fixes settle for seven days before selecting a new release (spec 39).
+minimumReleaseAge: 10080
+
+# Remove these when the parents accept the fixed release: tsup still requires
+# esbuild 0.27, and ESLint/typescript-eslint still require minimatch 10.
+overrides:
+  # GHSA-g7r4-m6w7-qqqr: Windows development-server file reads.
+  'esbuild@>=0.27.3 <0.28.1': 0.28.2
+  # GHSA-g3hv-75wg-m249: excessive work when matching crafted globs.
+  'minimatch@>=7.0.0 <11.0.1': 11.0.5
+
 # Packages allowed to run install scripts:
 # - esbuild (used by tsup and tsx) downloads its platform binary.
 # - embedded-postgres restores symlinks inside its bundled PostgreSQL binaries (Windows locally, Linux in CI).

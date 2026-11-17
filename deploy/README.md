@@ -120,6 +120,12 @@ docker compose up -d --build
 
 `setup` applies new migrations automatically before the new version starts.
 
+The security update in spec 39 separates login-link tokens from OAuth states
+(Better Auth 1.7.7 and later). Email login links and GitLab sign-ins started before
+this update cannot finish afterwards: request a new email link or start the
+GitLab sign-in again. Existing sessions remain valid; this change needs no
+database migration. See the [maintainer's advisory](https://github.com/better-auth/better-auth/security/advisories/GHSA-965c-763c-88jm).
+
 ## Backups
 Back up, ideally daily via cron, and copy the file to another machine afterwards:
 

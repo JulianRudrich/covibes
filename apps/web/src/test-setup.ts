@@ -4,9 +4,9 @@ import { DEFAULT_LANGUAGE, i18n } from '@web/i18n';
 import { cleanup, configure } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 
-// `pnpm test` runs all packages at once; the first render of a file can then take longer than
-// Testing Library's second, and a test that waits for it fails without anything being wrong.
-configure({ asyncUtilTimeout: 3_000 });
+// `pnpm test` runs all packages at once; rendering can take more than three seconds under load.
+// Async helpers still return as soon as their condition is met, within the test's 15-second limit.
+configure({ asyncUtilTimeout: 5_000 });
 
 // Vitest runs without globals, so Testing Library cannot register its automatic cleanup.
 afterEach(async () => {

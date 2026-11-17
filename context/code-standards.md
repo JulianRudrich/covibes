@@ -54,6 +54,17 @@ Shared types, schemas and formats live in `packages/shared` and are never define
 ## Tooling
 - ESLint and Prettier. `pnpm lint`, `pnpm typecheck`, `pnpm format:check` and `pnpm test` must pass before every merge to `main`. Once the repository is published, the CI workflow (`.github/workflows/ci.yml`) runs the same checks.
 - The package manager is pnpm. Versions are pinned.
+- **Dependency security:** review the weekly production audit and run
+  `pnpm audit --prod --audit-level high` before merging. High and critical
+  advisories fail CI. Update affected packages to the newest fixed patch in the
+  same minor where possible; take a new minor only when a fix requires it. A
+  release must be at least seven days old (`minimumReleaseAge: 10080` in
+  `pnpm-workspace.yaml`); an urgent exception needs a reason in the spec's notes.
+  Refresh compatible transitive resolutions first. If a parent cannot accept
+  the fix yet, use a scoped override with its advisory and remove it when the
+  parent catches up. Review the lockfile and run all merge checks after an
+  update. Any advisory left unresolved needs its dependency path, reachability
+  evidence, owner and review date in the spec's implementation notes.
 - **Licenses:** every dependency must allow commercial use. Permissive licenses (MIT, Apache-2.0, BSD, ISC and similar) are fine, as are MPL-2.0, EPL-2.0 (approved by the owner on 2026-09-29 for `elkjs`) and OFL-1.1 for unmodified use. GPL, AGPL, SSPL, BUSL and non-commercial licenses need the owner's approval. `pnpm licenses list` shows all licenses.
 - `.gitattributes` enforces LF line endings.
 - Read the current documentation or agent skills of a library before using it. Do not rely on training knowledge, especially for versions and APIs.

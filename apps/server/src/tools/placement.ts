@@ -2,6 +2,7 @@ import type { Author, CanvasNode, Position } from '@covibes/shared';
 
 import type { BoardAccess } from '@server/collab/board-client';
 import type { CanvasRules } from '@server/tools/canvas-writer';
+import type { RunCommands } from '@server/tasks/run-commands';
 
 /**
  * What every canvas tool needs: the board it works on, the agent it acts for and the rules of the
@@ -12,6 +13,8 @@ export type CanvasToolOptions = {
   boardId: string;
   author: Author;
   rules?: CanvasRules;
+  /** Durable command identity for an agent run; absent in isolated tool tests. */
+  commands?: RunCommands;
 };
 
 /** Roughly the middle of the visible canvas at the default view (100 %, no scrolling). */

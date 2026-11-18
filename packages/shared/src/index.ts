@@ -705,5 +705,9 @@ export {
   type UsageSource,
   type UsageState,
 } from './usage';
-
 export * from './conversations';
+export {
+  persistenceReceiptSchema,
+  type PersistenceReceipt,
+  type PersistenceState,
+} from './persistence';

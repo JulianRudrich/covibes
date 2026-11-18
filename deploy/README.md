@@ -126,6 +126,62 @@ this update cannot finish afterwards: request a new email link or start the
 GitLab sign-in again. Existing sessions remain valid; this change needs no
 database migration. See the [maintainer's advisory](https://github.com/better-auth/better-auth/security/advisories/GHSA-965c-763c-88jm).
 
+## Worker ownership, recovery and readiness
+
+Run exactly one `worker` and one `app` (collaboration owner) per database. A
+worker holds a dedicated PostgreSQL advisory lock for its lifetime. A second
+worker refuses to start and does not unlock the first worker's jobs. A worker
+whose ownership connection is lost exits; after it stops or crashes, its
+successor acquires the lock and recovers the abandoned queue locks. Do not use
+`docker compose up --scale worker=…` or run two application replicas against the
+same database.
+
+The worker reserves separate concurrency slots for model calls and background
+mail/repository work. Missing or invalid AI credentials do not stop those
+background jobs. Production AI still requires `ANTHROPIC_API_KEY` and never
+falls back to a personal subscription. Repeated provider failures pause new
+model calls for at least a minute; quota reset times can extend the pause.
+
+Use the endpoints for different purposes:
+
+- `/health`: HTTP process liveness; it stays healthy during a database outage.
+- `/ready`: bounded database/migration checks, a worker heartbeat newer than 45
+  seconds, and collaboration store health. It returns 503 when an essential
+  dependency is unavailable. AI can be reported as degraded while mail, Git and
+  non-AI application functions remain ready. Queue count and oldest waiting age
+  help distinguish a stopped worker from a slow model. The Docker image sets
+  `MIGRATIONS_DIR` to its shipped migrations; their checksums must match the
+  database. An empty migration directory is not ready.
+
+Agent canvas commands are recorded before their mutation. The generated IDs,
+operations and result survive a restart; an applied-command receipt and the
+canvas change share one Yjs transaction. An explicit flush commits the document
+and the tool's completion together in PostgreSQL. A resumed run reuses its
+reply message and recorded operations. It rejects changed or additional
+mutations during recovery; an interrupted non-canvas operation with an unknown
+result also stops safely. The user checks the existing changes and sends a new
+instruction for further work. This is not an exactly-once promise for arbitrary
+third-party APIs; Git actions keep their existing provider reconciliation.
+
+Browser synchronization means the live server has the update, not that it is
+durable. The new UI must wait until the provider has no unsynced changes, then
+call `POST /api/documents/flush` with `{ "documentName": "board:<id>" }` (or
+`plan:<projectId>`). Only an authenticated member can flush a document. A 200
+response matching `PersistenceReceipt` means the current document was committed;
+new local edits make that acknowledgement stale, and failures must remain
+visible as not saved. The endpoint does not promise durability for updates that
+have not reached the server.
+
+History delivery has an outbox. Failed writes are reconciled after loading,
+explicit stores/flushes, startup and every 30 seconds. A completion receipt is
+committed with the history entry so a lost acknowledgement does not duplicate
+it. Completed outbox records discard their copied payload; deleting the board
+removes its receipts. History remains a collaboration convenience rather than a
+security audit of authenticated authorship. Document persistence and history
+outbox staging are separate commits: a crash between them can leave a history
+gap without losing the saved document. A rejected outbox insert is retried in
+memory and is not durable until that insert succeeds.
+
 ## Backups
 Back up, ideally daily via cron, and copy the file to another machine afterwards:
 

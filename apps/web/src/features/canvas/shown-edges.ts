@@ -21,6 +21,7 @@ export function edgesWithGeometry(
   nodes: readonly CanvasFlowNode[],
   edges: readonly ArrowFlowEdge[],
   rects: ReadonlyMap<string, Rect>,
+  previous: readonly ArrowFlowEdge[] = [],
 ): ArrowFlowEdge[] {
   const sideways = new Set(
     nodes
@@ -36,8 +37,21 @@ export function edgesWithGeometry(
     })),
     rects,
   );
+  const previousById = new Map(previous.map((edge) => [edge.id, edge]));
   return edges.map((edge) => {
     const geometry = geometries.get(edge.id);
+    const old = previousById.get(edge.id);
+    if (
+      old &&
+      old.source === edge.source &&
+      old.target === edge.target &&
+      old.selected === edge.selected &&
+      old.data?.label === edge.data?.label &&
+      old.data?.changedByAgent === edge.data?.changedByAgent &&
+      old.data?.lastChangedAt === edge.data?.lastChangedAt &&
+      JSON.stringify(old.data?.geometry) === JSON.stringify(geometry)
+    )
+      return old;
     return edge.data && geometry ? { ...edge, data: { ...edge.data, geometry } } : edge;
   });
 }

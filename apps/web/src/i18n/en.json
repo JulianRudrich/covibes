@@ -571,7 +571,10 @@
       "addLabel": "Add board"
     },
     "elementGone": "This element is no longer on the canvas.",
-    "ask": "Ask in the chat"
+    "ask": "Ask in the chat",
+    "showAll": "Show all",
+    "minimap": "Board overview",
+    "zoomLessThanOne": "Less than 1%"
   },
   "chat": {
     "messages": "Messages",

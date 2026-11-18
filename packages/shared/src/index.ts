@@ -123,6 +123,7 @@ export {
   moveNode,
   newBlockType,
   moveNodes,
+  moveNodePositions,
   NOTE_SIZE,
   placeNodes,
   positionSchema,

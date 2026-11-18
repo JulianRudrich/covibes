@@ -56,3 +56,13 @@ render code and lists without accepting HTML from a model.
 Implemented opt-in `message-history` pages and context routes while keeping the latest-message array endpoint. History boundaries and server message timestamps preserve PostgreSQL microseconds, and cache ordering normalizes optimistic millisecond timestamps. Migration 0049 adds the timestamp/ID cursor index. Project search reads messages and decisions through RLS and only the authorized project's current board/plan documents. The context reader is separate from the live latest-message cache and offers an explicit return to latest messages.
 
 Validation: 17 focused server tests and 77 focused web tests pass, including 1,000-message paging under concurrent arrivals, tied timestamps, source authorization, search across all four kinds, scroll anchoring, old-message focus and inert HTML/code. Type checks, changed-file ESLint and formatting pass. The parent integration runs the full merge checks after combining the dependent specs.
+
+Reconnect follow-up (2026-11-18): a refreshed latest page can be disjoint from
+the cached messages after a long disconnect. Such a gap now resets the history
+cursor and replaces the obsolete confirmed prefix while preserving optimistic
+sends and in-flight live arrivals. Overlapping pages retain already loaded
+history. Cursor generations also discard an older-page response started before
+that reset, preventing stale responses from reintroducing the gap. The cursor
+is observable query state, so an exhausted history becomes loadable immediately.
+Validation: 45 focused web tests, changed-file ESLint and the web type check pass,
+including the disjoint refresh, overlapping refresh and stale-response cases.

@@ -45,6 +45,7 @@ import {
   GatewayLimitError,
   type AgentReplyRequest,
   type AgentReplyResult,
+  type CompleteRequest,
   type AgentTool,
 } from '@server/ai-gateway';
 import { referencesOf } from '@server/chat/references';
@@ -190,6 +191,10 @@ export function usageLimitNote(
   now: Date,
 ): string {
   const wait = waitText(language, resetsAt, now);
+  if (scope === 'instance')
+    return language === 'en'
+      ? `The instance AI allowance is committed for this month. It resets in about ${wait}; other work remains available. Please contact the operator.`
+      : `Das KI-Kontingent der Instanz für diesen Monat ist verplant. In etwa ${wait} wird es frei; alles andere bleibt verfügbar. Bitte gib dem Betreiber Bescheid.`;
   if (language === 'en') {
     return scope === 'project'
       ? `This project has reached its AI limit for this month. It is free again in about ${wait}; please mention me again then. Everything else in Covibes keeps working, and owners find the usage in the project's menu.`
@@ -223,12 +228,7 @@ export type AgentTurnDeps = {
   /** The gateway's `streamAgentReply`; tests pass a scripted model. */
   reply: (request: AgentReplyRequest) => Promise<AgentReplyResult>;
   /** The gateway's `completeText`, for the intent of the triggering message (spec 13). */
-  complete: (request: {
-    model: string;
-    system: string;
-    prompt: string;
-    signal?: AbortSignal;
-  }) => Promise<AgentReplyResult>;
+  complete: (request: CompleteRequest) => Promise<AgentReplyResult>;
   logger: { error: (message: string) => void };
   flushMs?: number;
 };
@@ -683,7 +683,12 @@ async function converse(
         : turn.occasion?.kind === 'reopen' || debating
           ? given('question')
           : conversation.request
-            ? classifyIntent(deps.complete, conversation.request.content, attempt.signal)
+            ? classifyIntent(
+                (request) =>
+                  deps.complete({ ...request, billing: { runId: run.id, purpose: 'intent' } }),
+                conversation.request.content,
+                attempt.signal,
+              )
             : given('question');
 
   const rules = {
@@ -830,6 +835,7 @@ async function converse(
   });
   try {
     const result = await deps.reply({
+      billing: { runId: run.id, purpose: 'reply' },
       model: turn.model,
       effort: agent.effort,
       system: agent.prompt,

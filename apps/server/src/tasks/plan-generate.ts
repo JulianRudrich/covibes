@@ -20,7 +20,7 @@ import { z } from 'zod';
 import { findAgent, MODERATOR } from '@server/agents/catalog';
 import { loadCustomAgentNames } from '@server/agents/custom';
 import { loadPrompt } from '@server/agents/prompts';
-import type { AgentReplyResult } from '@server/ai-gateway';
+import type { AgentReplyResult, CompleteRequest } from '@server/ai-gateway';
 import { selectMessages, toMessage } from '@server/chat/rows';
 import type { BoardAccess } from '@server/collab/board-client';
 import { encodePlanFailure } from '@server/plan/failure';
@@ -58,12 +58,7 @@ export type PlanGenerateDeps = {
   /** The boards whose diagrams the plan builds on. */
   boards: BoardAccess;
   /** The gateway's `completeText`; tests pass a scripted model. */
-  complete: (request: {
-    model: string;
-    system: string;
-    prompt: string;
-    signal?: AbortSignal;
-  }) => Promise<AgentReplyResult>;
+  complete: (request: CompleteRequest) => Promise<AgentReplyResult>;
   /** Checks the limits of the AI before the model call (spec 31a); without it nothing is limited. */
   limits?: UsageGuard;
   logger: { error: (message: string) => void };
@@ -354,6 +349,7 @@ export async function generatePlan(
 
     await deps.limits?.({ projectId, userId: run.user_id });
     const result = await deps.complete({
+      billing: { runId, purpose: 'plan-generate' },
       model: model ?? MODERATOR.model,
       system: kind === 'update' ? PLAN_UPDATE_PROMPT : PLAN_PROMPT,
       prompt: buildPlanPrompt({

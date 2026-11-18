@@ -10,7 +10,7 @@ import { usagePeriods } from '@server/usage/limits';
 
 // What members learn of the limits of the AI (spec 31a): whether one is reached and until when,
 // and no number. And what owners read of the usage (spec 31b): the numbers of a month.
-const test = createTestServer();
+const test = createTestServer({ AI_LIMIT_INSTANCE_MONTH_USD: '0' });
 
 const LIMITS = { projectMonthUsd: 100, userDayUsd: 15 };
 const NOW = new Date();
@@ -155,7 +155,10 @@ describe('GET /api/projects/:projectId/usage/state', () => {
     const response = await request(project.state, project.owner, test.app);
 
     expect(response.status).toBe(200);
-    expect((await response.json()) as UsageState).toEqual(FREE);
+    expect((await response.json()) as UsageState).toEqual({
+      ...FREE,
+      instance: { reached: false, resetsAt: null },
+    });
   });
 });
 

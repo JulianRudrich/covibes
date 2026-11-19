@@ -1,5 +1,36 @@
 import type { Mail } from '@server/integrations/mail/mailer';
 
+export function emailCodeMail(options: {
+  to: string;
+  code: string;
+  minutes: number;
+  locale?: 'de' | 'en';
+}): Mail {
+  const english = options.locale === 'en';
+  return {
+    to: options.to,
+    subject: english ? 'Your Covibes sign-in code' : 'Dein Anmeldecode für Covibes',
+    text: english
+      ? `Your Covibes sign-in code is ${options.code}. It is valid for ${String(options.minutes)} minutes and can be used once. If you did not request it, ignore this email.`
+      : `Dein Anmeldecode für Covibes lautet ${options.code}. Er gilt ${String(options.minutes)} Minuten und nur einmal. Wenn du ihn nicht angefordert hast, ignoriere diese E-Mail.`,
+  };
+}
+
+export function accountDeletionMail(options: {
+  to: string;
+  url: string;
+  locale?: 'de' | 'en';
+}): Mail {
+  const english = options.locale === 'en';
+  return {
+    to: options.to,
+    subject: english ? 'Delete your Covibes account' : 'Dein Covibes-Konto löschen',
+    text: english
+      ? `Confirm that you want to permanently delete your Covibes account. This link expires in ten minutes. If you did not request deletion, ignore this email.\n\n${options.url}`
+      : `Bestätige die endgültige Löschung deines Covibes-Kontos. Dieser Link gilt zehn Minuten. Wenn du die Löschung nicht angefordert hast, ignoriere diese E-Mail.\n\n${options.url}`,
+  };
+}
+
 const MAGIC_LINK_TEXT = {
   de: {
     subject: 'Dein Login-Link für Covibes',

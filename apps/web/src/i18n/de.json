@@ -571,7 +571,10 @@
       "addLabel": "Board hinzufügen"
     },
     "elementGone": "Dieses Element gibt es auf dem Canvas nicht mehr.",
-    "ask": "Im Chat fragen"
+    "ask": "Im Chat fragen",
+    "showAll": "Alles anzeigen",
+    "minimap": "Übersicht des Boards",
+    "zoomLessThanOne": "Unter 1 %"
   },
   "chat": {
     "messages": "Nachrichten",

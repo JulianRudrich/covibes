@@ -2,6 +2,7 @@ import { useReactFlow, useViewport } from '@xyflow/react';
 import {
   Frame,
   LayoutGrid,
+  Maximize2,
   Minus,
   MousePointer2,
   Plus,
@@ -15,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Tooltip } from '@web/components/ui/tooltip';
 import type { CanvasTool } from '@web/features/canvas/canvas-actions';
-import { nextZoom, ZOOM_MAX, ZOOM_MIN } from '@web/features/canvas/zoom';
+import { FIT_BOARD_OPTIONS, nextZoom, ZOOM_MAX, ZOOM_MIN } from '@web/features/canvas/zoom';
 import { cn } from '@web/lib/cn';
 
 const TOOLS: readonly { tool: CanvasTool; icon: LucideIcon }[] = [
@@ -30,15 +31,14 @@ type CanvasToolbarProps = {
   onToolChange: (tool: CanvasTool | null) => void;
   onAutoLayout: () => void;
   layoutBusy: boolean;
-  /** Viewers only get the zoom. */
+  /** Viewers get navigation controls, including show-all and zoom. */
   readOnly: boolean;
   /** At the right end, after the zoom: e.g. "Exportieren" (spec 27a). */
   end?: ReactNode;
 };
 
 /**
- * The floating toolbar of the handoff (spec 10, looks of spec 36b): a pill with round icon tools
- * for selecting, block, note, frame and arrow, the auto-layout and the zoom from 30 to 200 %. A
+ * Board tools for selecting, block, note, frame and arrow, plus auto-layout, show-all and zoom. A
  * tool is a mode; clicking it again ends it, and "Auswählen" is pressed while no other tool is.
  */
 export function CanvasToolbar({
@@ -50,7 +50,7 @@ export function CanvasToolbar({
   end,
 }: CanvasToolbarProps) {
   const { t } = useTranslation();
-  const { zoomTo } = useReactFlow();
+  const { zoomTo, fitView } = useReactFlow();
   const { zoom } = useViewport();
 
   return (
@@ -89,15 +89,22 @@ export function CanvasToolbar({
           <span className="mx-1.5 h-6 w-px bg-border-strong" aria-hidden="true" />
         </>
       )}
+      <ToolButton
+        icon={Maximize2}
+        label={t('canvas.showAll')}
+        onClick={() => {
+          void fitView(FIT_BOARD_OPTIONS);
+        }}
+      />
       <ZoomButton
         label={t('canvas.zoomOut')}
-        disabled={zoom <= ZOOM_MIN + 0.001}
+        disabled={zoom <= ZOOM_MIN + Number.EPSILON}
         onClick={() => void zoomTo(nextZoom(zoom, -1), { duration: 150 })}
       >
         <Minus size={16} strokeWidth={2} aria-hidden="true" />
       </ZoomButton>
       <span className="min-w-12 text-center text-ui font-semibold text-text tabular-nums">
-        {Math.round(zoom * 100)} %
+        {zoom < 0.01 ? t('canvas.zoomLessThanOne') : `${String(Math.round(zoom * 100))} %`}
       </span>
       <ZoomButton
         label={t('canvas.zoomIn')}

@@ -156,6 +156,7 @@ export function toFlowNodes(
   canvasNodes: readonly CanvasNode[],
   previous: readonly CanvasFlowNode[],
   { locks, ownClientId }: FlowLocks,
+  changedIds?: ReadonlySet<string>,
 ): CanvasFlowNode[] {
   const previousById = new Map(previous.map((node) => [node.id, node]));
   const blockCounts = new Map<string, number>();
@@ -175,12 +176,29 @@ export function toFlowNodes(
   return ordered.map((node) => {
     const lock = locks.get(node.id);
     const lockedBy = lock && lock.clientId !== ownClientId ? { name: lock.name } : null;
+    const local = previousById.get(node.id);
+    const sameContext =
+      local &&
+      (node.type === 'frame' && local.type === 'frame'
+        ? local.data.blockCount === (blockCounts.get(node.id) ?? 0) &&
+          local.data.diagramType === node.diagramType
+        : node.type === 'block' && local.type === 'block'
+          ? local.data.diagramType ===
+            (node.frameId ? (frameTypes.get(node.frameId) ?? null) : null)
+          : node.type === local.type);
+    if (
+      changedIds &&
+      !changedIds.has(node.id) &&
+      local &&
+      sameContext &&
+      local.data.lockedBy?.name === lockedBy?.name
+    )
+      return local;
     const flowNode = toFlowNode(node, lockedBy, blockCounts, frameTypes);
     if (lockedBy) {
       flowNode.draggable = false;
       flowNode.deletable = false;
     }
-    const local = previousById.get(node.id);
     if (!local) return flowNode;
     if (local.dragging) flowNode.position = local.position;
     if (local.resizing) {
@@ -192,7 +210,20 @@ export function toFlowNodes(
     if (local.dragging !== undefined) flowNode.dragging = local.dragging;
     if (local.resizing !== undefined) flowNode.resizing = local.resizing;
     if (local.measured !== undefined) flowNode.measured = local.measured;
-    return flowNode;
+    const same =
+      local.type === flowNode.type &&
+      local.position.x === flowNode.position.x &&
+      local.position.y === flowNode.position.y &&
+      local.width === flowNode.width &&
+      local.height === flowNode.height &&
+      local.draggable === flowNode.draggable &&
+      local.deletable === flowNode.deletable &&
+      local.selected === flowNode.selected &&
+      local.dragging === flowNode.dragging &&
+      local.resizing === flowNode.resizing &&
+      local.measured === flowNode.measured &&
+      JSON.stringify(local.data) === JSON.stringify(flowNode.data);
+    return same ? local : flowNode;
   });
 }
 
@@ -220,16 +251,22 @@ export function toFlowEdges(
   canvasEdges: readonly CanvasEdge[],
   canvasNodes: readonly CanvasNode[],
   previous: readonly ArrowFlowEdge[] = [],
+  changedEdges?: ReadonlySet<string>,
+  changedNodes?: ReadonlySet<string>,
 ): ArrowFlowEdge[] {
   const nodes = new Map(canvasNodes.map((node) => [node.id, node]));
   const selected = new Set(previous.filter((edge) => edge.selected).map((edge) => edge.id));
+  const old = new Map(previous.map((edge) => [edge.id, edge]));
   return canvasEdges.map((edge) => {
+    const existing = old.get(edge.id);
+    if (existing && changedEdges && !changedEdges.has(edge.id) && !changedNodes?.has(edge.target))
+      return existing;
     const target = nodes.get(edge.target);
     const latest =
       target && target.lastChangedAt > edge.lastChangedAt
         ? { by: target.lastChangedBy, at: target.lastChangedAt }
         : { by: edge.lastChangedBy, at: edge.lastChangedAt };
-    return {
+    const next: ArrowFlowEdge = {
       id: edge.id,
       type: 'arrow',
       source: edge.source,
@@ -238,5 +275,12 @@ export function toFlowEdges(
       selected: selected.has(edge.id),
       data: { label: edge.label, changedByAgent: agentOf(latest.by), lastChangedAt: latest.at },
     };
+    return existing &&
+      existing.source === next.source &&
+      existing.target === next.target &&
+      existing.selected === next.selected &&
+      JSON.stringify(existing.data) === JSON.stringify(next.data)
+      ? existing
+      : next;
   });
 }

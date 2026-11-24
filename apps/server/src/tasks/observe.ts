@@ -22,7 +22,7 @@ import {
 import { loadCustomAgentNames } from '@server/agents/custom';
 import { describePhase } from '@server/agents/phases';
 import { loadPrompt } from '@server/agents/prompts';
-import type { AgentReplyResult } from '@server/ai-gateway';
+import type { AgentReplyResult, CompleteRequest } from '@server/ai-gateway';
 import { selectMessages, toMessage } from '@server/chat/rows';
 import { notifyLive } from '@server/realtime/notifications';
 import { loadDecisionContext, type DecisionContext } from '@server/tasks/run-decisions';
@@ -97,12 +97,7 @@ export type ObserverDeps = {
   /** Role covibes_admin: offers, raised hands and runs are written by the worker only. */
   admin: Kysely<DB>;
   /** The gateway's `completeText`; tests pass a scripted model. */
-  complete: (request: {
-    model: string;
-    system: string;
-    prompt: string;
-    signal?: AbortSignal;
-  }) => Promise<AgentReplyResult>;
+  complete: (request: CompleteRequest) => Promise<AgentReplyResult>;
   /** Schedules the observer of the project again, e.g. while agents work. */
   reschedule: (payload: z.infer<typeof payloadSchema>, runAt: Date) => Promise<void>;
   /** Checks the limits of the AI before the model call (spec 31a); without it nothing is limited. */
@@ -337,9 +332,24 @@ export async function runObserver(deps: ObserverDeps, payload: unknown): Promise
     if (error instanceof UsageLimitError) return 'limit_reached';
     throw error;
   }
+  const pendingRun = await admin
+    .insertInto('ai_runs')
+    .values({
+      project_id: projectId,
+      agent_key: 'moderator',
+      kind: 'observe',
+      status: 'running',
+      model: OBSERVER_MODEL,
+      created_at: startedAt,
+      started_at: startedAt,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  const runId = pendingRun.id;
   let result: AgentReplyResult;
   try {
     result = await deps.complete({
+      billing: { runId, purpose: 'observe' },
       model: OBSERVER_MODEL,
       system: OBSERVER_PROMPT,
       prompt: buildObserverPrompt({
@@ -376,11 +386,11 @@ export async function runObserver(deps: ObserverDeps, payload: unknown): Promise
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     // The look counts, so the same messages do not start another failing look right away.
-    await recordLook(admin, projectId, startedAt, { error: reason.slice(0, 1000) });
+    await recordLook(admin, runId, { error: reason.slice(0, 1000) });
     deps.logger.error(`The observer of project ${projectId} failed: ${reason}`);
     return 'failed';
   }
-  await recordLook(admin, projectId, startedAt, { result });
+  await recordLook(admin, runId, { result });
 
   const answer = parseAnswer(result.text);
   if (answer.offer && !offerBlocked) await offerHelp(admin, projectId, answer.offer);
@@ -398,17 +408,13 @@ export async function runObserver(deps: ObserverDeps, payload: unknown): Promise
 /** Meters the look as a run of the kind `observe`; it starts when the model was asked. */
 async function recordLook(
   admin: Kysely<DB>,
-  projectId: string,
-  startedAt: Date,
+  runId: string,
   outcome: { result: AgentReplyResult } | { error: string },
 ) {
   const result = 'result' in outcome ? outcome.result : null;
   await admin
-    .insertInto('ai_runs')
-    .values({
-      project_id: projectId,
-      agent_key: 'moderator',
-      kind: 'observe',
+    .updateTable('ai_runs')
+    .set({
       status: result ? 'done' : 'error',
       provider: result?.provider ?? null,
       model: result?.model ?? OBSERVER_MODEL,
@@ -418,10 +424,9 @@ async function recordLook(
       output_tokens: result?.usage.outputTokens ?? 0,
       cost_usd: (result?.costUsd ?? 0).toFixed(6),
       error: 'error' in outcome ? outcome.error : null,
-      created_at: startedAt,
-      started_at: startedAt,
       finished_at: sql`clock_timestamp()`,
     })
+    .where('id', '=', runId)
     .execute();
 }
 

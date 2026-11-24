@@ -106,6 +106,9 @@ export function selectMessages(db: Kysely<DB>) {
         'offers.action as offer_action',
         'offers.status as offer_status',
         'deciders.name as offer_decided_by',
+        sql<string>`to_char(messages.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`.as(
+          'created_at_exact',
+        ),
         'messages.id',
         'messages.project_id',
         'messages.author_kind',
@@ -191,7 +194,7 @@ export function toMessage(row: MessageRow): ChatMessage | undefined {
       : {}),
     ...(debate.success ? { debate: debate.data } : {}),
     ...(debateTurn.success ? { debateTurn: debateTurn.data } : {}),
-    createdAt: row.created_at.toISOString(),
+    createdAt: row.created_at_exact,
     updatedAt: row.updated_at.toISOString(),
   };
 }

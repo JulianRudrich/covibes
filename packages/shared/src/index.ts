@@ -123,6 +123,7 @@ export {
   moveNode,
   newBlockType,
   moveNodes,
+  moveNodePositions,
   NOTE_SIZE,
   placeNodes,
   positionSchema,
@@ -722,3 +723,4 @@ export type {
   WorkspaceProject,
   WorkspaceInvitation,
 } from './workspaces';
+export * from './conversations';

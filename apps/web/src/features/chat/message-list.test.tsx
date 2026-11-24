@@ -58,6 +58,53 @@ function renderList() {
 }
 
 describe('MessageList', () => {
+  it('anchors the reader when older history is prepended', () => {
+    stubResizeObserver();
+    const loadOlder = vi.fn(async () => {});
+    const props = {
+      empty: null,
+      currentUserId: 'user-olga',
+      team: [],
+      onRetry: vi.fn(),
+      onLoadOlder: loadOlder,
+      hasOlder: true,
+    };
+    const view = render(<MessageList {...props} items={[ITEM]} />);
+    const scroller = screen.getByRole('list', { name: 'Nachrichten' }).parentElement;
+    if (!scroller) throw new Error('No scroller');
+    Object.defineProperty(scroller, 'scrollHeight', { value: 1000, configurable: true });
+    Object.defineProperty(scroller, 'clientHeight', { value: 500, configurable: true });
+    scroller.scrollTop = 20;
+    fireEvent.scroll(scroller);
+    expect(loadOlder).toHaveBeenCalledOnce();
+    Object.defineProperty(scroller, 'scrollHeight', { value: 1400, configurable: true });
+    view.rerender(
+      <MessageList
+        {...props}
+        items={[{ ...ITEM, id: 'older', createdAt: '2026-09-29T12:00:00Z' }, ITEM]}
+      />,
+    );
+    expect(scroller.scrollTop).toBe(420);
+  });
+
+  it('focuses a message loaded through a history reference', () => {
+    stubResizeObserver();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn(),
+    });
+    render(
+      <MessageList
+        items={[ITEM]}
+        empty={null}
+        currentUserId="user-olga"
+        team={[]}
+        onRetry={vi.fn()}
+        focusMessageId={ITEM.id}
+      />,
+    );
+    expect(document.activeElement).toHaveAttribute('data-message-id', ITEM.id);
+  });
   it('stays at the bottom when it gets shorter, e.g. for a raised hand below it (spec 15)', () => {
     const resize = stubResizeObserver();
     const { scroller, size } = renderList();

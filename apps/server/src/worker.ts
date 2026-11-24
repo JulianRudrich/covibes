@@ -29,6 +29,7 @@ import { FILE_CLEANUP_TASK, fileCleanupTask } from '@server/tasks/file-cleanup';
 import { GIT_REQUEST_TASK, gitRequestTask } from '@server/tasks/git-request';
 import { GIT_SYNC_TASK, gitSyncTask } from '@server/tasks/git-sync';
 import { MR_REVIEW_TASK, mrReviewTask } from '@server/tasks/mr-review';
+import { createBudgetGateway } from '@server/usage/gateway';
 import { usageGuard, usageLimitsOf } from '@server/usage/limits';
 import { NOTIFICATION_MAIL_TASK, notificationMailTask } from '@server/tasks/notification-mails';
 import { OBSERVE_TASK, observeTask } from '@server/tasks/observe';
@@ -107,6 +108,17 @@ const packageReaders: PackageReaders = {
 
 // The limits of the AI (spec 31a): every job that calls a model checks them first.
 const limits = usageGuard(admin, usageLimitsOf(env));
+const metered = createBudgetGateway(
+  {
+    admin,
+    limits: usageLimitsOf(env),
+    maxCallUsd: env.AI_MAX_CALL_USD ?? (env.NODE_ENV === 'production' ? 0 : 1),
+    onWarning: (warning) => {
+      console.warn(JSON.stringify({ event: 'ai_budget_warning', ...warning }));
+    },
+  },
+  { reply: streamAgentReply, complete: completeText },
+);
 
 const released = await releaseAbandonedJobs(pgPool);
 if (released > 0) {
@@ -139,16 +151,16 @@ const runner = await run({
           }
         : {}),
       limits,
-      reply: streamAgentReply,
-      complete: completeText,
+      reply: metered.reply,
+      complete: metered.complete,
     }),
-    [OBSERVE_TASK]: observeTask({ admin, complete: completeText, limits }),
+    [OBSERVE_TASK]: observeTask({ admin, complete: metered.complete, limits }),
     // The moderator writes the project plan as suggestions per section (spec 25b).
-    [PLAN_GENERATE_TASK]: planGenerateTask({ admin, boards, complete: completeText, limits }),
+    [PLAN_GENERATE_TASK]: planGenerateTask({ admin, boards, complete: metered.complete, limits }),
     // The moderator suggests a text of the package for coding agents (spec 27c).
-    [PACKAGE_SUGGEST_TASK]: packageSuggestTask({ admin, complete: completeText, limits }),
+    [PACKAGE_SUGGEST_TASK]: packageSuggestTask({ admin, complete: metered.complete, limits }),
     // The moderator writes the feature specs of a milestone out (spec 27d).
-    [PACKAGE_SPECS_TASK]: packageSpecsTask({ admin, boards, complete: completeText, limits }),
+    [PACKAGE_SPECS_TASK]: packageSpecsTask({ admin, boards, complete: metered.complete, limits }),
     // An approved Git request runs with the access of who approved it (spec 29b). Without a
     // GitLab nobody has an account, so nothing can be approved and no such job exists.
     ...(gitConnections
@@ -174,13 +186,13 @@ const runner = await run({
             admin,
             repository,
             packageInput: (projectId) => gatherPackageInput(admin, packageReaders, projectId),
-            complete: completeText,
+            complete: metered.complete,
             limits,
           }),
         }
       : {}),
     // The moderator sums up the conversation for a member who comes back (spec 23).
-    [AWAY_SUMMARY_TASK]: awaySummaryTask({ admin, complete: completeText, limits }),
+    [AWAY_SUMMARY_TASK]: awaySummaryTask({ admin, complete: metered.complete, limits }),
     // Sums up by mail what a person has not seen in the app (spec 22b).
     [NOTIFICATION_MAIL_TASK]: notificationMailTask({
       admin,

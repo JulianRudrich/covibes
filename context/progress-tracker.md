@@ -1,7 +1,7 @@
 # Progress Tracker
 
 ## Current phase
-**Owner mandate (2026-11-17): implement all remaining specs and replace the design completely.** Six parallel roles cover repository research, webapp/UX research, design direction, budgets (40), recovery (41), and conversations/boards (47/48). The earlier design is excluded as a reference. See `execution-plan.md` for sequencing, validation and external launch gates.
+**Owner direction (2026-11-24):** Continue the remaining functional specs using Covibes Studio. Use real Studio screens for repository media. The Signal Atlas prototype is archived.
 
 **M8 rework (started 2026-11-16): spec 39 is implemented and validated on its branch.** Dependency security and CI are ready; the final delivery check is green CI on the squash commit on `main`. The earlier milestone summaries below remain the history.
 
@@ -10,17 +10,14 @@
 **M5 completed (2026-10-03): the result is complete** with the project plan as a shared document, generated and updated by the moderator as suggestions and kept in versions, the roadmap on the canvas with tasks that are assigned to members, the exports of boards and plan, and the package for coding agents with the moderator's suggestions and written-out feature specs. Before it, M4 (collaboration) was completed on 2026-10-02. Next is M7 (polish); the product is built spec by spec.
 
 ## Current goal
-Continue M8 with spec 40: trustworthy AI budgets, reservations for concurrent runs and accounting for every attempt. Spec 39 is implemented; the remaining rework precedes launch preparation (35) and acceptance (34).
+Continue M8 with spec 41: safe recovery of interrupted work. Spec 40 is implemented and validated locally with atomic AI reservations and durable accounting for every invocation. The remaining rework precedes launch preparation (35) and acceptance (34).
 
 ## In progress
-- Spec 40: detailed specification and budget implementation.
-- Spec 41: recovery specification and implementation, integrated after 40.
-- Spec 43: workspace permissions, ownership, invitations and durable project/account deletion in an isolated worktree; integration follows account controls (42).
-- Specs 47/48: conversation history/search and large-board behavior in an isolated worktree.
-- Spec 55: independent design research, new handoff and prototype.
-- Specs 42–54 and 34/35: remaining work coordinated in `execution-plan.md`.
+- Specs 41–46 and 49–54 are in development. Specs 47 and 48 are integrated on main.
+- Spec 49 preserves the Covibes Studio interface.
 
 ## Done
+- [x] **Spec 40, trustworthy AI budgets (2026-11-18):** atomic project/person/instance reservations, the default 20 USD instance month, per-invocation attempt records including intent, final and partial failure/cancellation usage, cumulative retry accounting, a deduplicated 80-percent operator warning, and explicit admin reconciliation of uncertain work. Lint, types, formatting, database type verification and both builds pass; all 933 server tests and 17 database usage/migration tests pass. No new visual design or dependency was introduced. The SDK cap remains soft and unknown work retains its reservation; details and the local validation scope are in spec 40.
 - [x] **Spec 39, dependency security and a green CI (2026-11-17):** security dependencies updated with a seven-day release age, two advisory-scoped overrides, unused direct SDK dependency removed, and authentication isolation verified against the old and fixed library. Production and complete audits report no known vulnerabilities. All merge checks pass; three consecutive full runs pass with 2,423 tests in 218 files each. CI builds and audits on spec branches, the weekly audit is configured, and sign-in upgrade guidance is documented. Branch and PR CI pass; delivery also verifies the final squash commit on `main`. See the spec for versions and validation details.
 - [x] Reference evaluated: the video "How Senior Engineers Actually Build With AI in 2026". We adopted the method, not the product.
 - [x] Product planning in 8 rounds of questions. The result is in `project-overview.md`.
@@ -483,6 +480,7 @@ Product decisions are in `project-overview.md`, technical ones in `architecture.
   - Languages: German and English.
 
 ## Session notes
+- **2026-11-18, spec 40 implemented and validated locally.** The gateway reserves each invocation transactionally before calling the provider, and the protected attempt ledger records its usage and outcome once. The observer and return summary create their run before starting; intent is metered separately. Failed and cancelled attempts retain reported costs, while a hard crash retains the unaccounted reservation for verified operator reconciliation. Instance limits default to 20 USD per UTC month and warn once at 80 percent committed. The Claude SDK's budget option is explicitly documented as a soft cap, with no guarantee about the provider's eventual invoice. Local lint, typecheck, format, database types and build pass, as do 933 server tests and 17 database usage/migration tests. No paid model or live Git/mail integration was invoked; remote CI and integration remain a delivery step.
 - **2026-11-17, spec 39 implemented.** Fixed the advisory-affected dependency tree without updating unrelated collaboration, editor or query pins. The auth regression fails on Better Auth 1.7.6 and passes on 1.7.18 for existing and new addresses; real emailed links work once. The realtime test waits for server cleanup, and web async helpers allow five seconds under load. Both audits, lint, types, formatting, database type verification, build and actionlint pass. Three full package runs pass consecutively (2,423 tests each). Branch and PR CI are green; the final branch and squash commit on main are checked during delivery. No live GitLab, SMTP or paid AI call was used. Details and the override removal conditions are in spec 39.
 - **2026-11-16, rework planned.** After the review of the same day the owner decided on a targeted rework, GitHub as the first Git platform and three ways to pay for the AI in the beta (see "Decisions"), and the coding agent added M8 with the specs 39 to 54 to the overview. A second reading of the code confirmed the review and added measurements: all 2,420 tests and the build pass locally (one web test failed once while all packages ran at once and passes alone); a board opens at 100 % at its origin with no way to show everything; every change reads and redraws all elements (reading 500 blocks takes 3.8 ms, 2,000 take 15 ms); ten seconds of dragging grow a board's document by 15.7 KiB, and by 0.05 KiB when only the position is written while dragging; every agent run starts its own process, also the short classifications; the package `@anthropic-ai/sdk` is installed and unused; the route files repeat the membership check in 11 places. No application code was changed.
 - **2026-11-16, private publication and repository review completed.** Main was pushed to the verified private GitHub repository after a limited credential-pattern history scan. Local lint, type checks, database type verification, build and all 2,420 tests passed; local formatting flags the pre-existing launch.json edit. The first Linux CI run failed at realtime.test.ts:313 after client disconnects (server cleanup timing), while its other four checks passed. The dependency audit reported 54 entries, including a critical Better Auth advisory relevant to simultaneous magic-link and GitLab login. Findings, uncertainty, acceptance criteria and the proposed delivery sequence are in the review report. Application code and the existing local launch.json/AGENTS.md changes were not modified; security hardening and CI repair should precede launch work.

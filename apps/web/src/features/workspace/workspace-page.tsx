@@ -624,6 +624,15 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
               moderatorNeutral={project.stance !== 'opinion'}
               onNotice={showNotice}
               onOpenReference={openReference}
+              onSearchResult={(result) => {
+                if (result.kind === 'block' && result.boardId) {
+                  openElement(result.boardId, result.id);
+                  toCanvas();
+                } else if (result.kind === 'plan') {
+                  void openPlan();
+                  toCanvas();
+                } else if (result.kind === 'decision') setOpenDecisionId(result.id);
+              }}
               ask={ask}
             />
           ) : null

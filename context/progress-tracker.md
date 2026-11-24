@@ -1,7 +1,7 @@
 # Progress Tracker
 
 ## Current phase
-**Owner mandate (2026-11-17): implement all remaining specs and replace the design completely.** Six parallel roles cover repository research, webapp/UX research, design direction, budgets (40), recovery (41), and conversations/boards (47/48). The earlier design is excluded as a reference. See `execution-plan.md` for sequencing, validation and external launch gates.
+**Owner direction (2026-11-24):** Continue the remaining functional specs using Covibes Studio. Use real Studio screens for repository media. The Signal Atlas prototype is archived.
 
 **M8 rework (started 2026-11-16): spec 39 is implemented and validated on its branch.** Dependency security and CI are ready; the final delivery check is green CI on the squash commit on `main`. The earlier milestone summaries below remain the history.
 
@@ -16,7 +16,7 @@ Continue M8 with spec 40: trustworthy AI budgets, reservations for concurrent ru
 - Spec 40: detailed specification and budget implementation.
 - Spec 41: recovery specification and implementation, integrated after 40.
 - Specs 47/48: conversation history/search and large-board behavior in an isolated worktree.
-- Spec 55: independent design research, new handoff and prototype.
+- Spec 49: responsive behavior and loading improvements in the Studio interface.
 - Specs 42–54 and 34/35: remaining work coordinated in `execution-plan.md`.
 
 ## Done

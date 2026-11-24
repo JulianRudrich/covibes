@@ -1,8 +1,6 @@
-# Remaining implementation and independent redesign
+# Remaining implementation
 
-Owner authorization: 2026-11-17. Implement all remaining specs in this chat and
-create a completely new visual/interaction design through a research team.
-The previous one-unit-per-chat rule and previous visual handoffs are superseded.
+The owner authorized parallel implementation on 2026-11-17 and restored the Covibes Studio design on 2026-11-24.
 
 ## Delivery rules
 
@@ -11,7 +9,7 @@ The previous one-unit-per-chat rule and previous visual handoffs are superseded.
 - Integrate dependencies in order; isolated worktrees may progress independently.
 - Preserve one implementation commit per numbered spec on main through squash
   integration. Planning/research documentation can be committed separately.
-- Do not use the previous Covibes palette, components or layout as design inputs.
+- Use the Studio palette, components and layout documented in `ui-context.md`.
 - Popular repositories, launch rankings and observed UI quality are different
   evidence. Research records dates, ranking windows, sources and limitations.
 - Do not claim a live integration, public deployment or legal readiness merely
@@ -31,13 +29,13 @@ The previous one-unit-per-chat rule and previous visual handoffs are superseded.
 | 46 | GitHub App integration and GitLab compatibility | Existing Git-host abstraction; real app configuration needed |
 | 47 | History pagination, old-message links, project search, formatted answers | Detailed spec; independent worktree |
 | 48 | Initial fit/navigation, incremental board updates, efficient dragging | Detailed spec; independent worktree after 47 |
-| 49 | Route loading, responsive tablet layouts, metadata | Coordinate with new design 55 |
+| 49 | Route loading, responsive tablet layouts, metadata | Preserve the Studio interface |
 | 50 | Decision links and consequence/impact navigation | After stable project/plan/board contracts |
 | 51 | Repository-to-architecture onboarding | After 46 and provider gateway |
-| 52 | Guided first session and sample project | After 50/51; new design |
+| 52 | Guided first session and sample project | After 50/51, using Studio |
 | 53 | Durable project memory for agents | After gateway and shared read contracts |
 | 54 | Evaluation fixtures for grounding, dissent, tools, cost/time | After agent contracts; distinguish fixtures from live evaluation |
-| 55 | Entirely new product design | Research, independent handoff and interactive prototype in progress |
+| 55 | Entirely new product design | Closed by owner on 2026-11-24; prototype archived |
 | 35 | Operations, staging, backups/restore, monitoring and launch configuration | Source can proceed; external launch facts required |
 | 34 | Multi-user end-to-end acceptance | After behavior/design and staging contracts |
 
@@ -49,8 +47,7 @@ validated by beta participants. Later user research remains a separate input.
 
 - Repository design research: dated GitHub signals, primary product demos and UI.
 - Webapp/UX research: dated launch sources plus established product benchmarks.
-- Design direction: independent information architecture, tokens, responsive
-  flows, accessibility and prototype under `design/next/`.
+- Design direction: Studio, including responsive layouts, keyboard interaction and accessibility.
 - Engineering 40: attempt ledger and atomic budget reservations.
 - Engineering 41: crash recovery, persistence truth and worker lifecycle.
 - Engineering 47/48: long conversations and large boards.

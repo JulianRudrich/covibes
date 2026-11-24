@@ -1,5 +1,7 @@
 # 55 New Product Design: Signal Atlas
 
+> Archived on 2026-11-24. The owner restored Covibes Studio. For current product work, use the [Studio guide](../ui-context.md).
+
 ## Goal
 
 Replace the existing Covibes visual design and workspace composition with the independently researched Signal Atlas direction. Deliver a dominant planning surface, stable object navigation, one contextual drawer, and visible links from reasoning to implementation work throughout the real application.

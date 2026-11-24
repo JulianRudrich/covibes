@@ -1,5 +1,7 @@
 # Covibes — Signal Atlas
 
+> Archived on 2026-11-24. The owner restored Covibes Studio. For current product work, use the [Studio guide](../../ui-context.md).
+
 Independent product design handoff. 17 November 2026.
 
 **Authority:** the owner's request of 17 November explicitly replaces the previous Covibes visual design. The design team did not read the previous UI handoff, tokens, current screen captures or application component styling as design references. The product's jobs, permissions and data contracts remain binding. This handoff and spec 55 are the visual and interaction reference for the redesign.

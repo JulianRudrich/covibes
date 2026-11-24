@@ -17,6 +17,7 @@ const ERRORS = {
   unsupported_file: { status: 415, message: 'This kind of file is not supported.' },
   already_member: { status: 409, message: 'This person is a member already.' },
   last_owner: { status: 409, message: 'A project needs at least one owner.' },
+  conflict: { status: 409, message: 'Resolve the ownership or workspace conflict first.' },
   internal: { status: 500, message: 'Something went wrong.' },
 } as const satisfies Record<ApiErrorCode, { status: number; message: string }>;
 

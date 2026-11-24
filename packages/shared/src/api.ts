@@ -19,6 +19,7 @@ export type ApiErrorCode =
   | 'unsupported_file'
   | 'already_member'
   | 'last_owner'
+  | 'conflict'
   | 'internal';
 
 /** `GET /api/config`: settings the web app may know before login. */

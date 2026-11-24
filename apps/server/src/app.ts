@@ -12,6 +12,8 @@ import { awayRoutes } from '@server/api/away';
 import { boardHistoryRoutes } from '@server/api/board-history';
 import { boardRoutes } from '@server/api/boards';
 import { criteriaRoutes, decisionRoutes } from '@server/api/decisions';
+import { projectLifecycleRoutes } from '@server/api/project-lifecycle';
+import { workspaceRoutes } from '@server/api/workspaces';
 import { apiError } from '@server/api/errors';
 import { fileRoutes, UPLOADS_PER_MINUTE } from '@server/api/files';
 import {
@@ -257,6 +259,8 @@ export function createApp({
   );
   const shareLimiter = createRateLimiter({ limit: SHARE_REQUESTS_PER_MINUTE, windowMs: 60_000 });
   app.route('/api/share', shareViewRoutes(db.app, documents, shareLimiter));
+  app.route('/api/projects', projectLifecycleRoutes({ db, auth, documents, connections, files }));
+  app.route('/api/workspaces', workspaceRoutes(db.app, auth, connections));
   app.route('/api/projects', projectRoutes(db.app, auth, live));
   app.route(
     '/api/agents/:agentId/knowledge',

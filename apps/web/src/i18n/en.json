@@ -1474,5 +1474,22 @@
     "undoneBySomeone": "Reverted",
     "undonePartly": "{{reverted}} of {{total}} elements, the rest has changed since",
     "button": "History"
+  },
+  "conversation": {
+    "search": "Search project",
+    "searchLabel": "Messages, decisions, canvas and plan",
+    "searchFailed": "Search could not be loaded. Try again.",
+    "results": "{{count}} results",
+    "loadOlder": "Load older messages",
+    "loadFailed": "The message history could not be loaded. Try again.",
+    "context": "Viewing a message in history.",
+    "latest": "Back to latest messages",
+    "openReply": "Open the original message",
+    "kind": {
+      "message": "Message",
+      "decision": "Decision",
+      "block": "Canvas",
+      "plan": "Plan"
+    }
   }
 }

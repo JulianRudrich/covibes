@@ -3,8 +3,12 @@ import type { ChatMessage } from '@covibes/shared';
 import type { ChatItem } from '@web/features/chat/types';
 
 /** Oldest first, like the server; ISO timestamps in UTC sort as strings. Ties go by id. */
-function compareItems(a: ChatItem, b: ChatItem): number {
-  if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? -1 : 1;
+export function compareItems(a: ChatItem, b: ChatItem): number {
+  const timestamp = (value: string) =>
+    value.replace(/\.(\d{1,6})Z$/, (_, fraction: string) => `.${fraction.padEnd(6, '0')}Z`);
+  const aTime = timestamp(a.createdAt);
+  const bTime = timestamp(b.createdAt);
+  if (aTime !== bTime) return aTime < bTime ? -1 : 1;
   if (a.id === b.id) return 0;
   return a.id < b.id ? -1 : 1;
 }

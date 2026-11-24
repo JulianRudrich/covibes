@@ -27,6 +27,12 @@ function ids(items: readonly ChatItem[]) {
 }
 
 describe('upsertMessage', () => {
+  it('orders sub-millisecond server timestamps alongside optimistic millisecond timestamps', () => {
+    const first = message('z', 1, { createdAt: '2026-09-29T10:01:00.000Z' });
+    const second = message('a', 1, { createdAt: '2026-09-29T10:01:00.000001Z' });
+    const third = message('b', 1, { createdAt: '2026-09-29T10:01:00.000002Z' });
+    expect(ids(mergeServerMessages([third, second], [first]))).toEqual(['z', 'a', 'b']);
+  });
   it('inserts a new message in the order of creation', () => {
     const items = [message('a', 1), message('c', 3)];
 

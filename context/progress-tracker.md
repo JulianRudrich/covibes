@@ -15,6 +15,7 @@ Continue M8 with spec 40: trustworthy AI budgets, reservations for concurrent ru
 ## In progress
 - Spec 40: detailed specification and budget implementation.
 - Spec 41: recovery specification and implementation, integrated after 40.
+- Spec 43: workspace permissions, ownership, invitations and durable project/account deletion in an isolated worktree; integration follows account controls (42).
 - Specs 47/48: conversation history/search and large-board behavior in an isolated worktree.
 - Spec 55: independent design research, new handoff and prototype.
 - Specs 42–54 and 34/35: remaining work coordinated in `execution-plan.md`.

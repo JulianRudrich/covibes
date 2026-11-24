@@ -54,7 +54,13 @@ const collab: Collab = createCollab({
   },
 });
 // Forwards what the worker announces (runs, agent messages, streamed text) to the live channels.
-const liveBridge = startLiveBridge({ adminPool: db.adminPool, admin: db.admin, live: realtime });
+const connections = projectConnections(realtime, collab);
+const liveBridge = startLiveBridge({
+  adminPool: db.adminPool,
+  admin: db.admin,
+  live: realtime,
+  connections,
+});
 
 const server = serve(
   {
@@ -70,7 +76,7 @@ const server = serve(
           giveTaskIds(projectId);
         },
       },
-      connections: projectConnections(realtime, collab),
+      connections,
       files: localStorage(env.FILES_DIR ?? defaultFilesDir()),
     }).fetch,
     port: env.PORT,

@@ -25,6 +25,7 @@ import { defaultFilesDir, localStorage } from '@server/storage/storage';
 import { releaseAbandonedJobs } from '@server/tasks/abandoned-jobs';
 import { AGENT_TURN_TASK, agentTurnTask } from '@server/tasks/agent-turn';
 import { AWAY_SUMMARY_TASK, awaySummaryTask } from '@server/tasks/away-summary';
+import { FILE_CLEANUP_TASK, fileCleanupTask } from '@server/tasks/file-cleanup';
 import { GIT_REQUEST_TASK, gitRequestTask } from '@server/tasks/git-request';
 import { GIT_SYNC_TASK, gitSyncTask } from '@server/tasks/git-sync';
 import { MR_REVIEW_TASK, mrReviewTask } from '@server/tasks/mr-review';
@@ -120,6 +121,7 @@ const runner = await run({
   // No scheduled jobs yet; without this the worker looks for a crontab file.
   parsedCronItems: [],
   taskList: {
+    [FILE_CLEANUP_TASK]: fileCleanupTask(admin, localStorage(env.FILES_DIR ?? defaultFilesDir())),
     [AGENT_TURN_TASK]: agentTurnTask({
       admin,
       boards,

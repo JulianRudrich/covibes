@@ -571,7 +571,10 @@
       "addLabel": "Add board"
     },
     "elementGone": "This element is no longer on the canvas.",
-    "ask": "Ask in the chat"
+    "ask": "Ask in the chat",
+    "showAll": "Show all",
+    "minimap": "Board overview",
+    "zoomLessThanOne": "Less than 1%"
   },
   "chat": {
     "messages": "Messages",
@@ -1531,5 +1534,22 @@
     "recoveryCode": "Recovery code",
     "useAuthenticator": "Use an authenticator code",
     "useRecovery": "Use a recovery code"
+  },
+  "conversation": {
+    "search": "Search project",
+    "searchLabel": "Messages, decisions, canvas and plan",
+    "searchFailed": "Search could not be loaded. Try again.",
+    "results": "{{count}} results",
+    "loadOlder": "Load older messages",
+    "loadFailed": "The message history could not be loaded. Try again.",
+    "context": "Viewing a message in history.",
+    "latest": "Back to latest messages",
+    "openReply": "Open the original message",
+    "kind": {
+      "message": "Message",
+      "decision": "Decision",
+      "block": "Canvas",
+      "plan": "Plan"
+    }
   }
 }

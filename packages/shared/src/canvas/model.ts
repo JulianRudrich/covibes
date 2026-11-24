@@ -362,6 +362,24 @@ export function moveNodes(
   moves: Iterable<readonly [string, Position]>,
   author: Author,
 ): void {
+  moveWithProvenance(doc, moves, author, true);
+}
+
+/** Live drag positions share the human undo origin but leave provenance for the final drop. */
+export function moveNodePositions(
+  doc: Y.Doc,
+  moves: Iterable<readonly [string, Position]>,
+  author: Author,
+): void {
+  moveWithProvenance(doc, moves, author, false);
+}
+
+function moveWithProvenance(
+  doc: Y.Doc,
+  moves: Iterable<readonly [string, Position]>,
+  author: Author,
+  attribute: boolean,
+): void {
   const targets = new Map(
     Array.from(moves, ([id, position]) => [id, positionSchema.parse(position)] as const),
   );
@@ -375,8 +393,10 @@ export function moveNodes(
       const fields = nodes.get(id);
       if (!fields) continue;
       const before = readPosition(fields);
-      fields.set('position', position);
-      stampChange(fields, changedBy, at);
+      if (!attribute && before && before.x === position.x && before.y === position.y) continue;
+      if (attribute || !before || before.x !== position.x || before.y !== position.y)
+        fields.set('position', position);
+      if (attribute) stampChange(fields, changedBy, at);
       if (fields.get('type') !== 'frame' || !before) continue;
 
       const dx = position.x - before.x;

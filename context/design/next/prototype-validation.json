@@ -1,0 +1,35 @@
+{
+  "artifact": "Signal Atlas independent prototype",
+  "applicationAcceptance": false,
+  "browser": "Chromium, headless",
+  "captureViewports": [
+    { "width": 1440, "height": 1000 },
+    { "width": 390, "height": 844 }
+  ],
+  "sweepWidths": [320, 390, 768, 1024, 1280, 1440, 1920],
+  "themes": ["light", "dark"],
+  "views": ["atlas", "decisions", "plan", "activity", "projects", "review", "settings"],
+  "documentHorizontalOverflow": false,
+  "javaScriptPageErrors": [],
+  "interactionChecksPassed": [
+    "view navigation",
+    "single drawer open and close",
+    "theme switching",
+    "command menu filtering",
+    "unsent chat draft retained after close",
+    "sent sample messages retained",
+    "proposal applied once with already-applied state",
+    "phone navigation",
+    "mobile drawer background inert",
+    "mobile drawer focus containment",
+    "Escape and opener focus restoration"
+  ],
+  "notEstablished": [
+    "screen reader conformance",
+    "whole-application accessibility",
+    "real backend and multiplayer behavior",
+    "authenticated provider flows",
+    "cross-browser parity",
+    "200 percent text enlargement"
+  ]
+}

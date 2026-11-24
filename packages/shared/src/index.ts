@@ -123,6 +123,7 @@ export {
   moveNode,
   newBlockType,
   moveNodes,
+  moveNodePositions,
   NOTE_SIZE,
   placeNodes,
   positionSchema,
@@ -704,3 +705,5 @@ export {
   type UsageSource,
   type UsageState,
 } from './usage';
+
+export * from './conversations';

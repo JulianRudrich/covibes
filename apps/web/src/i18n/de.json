@@ -571,7 +571,10 @@
       "addLabel": "Board hinzufügen"
     },
     "elementGone": "Dieses Element gibt es auf dem Canvas nicht mehr.",
-    "ask": "Im Chat fragen"
+    "ask": "Im Chat fragen",
+    "showAll": "Alles anzeigen",
+    "minimap": "Übersicht des Boards",
+    "zoomLessThanOne": "Unter 1 %"
   },
   "chat": {
     "messages": "Nachrichten",
@@ -1531,5 +1534,22 @@
     "recoveryCode": "Wiederherstellungscode",
     "useAuthenticator": "Authenticator-Code verwenden",
     "useRecovery": "Wiederherstellungscode verwenden"
+  },
+  "conversation": {
+    "search": "Projekt durchsuchen",
+    "searchLabel": "Nachrichten, Entscheidungen, Canvas und Plan",
+    "searchFailed": "Die Suche konnte nicht geladen werden. Versuche es erneut.",
+    "results": "{{count}} Ergebnisse",
+    "loadOlder": "Ältere Nachrichten laden",
+    "loadFailed": "Der Nachrichtenverlauf konnte nicht geladen werden. Versuche es erneut.",
+    "context": "Du siehst eine Nachricht aus dem Verlauf.",
+    "latest": "Zurück zu aktuellen Nachrichten",
+    "openReply": "Ursprüngliche Nachricht öffnen",
+    "kind": {
+      "message": "Nachricht",
+      "decision": "Entscheidung",
+      "block": "Canvas",
+      "plan": "Plan"
+    }
   }
 }

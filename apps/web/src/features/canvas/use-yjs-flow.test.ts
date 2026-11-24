@@ -2,6 +2,7 @@ import {
   addBlock,
   addEdge,
   addFrame,
+  getNodesMap,
   moveNode,
   placeNodes,
   readEdges,
@@ -104,6 +105,50 @@ describe('useYjsFlow', () => {
     });
     expect(storedPosition(doc)).toEqual({ x: 50, y: 60 });
     expect(readNodes(doc)[0]?.lastChangedBy).toEqual(SAM);
+  });
+
+  it('attributes a drag only when it ends and finalizes one left during a drag', () => {
+    const doc = docWithBlock();
+    let stamps = 0;
+    getNodesMap(doc)
+      .get(BLOCK_ID)
+      ?.observe((event) => {
+        if (event.keysChanged.has('lastChangedAt')) stamps++;
+      });
+    const { result, unmount } = renderHook(() => useYjsFlow(doc, options(SAM, false)));
+    act(() => {
+      result.current.onNodesChange([
+        { type: 'position', id: BLOCK_ID, position: { x: 10, y: 20 }, dragging: true },
+      ]);
+      vi.advanceTimersToNextFrame();
+    });
+    expect(storedPosition(doc)).toEqual({ x: 10, y: 20 });
+    expect(readNodes(doc)[0]?.lastChangedBy).toEqual(ME);
+    expect(stamps).toBe(0);
+    unmount();
+    expect(readNodes(doc)[0]?.lastChangedBy).toEqual(SAM);
+    expect(stamps).toBe(1);
+  });
+
+  it('does not accept a programmatic position change of a locked or locally edited node', () => {
+    const doc = docWithBlock();
+    const { result, rerender } = renderHook(
+      ({ lock, editing }) => useYjsFlow(doc, options(ME, false, lock, editing)),
+      { initialProps: { lock: SAM_EDITS_BLOCK, editing: null as string | null } },
+    );
+    act(() => {
+      result.current.onNodesChange([
+        { type: 'position', id: BLOCK_ID, position: { x: 50, y: 50 }, dragging: false },
+      ]);
+    });
+    expect(storedPosition(doc)).toEqual({ x: 0, y: 0 });
+    rerender({ lock: NO_LOCKS, editing: BLOCK_ID });
+    act(() => {
+      result.current.onNodesChange([
+        { type: 'position', id: BLOCK_ID, position: { x: 70, y: 70 }, dragging: false },
+      ]);
+    });
+    expect(storedPosition(doc)).toEqual({ x: 0, y: 0 });
   });
 
   it('does not let a remote move interrupt a drag in progress', () => {

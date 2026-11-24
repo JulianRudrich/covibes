@@ -40,6 +40,11 @@ type MessageListProps = {
   onStopDebate?: (debate: MessageDebate) => void;
   /** Leads to an element of the canvas a message refers to (spec 37a). */
   onOpenReference?: (reference: MessageReference) => void;
+  onLoadOlder?: () => Promise<void>;
+  hasOlder?: boolean;
+  loadingOlder?: boolean;
+  focusMessageId?: string;
+  onOpenMessage?: (messageId: string) => void;
 };
 
 function DayDivider({ label }: { label: string }) {
@@ -68,10 +73,17 @@ export function MessageList({
   moderatorNeutral,
   onStopDebate,
   onOpenReference,
+  onLoadOlder,
+  hasOlder = false,
+  loadingOlder = false,
+  focusMessageId,
+  onOpenMessage,
 }: MessageListProps) {
   const { t, i18n } = useTranslation();
   const scroller = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
+  const readingAnchor = useRef<{ height: number; top: number } | null>(null);
+  const focusedMessage = useRef<string | undefined>(undefined);
   const lastId = useRef<string | undefined>(undefined);
   // The messages of the first load, newest first: they rise staggered, later ones at once.
   const [firstLoad] = useState(() => items.map((item) => item.id).reverse());
@@ -85,11 +97,40 @@ export function MessageList({
       last.author.kind === 'human' &&
       last.author.userId === currentUserId;
     lastId.current = last?.id;
-    if (element && (atBottom.current || ownNewMessage)) {
+    if (element && readingAnchor.current) {
+      element.scrollTop =
+        readingAnchor.current.top + element.scrollHeight - readingAnchor.current.height;
+      readingAnchor.current = null;
+      atBottom.current = false;
+    } else if (element && (atBottom.current || ownNewMessage)) {
       element.scrollTop = element.scrollHeight;
       atBottom.current = true;
     }
   }, [items, currentUserId]);
+
+  useLayoutEffect(() => {
+    if (!focusMessageId) {
+      focusedMessage.current = undefined;
+      return;
+    }
+    if (focusedMessage.current === focusMessageId || !scroller.current) return;
+    const item = [...scroller.current.querySelectorAll<HTMLElement>('[data-message-id]')].find(
+      (element) => element.dataset.messageId === focusMessageId,
+    );
+    if (!item) return;
+    focusedMessage.current = focusMessageId;
+    atBottom.current = false;
+    item.scrollIntoView({ block: 'center' });
+    item.focus({ preventScroll: true });
+  }, [focusMessageId, items]);
+
+  function older() {
+    const element = scroller.current;
+    if (!element || !onLoadOlder || loadingOlder || !hasOlder) return;
+    readingAnchor.current = { height: element.scrollHeight, top: element.scrollTop };
+    atBottom.current = false;
+    void onLoadOlder();
+  }
 
   // The list gets shorter when something appears below it, e.g. a raised hand above the composer
   // (spec 15); a reader at the bottom stays there.
@@ -111,6 +152,7 @@ export function MessageList({
     if (!element) return;
     atBottom.current =
       element.scrollHeight - element.scrollTop - element.clientHeight < STICK_THRESHOLD_PX;
+    if (element.scrollTop <= STICK_THRESHOLD_PX) older();
   }
 
   if (items.length === 0) return empty;
@@ -119,6 +161,11 @@ export function MessageList({
   const byId = new Map(items.map((item) => [item.id, item]));
   return (
     <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto">
+      {hasOlder ? (
+        <button type="button" disabled={loadingOlder} onClick={older}>
+          {t(loadingOlder ? 'common.loading' : 'conversation.loadOlder')}
+        </button>
+      ) : null}
       {/* Few messages stand at the bottom, next to the composer (handoff "Chat"). */}
       <ol
         aria-label={t('chat.messages')}
@@ -142,7 +189,12 @@ export function MessageList({
                   }
                 />
               ) : null}
-              <li className="animate-rise" style={riseDelay(firstLoad.indexOf(item.id))}>
+              <li
+                data-message-id={item.id}
+                tabIndex={-1}
+                className="animate-rise"
+                style={riseDelay(firstLoad.indexOf(item.id))}
+              >
                 <ChatMessageView
                   item={item}
                   isOwn={isOwn}
@@ -156,6 +208,7 @@ export function MessageList({
                   moderatorNeutral={moderatorNeutral}
                   onStopDebate={onStopDebate}
                   onOpenReference={onOpenReference}
+                  onOpenMessage={onOpenMessage}
                 />
               </li>
             </Fragment>

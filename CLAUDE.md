@@ -2,6 +2,13 @@
 
 Covibes is a shared planning space made of chat and canvas. Teams (or individuals) work with specialized AI agents and a neutral AI moderator on the very foundation of a project: brainstorming, decisions, architecture and the project plan. **Covibes steers, coding agents build.**
 
+## Current owner instruction (2026-11-24)
+
+Implement the remaining functional specs in parallel, keeping each unit independently
+reviewable. Use the established Covibes Studio design for product screens and repository
+media. Its visual reference is `context/design/studio/` and its implementation guide
+is `context/ui-context.md`. The Signal Atlas experiment (spec 55) is closed.
+
 ## Read before every task, in this order
 
 1. `context/project-overview.md`: what we build and why
@@ -15,7 +22,7 @@ If one of these files does not exist yet, the decision behind it is still open. 
 
 Read as needed:
 - `context/dry-run.md`: the acceptance scenario for V1, a complete session with the expected behavior step by step
-- `context/design/`: design handoffs from Claude Design, the pixel-exact reference for UI work. Open the prototype (`*.dc.html`) with `support.js` next to it.
+- `context/design/studio/`: approved Studio visual reference. The main-screen handoff describes the original interaction patterns.
 
 ## Way of working
 

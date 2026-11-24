@@ -15,7 +15,7 @@ These rules apply to every coding agent working on Covibes, such as Claude Code,
 
 ## Scope
 
-- Each session works on **exactly one feature unit**. A new unit gets a new chat; fixes to the same unit stay in the same chat.
+- The owner authorized **all remaining feature units in this chat on 2026-11-17**, including parallel subagents. This replaces the earlier one-unit-per-chat restriction. Keep individual specs and validation, coordinate shared contracts, and integrate changes in dependency order.
 - Do not mix system boundaries. A backend API and its UI integration, for example, are separate units.
 - Implement the spec **exactly**. Nothing beyond it, no "improvements on the side".
 - Do not touch files outside the scope of the spec.

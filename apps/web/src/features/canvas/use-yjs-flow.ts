@@ -1,7 +1,6 @@
 import {
-  getEdgesMap,
-  getNodesMap,
   moveNodes,
+  moveNodePositions,
   placeNodes,
   readEdges,
   readNodes,
@@ -16,8 +15,10 @@ import {
   type EdgeChange,
   type NodeChange,
 } from '@xyflow/react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type * as Y from 'yjs';
+
+import { observeBoardProjection } from '@web/features/canvas/document-projection';
 
 import {
   toFlowEdges,
@@ -51,33 +52,41 @@ export function useYjsFlow(doc: Y.Doc, { author, readOnly, locks, editingId }: Y
     toFlowEdges(readEdges(doc), readNodes(doc)),
   );
 
+  const projection = useRef<ReturnType<typeof observeBoardProjection> | null>(null);
+
   useEffect(() => {
-    const nodesMap = getNodesMap(doc);
-    const edgesMap = getEdgesMap(doc);
-    const syncNodes = () => {
-      setNodes((previous) => toFlowNodes(readNodes(doc), previous, locksRef.current));
-    };
-    // Arrows follow the agent changes of their targets, so they also change with the nodes.
-    const syncEdges = () => {
-      setEdges((previous) => toFlowEdges(readEdges(doc), readNodes(doc), previous));
-    };
-    const syncAll = () => {
-      syncNodes();
-      syncEdges();
-    };
-    syncAll();
-    nodesMap.observeDeep(syncAll);
-    edgesMap.observeDeep(syncEdges);
+    const view = observeBoardProjection(
+      doc,
+      ({ nodes: snapshot, edges: arrows, changedNodes, changedEdges }) => {
+        setNodes((previous) => {
+          const next = toFlowNodes(snapshot, previous, locksRef.current, changedNodes);
+          return next.length === previous.length &&
+            next.every((node, index) => node === previous[index])
+            ? previous
+            : next;
+        });
+        setEdges((previous) => {
+          const next = toFlowEdges(arrows, snapshot, previous, changedEdges, changedNodes);
+          return next.length === previous.length &&
+            next.every((edge, index) => edge === previous[index])
+            ? previous
+            : next;
+        });
+      },
+    );
+    projection.current = view;
     return () => {
-      nodesMap.unobserveDeep(syncAll);
-      edgesMap.unobserveDeep(syncEdges);
+      view.stop();
+      projection.current = null;
     };
   }, [doc]);
 
   // Locks live in the awareness, not in the Y.Doc, so they are applied when they change.
   useEffect(() => {
     locksRef.current = locks;
-    setNodes((previous) => toFlowNodes(readNodes(doc), previous, locks));
+    setNodes((previous) =>
+      toFlowNodes(projection.current?.readNodes() ?? readNodes(doc), previous, locks),
+    );
   }, [doc, locks]);
 
   const lockedByOthers = useCallback((id: string) => {
@@ -87,6 +96,7 @@ export function useYjsFlow(doc: Y.Doc, { author, readOnly, locks, editingId }: Y
 
   const pending = useRef(new Map<string, Position>());
   const dropped = useRef(new Set<string>());
+  const dragging = useRef(new Set<string>());
   const frame = useRef<number | null>(null);
 
   const flush = useCallback(() => {
@@ -95,17 +105,35 @@ export function useYjsFlow(doc: Y.Doc, { author, readOnly, locks, editingId }: Y
     if (pending.current.size > 0) {
       const moves = [...pending.current];
       pending.current.clear();
-      moveNodes(doc, moves, author);
+      moveNodePositions(doc, moves, author);
     }
     if (dropped.current.size > 0) {
       const ids = [...dropped.current];
       dropped.current.clear();
+      const snapshot = new Map(
+        (projection.current?.readNodes() ?? readNodes(doc)).map((node) => [node.id, node]),
+      );
+      moveNodes(
+        doc,
+        ids.flatMap((id) => {
+          const node = snapshot.get(id);
+          return node ? [[id, node.position] as const] : [];
+        }),
+        author,
+      );
+      for (const id of ids) dragging.current.delete(id);
       placeNodes(doc, ids, author);
     }
   }, [doc, author]);
 
   // Nothing may stay unwritten when the board is left in the middle of a drag.
-  useEffect(() => flush, [flush]);
+  useLayoutEffect(
+    () => () => {
+      for (const id of dragging.current) dropped.current.add(id);
+      flush();
+    },
+    [flush],
+  );
 
   const onNodesChange = useCallback(
     (changes: NodeChange<CanvasFlowNode>[]) => {
@@ -123,7 +151,12 @@ export function useYjsFlow(doc: Y.Doc, { author, readOnly, locks, editingId }: Y
         ),
       );
       const allowed = changes.filter(
-        (change) => change.type !== 'remove' && !(readOnly && change.type === 'position'),
+        (change) =>
+          change.type !== 'remove' &&
+          !(
+            change.type === 'position' &&
+            (readOnly || lockedByOthers(change.id) || change.id === editingId)
+          ),
       );
       if (allowed.length === 0) return;
       setNodes((previous) => applyNodeChanges(allowed, previous));
@@ -132,6 +165,7 @@ export function useYjsFlow(doc: Y.Doc, { author, readOnly, locks, editingId }: Y
       for (const change of allowed) {
         if (change.type !== 'position' || resized.has(change.id)) continue;
         if (change.position) pending.current.set(change.id, change.position);
+        if (change.dragging) dragging.current.add(change.id);
         if (!change.dragging) {
           dragEnded = true;
           dropped.current.add(change.id);
@@ -142,7 +176,7 @@ export function useYjsFlow(doc: Y.Doc, { author, readOnly, locks, editingId }: Y
         frame.current = requestAnimationFrame(flush);
       }
     },
-    [doc, author, readOnly, flush, lockedByOthers],
+    [doc, author, readOnly, flush, lockedByOthers, editingId],
   );
 
   const onEdgesChange = useCallback(

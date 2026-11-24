@@ -1,119 +1,134 @@
+<div align="center">
+
+<img src="docs/media/covibes-cover.png" width="1200" alt="Covibes — shared project planning with people and AI">
+
 # Covibes
 
-Covibes is a shared planning space made of chat and canvas. Teams (or individuals) use it to plan the foundation of a project together with specialized AI agents and a neutral AI moderator: brainstorming, decisions, architecture and the project plan.
+Plan projects together in chat and on a shared canvas. Turn decisions into a versioned plan and hand it to your coding agent.
 
-Covibes runs its application services and database locally or on a self-hosted instance. AI features call Claude; GitLab and mail features use their configured external services. A self-hosted instance can be run with Docker (see [`deploy/README.md`](deploy/README.md)).
 
-## Requirements
+[Features](#features) · [Quickstart](#quickstart) · [Self-hosting](#self-hosting) · [Architecture](#architecture) · [Documentation](#documentation) · [Contributing](CONTRIBUTING.md)
 
-- Node.js 24 (see `.nvmrc`)
-- pnpm 12.6.0, as pinned in `packageManager` in `package.json`. Install it either way:
-  - `corepack enable` (once; on Windows as administrator)
-  - `npm i -g pnpm@12.6.0`
+</div>
 
-Nothing else is needed, not even Docker. Covibes brings its own database.
+> [!NOTE]
+> Covibes is in active development, with work underway toward an invitation-only beta.
+> The [progress tracker](context/progress-tracker.md) records completed work; the
+> [execution plan](context/execution-plan.md) tracks the remaining implementation and launch requirements.
 
-## Getting started
+## Features
+
+- **Think together.** Real-time chat, `@` mentions, a neutral moderator and specialist agents. Build a team from the catalog or create custom agents with their own instructions and knowledge.
+- **Make the structure visible.** Draw mind maps, architecture, data models, flows and roadmaps on a shared canvas, with blocks, connections, frames, sticky notes, presence and undo.
+- **Keep decisions traceable.** Set project criteria, compare alternatives, vote and keep the reasoning in a decision log. Review agent proposals before applying them.
+- **Build a plan that stays editable.** Collaborate on scope, milestones and tasks, keep versions, assign work and review proposed updates section by section.
+- **Hand over useful context.** Export plans as Markdown or PDF, diagrams as PNG, SVG or Mermaid, and a coding-agent package with context files and feature specs. The GitLab integration creates issues and package merge requests, reviews architecture and merges after explicit approval.
+- **Choose who can do what.** Owners, editors and viewers have distinct permissions. Repository writes require approval, and the interface supports English and German.
+
+### A shared workspace
+
+The conversation and canvas keep the team's ideas, questions and diagrams together.
+
+<img src="docs/media/workspace.png" width="1200" alt="Covibes workspace showing the project conversation beside its shared canvas">
+
+### From decisions to an implementation plan
+
+Turn the agreed direction into a versioned plan, milestones and a package for the coding agent.
+
+<img src="docs/media/plan.png" width="1200" alt="Covibes project plan with scope, milestones and implementation tasks">
+
+[Dark workspace](docs/media/workspace-dark.png) · [Mobile chat](docs/media/mobile.png) · [Download artwork and thumbnails](docs/media/README.md)
+
+## Quickstart
+
+Use **Node.js 24** ([`.nvmrc`](.nvmrc)) and **pnpm 12.6.0** ([`package.json`](package.json)).
+If pnpm is not installed, run `npm install --global pnpm@12.6.0`, or use Corepack to activate the pinned version.
 
 ```bash
-pnpm install
+git clone https://github.com/JulianRudrich/covibes.git
+cd covibes
+pnpm install --frozen-lockfile
+```
+
+Before starting, set `ANTHROPIC_API_KEY` in `apps/server/.env.local` for the built-in agents.
+See [`apps/server/.env.example`](apps/server/.env.example) for the available settings.
+The development launcher creates the local database credentials and service secrets automatically.
+
+```bash
 pnpm dev
 ```
 
-`pnpm dev` starts, in this order:
+Open **http://localhost:5173**. Request a sign-in link and open it from the
+development mailbox at **http://localhost:5173/dev/mails**, then create a project.
 
-1. the database (PostgreSQL 18) including migrations
-2. the server
-3. the worker, which runs the agents
-4. the web app
+`pnpm dev` starts PostgreSQL 18, applies migrations and launches the API, agent worker and web app.
+The database binaries are included; Docker is optional for local development. Stop everything with
+**Ctrl+C**. Project data is kept in `.data/` between starts.
 
-Ctrl+C stops everything; the data is kept. The very first start creates the database, which takes about ten seconds.
+For local ports, database access, backups and troubleshooting, see the
+[development guide](CONTRIBUTING.md#local-development).
 
-| What | Address |
-|---|---|
-| Web app | http://localhost:5173 |
-| Login mails (development mailbox) | http://localhost:5173/dev/mails |
-| Server | http://localhost:3001, from the browser via http://localhost:5173/api |
-| Database | `127.0.0.1:54320`, database `covibes` |
+## Self-hosting
 
-## Local development
+The [Docker deployment guide](deploy/README.md) covers the application, worker, PostgreSQL,
+HTTPS, email, OAuth and backups. It includes a [Compose setup](deploy/compose.yaml) and
+[environment template](deploy/.env.example).
 
-### How it works
+Application data is stored on the instance in PostgreSQL and the uploaded-file storage.
+AI requests send the context needed for the task to the configured provider; GitLab and email
+use their configured external services. Review those services and the deployment settings
+before inviting a team.
 
-- **Database:** a regular PostgreSQL 18. The npm package `embedded-postgres` provides the binaries, and `pnpm dev` runs them as a separate process.
-  - Data lives in `.data/postgres`.
-  - Passwords are generated randomly per machine on the first start and stored in `.data/local-secrets.json`.
-  - The `.data/` folder is never committed.
-- **Login:** by a link sent via email. Locally no mail is sent; it ends up in the development mailbox at `/dev/mails`, which only exists in development mode.
-- **Agents:** the worker calls Claude through the Claude Agent SDK. Locally it uses the Claude Code login on this machine, so the agents run on your Claude subscription. Without a login it does not start and says why: run `claude`, then `/login`, or set `ANTHROPIC_API_KEY` in `apps/server/.env.local`.
-- **This machine only:** database, server and web app are only reachable locally (`127.0.0.1` or `localhost`). If Windows asks whether `node.exe` or `postgres.exe` may access the network, **decline**.
+## Architecture
 
-### Settings
-
-Nothing has to be configured for local development. `pnpm dev` passes the database addresses, the session secret and the internal token to server and worker.
-
-Optional values, for example for signing in with GitLab, are documented in `apps/server/.env.example`. They go into `apps/server/.env.local`, which is never committed.
-
-### Inspecting the database
-
-Any PostgreSQL client works, for example pgAdmin or DBeaver:
-
-- host `127.0.0.1`
-- port `54320`
-- database `covibes`
-- user `covibes_admin`
-- password: see `.data/local-secrets.json`
-
-This only works while `pnpm dev` is running.
-
-### Backup and reset
-
-These three commands only work while `pnpm dev` is stopped.
-
-- `pnpm db:backup` copies the database including its passwords to `backups/<timestamp>/`. The folder is never committed; copy backups to another device regularly.
-- `pnpm db:restore` restores the latest backup, `pnpm db:restore backups/<timestamp>` a specific one.
-- `pnpm db:reset` starts over with an empty database.
-
-**`db:restore` and `db:reset` replace all local data.** Both ask for confirmation and create a backup first. Deleting the `.data/` folder also deletes the data, without asking.
-
-### Troubleshooting
-
-- **`The local database is running`:** `pnpm dev` is still running. Stop it with Ctrl+C and repeat the command.
-- **Port 54320, 3001 or 5173 in use:** usually `pnpm dev` is still running in another terminal.
-- **`PostgreSQL did not start`:** the message shows the last lines of `.data/postgres.log`, which name the cause.
-- **Terminal closed without stopping `pnpm dev`:** no problem. The next `pnpm dev` stops a leftover database cleanly first.
-
-## Commands
-
-| Command | Purpose |
-|---|---|
-| `pnpm dev` | start database, server, worker and web app |
-| `pnpm build` | production build of all apps |
-| `pnpm lint` | ESLint |
-| `pnpm typecheck` | TypeScript check of all packages |
-| `pnpm test` | tests (Vitest); database tests start their own temporary database |
-| `pnpm audit --prod --audit-level high` | audit production dependencies; fail on high or critical advisories |
-| `pnpm format` / `pnpm format:check` | Prettier |
-| `pnpm db:migration <name>` | create a new migration in `packages/db/migrations` |
-| `pnpm db:migrate` | apply migrations without starting server and web app |
-| `pnpm db:types` / `db:types:check` | generate or verify TypeScript types from the migrations |
-| `pnpm db:backup` / `db:restore` / `db:reset` | back up, restore or reset local data |
-
-CI runs these checks, a production build and the production dependency audit on
-pull requests and pushes to `main` and `spec/**`. A separate dependency audit runs
-weekly and can also be started manually in GitHub Actions. See
-`context/code-standards.md` for the dependency update policy.
-
-## Structure
-
-```
-apps/web         React app (Vite)
-apps/server      Covibes server (Hono): login, API, live channel, collaboration; worker for the agents
-packages/db      migrations, local database, database tests
-packages/shared  shared types, schemas and helpers
-scripts/         start script for `pnpm dev`
-deploy/          Docker Compose setup for a self-hosted instance
-context/         planning: overview, architecture, standards, design, feature specs
+```mermaid
+flowchart LR
+    Browser["React web app"] -->|"API + WebSockets"| Server["Hono server"]
+    Server -->|"Sessions, project data, Yjs documents"| Database["PostgreSQL 18 + RLS"]
+    Server -->|"Uploads"| Files["File storage"]
+    Database -->|"Queued jobs"| Worker["Graphile Worker"]
+    Worker -->|"Canvas and plan updates"| Server
+    Worker -->|"Model requests"| Claude["Claude"]
+    Worker -->|"Approved repository writes"| GitLab["GitLab"]
 ```
 
-The way of working is described in `CLAUDE.md` and `context/`. Work proceeds unit by unit along the feature specs in `context/feature-specs/`.
+The browser uses the Covibes API; credentials and provider calls belong to the server and worker.
+Yjs and Hocuspocus synchronize boards and plans. PostgreSQL row-level security enforces project
+access alongside the API's role checks.
+
+| Path | Responsibility |
+| --- | --- |
+| [`apps/web`](apps/web) | React, Vite, TanStack Router/Query, React Flow and Tiptap |
+| [`apps/server`](apps/server) | Hono API, Better Auth, live collaboration, agents, job worker and integrations |
+| [`packages/db`](packages/db) | SQL migrations, RLS, local PostgreSQL, generated database types and database tests |
+| [`packages/shared`](packages/shared) | Shared schemas, types, canvas and plan models, exports and coding packages |
+| [`scripts`](scripts) | Development launcher and tooling |
+| [`deploy`](deploy) | Docker deployment and operator documentation |
+| [`context`](context) | Product decisions, architecture, feature specs and implementation status |
+
+See the [architecture document](context/architecture.md) for system boundaries and data flows,
+and the package manifests for the installed dependencies.
+
+## Documentation
+
+| Start here | What you will find |
+| --- | --- |
+| [Development and contributions](CONTRIBUTING.md) | Setup, checks, local data, migrations and the change workflow |
+| [Deployment](deploy/README.md) | Run and maintain a private instance |
+| [Product overview](context/project-overview.md) | Goals, concepts and product rules |
+| [Architecture](context/architecture.md) | Components, responsibilities and invariants |
+| [Feature specs](context/feature-specs/00-overview.md) | The implementation map and detailed units of work |
+| [Progress tracker](context/progress-tracker.md) | Completed work, decisions and outstanding questions |
+| [Execution plan](context/execution-plan.md) | Remaining work and launch dependencies |
+| [Code standards](context/code-standards.md) | Conventions, dependency policy and required checks |
+
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before starting a change. Use
+[issues](https://github.com/JulianRudrich/covibes/issues) for reproducible bug reports and scoped proposals,
+and the [CI workflow](https://github.com/JulianRudrich/covibes/actions/workflows/ci.yml) to inspect automated checks.
+
+## License
+
+A distribution license has not yet been selected. See the source-license decision in the
+[progress tracker](context/progress-tracker.md#open-decisions). No open-source license is currently granted.

@@ -43,6 +43,7 @@ import {
   Background,
   BackgroundVariant,
   ReactFlow,
+  MiniMap,
   ReactFlowProvider,
   useReactFlow,
   useStore,
@@ -93,7 +94,7 @@ import { useLiveCursors } from '@web/features/canvas/use-live-cursors';
 import { useNodeLocks } from '@web/features/canvas/use-node-locks';
 import { useUndo } from '@web/features/canvas/use-undo';
 import { useYjsFlow } from '@web/features/canvas/use-yjs-flow';
-import { ZOOM_MAX, ZOOM_MIN } from '@web/features/canvas/zoom';
+import { FIT_BOARD_OPTIONS, ZOOM_MAX, ZOOM_MIN } from '@web/features/canvas/zoom';
 import { boardImage, NO_EXPORT } from '@web/features/export/board-image';
 import { downloadBlob, downloadText } from '@web/features/export/download';
 import { ExportMenu, type ExportOption } from '@web/features/export/export-menu';
@@ -324,6 +325,7 @@ function Board({
 
   // An element asked for in the address comes into view once it is on the board.
   const { setCenter } = useReactFlow();
+  const initialFit = useRef(!focusId).current;
   const paneWidth = useStore((state) => state.width);
   const paneHeight = useStore((state) => state.height);
   const focused = useRef<string | null>(null);
@@ -394,7 +396,12 @@ function Board({
   );
 
   // Arrows are anchored from where the blocks are right now, also while one is dragged here.
-  const shownEdges = useMemo(() => edgesWithGeometry(nodes, edges, rects), [nodes, edges, rects]);
+  const previousShownEdges = useRef<ReturnType<typeof edgesWithGeometry>>([]);
+  const shownEdges = useMemo(() => {
+    const next = edgesWithGeometry(nodes, edges, rects, previousShownEdges.current);
+    previousShownEdges.current = next;
+    return next;
+  }, [nodes, edges, rects]);
 
   const lockedByOthers = useCallback(
     (id: string) => {
@@ -754,6 +761,8 @@ function Board({
         minZoom={ZOOM_MIN}
         maxZoom={ZOOM_MAX}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+        fitView={initialFit}
+        fitViewOptions={FIT_BOARD_OPTIONS}
       >
         <Background
           variant={BackgroundVariant.Dots}
@@ -762,6 +771,7 @@ function Board({
           color="var(--color-canvas-dot)"
           bgColor="var(--color-bg-canvas)"
         />
+        <MiniMap pannable zoomable ariaLabel={t('canvas.minimap')} />
         <ViewportPortal>
           {/* Proposals and the cursors of others are no part of the board: an image leaves them out. */}
           <div className="contents" {...{ [NO_EXPORT]: '' }}>

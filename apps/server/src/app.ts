@@ -22,6 +22,8 @@ import {
 } from '@server/api/invitations';
 import { debateRoutes, handRoutes, offerRoutes, voteRoutes } from '@server/api/hands';
 import { messageRoutes } from '@server/api/messages';
+import { messageHistoryRoutes } from '@server/api/message-history';
+import { projectSearchRoutes } from '@server/api/project-search';
 import { notificationRoutes } from '@server/api/notifications';
 import { gitAccountRoutes, gitCallback, gitRoutes, type GitDeps } from '@server/api/git';
 import { GIT_WEBHOOK_PATH, gitWebhook, WEBHOOK_CALLS_PER_MINUTE } from '@server/api/git-sync';
@@ -204,6 +206,8 @@ export function createApp({
     '/api/projects/:projectId/messages',
     messageRoutes(db.app, auth, live, messageLimiter, (boardId) => documents.readBoard(boardId)),
   );
+  app.route('/api/projects/:projectId/message-history', messageHistoryRoutes(db.app, auth));
+  app.route('/api/projects/:projectId/search', projectSearchRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/runs', runRoutes(db.app, auth));
   const uploadLimiter = createRateLimiter({ limit: UPLOADS_PER_MINUTE, windowMs: 60_000 });
   app.route('/api/projects/:projectId/files', fileRoutes(db.app, auth, files, uploadLimiter));

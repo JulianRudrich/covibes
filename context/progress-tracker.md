@@ -1,6 +1,8 @@
 # Progress Tracker
 
 ## Current phase
+**Owner direction (2026-11-24):** Continue the remaining functional specs using Covibes Studio. Use real Studio screens for repository media. The Signal Atlas prototype is archived.
+
 **M8 rework (started 2026-11-16): spec 39 is implemented and validated on its branch.** Dependency security and CI are ready; the final delivery check is green CI on the squash commit on `main`. The earlier milestone summaries below remain the history.
 
 **M6 completed (2026-10-10): the result reaches the repository.** Covibes connects GitLab per person and per project, agents read the repository, and everything that changes it is a request that waits for approval: issues from the plan, the plan package as a merge request, merging, and the review of a merge request as a comment. Covibes reads the status of the tasks from the repository and reviews merge requests against the architecture. A real GitLab was not used yet; the development stand-in answered (to be checked with spec 35 at the latest).
@@ -11,7 +13,8 @@
 Continue M8 with spec 41: safe recovery of interrupted work. Spec 40 is implemented and validated locally with atomic AI reservations and durable accounting for every invocation. The remaining rework precedes launch preparation (35) and acceptance (34).
 
 ## In progress
-None in this branch. Spec 41 is the next integration step.
+- Specs 41–46 and 49–54 are in development. Specs 47 and 48 are integrated on main.
+- Spec 49 preserves the Covibes Studio interface.
 
 ## Done
 - [x] **Spec 40, trustworthy AI budgets (2026-11-18):** atomic project/person/instance reservations, the default 20 USD instance month, per-invocation attempt records including intent, final and partial failure/cancellation usage, cumulative retry accounting, a deduplicated 80-percent operator warning, and explicit admin reconciliation of uncertain work. Lint, types, formatting, database type verification and both builds pass; all 933 server tests and 17 database usage/migration tests pass. No new visual design or dependency was introduced. The SDK cap remains soft and unknown work retains its reservation; details and the local validation scope are in spec 40.
@@ -435,6 +438,7 @@ None in this branch. Spec 41 is the next integration step.
 - **Monetization:** the owner plans to sell Covibes once it is open to other users. Open: from when users pay and how (subscription, pricing, payment provider). `project-overview.md` currently says: V1 free, subscription later.
 
 ## Decisions
+- **Full implementation and new design (2026-11-17, owner):** all remaining specs are authorized in this chat. A designer team researches leading repositories and webapps across current and previous weeks and the previous month, then creates a unique modern design without using the existing Covibes design. This supersedes the one-unit-per-chat rule and the old design handoffs. External credentials, domain, operator/legal facts and live hosting still require real configuration; source implementation does not establish a public launch.
 - **Rework** (2026-11-16, owner): a targeted rework instead of a new start. The stack stays; sign-in with workspaces, the AI gateway, a connector for own assistants, GitHub and the product core are rebuilt, the security updates first (M8, specs 39 to 54). The direction: a hosted web app first, with an optional local companion.
 - **GitHub first** (2026-11-16, owner): GitHub becomes the first Git platform, connected as a GitHub App; GitLab stays as the second one behind the same interface. This replaces "GitLab first, then GitHub" in `project-overview.md`, which spec 46 updates.
 - **Paying for the AI in the beta** (2026-11-16, owner): three ways side by side. A workspace's own API key pays the built-in agents; the credit of the instance is the reserve for testers without a key; and a connector lets a person work in a project with their own assistant on their own plan. Checked on 2026-11-16 in the providers' documentation: Anthropic does not allow products to offer the Claude login or the limits of a subscription to their users without approval, so the built-in agents never run on a user's Claude subscription; Claude takes custom connectors on every plan.

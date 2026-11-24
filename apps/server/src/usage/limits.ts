@@ -14,6 +14,10 @@ import { GatewayLimitError } from '@server/ai-gateway/types';
  * and meant against abuse (owner decision, 2026-10-10); 0 switches a limit off.
  */
 export const usageLimitsEnv = {
+  /** What the instance may cost in a UTC month; the closed-beta reserve. */
+  AI_LIMIT_INSTANCE_MONTH_USD: z.coerce.number().min(0).max(1_000_000).default(20),
+  /** Conservative reservation per provider invocation; production must explicitly set it. */
+  AI_MAX_CALL_USD: z.coerce.number().min(0).max(1_000_000).optional(),
   /** What one project may cost in a calendar month, in USD. */
   AI_LIMIT_PROJECT_MONTH_USD: z.coerce.number().min(0).max(1_000_000).default(100),
   /** What one person may cost in a day across all projects, in USD. */
@@ -21,13 +25,22 @@ export const usageLimitsEnv = {
 };
 
 /** The limits in USD; 0 means none. */
-export type UsageLimits = { projectMonthUsd: number; userDayUsd: number };
+export type UsageLimits = {
+  projectMonthUsd: number;
+  userDayUsd: number;
+  instanceMonthUsd?: number;
+};
 
 export function usageLimitsOf(env: {
   AI_LIMIT_PROJECT_MONTH_USD: number;
   AI_LIMIT_USER_DAY_USD: number;
+  AI_LIMIT_INSTANCE_MONTH_USD?: number;
 }): UsageLimits {
-  return { projectMonthUsd: env.AI_LIMIT_PROJECT_MONTH_USD, userDayUsd: env.AI_LIMIT_USER_DAY_USD };
+  return {
+    projectMonthUsd: env.AI_LIMIT_PROJECT_MONTH_USD,
+    userDayUsd: env.AI_LIMIT_USER_DAY_USD,
+    instanceMonthUsd: env.AI_LIMIT_INSTANCE_MONTH_USD ?? 20,
+  };
 }
 
 /** No limits at all, e.g. for a job in a test. */
@@ -57,7 +70,11 @@ export function usagePeriods(now: Date): {
 }
 
 /** What counts toward the limits, in USD. */
-export type UsageTotals = { projectMonthUsd: number; userDayUsd: number };
+export type UsageTotals = {
+  projectMonthUsd: number;
+  userDayUsd: number;
+  instanceMonthUsd?: number;
+};
 
 /**
  * What a project cost in the month of `now`, and what a person cost on its day across all
@@ -68,7 +85,7 @@ export async function loadUsageTotals(
   who: { projectId: string; userId: string | null },
   now: Date,
 ): Promise<UsageTotals> {
-  const { day, monthStart } = usagePeriods(now);
+  const { day, monthStart, monthEnds } = usagePeriods(now);
   const cost = sql<string>`coalesce(sum(cost_usd), 0)`.as('cost');
   // The days as text with a cast: a date must not pass through a time zone on its way.
   const [project, user] = await Promise.all([
@@ -77,6 +94,7 @@ export async function loadUsageTotals(
       .select(cost)
       .where('project_id', '=', who.projectId)
       .where('day', '>=', sql<Date>`${monthStart}::date`)
+      .where('day', '<', sql<Date>`${monthEnds}::date`)
       .executeTakeFirstOrThrow(),
     who.userId === null
       ? undefined
@@ -90,8 +108,19 @@ export async function loadUsageTotals(
   return { projectMonthUsd: Number(project.cost), userDayUsd: Number(user?.cost ?? 0) };
 }
 
+/** Operator aggregate, read only by the worker or an already authorized HTTP state reader. */
+export async function loadInstanceUsageTotal(admin: Kysely<DB>, now: Date): Promise<number> {
+  const { monthStart, monthEnds } = usagePeriods(now);
+  const totals = await sql<{ total: string }>`select
+    (select coalesce(sum(cost_usd), 0) from public.usage
+      where day >= ${monthStart}::date and day < ${monthEnds}::date)
+    + (select coalesce(sum(hold_usd), 0) from public.ai_attempts
+      where hold_usd > 0 and budget_month = ${monthStart}::date) as total`.execute(admin);
+  return Number(totals.rows[0]?.total ?? 0);
+}
+
 /** Which limit: the project's month, or the person's day. */
-export type UsageLimitScope = 'project' | 'user';
+export type UsageLimitScope = 'project' | 'user' | 'instance';
 
 /**
  * A limit of the AI is reached. It is a used-up quota like the provider's, so every job that
@@ -105,9 +134,11 @@ export class UsageLimitError extends GatewayLimitError {
     resetsAt: Date,
   ) {
     super(
-      scope === 'project'
-        ? 'The AI limit of the project is reached for this month'
-        : 'The AI limit of the person is reached for today',
+      scope === 'instance'
+        ? 'The instance AI limit is reached for this month'
+        : scope === 'project'
+          ? 'The AI limit of the project is reached for this month'
+          : 'The AI limit of the person is reached for today',
       resetsAt,
     );
   }
@@ -119,6 +150,20 @@ export function usageStateOf(limits: UsageLimits, totals: UsageTotals, now: Date
   const project = limits.projectMonthUsd > 0 && totals.projectMonthUsd >= limits.projectMonthUsd;
   const user = limits.userDayUsd > 0 && totals.userDayUsd >= limits.userDayUsd;
   return {
+    ...(limits.instanceMonthUsd === undefined
+      ? {}
+      : {
+          instance: {
+            reached:
+              limits.instanceMonthUsd > 0 &&
+              (totals.instanceMonthUsd ?? 0) >= limits.instanceMonthUsd,
+            resetsAt:
+              limits.instanceMonthUsd > 0 &&
+              (totals.instanceMonthUsd ?? 0) >= limits.instanceMonthUsd
+                ? monthEnds.toISOString()
+                : null,
+          },
+        }),
     project: { reached: project, resetsAt: project ? monthEnds.toISOString() : null },
     user: { reached: user, resetsAt: user ? dayEnds.toISOString() : null },
   };
@@ -137,10 +182,20 @@ export function usageGuard(
   now: () => Date = () => new Date(),
 ): UsageGuard {
   return async (who) => {
-    if (limits.projectMonthUsd <= 0 && limits.userDayUsd <= 0) return;
+    if (
+      limits.projectMonthUsd <= 0 &&
+      limits.userDayUsd <= 0 &&
+      (limits.instanceMonthUsd ?? 0) <= 0
+    )
+      return;
     const at = now();
-    const state = usageStateOf(limits, await loadUsageTotals(admin, who, at), at);
+    const totals = await loadUsageTotals(admin, who, at);
+    if (limits.instanceMonthUsd !== undefined) {
+      totals.instanceMonthUsd = await loadInstanceUsageTotal(admin, at);
+    }
+    const state = usageStateOf(limits, totals, at);
     const periods = usagePeriods(at);
+    if (state.instance?.reached) throw new UsageLimitError('instance', periods.monthEnds);
     if (state.project.reached) throw new UsageLimitError('project', periods.monthEnds);
     if (state.user.reached) throw new UsageLimitError('user', periods.dayEnds);
   };

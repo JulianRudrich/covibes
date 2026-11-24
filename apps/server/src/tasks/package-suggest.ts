@@ -12,7 +12,7 @@ import { z } from 'zod';
 
 import { MODERATOR } from '@server/agents/catalog';
 import { loadPrompt } from '@server/agents/prompts';
-import type { AgentReplyResult } from '@server/ai-gateway';
+import type { AgentReplyResult, CompleteRequest } from '@server/ai-gateway';
 import { encodePlanFailure } from '@server/plan/failure';
 import { readStoredPlan } from '@server/plan/stored-plan';
 import { notifyLive } from '@server/realtime/notifications';
@@ -37,12 +37,7 @@ export type PackageSuggestDeps = {
   /** Role covibes_admin: the worker reads the project and writes the suggestion. */
   admin: Kysely<DB>;
   /** The gateway's `completeText`; tests pass a scripted model. */
-  complete: (request: {
-    model: string;
-    system: string;
-    prompt: string;
-    signal?: AbortSignal;
-  }) => Promise<AgentReplyResult>;
+  complete: (request: CompleteRequest) => Promise<AgentReplyResult>;
   /** Checks the limits of the AI before the model call (spec 31a); without it nothing is limited. */
   limits?: UsageGuard;
   logger: { error: (message: string) => void };
@@ -169,6 +164,7 @@ export async function suggestPackageText(
 
     await deps.limits?.({ projectId, userId: run.user_id });
     const result = await deps.complete({
+      billing: { runId, purpose: 'package-suggest' },
       model: model ?? MODERATOR.model,
       system: PROMPTS[kind],
       prompt: buildPackageTextPrompt({

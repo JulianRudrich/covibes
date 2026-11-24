@@ -51,7 +51,7 @@ import type { LivePublisher } from '@server/realtime/realtime';
 import { createRateLimiter } from '@server/rate-limit';
 import type { FileStorage } from '@server/storage/storage';
 import { sameSecret } from '@server/secrets';
-import { usageLimitsOf } from '@server/usage/limits';
+import { loadInstanceUsageTotal, usageLimitsOf } from '@server/usage/limits';
 import { securityHeaders, serveWebApp } from '@server/web-app';
 
 /** A mail the worker hands to the development mailbox. */
@@ -224,7 +224,12 @@ export function createApp({
   app.route('/api/projects/:projectId/plan', planRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/roadmap', roadmapRoutes(db.app, auth, live, documents));
   // Whether a limit of the AI is reached (spec 31a).
-  app.route('/api/projects/:projectId/usage', usageRoutes(db.app, auth, usageLimitsOf(env)));
+  app.route(
+    '/api/projects/:projectId/usage',
+    usageRoutes(db.app, auth, usageLimitsOf(env), undefined, (at) =>
+      loadInstanceUsageTotal(db.admin, at),
+    ),
+  );
   app.route('/api/projects/:projectId/package', packageRoutes(db.app, auth, live, documents));
   app.route(
     '/api/projects/:projectId/git',

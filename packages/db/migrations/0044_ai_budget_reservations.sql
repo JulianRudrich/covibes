@@ -117,10 +117,37 @@ end;
 $$;
 
 
--- Members can read limit state, never other projects' or the instance's actual amounts.
+-- Reuse the original BEFORE DELETE trigger; adding another copying trigger would double usage.
+create or replace function private.keep_usage_of_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.usage (
+    day, project_id, user_id, agent_key, kind, model, runs, input_tokens, output_tokens, cost_usd
+  )
+  select
+    u.day, u.project_id, null, u.agent_key, u.kind, u.model,
+    u.runs, u.input_tokens, u.output_tokens, u.cost_usd
+  from public.usage u
+  where u.user_id = old.id
+  on conflict (day, project_id, user_id, agent_key, kind, model) do update
+    set runs = public.usage.runs + excluded.runs,
+        input_tokens = public.usage.input_tokens + excluded.input_tokens,
+        output_tokens = public.usage.output_tokens + excluded.output_tokens,
+        cost_usd = public.usage.cost_usd + excluded.cost_usd;
+  -- Remove the old buckets in this same deletion statement; the FK cascade has nothing left.
+  delete from public.usage where user_id = old.id;
+  return old;
+end;
+$$;
+
+-- Members read only their project/person totals; the operator aggregate stays admin-only.
 drop function public.usage_totals(uuid);
 create function public.usage_totals(p_project_id uuid)
-returns table (project_month numeric, user_day numeric, instance_month numeric)
+returns table (project_month numeric, user_day numeric)
 language plpgsql stable security definer set search_path = '' as $$
 declare
   v_user uuid := private.current_user_id();
@@ -138,10 +165,7 @@ begin
     (select coalesce(sum(u.cost_usd), 0) from public.usage u
       where u.user_id = v_user and u.day = v_day)
       + (select coalesce(sum(a.hold_usd), 0) from public.ai_attempts a
-         where a.hold_usd > 0 and a.user_id = v_user and a.budget_day = v_day),
-    (select coalesce(sum(u.cost_usd), 0) from public.usage u where u.day >= v_month and u.day < (v_month + interval '1 month'))
-      + (select coalesce(sum(a.hold_usd), 0) from public.ai_attempts a
-         where a.hold_usd > 0 and a.budget_month = v_month);
+         where a.hold_usd > 0 and a.user_id = v_user and a.budget_day = v_day);
 end;
 $$;
 revoke all on function public.usage_totals(uuid) from public;

@@ -108,6 +108,17 @@ export async function loadUsageTotals(
   return { projectMonthUsd: Number(project.cost), userDayUsd: Number(user?.cost ?? 0) };
 }
 
+/** Operator aggregate, read only by the worker or an already authorized HTTP state reader. */
+export async function loadInstanceUsageTotal(admin: Kysely<DB>, now: Date): Promise<number> {
+  const { monthStart, monthEnds } = usagePeriods(now);
+  const totals = await sql<{ total: string }>`select
+    (select coalesce(sum(cost_usd), 0) from public.usage
+      where day >= ${monthStart}::date and day < ${monthEnds}::date)
+    + (select coalesce(sum(hold_usd), 0) from public.ai_attempts
+      where hold_usd > 0 and budget_month = ${monthStart}::date) as total`.execute(admin);
+  return Number(totals.rows[0]?.total ?? 0);
+}
+
 /** Which limit: the project's month, or the person's day. */
 export type UsageLimitScope = 'project' | 'user' | 'instance';
 
@@ -180,14 +191,7 @@ export function usageGuard(
     const at = now();
     const totals = await loadUsageTotals(admin, who, at);
     if (limits.instanceMonthUsd !== undefined) {
-      const { monthStart, monthEnds } = usagePeriods(at);
-      const instance = await admin
-        .selectFrom('usage')
-        .select(sql<string>`coalesce(sum(cost_usd), 0)`.as('cost'))
-        .where('day', '>=', sql<Date>`${monthStart}::date`)
-        .where('day', '<', sql<Date>`${monthEnds}::date`)
-        .executeTakeFirstOrThrow();
-      totals.instanceMonthUsd = Number(instance.cost);
+      totals.instanceMonthUsd = await loadInstanceUsageTotal(admin, at);
     }
     const state = usageStateOf(limits, totals, at);
     const periods = usagePeriods(at);

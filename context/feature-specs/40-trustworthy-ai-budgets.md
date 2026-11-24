@@ -107,3 +107,14 @@ operator once when 80 percent is committed. This implements review findings R04 
 - The SDK still cannot guarantee the final provider invoice. Abrupt process death can leave no
   durable partial usage report, so the reservation remains rather than being silently refunded.
   Workspace-owned keys and stronger direct-API bounds belong to spec 44.
+
+### Deletion and aggregate privacy review (2026-11-19)
+- Account deletion reuses the existing usage-preservation trigger and atomically
+  merges person buckets into anonymous buckets. Existing anonymous usage and late
+  settlement remain chargeable after project/account deletion. User row locks
+  precede budget/attempt locks to avoid a concurrent deletion deadlock.
+- The application database role receives project/person totals only. The server
+  checks membership before reading the operator aggregate and exposes only the
+  coarse instance pause/reset state over HTTP.
+- The review passed 46 focused server tests, the database usage suite, server
+  types, changed-file lint, formatting and generated database type verification.

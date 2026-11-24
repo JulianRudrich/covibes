@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { describe, expect, it, vi } from 'vitest';
+import { sql } from 'kysely';
 
 import {
   GatewayConfigError,
@@ -212,6 +213,154 @@ describe('atomic AI budget admission (spec 40)', () => {
     await expect(
       reserveAttempt(test.db.admin, request, { ...unlimited, projectMonthUsd: 0.6 }, now),
     ).resolves.toHaveProperty('id');
+  });
+
+  it('keeps instance spending when an account is deleted and a pending attempt settles later', async () => {
+    const now = nextPeriod();
+    const request = await run();
+    const remainingOwner = await run();
+    const settled = await reserveAttempt(test.db.admin, request, unlimited, now);
+    const pending = await reserveAttempt(test.db.admin, request, unlimited, now);
+    await settleAttempt(test.db.admin, settled.id, 'succeeded', result(0.3));
+    await test.db.admin
+      .insertInto('usage')
+      .values({
+        day: now,
+        project_id: request.projectId,
+        user_id: null,
+        agent_key: 'moderator',
+        kind: 'reply',
+        model: request.model,
+        cost_usd: '0.2',
+        runs: 2,
+        input_tokens: 40,
+        output_tokens: 20,
+      })
+      .execute();
+
+    await test.db.admin.deleteFrom('projects').where('id', '=', request.projectId).execute();
+    const retained = await test.db.admin
+      .selectFrom('usage')
+      .selectAll()
+      .where('project_id', '=', request.projectId)
+      .execute();
+    expect(retained.reduce((sum, row) => sum + Number(row.cost_usd), 0)).toBeCloseTo(0.5);
+    await test.db.admin.deleteFrom('users').where('id', '=', request.userId).execute();
+
+    const costs = await test.db.admin
+      .selectFrom('usage')
+      .selectAll()
+      .where('project_id', '=', request.projectId)
+      .execute();
+    expect(costs).toHaveLength(1);
+    expect(costs[0]).toMatchObject({ user_id: null, cost_usd: '0.500000', runs: 2 });
+    const held = await test.db.admin
+      .selectFrom('ai_attempts')
+      .selectAll()
+      .where('id', '=', pending.id)
+      .executeTakeFirstOrThrow();
+    expect(held).toMatchObject({ user_id: null, hold_usd: '0.400000' });
+    await expect(
+      reserveAttempt(
+        test.db.admin,
+        { ...remainingOwner, maxCostUsd: 0.2 },
+        { ...unlimited, instanceMonthUsd: 1 },
+        now,
+      ),
+    ).rejects.toMatchObject({ scope: 'instance' });
+
+    await settleAttempt(test.db.admin, pending.id, 'succeeded', result(0.1));
+    const after = await test.db.admin
+      .selectFrom('usage')
+      .selectAll()
+      .where('project_id', '=', request.projectId)
+      .execute();
+    expect(after).toHaveLength(1);
+    expect(after[0]).toMatchObject({ user_id: null, cost_usd: '0.600000' });
+    expect(Number(after[0]?.input_tokens)).toBe(70);
+    expect(Number(after[0]?.output_tokens)).toBe(30);
+    await expect(
+      reserveAttempt(
+        test.db.admin,
+        { ...remainingOwner, maxCostUsd: 0.5 },
+        { ...unlimited, instanceMonthUsd: 1 },
+        now,
+      ),
+    ).rejects.toMatchObject({ scope: 'instance' });
+  });
+
+  it('rolls back usage anonymization when ownership prevents deleting the account', async () => {
+    const now = nextPeriod();
+    const request = await run();
+    const colleague = await run();
+    await test.db.admin
+      .insertInto('project_members')
+      .values({
+        project_id: request.projectId,
+        user_id: colleague.userId,
+        role: 'editor',
+      })
+      .execute();
+    const attempt = await reserveAttempt(test.db.admin, request, unlimited, now);
+    await settleAttempt(test.db.admin, attempt.id, 'succeeded', result(0.3));
+    await expect(
+      test.db.admin.deleteFrom('users').where('id', '=', request.userId).execute(),
+    ).rejects.toThrow();
+    const usage = await test.db.admin
+      .selectFrom('usage')
+      .selectAll()
+      .where('project_id', '=', request.projectId)
+      .execute();
+    expect(usage).toHaveLength(1);
+    expect(usage[0]).toMatchObject({ user_id: request.userId, cost_usd: '0.300000' });
+  });
+
+  it('settles safely while an account deletion already holds its user row', async () => {
+    const now = nextPeriod();
+    const request = await run();
+    const attempt = await reserveAttempt(test.db.admin, request, unlimited, now);
+    await test.db.admin.deleteFrom('projects').where('id', '=', request.projectId).execute();
+    const deleting = await test.db.adminPool.connect();
+    let settling: Promise<void> | undefined;
+    try {
+      await deleting.query('begin');
+      await deleting.query('select id from users where id = $1 for update', [request.userId]);
+      settling = settleAttempt(test.db.admin, attempt.id, 'succeeded', result(0.2));
+      await vi.waitFor(
+        async () => {
+          const waiting = await test.db.adminPool.query<{ count: number }>(
+            `select count(*)::integer as count from pg_stat_activity
+           where datname = current_database() and usename = current_user
+             and wait_event_type = 'Lock' and pid <> pg_backend_pid()`,
+          );
+          expect(waiting.rows[0]?.count).toBeGreaterThan(0);
+        },
+        { timeout: 2000, interval: 20 },
+      );
+      await deleting.query('delete from users where id = $1', [request.userId]);
+      await deleting.query('commit');
+      await settling;
+    } finally {
+      await deleting.query('rollback');
+      deleting.release();
+      await settling?.catch(() => undefined);
+    }
+    const stored = await test.db.admin
+      .selectFrom('ai_attempts')
+      .selectAll()
+      .where('id', '=', attempt.id)
+      .executeTakeFirstOrThrow();
+    expect(stored).toMatchObject({ user_id: null, status: 'succeeded', cost_usd: '0.200000' });
+  });
+
+  it('does not grant the application role an instance-wide numeric total', async () => {
+    const request = await run();
+    const totals = await withUser(test.db.app, request.userId, (trx) =>
+      sql<Record<string, unknown>>`select * from public.usage_totals(${request.projectId})`.execute(
+        trx,
+      ),
+    );
+    expect(Object.keys(totals.rows[0] ?? {}).sort()).toEqual(['project_month', 'user_day']);
   });
 
   it('does not expose attempt or operator tables through the application role', async () => {

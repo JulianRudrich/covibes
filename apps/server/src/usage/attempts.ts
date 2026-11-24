@@ -13,6 +13,12 @@ async function lockBudget(trx: Transaction<DB>) {
   await sql`select pg_advisory_xact_lock(400044)`.execute(trx);
 }
 
+/** Lock the user before budget/attempt rows, matching an account deletion's FK lock order. */
+async function holdUser(trx: Transaction<DB>, userId: string | null | undefined) {
+  if (userId)
+    await sql`select id from public.users where id = ${userId} for key share`.execute(trx);
+}
+
 const micros = (usd: number) => Math.ceil(usd * 1_000_000);
 
 export type BudgetWarning = { month: string; committedUsd: number; limitUsd: number };
@@ -31,6 +37,12 @@ export async function reserveAttempt(
   }
   const reservation = micros(request.maxCostUsd);
   return admin.transaction().execute(async (trx) => {
+    const identity = await trx
+      .selectFrom('ai_runs')
+      .select('user_id')
+      .where('id', '=', request.runId)
+      .executeTakeFirst();
+    await holdUser(trx, identity?.user_id);
     await lockBudget(trx);
     const clock = await sql<{ now: Date }>`select clock_timestamp() as now`.execute(trx);
     const at = now ?? clock.rows[0]?.now ?? new Date();
@@ -124,6 +136,12 @@ export async function settleAttempt(
   metrics: GatewayAttemptUsage | AgentReplyResult | undefined,
 ): Promise<void> {
   await admin.transaction().execute(async (trx) => {
+    const identity = await trx
+      .selectFrom('ai_attempts')
+      .select('user_id')
+      .where('id', '=', id)
+      .executeTakeFirst();
+    await holdUser(trx, identity?.user_id);
     await lockBudget(trx);
     const row = await trx
       .selectFrom('ai_attempts')
@@ -187,6 +205,12 @@ export async function reconcileAttempt(
     throw new Error('Reconciliation needs a nonnegative verified cost and an explanatory note');
   }
   await admin.transaction().execute(async (trx) => {
+    const identity = await trx
+      .selectFrom('ai_attempts')
+      .select('user_id')
+      .where('id', '=', id)
+      .executeTakeFirst();
+    await holdUser(trx, identity?.user_id);
     await lockBudget(trx);
     const row = await trx
       .selectFrom('ai_attempts')

@@ -572,6 +572,95 @@ describe('passwordless accounts (spec 42)', () => {
     }
   });
 
+  it.each(['active', 'generic', 'expired', 'revoked', 'accepted', 'another-address'] as const)(
+    'uses only an active exact workspace email invitation for production signup: %s',
+    async (state) => {
+      const owner = await test.signIn();
+      const email = `${randomUUID()}@example.com`;
+      const workspaceResponse = await test.app.request('/api/workspaces', {
+        method: 'POST',
+        headers: { ...origin, cookie: owner },
+        body: JSON.stringify({ name: 'Inviting team' }),
+      });
+      expect(workspaceResponse.status).toBe(201);
+      const workspace = (await workspaceResponse.json()) as { id: string };
+      const invited = await test.app.request(`/api/workspaces/${workspace.id}/invitations`, {
+        method: 'POST',
+        headers: { ...origin, cookie: owner },
+        body: JSON.stringify({
+          role: 'editor',
+          ...(state === 'generic'
+            ? {}
+            : { email: state === 'another-address' ? `other-${email}` : email.toUpperCase() }),
+        }),
+      });
+      expect(invited.status).toBe(201);
+      const invitation = (await invited.json()) as { id: string };
+      if (state === 'expired')
+        await test.db.adminPool.query(
+          "update workspace_invitations set expires_at = now() - interval '1 second' where id = $1",
+          [invitation.id],
+        );
+      if (state === 'accepted')
+        await test.db.adminPool.query(
+          'update workspace_invitations set accepted_at = now() where id = $1',
+          [invitation.id],
+        );
+      if (state === 'revoked')
+        expect(
+          (
+            await test.app.request(`/api/workspaces/${workspace.id}/invitations/${invitation.id}`, {
+              method: 'DELETE',
+              headers: { ...origin, cookie: owner },
+            })
+          ).status,
+        ).toBe(204);
+
+      const auth = betterAuth({
+        ...authOptions({
+          env: { ...test.env, NODE_ENV: 'production', BETA_ALLOWED_EMAILS: [] },
+          adminPool: test.db.adminPool,
+          mailer: test.outbox,
+        }),
+        // Each case exercises the beta gate independently of request throttling.
+        rateLimit: { enabled: false },
+      });
+      const context = await auth.$context;
+      await expect(
+        context.internalAdapter.createUser(
+          { email, emailVerified: false, name: 'Unproved identity' },
+          { method: 'email-otp' },
+        ),
+      ).rejects.toMatchObject({ status: 'FORBIDDEN' });
+      const request = (path: string, body: unknown) =>
+        auth.handler(
+          new Request(`${APP_URL}/api/auth${path}`, {
+            method: 'POST',
+            headers: origin,
+            body: JSON.stringify(body),
+          }),
+        );
+      const requested = await request('/email-otp/send-verification-otp', {
+        email,
+        type: 'sign-in',
+      });
+      expect(requested.status).toBe(200);
+      expect(await requested.json()).toEqual({ success: true });
+      const otp = test.outbox
+        ?.list()
+        .find((mail) => mail.to === email)
+        ?.text.match(/\b\d{6}\b/)?.[0];
+      if (!otp) throw new Error('No signup proof was delivered');
+      const verified = await request('/sign-in/email-otp', { email, otp });
+      expect(verified.status).toBe(state === 'active' ? 200 : 403);
+      const users = await test.db.adminPool.query(
+        'select email_verified from users where email = $1',
+        [email],
+      );
+      expect(users.rows).toEqual(state === 'active' ? [{ email_verified: true }] : []);
+    },
+  );
+
   it('registers all social and passkey primary completion paths with the second-factor guard', () => {
     for (const path of [
       '/callback/github',
@@ -656,8 +745,13 @@ describe('passwordless accounts (spec 42)', () => {
     expect(beforeDeleteUser).toHaveBeenCalledWith(session.user.id);
   });
 
-  it('keeps owned projects and the account intact when deletion preparation blocks it', async () => {
+  it('keeps owned projects intact when a standalone auth instance has no deletion service', async () => {
     const cookie = await test.signIn();
+    const auth = createAuth({
+      env: test.env,
+      adminPool: test.db.adminPool,
+      mailer: test.outbox,
+    });
     const created = await test.app.request('/api/projects', {
       method: 'POST',
       headers: { ...origin, cookie },
@@ -665,11 +759,17 @@ describe('passwordless accounts (spec 42)', () => {
     });
     expect(created.status).toBe(201);
     const project = (await created.json()) as { id: string };
-    const requested = await post('/delete-user', { callbackURL: '/login' }, cookie);
+    const requested = await auth.handler(
+      new Request(`${APP_URL}/api/auth/delete-user`, {
+        method: 'POST',
+        headers: { ...origin, cookie },
+        body: JSON.stringify({ callbackURL: '/login' }),
+      }),
+    );
     expect(requested.status).toBe(200);
     const link = test.outbox?.list()[0]?.text.match(/https?:\/\/\S+/)?.[0];
     if (!link) throw new Error('No deletion link');
-    const blocked = await test.app.request(link, { headers: { cookie } });
+    const blocked = await auth.handler(new Request(link, { headers: { cookie } }));
     expect(blocked.status).toBe(409);
     expect(
       (await test.db.adminPool.query('select 1 from projects where id = $1', [project.id]))

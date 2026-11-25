@@ -16,7 +16,11 @@ type Handler = (init: RequestInit | undefined) => { status?: number; body: unkno
 export function stubApi(routes: Record<string, Handler>) {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = input instanceof Request ? input.url : input.toString();
-    const handler = routes[`${init?.method ?? 'GET'} ${url}`];
+    const key = `${init?.method ?? 'GET'} ${url}`;
+    // Existing project scenarios have no workspace fixtures. Workspace scenarios override this
+    // cross-page context explicitly, including errors; other unknown API paths remain 404.
+    const handler: Handler | undefined =
+      routes[key] ?? (key === 'GET /api/workspaces' ? () => ({ body: [] }) : undefined);
     const notFound: ApiErrorBody = { error: { code: 'not_found', message: 'Not found.' } };
     const { status = 200, body } = handler ? handler(init) : { status: 404, body: notFound };
     // "No content" answers must not have a body, and the server sends none with "accepted".

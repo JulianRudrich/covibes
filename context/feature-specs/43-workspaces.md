@@ -4,8 +4,7 @@
 Everyone has a personal workspace and teams share named workspaces with members,
 projects and settings. Existing projects migrate to their owner's personal
 workspace. Project deletion removes relational data and durably schedules every
-stored file for cleanup. No new visual styling is derived from the old design;
-spec 55 supplies the new interface.
+stored file for cleanup. The interface follows the existing Covibes Studio design.
 
 ## Design decisions
 - Workspace roles use the existing viewer/editor/owner order. Editors can create
@@ -49,8 +48,8 @@ spec 55 supplies the new interface.
 - Backward compatible project creation and owner-only move/delete endpoints.
 - Storage cleanup task and account-deletion preparation service. Deleted boards
   and active project connections are closed after relational deletion.
-- Accessible behavior contracts and i18n for workspace selection/settings; visual
-  implementation follows the independent new handoff rather than the old UI.
+- Accessible behavior contracts and i18n for workspace selection/settings, using
+  the existing Studio components and design tokens.
 
 ## Out of scope
 - Payment, subscriptions and public workspace directories.

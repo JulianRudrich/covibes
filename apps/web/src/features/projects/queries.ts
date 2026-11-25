@@ -22,12 +22,19 @@ export function projectQuery(projectId: string) {
   });
 }
 
-export function useCreateProject() {
+export function useCreateProject(workspaceId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateProjectInput) =>
-      api<ProjectSummary>('/projects', { method: 'POST', body: JSON.stringify(input) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: projectsQuery.queryKey }),
+      api<{ id: string }>(
+        workspaceId ? `/workspaces/${encodeURIComponent(workspaceId)}/projects` : '/projects',
+        { method: 'POST', body: JSON.stringify(input) },
+      ),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: projectsQuery.queryKey }),
+        queryClient.invalidateQueries({ queryKey: ['workspaces'] }),
+      ]),
   });
 }
 

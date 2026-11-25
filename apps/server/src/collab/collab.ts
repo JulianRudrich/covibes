@@ -256,10 +256,19 @@ export function createCollab({
    * the sockets are closed; the browser connects again and gets its current rights, or is refused.
    */
   function closeUser(projectId: string, userId: string) {
+    closeAccountConnections(userId, projectId);
+  }
+
+  /** After account deletion, close all its board and plan connections without needing rows. */
+  function closeAccount(userId: string) {
+    closeAccountConnections(userId);
+  }
+
+  function closeAccountConnections(userId: string, projectId?: string) {
     for (const document of hocuspocus.documents.values()) {
       for (const connection of document.getConnections()) {
         const context = connection.context as CollabContext | undefined;
-        if (context?.projectId === projectId && context.user.id === userId) {
+        if (context?.user.id === userId && (!projectId || context.projectId === projectId)) {
           connection.webSocket.close(RESET_CONNECTION.code, RESET_CONNECTION.reason);
         }
       }
@@ -387,6 +396,7 @@ export function createCollab({
     readPlanSections,
     recordHistory,
     closeUser,
+    closeAccount,
     close,
   };
 }

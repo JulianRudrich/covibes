@@ -20,6 +20,8 @@ import { ProjectListPage } from '@web/features/projects/project-list-page';
 import { InvitePage } from '@web/features/share/invite-page';
 import { ShareViewPage } from '@web/features/share/share-view-page';
 import { WorkspacePage } from '@web/features/workspace/workspace-page';
+import { WorkspaceSettingsPage } from '@web/features/workspaces/workspace-settings-page';
+import { WorkspaceInvitePage } from '@web/features/workspaces/workspace-invite-page';
 
 export type RouterContext = { queryClient: QueryClient };
 
@@ -64,6 +66,18 @@ const accountRoute = createRoute({
   component: AccountPage,
 });
 
+const workspaceSettingsRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: '/workspaces/$workspaceId',
+  component: WorkspaceSettingsPage,
+});
+
+const workspaceInviteRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: '/workspace-invite/$token',
+  component: WorkspaceInvitePage,
+});
+
 const projectListRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: '/',
@@ -71,6 +85,7 @@ const projectListRoute = createRoute({
   // of the account menu opens with it once.
   validateSearch: z.object({
     gitAccount: z.enum(GIT_RETURNS).optional().catch(undefined),
+    workspace: z.uuid().optional().catch(undefined),
   }),
   component: ProjectListPage,
 });
@@ -117,7 +132,14 @@ const devMailsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   loginRoute,
   shareRoute,
-  authedRoute.addChildren([projectListRoute, projectRoute, inviteRoute, accountRoute]),
+  authedRoute.addChildren([
+    projectListRoute,
+    projectRoute,
+    inviteRoute,
+    accountRoute,
+    workspaceSettingsRoute,
+    workspaceInviteRoute,
+  ]),
   ...(import.meta.env.DEV ? [devMailsRoute] : []),
 ]);
 

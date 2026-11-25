@@ -13,6 +13,7 @@
 Continue M8 with spec 40: trustworthy AI budgets, reservations for concurrent runs and accounting for every attempt. Spec 39 is implemented; the remaining rework precedes launch preparation (35) and acceptance (34).
 
 ## In progress
+- **Spec 43 workspace UI and account integration** (2026-11-24): real workspace/member/invitation/project-lifecycle flows in the restored productive Studio design; verified invitation admission and actual auth deletion lifecycle wiring.
 - Spec 40: detailed specification and budget implementation.
 - Spec 41: recovery specification and implementation, integrated after 40.
 - Spec 43: workspace permissions, ownership, invitations and durable project/account deletion in an isolated worktree; integration follows account controls (42).

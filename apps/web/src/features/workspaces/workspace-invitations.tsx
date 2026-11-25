@@ -113,18 +113,14 @@ export function WorkspaceInvitations({ workspaceId }: { workspaceId: string }) {
           <div>
             <Button
               onClick={() => {
-                if (!navigator.clipboard) {
-                  setCopy('failed');
-                  return;
-                }
-                void navigator.clipboard.writeText(link).then(
-                  () => {
+                void (async () => {
+                  try {
+                    await navigator.clipboard.writeText(link);
                     setCopy('copied');
-                  },
-                  () => {
+                  } catch {
                     setCopy('failed');
-                  },
-                );
+                  }
+                })();
               }}
             >
               {t('workspaces.copyLink')}

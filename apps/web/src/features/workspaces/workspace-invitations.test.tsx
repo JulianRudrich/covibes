@@ -30,14 +30,14 @@ describe('workspace invitations', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Einladungslink erstellen' }));
     const link = await screen.findByLabelText('Neuer Einladungslink');
     expect(link).toHaveValue(`${window.location.origin}/workspace-invite/${token}`);
-    await waitFor(() =>
+    await waitFor(() => {
       expect(requests).toHaveBeenCalledWith(
         `/api/workspaces/${workspaceId}/invitations`,
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ email: 'member@example.com', role: 'viewer' }),
         }),
-      ),
-    );
+      );
+    });
   });
 });

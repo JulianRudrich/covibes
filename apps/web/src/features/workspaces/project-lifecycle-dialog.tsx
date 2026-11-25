@@ -92,7 +92,7 @@ export function ProjectLifecycleDialog({
                   }}
                 >
                   <option value="">{t('workspaces.project.chooseDestination')}</option>
-                  {(list.data ?? [])
+                  {list.data
                     .filter((workspace) => workspace.role !== 'viewer')
                     .map((workspace) => (
                       <option key={workspace.id} value={workspace.id}>

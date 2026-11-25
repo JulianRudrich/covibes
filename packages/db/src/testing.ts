@@ -33,7 +33,7 @@ function freePort(): Promise<number> {
 const TEST_MAX_CONNECTIONS = 400;
 
 /** A fresh, migrated database in a temporary folder for one test run. */
-export async function startTestDatabase(): Promise<TestDatabase> {
+export async function startTestDatabase(migrationsDir?: string): Promise<TestDatabase> {
   const dataDir = mkdtempSync(join(tmpdir(), 'covibes-test-db-'));
   const running = await startEmbeddedPostgres({
     dataDir,
@@ -43,7 +43,7 @@ export async function startTestDatabase(): Promise<TestDatabase> {
     appPassword: randomSecret(24),
     maxConnections: TEST_MAX_CONNECTIONS,
   });
-  await migrate(running.adminUrl);
+  await migrate(running.adminUrl, migrationsDir);
   return {
     adminUrl: running.adminUrl,
     appUrl: running.appUrl,

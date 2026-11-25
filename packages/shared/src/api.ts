@@ -27,6 +27,11 @@ export type PublicConfig = {
   /** False in production without SMTP: then there is no login link by mail. */
   emailLogin: boolean;
   devMailbox: boolean;
+  /** Optional for older self-hosted servers. */
+  socialLogins?: ('github' | 'google' | 'gitlab')[];
+  emailCodeLogin?: boolean;
+  passkeyLogin?: boolean;
+  closedBeta?: boolean;
 };
 
 /** One mail of the development mailbox (`GET /api/dev/mails`, development only). */

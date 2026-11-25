@@ -20,6 +20,7 @@ try {
       GITLAB_CLIENT_SECRET: undefined,
       GITLAB_ISSUER: undefined,
       TRUSTED_PROXIES: [],
+      BETA_ALLOWED_EMAILS: [],
     },
     adminPool,
     mailer: new DevOutbox(),

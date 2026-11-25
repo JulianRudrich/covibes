@@ -25,6 +25,10 @@ describe('GET /api/config', () => {
       gitlabLogin: false,
       emailLogin: true,
       devMailbox: false,
+      socialLogins: [],
+      emailCodeLogin: true,
+      passkeyLogin: true,
+      closedBeta: false,
     });
   });
 

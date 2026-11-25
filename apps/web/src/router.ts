@@ -10,6 +10,7 @@ import {
 } from '@tanstack/react-router';
 import { z } from 'zod';
 
+import { AccountPage } from '@web/features/account/account-page';
 import { LoginPage } from '@web/features/auth/login-page';
 import { safeRedirectPath } from '@web/features/auth/redirect-path';
 import { sessionQuery } from '@web/features/auth/session';
@@ -34,6 +35,7 @@ const loginRoute = createRoute({
   validateSearch: z.object({
     redirect: z.string().optional().catch(undefined),
     error: z.string().optional().catch(undefined),
+    twoFactor: z.enum(['required']).optional().catch(undefined),
   }),
   beforeLoad: async ({ context, search }) => {
     const user = await context.queryClient.query(sessionQuery);
@@ -54,6 +56,12 @@ const authedRoute = createRoute({
     }
   },
   component: Outlet,
+});
+
+const accountRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: '/account',
+  component: AccountPage,
 });
 
 const projectListRoute = createRoute({
@@ -109,7 +117,7 @@ const devMailsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   loginRoute,
   shareRoute,
-  authedRoute.addChildren([projectListRoute, projectRoute, inviteRoute]),
+  authedRoute.addChildren([projectListRoute, projectRoute, inviteRoute, accountRoute]),
   ...(import.meta.env.DEV ? [devMailsRoute] : []),
 ]);
 

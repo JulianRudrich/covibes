@@ -288,6 +288,56 @@ describe('tasks in the plan (spec 26b)', () => {
   const items = (document: HTMLElement) =>
     [...document.querySelectorAll('li')].map((item) => item.textContent);
 
+  it('focuses the exact task UUID for viewers without changing the shared document', async () => {
+    writeTasks();
+    const focused = vi.fn();
+    const missing = vi.fn();
+    const view = renderPlan({ readOnly: true });
+    const document = await screen.findByRole('textbox', { name: 'Projektplan' });
+    // Tiptap normalizes the initial document (including its final paragraph) on mounting.
+    const before = stored();
+    view.rerender(
+      <TooltipProvider>
+        <PlanEditor
+          projectId={PROJECT}
+          user={OLGA}
+          readOnly
+          language="de"
+          taskFocus={EXPORT}
+          onTaskFocused={focused}
+          onTaskMissing={missing}
+        />
+      </TooltipProvider>,
+    );
+    await waitFor(() => {
+      expect(document.querySelector(`[data-task-id="${EXPORT}"]`)).toHaveFocus();
+    });
+    expect(focused).toHaveBeenCalledOnce();
+    expect(missing).not.toHaveBeenCalled();
+    expect(stored()).toBe(before);
+  });
+
+  it('reports a removed task and renders decision controls outside the stored text', async () => {
+    writeTasks();
+    const missing = vi.fn();
+    renderPlan({
+      taskFocus: '00000000-0000-4000-8000-000000000099',
+      onTaskMissing: missing,
+      tasks: {
+        assignees: new Map([
+          [LOGIN, null],
+          [EXPORT, null],
+        ]),
+      },
+      decisionLinks: { onOpenDecision: vi.fn() },
+    });
+    expect(await screen.findAllByRole('button', { name: 'Entscheidungen dahinter' })).toHaveLength(
+      2,
+    );
+    expect(missing).toHaveBeenCalledOnce();
+    expect(stored()).not.toContain('Entscheidungen dahinter');
+  });
+
   it('shows who took a task and offers to assign the others', async () => {
     writeTasks();
     renderPlan({

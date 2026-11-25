@@ -1,0 +1,23 @@
+# Updates for the GitHub Actions that the workflows pin to commits, every Monday: minor and
+# patch updates in one pull request, major updates one by one. A release waits a week before
+# Dependabot proposes it, like the seven-day release age for npm packages.
+#
+# npm packages are not listed: Dependabot does not read yet the lockfile that pnpm 12 writes for
+# a pinned pnpm (two YAML documents). Until it does, the weekly audit workflow and the update
+# policy in context/code-standards.md cover them.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        update-types: [minor, patch]

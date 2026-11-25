@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { findAgent } from '@server/agents/catalog';
 import { loadCustomAgentNames } from '@server/agents/custom';
 import { loadPrompt } from '@server/agents/prompts';
-import type { AgentReplyResult } from '@server/ai-gateway';
+import type { AgentReplyResult, CompleteRequest } from '@server/ai-gateway';
 import { UsageLimitError, type UsageGuard } from '@server/usage/limits';
 
 /** Name of the job the database schedules when a member comes back (migration 0020). */
@@ -33,12 +33,7 @@ export type AwaySummaryDeps = {
   /** Role covibes_admin: the worker reads the conversation and writes the summary. */
   admin: Kysely<DB>;
   /** The gateway's `completeText`; tests pass a scripted model. */
-  complete: (request: {
-    model: string;
-    system: string;
-    prompt: string;
-    signal?: AbortSignal;
-  }) => Promise<AgentReplyResult>;
+  complete: (request: CompleteRequest) => Promise<AgentReplyResult>;
   /** Checks the limits of the AI before the model call (spec 31a); without it nothing is limited. */
   limits?: UsageGuard;
   logger: { error: (message: string) => void };
@@ -286,9 +281,25 @@ export async function writeAwaySummary(
     await store({ text: null, text_status: 'failed' });
     return 'failed';
   }
+  const pendingRun = await admin
+    .insertInto('ai_runs')
+    .values({
+      project_id: projectId,
+      user_id: userId,
+      agent_key: 'moderator',
+      kind: 'summary',
+      status: 'running',
+      model: SUMMARY_MODEL,
+      created_at: startedAt,
+      started_at: startedAt,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  const runId = pendingRun.id;
   let result: AgentReplyResult;
   try {
     result = await deps.complete({
+      billing: { runId, purpose: 'summary' },
       model: SUMMARY_MODEL,
       system: AWAY_PROMPT,
       prompt,
@@ -296,12 +307,12 @@ export async function writeAwaySummary(
     });
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    await recordRun(admin, projectId, userId, startedAt, { error: reason.slice(0, 1000) });
+    await recordRun(admin, runId, { error: reason.slice(0, 1000) });
     await store({ text: null, text_status: 'failed' });
     deps.logger.error(`The summary for a return to project ${projectId} failed: ${reason}`);
     return 'failed';
   }
-  await recordRun(admin, projectId, userId, startedAt, { result });
+  await recordRun(admin, runId, { result });
 
   const text = cleanSummary(result.text);
   if (text === '') {
@@ -315,19 +326,13 @@ export async function writeAwaySummary(
 /** Meters the summary as a run of the kind `summary`, for the person it is written for. */
 async function recordRun(
   admin: Kysely<DB>,
-  projectId: string,
-  userId: string,
-  startedAt: Date,
+  runId: string,
   outcome: { result: AgentReplyResult } | { error: string },
 ) {
   const result = 'result' in outcome ? outcome.result : null;
   await admin
-    .insertInto('ai_runs')
-    .values({
-      project_id: projectId,
-      user_id: userId,
-      agent_key: 'moderator',
-      kind: 'summary',
+    .updateTable('ai_runs')
+    .set({
       status: result ? 'done' : 'error',
       provider: result?.provider ?? null,
       model: result?.model ?? SUMMARY_MODEL,
@@ -337,10 +342,9 @@ async function recordRun(
       output_tokens: result?.usage.outputTokens ?? 0,
       cost_usd: (result?.costUsd ?? 0).toFixed(6),
       error: 'error' in outcome ? outcome.error : null,
-      created_at: startedAt,
-      started_at: startedAt,
       finished_at: sql`clock_timestamp()`,
     })
+    .where('id', '=', runId)
     .execute();
 }
 

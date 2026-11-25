@@ -34,7 +34,11 @@ export function usageRoutes(
   auth: Auth,
   limits: UsageLimits,
   now: () => Date = () => new Date(),
+  readInstanceTotal?: (at: Date) => Promise<number>,
 ) {
+  if ((limits.instanceMonthUsd ?? 0) > 0 && !readInstanceTotal) {
+    throw new Error('An operator aggregate reader is required for instance limit state');
+  }
   const routes = new Hono<{ Variables: SessionVariables }>();
   routes.use(sessionMiddleware(auth));
 
@@ -49,14 +53,20 @@ export function usageRoutes(
           select project_month, user_day from public.usage_totals(${projectId.data})`.execute(trx);
         return read.rows[0];
       });
+      const at = now();
+      // The app role cannot query a global amount. Only after membership succeeds does this
+      // operator-owned reader calculate the coarse state; its amount never leaves this route.
+      const instanceTotal =
+        (limits.instanceMonthUsd ?? 0) > 0 && readInstanceTotal ? await readInstanceTotal(at) : 0;
       return c.json<UsageState>(
         usageStateOf(
           limits,
           {
             projectMonthUsd: Number(totals?.project_month ?? 0),
             userDayUsd: Number(totals?.user_day ?? 0),
+            instanceMonthUsd: instanceTotal,
           },
-          now(),
+          at,
         ),
       );
     } catch (error) {

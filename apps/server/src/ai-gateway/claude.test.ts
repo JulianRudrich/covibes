@@ -16,6 +16,7 @@ import {
   defineTool,
   GatewayConfigError,
   GatewayLimitError,
+  readGatewayAttemptUsage,
   type AgentReplyRequest,
   type AgentTool,
 } from '@server/ai-gateway/types';
@@ -599,5 +600,102 @@ describe('checkClaudeAccess', () => {
   it('rejects an unknown model before starting Claude Code', async () => {
     await expect(checkClaudeAccess('gpt-unknown')).rejects.toBeInstanceOf(GatewayConfigError);
     expect(sdk.query).not.toHaveBeenCalled();
+  });
+});
+
+describe('attempt accounting (spec 40)', () => {
+  it('retains the usage of a billed unsuccessful final result', async () => {
+    replyWith(
+      result({
+        subtype: 'error_max_turns',
+        is_error: true,
+        errors: ['Turn limit'],
+        total_cost_usd: 0.13,
+      }),
+    );
+    const failure = await streamAgentReply(request()).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(Error);
+    expect(readGatewayAttemptUsage(failure)).toMatchObject({
+      complete: true,
+      costUsd: 0.13,
+      usage: { inputTokens: 10, outputTokens: 5 },
+    });
+  });
+
+  it('keeps partial usage once per assistant message when the stream throws', async () => {
+    const failure = new Error('The stream disconnected');
+    sdk.query.mockImplementation(async function* () {
+      await Promise.resolve();
+      const assistant = {
+        type: 'assistant',
+        parent_tool_use_id: null,
+        message: {
+          id: 'one-model-message',
+          usage: {
+            input_tokens: 100,
+            output_tokens: 10,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
+          },
+        },
+        ...IDS,
+      } as SDKMessage;
+      yield assistant;
+      yield assistant;
+      throw failure;
+    });
+    const caught = await streamAgentReply(request()).catch((error: unknown) => error);
+    expect(caught).toBe(failure);
+    expect(readGatewayAttemptUsage(caught)).toMatchObject({
+      complete: false,
+      usage: { inputTokens: 100, outputTokens: 10 },
+    });
+    expect(readGatewayAttemptUsage(caught)?.costUsd).toBeCloseTo(0.0006);
+  });
+
+  it('keeps configuration errors typed while retaining their final usage', async () => {
+    replyWith(
+      { type: 'assistant', error: 'authentication_failed', parent_tool_use_id: null } as SDKMessage,
+      result({ is_error: true, result: 'No access', total_cost_usd: 0.02 }),
+    );
+    const failure = await streamAgentReply(request()).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(GatewayConfigError);
+    expect(readGatewayAttemptUsage(failure)).toMatchObject({ complete: true, costUsd: 0.02 });
+  });
+
+  it('retains input and reported output when cancellation interrupts a streamed message', async () => {
+    const abort = new AbortController();
+    sdk.query.mockImplementation(async function* () {
+      await Promise.resolve();
+      yield streamEvent({
+        type: 'message_start',
+        message: {
+          id: 'interrupted',
+          usage: {
+            input_tokens: 100,
+            output_tokens: 0,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
+          },
+        },
+      });
+      yield streamEvent({ type: 'message_delta', usage: { output_tokens: 11 } });
+      abort.abort();
+      throw new Error('Interrupted');
+    });
+    const failure = await streamAgentReply(request({ signal: abort.signal })).catch(
+      (error: unknown) => error,
+    );
+    expect(failure).toMatchObject({ name: 'AbortError' });
+    expect(readGatewayAttemptUsage(failure)).toMatchObject({
+      complete: false,
+      usage: { inputTokens: 100, outputTokens: 11 },
+    });
+  });
+
+  it('passes the configured reservation as the SDK soft budget cap', async () => {
+    replyWith(result());
+    await streamAgentReply(request({ maxCostUsd: 0.25 }));
+    expect(passedOptions().maxBudgetUsd).toBe(0.25);
   });
 });

@@ -32,11 +32,8 @@ import { UsageLimitError, type UsageGuard } from '@server/usage/limits';
 /** Name of the job the database schedules after every human message (migration 0008). */
 export const OBSERVE_TASK = 'observe';
 
-/**
- * The observer's model (owner decision, spec 15): good judgment at half the price of Opus, since
- * it looks after every pause in the chat.
- */
-export const OBSERVER_MODEL = 'claude-sonnet-5-5';
+/** Short classifications run on the small model (spec 44). */
+export const OBSERVER_MODEL = 'claude-haiku-4-5-20251001';
 
 /** While an agent waits or works, the observer looks again this much later … */
 const RETRY_MS = 10_000;

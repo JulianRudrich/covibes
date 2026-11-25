@@ -71,6 +71,54 @@ async function role(projectId: string, userId: string) {
   return row?.role;
 }
 
+describe('workspace provider settings', () => {
+  it('limits key management and provider spend to owners, keeping every secret private', async () => {
+    const owner = await person();
+    const editor = await person();
+    const outsider = await person();
+    const workspace = await team(owner.cookie);
+    await join(owner.cookie, workspace.id, editor.cookie);
+    const path = '/workspaces/' + workspace.id + '/ai';
+    const key = 'fixture-provider-secret';
+    for (const account of [editor, outsider]) {
+      for (const method of ['GET', 'PUT', 'DELETE']) {
+        const response = await request(
+          method === 'GET' ? path : path + '/openai',
+          account.cookie,
+          method,
+          method === 'PUT' ? { key } : undefined,
+        );
+        expect([403, 404]).toContain(response.status);
+      }
+    }
+    expect((await request(path + '/unknown', owner.cookie, 'PUT', { key })).status).toBe(400);
+    expect((await request(path + '/openai', owner.cookie, 'PUT', { key })).status).toBe(204);
+    const status = await (await request(path, owner.cookie)).json();
+    expect(status).toMatchObject({
+      configured: ['openai'],
+      spending: { instanceUsd: 0, workspaceUsd: 0 },
+    });
+    const stored = await test.db.admin
+      .selectFrom('workspace_provider_keys')
+      .select('ciphertext')
+      .where('workspace_id', '=', workspace.id)
+      .executeTakeFirstOrThrow();
+    expect(stored.ciphertext).not.toContain(key);
+    expect(JSON.stringify(status)).not.toContain(stored.ciphertext);
+    expect(JSON.stringify(status)).not.toContain(key);
+    await expect(
+      withUser(test.db.app, owner.id, (trx) =>
+        sql`select * from workspace_provider_keys`.execute(trx),
+      ),
+    ).rejects.toThrow(/permission denied/);
+    expect(
+      (await request(path + '/openai', owner.cookie, 'PUT', { key: key + '-replacement' })).status,
+    ).toBe(204);
+    expect((await request(path + '/openai', owner.cookie, 'DELETE')).status).toBe(204);
+    expect(await (await request(path, owner.cookie)).json()).toMatchObject({ configured: [] });
+  });
+});
+
 describe('workspace boundaries', () => {
   it('creates one personal workspace and keeps legacy project creation compatible', async () => {
     const owner = await person();

@@ -43,6 +43,8 @@ export const AGENT_MODELS = [
   'claude-opus-5-5',
   'claude-sonnet-5-5',
   'claude-haiku-4-5-20251001',
+  'gpt-4.1',
+  'gpt-4.1-mini',
 ] as const;
 export type AgentModel = (typeof AGENT_MODELS)[number];
 export const DEFAULT_AGENT_MODEL: AgentModel = 'claude-opus-5-5';

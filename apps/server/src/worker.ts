@@ -4,13 +4,7 @@ import { run } from 'graphile-worker';
 import { Kysely, PostgresDialect } from 'kysely';
 import pg from 'pg';
 
-import { MODERATOR } from '@server/agents/catalog';
-import {
-  checkClaudeAccess,
-  completeText,
-  GatewayConfigError,
-  streamAgentReply,
-} from '@server/ai-gateway';
+import { completeText, streamAgentReply } from '@server/ai-gateway';
 import { gatherPackageInput, type PackageReaders } from '@server/api/package';
 import { createBoardClient } from '@server/collab/board-client';
 import { agentGitRequests } from '@server/git/agent-requests';
@@ -58,19 +52,6 @@ function readEnvOrExit(): WorkerEnv {
 
 const env = readEnvOrExit();
 
-// Without a usable model the worker does not start, so a missing login shows at once and not in
-// the first answer.
-try {
-  const access = await checkClaudeAccess(MODERATOR.model);
-  console.log(`Covibes worker: ${access.model} via ${access.credentials}`);
-} catch (error) {
-  if (error instanceof GatewayConfigError) {
-    console.error(`Covibes worker cannot start. ${error.message}`);
-    process.exit(1);
-  }
-  throw error;
-}
-
 const pgPool = new pg.Pool({ connectionString: env.DATABASE_ADMIN_URL });
 // A connection that breaks (e.g. a database restart) fails its query and is replaced; it must not
 // end the worker, whether it was idle or in use.
@@ -112,6 +93,7 @@ const metered = createBudgetGateway(
   {
     admin,
     limits: usageLimitsOf(env),
+    providerEnv: env,
     maxCallUsd: env.AI_MAX_CALL_USD ?? (env.NODE_ENV === 'production' ? 0 : 1),
     onWarning: (warning) => {
       console.warn(JSON.stringify({ event: 'ai_budget_warning', ...warning }));

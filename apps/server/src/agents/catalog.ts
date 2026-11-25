@@ -3,6 +3,7 @@ import {
   DEFAULT_AGENT_MODEL,
   isAgentKey,
   type AgentKey,
+  type AiProvider,
   type AgentModel,
 } from '@covibes/shared';
 
@@ -19,7 +20,8 @@ export type AgentDefinition = {
   names: { de: string; en: string };
   /** What the agent does, in one line, for the team overview in the prompt. */
   role: string;
-  provider: 'anthropic';
+  provider: AiProvider;
+  fixedModel?: boolean;
   /** The default model; owners choose another one per project (spec 14). */
   model: AgentModel;
   effort: 'low' | 'medium' | 'high';

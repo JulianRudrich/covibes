@@ -13,6 +13,7 @@
 Continue M8 with spec 41: safe recovery of interrupted work. Spec 40 is implemented and validated locally with atomic AI reservations and durable accounting for every invocation. The remaining rework precedes launch preparation (35) and acceptance (34).
 
 ## In progress
+- Spec 44: direct provider APIs, workspace funding and Studio settings in an isolated branch.
 - Specs 41–46 and 49–54 are in development. Specs 47 and 48 are integrated on main.
 - Spec 49 preserves the Covibes Studio interface.
 

@@ -20,6 +20,7 @@ export const workerEnvSchema = z
      * instance other people use needs the key (architecture "AI providers").
      */
     ANTHROPIC_API_KEY: z.string().min(1).optional(),
+    OPENAI_API_KEY: z.string().min(1).optional(),
     /** SMTP access for the notification mails (spec 22b), the same as the server's; optional. */
     SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
     MAIL_FROM: z.string().min(3).optional(),
@@ -47,11 +48,6 @@ export const workerEnvSchema = z
   .refine((env) => !env.SMTP_URL || Boolean(env.MAIL_FROM), {
     message: 'MAIL_FROM is required when SMTP_URL is set',
     path: ['MAIL_FROM'],
-  })
-  .refine((env) => env.NODE_ENV !== 'production' || Boolean(env.ANTHROPIC_API_KEY), {
-    message:
-      'Production needs ANTHROPIC_API_KEY: a personal Claude subscription must not serve other people',
-    path: ['ANTHROPIC_API_KEY'],
   });
 
 export type WorkerEnv = z.output<typeof workerEnvSchema>;

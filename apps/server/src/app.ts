@@ -232,8 +232,8 @@ export function createApp({
   // Whether a limit of the AI is reached (spec 31a).
   app.route(
     '/api/projects/:projectId/usage',
-    usageRoutes(db.app, auth, usageLimitsOf(env), undefined, (at) =>
-      loadInstanceUsageTotal(db.admin, at),
+    usageRoutes(db.app, auth, usageLimitsOf(env), undefined, (at, projectId) =>
+      loadInstanceUsageTotal(db.admin, at, projectId),
     ),
   );
   app.route('/api/projects/:projectId/package', packageRoutes(db.app, auth, live, documents));
@@ -269,7 +269,7 @@ export function createApp({
   const shareLimiter = createRateLimiter({ limit: SHARE_REQUESTS_PER_MINUTE, windowMs: 60_000 });
   app.route('/api/share', shareViewRoutes(db.app, documents, shareLimiter));
   app.route('/api/projects', projectLifecycleRoutes({ db, auth, documents, connections, files }));
-  app.route('/api/workspaces', workspaceRoutes(db.app, auth, connections));
+  app.route('/api/workspaces', workspaceRoutes(db.app, auth, connections, db.admin, env.TOKEN_KEY));
   app.route('/api/projects', projectRoutes(db.app, auth, live));
   app.route(
     '/api/agents/:agentId/knowledge',

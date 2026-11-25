@@ -343,6 +343,8 @@
     "defaultModel": "{{model}} (default)",
     "models": {
       "claude-opus-5-5": "Opus 5.5",
+      "gpt-4.1": "OpenAI GPT-4.1",
+      "gpt-4.1-mini": "OpenAI GPT-4.1 mini",
       "claude-sonnet-5-5": "Sonnet 5.5",
       "claude-haiku-4-5-20251001": "Haiku 4.5"
     },
@@ -1494,5 +1496,22 @@
       "block": "Canvas",
       "plan": "Plan"
     }
+  },
+  "aiSettings": {
+    "open": "AI settings",
+    "title": "AI settings",
+    "description": "Manage the provider keys used by a workspace.",
+    "workspace": "Workspace",
+    "noWorkspace": "You do not own a workspace.",
+    "loadError": "Could not load AI settings. Try again.",
+    "spending": "{{month}} · Workspace {{workspace}} · Instance {{instance}}",
+    "unavailable": "The server is not configured to store provider keys.",
+    "configured": "Key configured",
+    "notConfigured": "No key",
+    "keyPlaceholder": "Enter API key",
+    "save": "Save key",
+    "replace": "Replace key",
+    "remove": "Remove key",
+    "saveError": "Could not update the key. Try again."
   }
 }

@@ -10,9 +10,11 @@ import {
   type GatewayAttemptUsage,
 } from '@server/ai-gateway/types';
 import { withUser } from '@server/db/database';
+import { sealToken } from '@server/integrations/gitlab/crypto';
 import { createTestServer } from '@server/testing';
 import { reconcileAttempt, reserveAttempt, settleAttempt } from '@server/usage/attempts';
 import { createBudgetGateway } from '@server/usage/gateway';
+import { loadInstanceUsageTotal, loadUsageTotals } from '@server/usage/limits';
 import { loadWorkerEnv } from '@server/worker-env';
 
 const test = createTestServer();
@@ -69,6 +71,44 @@ const result = (costUsd = 0.1): AgentReplyResult => ({
 });
 
 describe('atomic AI budget admission (spec 40)', () => {
+  it('keeps workspace-funded holds, settlement and reconciliation outside instance spending', async () => {
+    const now = nextPeriod();
+    const request = await run();
+    const instance = await reserveAttempt(test.db.admin, request, unlimited, now);
+    await settleAttempt(test.db.admin, instance.id, 'succeeded', result(0.4));
+    const route = async () => ({
+      payer: 'workspace' as const,
+      model: request.model,
+      provider: 'anthropic' as const,
+    });
+    const limits = { ...unlimited, instanceMonthUsd: 0.4 };
+    const owned = await reserveAttempt(test.db.admin, request, limits, now, route);
+    expect(owned.warning).toBeUndefined();
+    expect(await loadInstanceUsageTotal(test.db.admin, now)).toBe(0.4);
+    for (const cap of ['projectMonthUsd', 'userDayUsd']) {
+      await expect(
+        reserveAttempt(test.db.admin, request, { ...limits, [cap]: 0.9 }, now, route),
+      ).rejects.toMatchObject({ scope: cap === 'userDayUsd' ? 'user' : 'project' });
+    }
+    await settleAttempt(test.db.admin, owned.id, 'failed', { ...result(0.1), complete: false });
+    await reconcileAttempt(test.db.admin, owned.id, 0.3, 'Fixture verified amount');
+    expect(await loadInstanceUsageTotal(test.db.admin, now)).toBe(0.4);
+    expect(await loadUsageTotals(test.db.admin, request, now)).toMatchObject({
+      projectMonthUsd: 0.7,
+      userDayUsd: 0.7,
+    });
+    const row = await test.db.admin
+      .selectFrom('ai_attempts')
+      .selectAll()
+      .where('id', '=', owned.id)
+      .executeTakeFirstOrThrow();
+    expect(row).toMatchObject({
+      payer: 'workspace',
+      workspace_id: expect.any(String),
+      status: 'reconciled',
+    });
+  });
+
   it('admits only the reservations that fit when independent clients race', async () => {
     const now = nextPeriod();
     const requests = await Promise.all(Array.from({ length: 8 }, () => run()));
@@ -377,6 +417,76 @@ describe('atomic AI budget admission (spec 40)', () => {
 });
 
 describe('gateway accounting across outcomes', () => {
+  it('routes a funded workspace call and records the same provider and payer as the reservation', async () => {
+    const request = await run();
+    const project = await test.db.admin
+      .selectFrom('projects')
+      .select('workspace_id')
+      .where('id', '=', request.projectId)
+      .executeTakeFirstOrThrow();
+    const tokenKey = 'workspace-fixture-key-that-is-long-enough';
+    const secret = 'fixture-openai-secret';
+    await test.db.admin
+      .insertInto('workspace_provider_keys')
+      .values({
+        workspace_id: project.workspace_id,
+        provider: 'openai',
+        ciphertext: sealToken(tokenKey, secret, 'ai:' + project.workspace_id + ':openai'),
+      })
+      .execute();
+    const response = {
+      type: 'response.completed',
+      response: {
+        status: 'completed',
+        output: [{ type: 'message', content: [{ type: 'output_text', text: 'Done' }] }],
+        usage: { input_tokens: 100, output_tokens: 10, input_tokens_details: { cached_tokens: 0 } },
+      },
+    };
+    const network = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response('data: ' + JSON.stringify(response) + '\n\n', {
+        headers: { 'content-type': 'text/event-stream' },
+      }),
+    );
+    vi.stubGlobal('fetch', network);
+    try {
+      const fallback = vi.fn(() => Promise.resolve(result()));
+      const gateway = createBudgetGateway(
+        {
+          admin: test.db.admin,
+          limits: { ...unlimited, instanceMonthUsd: 0.000001 },
+          maxCallUsd: 0.4,
+          now: nextPeriod,
+          onWarning: vi.fn(),
+          providerEnv: { NODE_ENV: 'production', TOKEN_KEY: tokenKey },
+        },
+        { reply: fallback, complete: fallback },
+      );
+      const reply = await gateway.complete({
+        model: request.model,
+        system: 'Guide',
+        prompt: 'Hello',
+        billing: { runId: request.runId },
+      });
+      expect(reply).toMatchObject({ provider: 'openai', model: 'gpt-4.1' });
+      expect(fallback).not.toHaveBeenCalled();
+      expect(network).toHaveBeenCalledOnce();
+      const stored = await test.db.admin
+        .selectFrom('ai_attempts')
+        .selectAll()
+        .where('run_id', '=', request.runId)
+        .executeTakeFirstOrThrow();
+      expect(stored).toMatchObject({
+        payer: 'workspace',
+        provider: 'openai',
+        model: 'gpt-4.1',
+        workspace_id: project.workspace_id,
+        status: 'succeeded',
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('accounts failed and successful retries exactly once and keeps cumulative run costs', async () => {
     const now = nextPeriod();
     const request = await run();

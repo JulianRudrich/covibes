@@ -1,3 +1,4 @@
+import type { AiProvider } from '@covibes/shared';
 import type { DB } from '@covibes/db';
 import { sql, type Kysely, type Transaction } from 'kysely';
 
@@ -25,13 +26,31 @@ export type BudgetWarning = { month: string; committedUsd: number; limitUsd: num
 
 export type AttemptReservation = { id: string; warning?: BudgetWarning };
 
-/** Atomically reserves the entire invocation bound against every applicable budget. */
-export async function reserveAttempt(
+export type Funding = { payer: 'workspace' | 'instance'; model: string; provider: AiProvider };
+type ReserveRequest = { runId: string; model: string; purpose?: string; maxCostUsd: number };
+type ResolveFunding<T extends Funding> = (trx: Transaction<DB>, workspaceId: string) => Promise<T>;
+
+/** Select the credential and reserve its budget while the project's workspace is locked. */
+export function reserveAttempt<T extends Funding>(
   admin: Kysely<DB>,
-  request: { runId: string; model: string; purpose?: string; maxCostUsd: number },
+  request: ReserveRequest,
+  limits: UsageLimits,
+  now: Date | undefined,
+  select: ResolveFunding<T>,
+): Promise<AttemptReservation & { route: T }>;
+export function reserveAttempt(
+  admin: Kysely<DB>,
+  request: ReserveRequest,
   limits: UsageLimits,
   now?: Date,
-): Promise<AttemptReservation> {
+): Promise<AttemptReservation>;
+export async function reserveAttempt<T extends Funding>(
+  admin: Kysely<DB>,
+  request: ReserveRequest,
+  limits: UsageLimits,
+  now?: Date,
+  select?: ResolveFunding<T>,
+) {
   if (!Number.isFinite(request.maxCostUsd) || request.maxCostUsd <= 0) {
     throw new GatewayConfigError('AI_MAX_CALL_USD must configure a positive invocation bound');
   }
@@ -48,15 +67,19 @@ export async function reserveAttempt(
     const at = now ?? clock.rows[0]?.now ?? new Date();
     const { day, monthStart, dayEnds, monthEnds } = usagePeriods(at);
     const run = await trx
-      .selectFrom('ai_runs')
-      .selectAll()
-      .where('id', '=', request.runId)
+      .selectFrom('ai_runs as r')
+      .innerJoin('projects as p', 'p.id', 'r.project_id')
+      .selectAll('r')
+      .select('p.workspace_id')
+      .where('r.id', '=', request.runId)
+      .forShare('p')
       .executeTakeFirst();
     if (!run) throw new GatewayConfigError('A model call needs an existing parent run');
+    const route = select ? await select(trx, run.workspace_id) : undefined;
+    const payer = route?.payer ?? 'instance';
     const totals = await sql<{ instance: string; project: string; person: string }>`
       select
-        (select coalesce(sum(cost_usd), 0) from usage where day >= ${monthStart}::date and day < ${monthEnds}::date)
-          + (select coalesce(sum(hold_usd), 0) from ai_attempts where hold_usd > 0 and budget_month = ${monthStart}::date) as instance,
+        private.instance_committed_usd(${monthStart}::date) as instance,
         (select coalesce(sum(cost_usd), 0) from usage where project_id = ${run.project_id} and day >= ${monthStart}::date and day < ${monthEnds}::date)
           + (select coalesce(sum(hold_usd), 0) from ai_attempts where hold_usd > 0 and project_id = ${run.project_id} and budget_month = ${monthStart}::date) as project,
         (select coalesce(sum(cost_usd), 0) from usage where user_id = ${run.user_id} and day = ${day}::date)
@@ -67,7 +90,7 @@ export async function reserveAttempt(
     const checks = [
       {
         scope: 'instance',
-        limit: limits.instanceMonthUsd ?? 0,
+        limit: payer === 'instance' ? (limits.instanceMonthUsd ?? 0) : 0,
         used: total.instance,
         reset: monthEnds,
       },
@@ -96,7 +119,10 @@ export async function reserveAttempt(
         agent_key: run.agent_key,
         kind: run.kind,
         purpose: request.purpose ?? run.kind,
-        model: request.model,
+        model: route?.model ?? request.model,
+        provider: route?.provider ?? 'anthropic',
+        workspace_id: run.workspace_id,
+        payer,
         budget_day: sql`${day}::date`,
         budget_month: sql`${monthStart}::date`,
         reserved_usd: (reservation / 1_000_000).toFixed(6),
@@ -108,7 +134,7 @@ export async function reserveAttempt(
     const limitUsd = limits.instanceMonthUsd ?? 0;
     const committedUsd = Number(total.instance) + reservation / 1_000_000;
     let warning: BudgetWarning | undefined;
-    if (limitUsd > 0 && committedUsd >= limitUsd * 0.8) {
+    if (payer === 'instance' && limitUsd > 0 && committedUsd >= limitUsd * 0.8) {
       const inserted = await trx
         .insertInto('ai_budget_warnings')
         .values({
@@ -121,7 +147,7 @@ export async function reserveAttempt(
         .executeTakeFirst();
       if (inserted) warning = { month: monthStart, committedUsd, limitUsd };
     }
-    return { id: row.id, ...(warning ? { warning } : {}) };
+    return { id: row.id, route, ...(warning ? { warning } : {}) };
   });
 }
 

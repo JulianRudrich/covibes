@@ -31,6 +31,17 @@ describe('resolveModel', () => {
     for (const model of AGENT_MODELS) expect(resolveModel(model).id).toBe(model);
   });
 
+  it('registers direct GPT models with distinct cached token pricing', () => {
+    expect(resolveModel('gpt-4.1')).toMatchObject({
+      provider: 'openai',
+      prices: { input: 2, output: 8, cacheRead: 0.5 },
+    });
+    expect(resolveModel('gpt-4.1-mini')).toMatchObject({
+      provider: 'openai',
+      prices: { input: 0.4, output: 1.6, cacheRead: 0.1 },
+    });
+  });
+
   it('rejects an unknown model as a configuration error', () => {
     expect(() => resolveModel('claude-opus-9')).toThrow(GatewayConfigError);
     expect(() => resolveModel('claude-opus-9')).toThrow(/claude-opus-9.*claude-opus-5-5/);

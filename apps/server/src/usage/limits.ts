@@ -109,13 +109,19 @@ export async function loadUsageTotals(
 }
 
 /** Operator aggregate, read only by the worker or an already authorized HTTP state reader. */
-export async function loadInstanceUsageTotal(admin: Kysely<DB>, now: Date): Promise<number> {
-  const { monthStart, monthEnds } = usagePeriods(now);
-  const totals = await sql<{ total: string }>`select
-    (select coalesce(sum(cost_usd), 0) from public.usage
-      where day >= ${monthStart}::date and day < ${monthEnds}::date)
-    + (select coalesce(sum(hold_usd), 0) from public.ai_attempts
-      where hold_usd > 0 and budget_month = ${monthStart}::date) as total`.execute(admin);
+export async function loadInstanceUsageTotal(
+  admin: Kysely<DB>,
+  now: Date,
+  projectId?: string,
+): Promise<number> {
+  const { monthStart } = usagePeriods(now);
+  // A workspace using its own keys cannot run on instance credit, even on credential failure.
+  const exempt = projectId
+    ? sql`exists (select from public.projects p
+    join public.workspace_provider_keys k on k.workspace_id = p.workspace_id where p.id = ${projectId}::uuid)`
+    : sql`false`;
+  const totals = await sql<{ total: string }>`select case when ${exempt} then 0
+    else private.instance_committed_usd(${monthStart}::date) end as total`.execute(admin);
   return Number(totals.rows[0]?.total ?? 0);
 }
 
@@ -191,7 +197,7 @@ export function usageGuard(
     const at = now();
     const totals = await loadUsageTotals(admin, who, at);
     if (limits.instanceMonthUsd !== undefined) {
-      totals.instanceMonthUsd = await loadInstanceUsageTotal(admin, at);
+      totals.instanceMonthUsd = await loadInstanceUsageTotal(admin, at, who.projectId);
     }
     const state = usageStateOf(limits, totals, at);
     const periods = usagePeriods(at);

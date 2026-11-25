@@ -1,3 +1,4 @@
+import { resolveModel } from '@server/ai-gateway/registry';
 import type { DB } from '@covibes/db';
 import {
   isCustomAgentKey,
@@ -510,6 +511,7 @@ export async function runAgentTurn(
         agent,
         // The owner's choice for this project, or the catalog default.
         model: member.model ?? agent.model,
+        fixedModel: member.model != null || agent.fixedModel === true,
         team,
         occasion,
         actorUserId: actorUserId ?? null,
@@ -619,6 +621,7 @@ async function converse(
     run: Run;
     agent: AgentDefinition;
     model: string;
+    fixedModel: boolean;
     team: TeamContext;
     occasion: Occasion | null;
     /** The person who accepted the offer the run does, if it does one. */
@@ -685,7 +688,14 @@ async function converse(
           : conversation.request
             ? classifyIntent(
                 (request) =>
-                  deps.complete({ ...request, billing: { runId: run.id, purpose: 'intent' } }),
+                  deps.complete({
+                    ...request,
+                    model:
+                      resolveModel(turn.model).provider === 'openai'
+                        ? 'gpt-4.1-mini'
+                        : request.model,
+                    billing: { runId: run.id, purpose: 'intent' },
+                  }),
                 conversation.request.content,
                 attempt.signal,
               )
@@ -837,6 +847,7 @@ async function converse(
     const result = await deps.reply({
       billing: { runId: run.id, purpose: 'reply' },
       model: turn.model,
+      fixedModel: turn.fixedModel,
       effort: agent.effort,
       system: agent.prompt,
       prompt: buildPrompt({

@@ -7,7 +7,7 @@ import {
   type VoteTally,
 } from '@covibes/shared';
 import { Check } from 'lucide-react';
-import { useId, useState, type SubmitEvent } from 'react';
+import { useId, useState, type ReactNode, type SubmitEvent } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
@@ -34,6 +34,7 @@ type DecisionsSectionProps = {
    */
   openId?: string | null;
   onOpenIdChange?: (decisionId: string | null) => void;
+  renderLinks?: (decision: Decision) => ReactNode;
 };
 
 const BOLD = { b: <strong className="font-semibold text-text" /> };
@@ -100,6 +101,7 @@ export function DecisionsSection({
   onReopen,
   openId: givenOpenId,
   onOpenIdChange,
+  renderLinks,
 }: DecisionsSectionProps) {
   const { t } = useTranslation();
   const titleId = useId();
@@ -184,6 +186,7 @@ export function DecisionsSection({
         {open ? (
           <DecisionDialog
             decision={open}
+            links={renderLinks?.(open)}
             comparing={comparing.includes(open.topic.toLowerCase())}
             onReopen={
               onReopen
@@ -209,11 +212,13 @@ function DecisionDialog({
   decision,
   comparing,
   onReopen,
+  links,
 }: {
   decision: Decision;
   /** Whether variants for the topic wait for the team (spec 17). */
   comparing: boolean;
   onReopen?: (reason: string) => void;
+  links?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
   const reasonId = useId();
@@ -282,6 +287,7 @@ function DecisionDialog({
           </div>
         ) : null}
 
+        {links}
         {reopening ? (
           <form
             onSubmit={submit}

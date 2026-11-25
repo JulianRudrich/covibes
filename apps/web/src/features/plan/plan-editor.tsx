@@ -17,6 +17,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@web/components/ui/button';
+import { Dialog, DialogContent } from '@web/components/ui/dialog';
+import { TargetDecisionLinksContent } from '@web/features/decisions/decision-links';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,6 +72,10 @@ type PlanEditorProps = {
   generation?: { busy: boolean; onGenerate: () => void };
   /** Shown at the tasks of the milestones; undefined until the roadmap is loaded. */
   tasks?: PlanTaskAssignments;
+  decisionLinks?: { onOpenDecision: (id: string) => void };
+  taskFocus?: string;
+  onTaskFocused?: () => void;
+  onTaskMissing?: () => void;
 };
 
 /** The caret of another person: a line in the human color with their name above it. */
@@ -104,7 +110,7 @@ export function PlanEditor({ projectId, ...plan }: PlanEditorProps) {
   if (!connection || !loaded) return <Message>{t('plan.loading')}</Message>;
   return (
     <>
-      <PlanDocument key={projectId} connection={connection} {...plan} />
+      <PlanDocument key={projectId} projectId={projectId} connection={connection} {...plan} />
       {status !== 'connected' ? (
         <div
           role="status"
@@ -119,6 +125,7 @@ export function PlanEditor({ projectId, ...plan }: PlanEditorProps) {
 }
 
 function PlanDocument({
+  projectId,
   connection,
   user,
   readOnly,
@@ -127,10 +134,15 @@ function PlanDocument({
   toolbarEnd,
   generation,
   tasks,
-}: Omit<PlanEditorProps, 'projectId'> & { connection: BoardConnection }) {
+  decisionLinks,
+  taskFocus,
+  onTaskFocused,
+  onTaskMissing,
+}: PlanEditorProps & { connection: BoardConnection }) {
   const { t } = useTranslation();
   // The task whose menu is open, and where its button stands on the screen.
   const [picking, setPicking] = useState<{ taskId: string; at: DOMRect } | null>(null);
+  const [decisionTask, setDecisionTask] = useState<string | null>(null);
   const pick = useCallback((taskId: string, anchor: HTMLElement) => {
     setPicking({ taskId, at: anchor.getBoundingClientRect() });
   }, []);
@@ -188,6 +200,9 @@ function PlanDocument({
       assignees,
       issues,
       onPick: canAssign ? pick : null,
+      decisionLinks: decisionLinks
+        ? { onOpen: setDecisionTask, label: t('decisionLinks.behindThis') }
+        : undefined,
       labels: {
         assign: t('roadmap.assign.short'),
         assignedTo: (name) => t('roadmap.assign.assignedTo', { name }),
@@ -199,7 +214,22 @@ function PlanDocument({
       },
     };
     editor.view.dispatch(editor.state.tr.setMeta(planTasksKey, true));
-  }, [editor, assignees, issues, canAssign, pick, t]);
+  }, [editor, assignees, issues, canAssign, pick, t, decisionLinks]);
+
+  useEffect(() => {
+    if (!taskFocus || editor.isDestroyed) return;
+    const element = [...editor.view.dom.querySelectorAll<HTMLElement>('[data-task-id]')].find(
+      (candidate) => candidate.getAttribute('data-task-id') === taskFocus,
+    );
+    if (!element) {
+      onTaskMissing?.();
+      return;
+    }
+    element.tabIndex = -1;
+    element.scrollIntoView({ block: 'center' });
+    element.focus({ preventScroll: true });
+    onTaskFocused?.();
+  }, [editor, taskFocus, onTaskFocused, onTaskMissing]);
 
   const empty = useEditorState({ editor, selector: ({ editor: current }) => current.isEmpty });
   const plan = usePlanText(connection.doc);
@@ -207,6 +237,29 @@ function PlanDocument({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <Dialog
+        open={decisionTask !== null}
+        onOpenChange={(open) => {
+          if (!open) setDecisionTask(null);
+        }}
+      >
+        {decisionTask && decisionLinks ? (
+          <DialogContent
+            title={t('decisionLinks.behindThis')}
+            className="w-[min(480px,calc(100vw-32px))]"
+          >
+            <TargetDecisionLinksContent
+              projectId={projectId}
+              target={{ kind: 'task', id: decisionTask }}
+              readOnly={readOnly}
+              onNavigate={(id) => {
+                setDecisionTask(null);
+                decisionLinks.onOpenDecision(id);
+              }}
+            />
+          </DialogContent>
+        ) : null}
+      </Dialog>
       {readOnly ? (
         // Viewers format nothing, but read the versions.
         extra ? (

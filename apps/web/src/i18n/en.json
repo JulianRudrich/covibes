@@ -1494,5 +1494,28 @@
       "block": "Canvas",
       "plan": "Plan"
     }
+  },
+  "decisionLinks": {
+    "impact": "What changes if this falls?",
+    "reviewHint": "These linked blocks and tasks need review if this decision changes. No changes are applied automatically.",
+    "empty": "No linked blocks or tasks.",
+    "block": "Block",
+    "task": "Task",
+    "missing": "Removed or unavailable",
+    "remove": "Unlink",
+    "removeNamed": "Unlink {{name}}",
+    "addTarget": "Link a block or task",
+    "searchTargets": "Find blocks and tasks",
+    "search": "Search",
+    "retry": "Could not load. Try again",
+    "noTargets": "No matching blocks or tasks.",
+    "refineSearch": "More targets exist. Refine the search.",
+    "failed": "The relationship could not be saved. Check access and the project link limit, then try again.",
+    "behindThis": "Decisions behind this",
+    "noDecisions": "No decisions linked yet.",
+    "addDecision": "Link a decision",
+    "open": "Open",
+    "decided": "Decided",
+    "taskMissing": "This task is no longer in the plan."
   }
 }

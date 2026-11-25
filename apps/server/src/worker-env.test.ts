@@ -16,6 +16,7 @@ describe('loadWorkerEnv', () => {
       APP_URL: 'http://localhost:5173',
       COLLAB_URL: 'ws://127.0.0.1:3001/api/collab',
       // The limits of the AI (spec 31a), the same as the server's.
+      AI_LIMIT_INSTANCE_MONTH_USD: 20,
       AI_LIMIT_PROJECT_MONTH_USD: 100,
       AI_LIMIT_USER_DAY_USD: 15,
     });

@@ -19,7 +19,7 @@ import { sql, type Kysely } from 'kysely';
 import { z } from 'zod';
 
 import { loadPrompt } from '@server/agents/prompts';
-import type { AgentReplyResult } from '@server/ai-gateway';
+import type { AgentReplyResult, CompleteRequest } from '@server/ai-gateway';
 import type {
   RepositoryDiff,
   RepositoryMergeRequest,
@@ -56,12 +56,7 @@ export type MrReviewDeps = {
   /** What the package for coding agents is built from right now; undefined if the project is gone. */
   packageInput: (projectId: string) => Promise<CodingPackageInput | undefined>;
   /** The gateway's `completeText`; tests pass a scripted model. */
-  complete: (request: {
-    model: string;
-    system: string;
-    prompt: string;
-    signal?: AbortSignal;
-  }) => Promise<AgentReplyResult>;
+  complete: (request: CompleteRequest) => Promise<AgentReplyResult>;
   /** Checks the limits of the AI before the model call (spec 31a); without it nothing is limited. */
   limits?: UsageGuard;
   logger: { error: (message: string) => void };
@@ -290,6 +285,7 @@ export async function reviewMergeRequest(
 
     await deps.limits?.({ projectId, userId: run.user_id });
     const result = await deps.complete({
+      billing: { runId, purpose: 'mr-review' },
       model: REVIEW_MODEL,
       system: PROMPT,
       prompt: buildReviewPrompt({

@@ -24,6 +24,7 @@ import { AWAY_SUMMARY_TASK, awaySummaryTask } from '@server/tasks/away-summary';
 import { GIT_REQUEST_TASK, gitRequestTask } from '@server/tasks/git-request';
 import { GIT_SYNC_TASK, gitSyncTask } from '@server/tasks/git-sync';
 import { MR_REVIEW_TASK, mrReviewTask } from '@server/tasks/mr-review';
+import { createBudgetGateway } from '@server/usage/gateway';
 import { usageGuard, usageLimitsOf } from '@server/usage/limits';
 import { NOTIFICATION_MAIL_TASK, notificationMailTask } from '@server/tasks/notification-mails';
 import { OBSERVE_TASK, observeTask } from '@server/tasks/observe';
@@ -75,6 +76,17 @@ if (!lease) {
   process.exit(1);
 }
 const models = createModelAvailability();
+const metered = createBudgetGateway(
+  {
+    admin,
+    limits: usageLimitsOf(env),
+    maxCallUsd: env.AI_MAX_CALL_USD ?? (env.NODE_ENV === 'production' ? 0 : 1),
+    onWarning: (warning) => {
+      console.warn(JSON.stringify({ event: 'ai_budget_warning', ...warning }));
+    },
+  },
+  { reply: streamAgentReply, complete: completeText },
+);
 function requireProductionKey() {
   if (env.NODE_ENV === 'production' && !env.ANTHROPIC_API_KEY) {
     throw new GatewayConfigError('Production AI access requires a configured API key');
@@ -83,12 +95,12 @@ function requireProductionKey() {
 const reply: typeof streamAgentReply = (request) =>
   models.call(async () => {
     requireProductionKey();
-    return streamAgentReply(request);
+    return metered.reply(request);
   });
 const complete: typeof completeText = (request) =>
   models.call(async () => {
     requireProductionKey();
-    return completeText(request);
+    return metered.complete(request);
   });
 await lease.heartbeat(models.state());
 const heartbeat = setInterval(() => {

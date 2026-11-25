@@ -110,15 +110,23 @@ describe('the limits from the environment', () => {
   };
 
   it('are 100 USD per project and month and 15 USD per person and day by default', () => {
-    expect(usageLimitsOf(loadServerEnv(base))).toEqual(LIMITS);
-    expect(usageLimitsOf(loadWorkerEnv(base))).toEqual(LIMITS);
+    expect(usageLimitsOf(loadServerEnv(base))).toEqual({ ...LIMITS, instanceMonthUsd: 20 });
+    expect(usageLimitsOf(loadWorkerEnv(base))).toEqual({ ...LIMITS, instanceMonthUsd: 20 });
   });
 
   it('are what the operator sets, the same way for server and worker; 0 switches one off', () => {
     const set = { ...base, AI_LIMIT_PROJECT_MONTH_USD: '250.5', AI_LIMIT_USER_DAY_USD: '0' };
 
-    expect(usageLimitsOf(loadServerEnv(set))).toEqual({ projectMonthUsd: 250.5, userDayUsd: 0 });
-    expect(usageLimitsOf(loadWorkerEnv(set))).toEqual({ projectMonthUsd: 250.5, userDayUsd: 0 });
+    expect(usageLimitsOf(loadServerEnv(set))).toEqual({
+      projectMonthUsd: 250.5,
+      userDayUsd: 0,
+      instanceMonthUsd: 20,
+    });
+    expect(usageLimitsOf(loadWorkerEnv(set))).toEqual({
+      projectMonthUsd: 250.5,
+      userDayUsd: 0,
+      instanceMonthUsd: 20,
+    });
     expect(() => loadWorkerEnv({ ...base, AI_LIMIT_USER_DAY_USD: '-1' })).toThrow();
     expect(() => loadServerEnv({ ...base, AI_LIMIT_PROJECT_MONTH_USD: 'viel' })).toThrow();
   });

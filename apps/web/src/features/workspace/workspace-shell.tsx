@@ -146,11 +146,15 @@ export function WorkspaceShell({
   useEffect(() => {
     if (phone || !main.current) return;
     const element = main.current;
-    const measure = () => setWidth(element.clientWidth || window.innerWidth);
+    const measure = () => {
+      setWidth(element.clientWidth || window.innerWidth);
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+    };
   }, [phone]);
   useEffect(() => {
     if (!tablet || !overviewOpen) return;
@@ -165,7 +169,9 @@ export function WorkspaceShell({
       closeOverview();
     };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+    };
   }, [tablet, overviewOpen, closeOverview]);
   const toggleFocus = () => {
     setFocused((previous) => !previous);
@@ -267,7 +273,9 @@ export function WorkspaceShell({
             value={chatWidth}
             min={CHAT_LIMITS.min}
             max={chatMax}
-            onChange={(next) => updatePreferences(tablet ? { tabletChat: next } : { chat: next })}
+            onChange={(next) => {
+              updatePreferences(tablet ? { tabletChat: next } : { chat: next });
+            }}
           />
         ) : null}
         <Panel
@@ -287,7 +295,9 @@ export function WorkspaceShell({
             min={OVERVIEW_LIMITS.min}
             max={overviewMax}
             reverse
-            onChange={(next) => updatePreferences({ overview: next })}
+            onChange={(next) => {
+              updatePreferences({ overview: next });
+            }}
           />
         ) : null}
 

@@ -25,6 +25,8 @@ import {
 } from '@server/api/invitations';
 import { debateRoutes, handRoutes, offerRoutes, voteRoutes } from '@server/api/hands';
 import { messageRoutes } from '@server/api/messages';
+import { messageHistoryRoutes } from '@server/api/message-history';
+import { projectSearchRoutes } from '@server/api/project-search';
 import { notificationRoutes } from '@server/api/notifications';
 import { gitAccountRoutes, gitCallback, gitRoutes, type GitDeps } from '@server/api/git';
 import { GIT_WEBHOOK_PATH, gitWebhook, WEBHOOK_CALLS_PER_MINUTE } from '@server/api/git-sync';
@@ -54,7 +56,7 @@ import type { LivePublisher } from '@server/realtime/realtime';
 import { createRateLimiter } from '@server/rate-limit';
 import type { FileStorage } from '@server/storage/storage';
 import { sameSecret } from '@server/secrets';
-import { usageLimitsOf } from '@server/usage/limits';
+import { loadInstanceUsageTotal, usageLimitsOf } from '@server/usage/limits';
 import { securityHeaders, serveWebApp } from '@server/web-app';
 
 /** A mail the worker hands to the development mailbox. */
@@ -215,6 +217,8 @@ export function createApp({
     '/api/projects/:projectId/messages',
     messageRoutes(db.app, auth, live, messageLimiter, (boardId) => documents.readBoard(boardId)),
   );
+  app.route('/api/projects/:projectId/message-history', messageHistoryRoutes(db.app, auth));
+  app.route('/api/projects/:projectId/search', projectSearchRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/runs', runRoutes(db.app, auth));
   const uploadLimiter = createRateLimiter({ limit: UPLOADS_PER_MINUTE, windowMs: 60_000 });
   app.route('/api/projects/:projectId/files', fileRoutes(db.app, auth, files, uploadLimiter));
@@ -235,7 +239,12 @@ export function createApp({
   app.route('/api/projects/:projectId/plan', planRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/roadmap', roadmapRoutes(db.app, auth, live, documents));
   // Whether a limit of the AI is reached (spec 31a).
-  app.route('/api/projects/:projectId/usage', usageRoutes(db.app, auth, usageLimitsOf(env)));
+  app.route(
+    '/api/projects/:projectId/usage',
+    usageRoutes(db.app, auth, usageLimitsOf(env), undefined, (at) =>
+      loadInstanceUsageTotal(db.admin, at),
+    ),
+  );
   app.route('/api/projects/:projectId/package', packageRoutes(db.app, auth, live, documents));
   app.route(
     '/api/projects/:projectId/git',

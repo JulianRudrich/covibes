@@ -28,10 +28,11 @@ describe('nextZoom', () => {
     expect(nextZoom(0.66, -1)).toBe(0.6);
   });
 
-  it('stays between 30 and 200 %', () => {
+  it('allows large-board fits below one percent and caps zoom at 200 %', () => {
     expect(nextZoom(2, 1)).toBe(2);
     expect(nextZoom(1.95, 1)).toBe(2);
-    expect(nextZoom(0.3, -1)).toBe(0.3);
+    expect(nextZoom(0.3, -1)).toBe(0.2);
+    expect(nextZoom(0.001, -1)).toBe(0.001);
   });
 });
 
@@ -57,6 +58,7 @@ describe('CanvasToolbar', () => {
       'Rahmen',
       'Verbinden',
       'Auto-Layout',
+      'Alles anzeigen',
       'Verkleinern',
       'Vergrößern',
     ]);
@@ -103,10 +105,11 @@ describe('CanvasToolbar', () => {
     expect(onToolChange).not.toHaveBeenCalled();
   });
 
-  it('gives viewers only the zoom', () => {
+  it('gives viewers show-all and zoom navigation', () => {
     renderToolbar({ readOnly: true });
 
     expect(screen.queryByRole('button', { name: 'Block' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Alles anzeigen' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Vergrößern' })).toBeInTheDocument();
   });
 
@@ -115,7 +118,7 @@ describe('CanvasToolbar', () => {
 
     expect(
       screen.getAllByRole('button').map((button) => button.ariaLabel ?? button.textContent),
-    ).toEqual(['Verkleinern', 'Vergrößern', 'Exportieren']);
+    ).toEqual(['Alles anzeigen', 'Verkleinern', 'Vergrößern', 'Exportieren']);
   });
 });
 

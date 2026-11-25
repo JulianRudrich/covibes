@@ -1,4 +1,4 @@
-import type { ChatMessage, NamedElement } from '@covibes/shared';
+import type { ChatMessage, MessageCursor, NamedElement } from '@covibes/shared';
 
 /**
  * A message as the chat shows it: confirmed by the server, or sent from this browser and not
@@ -15,3 +15,13 @@ export type ChatItem = ChatMessage & {
 export function messagesQueryKey(projectId: string) {
   return ['projects', projectId, 'messages'] as const;
 }
+
+/** History exhaustion belongs to the contiguous message window, not the lifetime of a project. */
+export function messageHistoryCursorKey(projectId: string) {
+  return ['projects', projectId, 'message-history-cursor'] as const;
+}
+
+export type MessageHistoryState = {
+  generation: number;
+  before: MessageCursor | null | undefined;
+};

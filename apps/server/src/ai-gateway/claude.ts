@@ -23,6 +23,8 @@ import {
   type AgentReplyResult,
   type AgentReplyUsage,
   type AgentTool,
+  type CompleteRequest,
+  withGatewayAttemptUsage,
 } from '@server/ai-gateway/types';
 
 /** Name of the in-process MCP server; the model sees the tools as `mcp__covibes__<name>`. */
@@ -88,12 +90,44 @@ export async function streamAgentReply(request: AgentReplyRequest): Promise<Agen
   let result: SDKResultMessage | undefined;
   let configError: SDKAssistantMessageError | undefined;
   let limit: QuotaLimit | undefined;
+  const partial = new Map<string, AgentReplyUsage>();
+  const streaming = new Map<string, string>();
+  const accountError = (error: unknown) => {
+    const usage = result
+      ? usageOf(result)
+      : [...partial.values()].reduce<AgentReplyUsage>(
+          (sum, next) => ({
+            inputTokens: sum.inputTokens + next.inputTokens,
+            outputTokens: sum.outputTokens + next.outputTokens,
+            cacheReadTokens: sum.cacheReadTokens + next.cacheReadTokens,
+            cacheWriteTokens: sum.cacheWriteTokens + next.cacheWriteTokens,
+          }),
+          { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+        );
+    return withGatewayAttemptUsage(error, {
+      provider: model.provider,
+      model: model.id,
+      usage,
+      costUsd: result ? costOf(result, usage, model) : estimateCostUsd(model.prices, usage),
+      webSearches: result ? webSearchesOf(result) : 0,
+      complete: result !== undefined,
+    });
+  };
   try {
     const options = await isolatedOptions(request, model, abortController);
     for await (const message of query({ prompt: request.prompt, options })) {
       if (message.type === 'result') {
         result = message;
       } else if (message.type === 'assistant') {
+        if (!message.error) {
+          const usage = message.message.usage;
+          partial.set(message.message.id, {
+            inputTokens: usage.input_tokens,
+            outputTokens: usage.output_tokens,
+            cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+            cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
+          });
+        }
         if (message.error && CONFIG_ERRORS.has(message.error)) configError = message.error;
         // A rate limit that Claude Code could not wait out itself ends the run.
         if (message.error === 'rate_limit') limit ??= { resetsAt: null };
@@ -101,8 +135,25 @@ export async function streamAgentReply(request: AgentReplyRequest): Promise<Agen
         // The subscription's session or weekly limit: nothing runs until it resets.
         const info = message.rate_limit_info;
         if (info.status === 'rejected') limit = { resetsAt: resetDate(info.resetsAt) };
-      } else if (message.type === 'stream_event' && message.parent_tool_use_id === null) {
+      } else if (message.type === 'stream_event') {
         const { event } = message;
+        const channel = message.parent_tool_use_id ?? 'main';
+        if (event.type === 'message_start') {
+          streaming.set(channel, event.message.id);
+          const usage = event.message.usage;
+          partial.set(event.message.id, {
+            inputTokens: usage.input_tokens,
+            outputTokens: usage.output_tokens,
+            cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+            cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
+          });
+        } else if (event.type === 'message_delta') {
+          const id = streaming.get(channel);
+          const previous = id ? partial.get(id) : undefined;
+          if (id && previous)
+            partial.set(id, { ...previous, outputTokens: event.usage.output_tokens });
+        }
+        if (message.parent_tool_use_id !== null) continue;
         // Text before and after a tool call arrives in separate blocks; keep them apart.
         if (event.type === 'content_block_start' && event.content_block.type === 'text') {
           startsNewBlock = text !== '';
@@ -119,20 +170,24 @@ export async function streamAgentReply(request: AgentReplyRequest): Promise<Agen
       }
     }
   } catch (error) {
-    signal?.throwIfAborted();
-    if (limit) throw failure(error instanceof Error ? error.message : String(error), { limit });
-    throw error;
+    const reason: unknown = signal?.aborted ? signal.reason : error;
+    throw accountError(
+      limit
+        ? failure(reason instanceof Error ? reason.message : String(reason), { limit })
+        : reason,
+    );
   } finally {
     signal?.removeEventListener('abort', abort);
   }
   // An abort can also end the run with an error result instead of a thrown error.
-  signal?.throwIfAborted();
+  if (signal?.aborted) throw accountError(signal.reason);
 
-  if (!result) throw failure('the run ended without a result', { configError, limit });
+  if (!result)
+    throw accountError(failure('the run ended without a result', { configError, limit }));
   if (result.subtype !== 'success' || result.is_error) {
     const details = result.subtype === 'success' ? [result.result] : result.errors;
     const detail = details.filter(Boolean).join('; ') || 'no details';
-    throw failure(`${result.subtype}: ${detail}`, { configError, limit });
+    throw accountError(failure(`${result.subtype}: ${detail}`, { configError, limit }));
   }
 
   const usage = usageOf(result);
@@ -150,12 +205,7 @@ export async function streamAgentReply(request: AgentReplyRequest): Promise<Agen
  * A short text answer without tools, e.g. a classification (spec 13). The same isolated run as an
  * agent reply, only nothing streams and no tool is offered.
  */
-export function completeText(request: {
-  model: string;
-  system: string;
-  prompt: string;
-  signal?: AbortSignal;
-}): Promise<AgentReplyResult> {
+export function completeText(request: CompleteRequest): Promise<AgentReplyResult> {
   return streamAgentReply({
     ...request,
     tools: [],
@@ -260,6 +310,7 @@ async function isolatedOptions(
     systemPrompt: request.system,
     ...(model.effort ? { effort: request.effort ?? 'medium' } : {}),
     maxTurns: MAX_TURNS,
+    ...(request.maxCostUsd === undefined ? {} : { maxBudgetUsd: request.maxCostUsd }),
     includePartialMessages: true,
     abortController,
     // None of Claude Code's own tools, except the web search when the run may search.

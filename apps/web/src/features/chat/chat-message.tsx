@@ -8,7 +8,7 @@ import { Badge } from '@web/components/ui/badge';
 import { Button } from '@web/components/ui/button';
 import { AgentAvatar } from '@web/features/agents/agent-avatar';
 import { agentClass, useAgents, type AgentLook } from '@web/features/agents/agents';
-import { MentionText } from '@web/features/chat/mention-text';
+import { FormattedMessage } from '@web/features/chat/formatted-message';
 import { TypingDots } from '@web/features/chat/status-pill';
 import { DebateCard } from '@web/features/debates/debate-card';
 import { AttachmentList } from '@web/features/files/attachment-list';
@@ -91,6 +91,7 @@ type ChatMessageViewProps = {
   onStopDebate?: (debate: MessageDebate) => void;
   /** Leads to an element of the canvas the message refers to (spec 37a). */
   onOpenReference?: (reference: MessageReference) => void;
+  onOpenMessage?: (messageId: string) => void;
 };
 
 /**
@@ -113,11 +114,13 @@ export function ChatMessageView({
   moderatorNeutral = true,
   onStopDebate,
   onOpenReference,
+  onOpenMessage,
 }: ChatMessageViewProps) {
   const { t, i18n } = useTranslation();
   const id = useId();
   const agents = useAgents();
   const { author, delivery } = item;
+  const TextContainer = /(^|\n)\s*(?:```|[-*+]\s|\d+[.)]\s)/.test(item.content) ? 'div' : 'p';
   const agent = author.kind === 'agent' ? agents(author.agentKey) : null;
   const isModerator = agent?.key === 'moderator';
   // The agent whose answer is still streaming in, if any.
@@ -253,10 +256,21 @@ export function ChatMessageView({
               })}
         </div>
       ) : null}
-      {replyToName === undefined ? null : (
+      {replyToName === undefined && !(item.replyTo && onOpenMessage) ? null : (
         <div className={markClass}>
           <CornerDownRight size={12} strokeWidth={2} aria-hidden="true" />
-          {t('chat.replyTo', { name: replyToName })}
+          {item.replyTo && onOpenMessage ? (
+            <button
+              type="button"
+              onClick={() => {
+                onOpenMessage(item.replyTo ?? '');
+              }}
+            >
+              {replyToName ? t('chat.replyTo', { name: replyToName }) : t('conversation.openReply')}
+            </button>
+          ) : (
+            t('chat.replyTo', { name: replyToName })
+          )}
         </div>
       )}
     </>
@@ -264,7 +278,7 @@ export function ChatMessageView({
 
   const text = (
     <>
-      <MentionText
+      <FormattedMessage
         text={item.content}
         agents={agent === null ? item.mentions : team}
         people={mentioned}
@@ -328,7 +342,9 @@ export function ChatMessageView({
       <Card labelledBy={labelIds.join(' ')}>
         {header}
         {marks}
-        <p className="m-0 text-body leading-[1.55] wrap-break-word text-text-body">{text}</p>
+        <TextContainer className="m-0 text-body leading-[1.55] wrap-break-word text-text-body">
+          {text}
+        </TextContainer>
         {after}
         {item.comparison ? <ComparisonCard comparison={item.comparison} /> : null}
         {item.vote && voting ? <VoteCard vote={item.vote} voting={voting} /> : null}
@@ -364,7 +380,7 @@ export function ChatMessageView({
       >
         {header}
         {marks}
-        <p
+        <TextContainer
           className={cn(
             'm-0 max-w-full rounded-[18px] px-3.5 py-2.5 text-body wrap-break-word',
             isOwn
@@ -378,7 +394,7 @@ export function ChatMessageView({
           )}
         >
           {text}
-        </p>
+        </TextContainer>
         {after}
       </div>
     </article>

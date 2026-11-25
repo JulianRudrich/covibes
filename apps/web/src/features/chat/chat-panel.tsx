@@ -4,6 +4,7 @@ import type {
   NamedElement,
   ProjectMember,
   ProjectRole,
+  ProjectSearchResult,
 } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
@@ -14,6 +15,8 @@ import { useMentionNames } from '@web/features/agents/agents';
 import { ChatStart } from '@web/features/chat/chat-start';
 import { Composer } from '@web/features/chat/composer';
 import { MessageList } from '@web/features/chat/message-list';
+import { ProjectSearch } from '@web/features/chat/project-search';
+import { useMessageHistory } from '@web/features/chat/use-message-history';
 import { messagesQuery } from '@web/features/chat/queries';
 import { chatStatus, runsQuery } from '@web/features/chat/runs';
 import { ChatStatusPill } from '@web/features/chat/status-pill';
@@ -44,6 +47,7 @@ type ChatPanelProps = {
   onOpenReference?: (reference: MessageReference) => void;
   /** An element of the canvas someone asks about (spec 37b); it goes into the composer. */
   ask?: NamedElement & { label: string };
+  onSearchResult?: (result: ProjectSearchResult) => void;
 };
 
 /**
@@ -62,9 +66,11 @@ export function ChatPanel({
   onNotice,
   onOpenReference,
   ask,
+  onSearchResult,
 }: ChatPanelProps) {
   const { t } = useTranslation();
   const messages = useQuery(messagesQuery(projectId));
+  const history = useMessageHistory(projectId);
   const runs = useQuery(runsQuery(projectId));
   const hands = useQuery(handsQuery(projectId)).data ?? NO_HANDS;
   const mentionNames = useMentionNames(team);
@@ -124,6 +130,22 @@ export function ChatPanel({
         <ChatStatusPill status={chatStatus(runs.data ?? [], messages.data ?? [], hands.length)} />
       </PanelHeader>
 
+      <ProjectSearch
+        projectId={projectId}
+        onOpen={(result) => {
+          if (result.kind === 'message') void history.openMessage(result.id);
+          else onSearchResult?.(result);
+        }}
+      />
+      {history.context ? (
+        <div role="status">
+          {t('conversation.context')}{' '}
+          <button type="button" onClick={history.latest}>
+            {t('conversation.latest')}
+          </button>
+        </div>
+      ) : null}
+      {history.failed ? <p role="alert">{t('conversation.loadFailed')}</p> : null}
       <div className="flex min-h-0 flex-col">
         {messages.isPending ? (
           <p className="m-0 grid flex-1 place-items-center p-6 text-ui text-text-3">
@@ -135,7 +157,14 @@ export function ChatPanel({
           </p>
         ) : (
           <MessageList
-            items={messages.data}
+            items={history.context?.items ?? messages.data}
+            onLoadOlder={history.loadOlder}
+            hasOlder={history.hasOlder}
+            loadingOlder={history.loading}
+            focusMessageId={history.focusId}
+            onOpenMessage={(id) => {
+              void history.openMessage(id);
+            }}
             empty={
               <ChatStart
                 readOnly={readOnly}
@@ -171,6 +200,7 @@ export function ChatPanel({
               start={start}
               ask={ask}
               onSend={(content, attachments, references) => {
+                history.latest();
                 send(content, attachments, references);
               }}
             />

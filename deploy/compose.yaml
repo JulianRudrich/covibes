@@ -54,6 +54,8 @@ services:
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Set INTERNAL_TOKEN in deploy/.env}
       # The limits of the AI in USD; the app says with them whether a limit is reached.
+      AI_LIMIT_INSTANCE_MONTH_USD: ${AI_LIMIT_INSTANCE_MONTH_USD:-20}
+      AI_MAX_CALL_USD: ${AI_MAX_CALL_USD:-0}
       AI_LIMIT_PROJECT_MONTH_USD: ${AI_LIMIT_PROJECT_MONTH_USD:-}
       AI_LIMIT_USER_DAY_USD: ${AI_LIMIT_USER_DAY_USD:-}
     volumes:
@@ -87,6 +89,8 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY in deploy/.env}
       # The limits of the AI in USD, the same values as the app's; the worker checks them before
       # every model call.
+      AI_LIMIT_INSTANCE_MONTH_USD: ${AI_LIMIT_INSTANCE_MONTH_USD:-20}
+      AI_MAX_CALL_USD: ${AI_MAX_CALL_USD:-0}
       AI_LIMIT_PROJECT_MONTH_USD: ${AI_LIMIT_PROJECT_MONTH_USD:-}
       AI_LIMIT_USER_DAY_USD: ${AI_LIMIT_USER_DAY_USD:-}
       # The worker sends the notification mails; without SMTP there are none.

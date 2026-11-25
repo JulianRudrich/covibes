@@ -46,7 +46,19 @@ export function defineTool<Shape extends z.ZodRawShape>(tool: {
   };
 }
 
-export type AgentReplyRequest = {
+export type BillingContext = { runId: string; purpose?: string };
+
+export type CompleteRequest = {
+  model: string;
+  system: string;
+  prompt: string;
+  signal?: AbortSignal;
+  billing?: BillingContext;
+  /** Conservative reservation; the SDK only provides a soft execution cap. */
+  maxCostUsd?: number;
+};
+
+export type AgentReplyRequest = CompleteRequest & {
   /** Model id from the registry, e.g. `claude-opus-5-5`. */
   model: string;
   /** Stable instructions (agent prompt); kept first so prompt caching applies. */
@@ -102,4 +114,16 @@ export class GatewayLimitError extends Error {
     super(message);
     this.resetsAt = resetsAt;
   }
+}
+
+/** Accounting metadata remains attached to the original error class for job retry decisions. */
+export type GatewayAttemptUsage = Omit<AgentReplyResult, 'text'> & { complete: boolean };
+const attemptUsage = new WeakMap<Error, GatewayAttemptUsage>();
+export function withGatewayAttemptUsage(error: unknown, usage: GatewayAttemptUsage): Error {
+  const failure = error instanceof Error ? error : new Error(String(error));
+  attemptUsage.set(failure, usage);
+  return failure;
+}
+export function readGatewayAttemptUsage(error: unknown): GatewayAttemptUsage | undefined {
+  return error instanceof Error ? attemptUsage.get(error) : undefined;
 }

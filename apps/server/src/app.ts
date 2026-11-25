@@ -6,6 +6,7 @@ import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 
 import { agentRoutes } from '@server/api/agents';
+import { accountRoutes } from '@server/api/account';
 import { agentKnowledgeRoutes } from '@server/api/agent-knowledge';
 import { customAgentRoutes } from '@server/api/custom-agents';
 import { awayRoutes } from '@server/api/away';
@@ -180,6 +181,14 @@ export function createApp({
       gitlabLogin: gitlabLoginEnabled(env),
       emailLogin: mail.mailer !== undefined,
       devMailbox: env.NODE_ENV === 'development' && mail.outbox !== undefined,
+      socialLogins: [
+        ...(env.GITHUB_CLIENT_ID ? ['github' as const] : []),
+        ...(env.GOOGLE_CLIENT_ID ? ['google' as const] : []),
+        ...(gitlabLoginEnabled(env) ? ['gitlab' as const] : []),
+      ],
+      emailCodeLogin: mail.mailer !== undefined,
+      passkeyLogin: true,
+      closedBeta: env.NODE_ENV === 'production',
     }),
   );
 
@@ -262,6 +271,7 @@ export function createApp({
   app.route('/api/projects/:projectId/members', memberRoutes(db.app, auth, connections));
   app.route('/api/invitations', invitationRoutes(db.app, auth));
   app.route('/api/notifications', notificationRoutes(db.app, auth));
+  app.route('/api/account', accountRoutes(db.app, auth));
   app.route(
     '/api/projects/:projectId/share-link',
     shareLinkRoutes(db.app, auth, { appUrl: env.APP_URL }),

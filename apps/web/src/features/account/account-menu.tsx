@@ -78,6 +78,9 @@ export function AccountMenu({ user, children }: AccountMenuProps) {
             <span className="block font-medium text-text">{user.name}</span>
             <span className="block truncate">{user.email}</span>
           </DropdownMenuLabel>
+          <DropdownMenuItem onSelect={() => void navigate({ to: '/account' })}>
+            {t('accountSecurity.settings')}
+          </DropdownMenuItem>
           {canMail && settings ? (
             <DropdownMenuCheckboxItem
               checked={settings.email}

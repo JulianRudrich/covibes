@@ -812,7 +812,7 @@ describe('with a session', () => {
     const avatars = within(humans).getAllByRole('img');
     expect(avatars.map((avatar) => avatar.getAttribute('aria-label'))).toEqual(['Du', 'Alex Berg']);
     expect(within(humans).getByText('AB')).toBeInTheDocument();
-    const canvas = screen.getByTestId('canvas-panel');
+    const canvas = await screen.findByTestId('canvas-panel');
     expect(canvas).toHaveAttribute('data-board', DETAILS.boards[0]?.id);
     expect(canvas).toHaveAttribute('data-readonly', 'false');
     const chat = screen.getByTestId('chat-panel');

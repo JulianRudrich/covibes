@@ -13,8 +13,12 @@ import type { Task } from 'graphile-worker';
 import type { Kysely, Selectable } from 'kysely';
 import { z } from 'zod';
 
-import { RepositoryWriteError, type RepositoryWriters } from '@server/integrations/git-host';
-import { GitlabError } from '@server/integrations/gitlab/client';
+import {
+  RepositoryError,
+  RepositoryWriteError,
+  type RepositoryTarget,
+  type RepositoryWriters,
+} from '@server/integrations/git-host';
 import type { GitAccess } from '@server/integrations/gitlab/connections';
 
 /** Name of the job the database queues for an approved Git request (migration 0031). */
@@ -26,7 +30,7 @@ export type GitRequestDeps = {
   /** Role covibes_admin: the worker reads the request and writes the outcomes. */
   admin: Kysely<DB>;
   /** The access of a person to their GitLab; undefined without an account (any more). */
-  accessOf: (userId: string) => Promise<GitAccess | undefined>;
+  accessOf: (userId: string, target?: RepositoryTarget) => Promise<GitAccess | undefined>;
   /** Writes to a repository with a person's token. */
   writers: RepositoryWriters;
   now?: () => number;
@@ -81,17 +85,29 @@ export async function runGitRequest(
   let access: GitAccess | undefined;
   let unreachable = '';
   try {
-    access = request.decided_by ? await accessOf(request.decided_by) : undefined;
+    access = request.decided_by
+      ? await accessOf(request.decided_by, {
+          baseUrl: request.base_url,
+          repositoryId: Number(request.repository_id),
+          repositoryPath: request.repository_path,
+          projectId: request.project_id,
+        })
+      : undefined;
   } catch (error) {
     // Renewing the token did not reach GitLab; the account stays for the next try.
-    if (!(error instanceof GitlabError)) throw error;
-    unreachable = error.message;
+    if (!(error instanceof RepositoryError)) throw error;
+    if (![401, 403, 404].includes(error.status)) unreachable = error.message;
   }
   // The account must be one of the GitLab the repository is in.
   const writer =
     access?.baseUrl === request.base_url
       ? writers(
-          { baseUrl: request.base_url, repositoryId: Number(request.repository_id) },
+          {
+            baseUrl: request.base_url,
+            repositoryId: Number(request.repository_id),
+            repositoryPath: request.repository_path,
+            projectId: request.project_id,
+          },
           access.token,
         )
       : undefined;

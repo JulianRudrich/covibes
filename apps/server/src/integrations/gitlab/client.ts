@@ -1,6 +1,8 @@
 import type { GitRepository } from '@covibes/shared';
 import { z } from 'zod';
 
+import { RepositoryError } from '@server/integrations/git-host';
+
 // A small client for GitLab (spec 28a): the OAuth flow and the few calls of its API that Covibes
 // makes. It talks to any GitLab by its address, the real one and the development stand-in alike,
 // and checks every answer before it passes it on.
@@ -28,14 +30,14 @@ export const REPOSITORIES_PER_SEARCH = 20;
 const MIN_ACCESS_LEVEL = 30;
 
 /** GitLab answered with an error; `status` is its HTTP status. */
-export class GitlabError extends Error {
+export class GitlabError extends RepositoryError {
   constructor(
-    readonly status: number,
+    status: number,
     message: string,
     /** The start of what GitLab answered, which may name the reason. */
     readonly body = '',
   ) {
-    super(message);
+    super(status, message);
     this.name = 'GitlabError';
   }
 }

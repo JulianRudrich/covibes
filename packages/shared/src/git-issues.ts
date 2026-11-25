@@ -56,7 +56,8 @@ function short(text: string, max: number): string {
 /** The address of a file on the default branch, as the repository's pages show it. */
 function fileUrl(repository: Pick<GitRepository, 'url' | 'defaultBranch'>, path: string): string {
   const ref = (repository.defaultBranch ?? 'HEAD').split('/').map(encodeURIComponent).join('/');
-  return `${repository.url.replace(/\/+$/, '')}/-/blob/${ref}/${path}`;
+  const base = repository.url.replace(/\/+$/, '');
+  return `${base}${new URL(base).origin === 'https://github.com' ? '' : '/-'}/blob/${ref}/${path}`;
 }
 
 export type IssueActionsInput = {

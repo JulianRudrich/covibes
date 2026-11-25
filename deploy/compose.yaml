@@ -51,6 +51,12 @@ services:
       GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET:-}
       # Seals the tokens of connected repositories; without it no project can connect one.
       TOKEN_KEY: ${TOKEN_KEY:-}
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_CLIENT_ID: ${GITHUB_APP_CLIENT_ID:-}
+      GITHUB_APP_CLIENT_SECRET: ${GITHUB_APP_CLIENT_SECRET:-}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
+      GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:-}
+      GITHUB_APP_WEBHOOK_SECRET: ${GITHUB_APP_WEBHOOK_SECRET:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Set INTERNAL_TOKEN in deploy/.env}
       # The limits of the AI in USD; the app says with them whether a limit is reached.
@@ -85,6 +91,12 @@ services:
       GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID:-}
       GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET:-}
       TOKEN_KEY: ${TOKEN_KEY:-}
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_CLIENT_ID: ${GITHUB_APP_CLIENT_ID:-}
+      GITHUB_APP_CLIENT_SECRET: ${GITHUB_APP_CLIENT_SECRET:-}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
+      GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:-}
+      GITHUB_APP_WEBHOOK_SECRET: ${GITHUB_APP_WEBHOOK_SECRET:-}
       # Other people use this instance, so it needs an API key; a Claude subscription must not be used.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY in deploy/.env}
       # The limits of the AI in USD, the same values as the app's; the worker checks them before

@@ -2,6 +2,7 @@ import { COLLAB_PATH, defineEnv } from '@covibes/shared';
 import { z } from 'zod';
 
 import { usageLimitsEnv } from '@server/usage/limits';
+import { githubConfigurationComplete, githubEnvFields } from '@server/integrations/github/setup';
 
 export const serverEnvSchema = z
   .object({
@@ -40,6 +41,7 @@ export const serverEnvSchema = z
     GITLAB_CLIENT_SECRET: z.string().min(1).optional(),
     /** Only for a self-hosted GitLab; defaults to gitlab.com. */
     GITLAB_ISSUER: z.url().optional(),
+    ...githubEnvFields,
     /**
      * Key for the tokens of GitLab connections (spec 28a), shared with the worker. Unset, no
      * project can connect a repository. Changing it makes every stored token unreadable.
@@ -84,6 +86,10 @@ export const serverEnvSchema = z
   .refine((env) => Boolean(env.GOOGLE_CLIENT_ID) === Boolean(env.GOOGLE_CLIENT_SECRET), {
     message: 'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set together',
     path: ['GOOGLE_CLIENT_SECRET'],
+  })
+  .refine(githubConfigurationComplete, {
+    message: 'Set all GITHUB_APP_* values and TOKEN_KEY together',
+    path: ['GITHUB_APP_ID'],
   })
   .refine((env) => Boolean(env.GITLAB_CLIENT_ID) === Boolean(env.GITLAB_CLIENT_SECRET), {
     message: 'GITLAB_CLIENT_ID and GITLAB_CLIENT_SECRET must be set together',

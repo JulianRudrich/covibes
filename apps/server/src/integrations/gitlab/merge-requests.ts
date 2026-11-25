@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { GitlabError, type GitlabClient } from '@server/integrations/gitlab/client';
+import type { RepositoryPullRequest } from '@server/integrations/git-host';
 
 // The merge requests of a repository as merging needs them (spec 29d): what they are, whether
 // they can be merged as they are, and their last commit. The agents' tools read merge requests
@@ -9,23 +10,7 @@ import { GitlabError, type GitlabClient } from '@server/integrations/gitlab/clie
 /** Open merge requests the list shows at most, the latest changed first. */
 export const MAX_OPEN_MERGE_REQUESTS = 50;
 
-export type GitlabMergeRequest = {
-  number: number;
-  title: string;
-  /** What its author wrote about it; empty if nothing. */
-  description: string;
-  /** `opened`, `merged`, `closed` or `locked`, as GitLab names it. */
-  state: string;
-  url: string;
-  sourceBranch: string;
-  targetBranch: string;
-  author: string;
-  updatedAt: string | null;
-  draft: boolean;
-  conflicts: boolean;
-  /** Its last commit; null if GitLab named none. */
-  sha: string | null;
-};
+export type GitlabMergeRequest = RepositoryPullRequest;
 
 /** An address the web app may link to: nothing but a page on the web. */
 const pageUrl = z.string().regex(/^https?:\/\//i);

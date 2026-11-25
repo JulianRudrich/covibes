@@ -120,6 +120,12 @@ export function addGitSyncRoutes(
     if (!member) return { error: apiError(c, 'not_found') } as const;
     if (member.role !== 'owner') return { error: apiError(c, 'forbidden') } as const;
     if (!tokenKey) return { error: apiError(c, 'not_found') } as const;
+    const connection = await admin
+      .selectFrom('git_connections')
+      .select('provider')
+      .where('project_id', '=', projectId.data)
+      .executeTakeFirst();
+    if (connection?.provider !== 'gitlab') return { error: apiError(c, 'not_found') } as const;
     return { projectId: projectId.data, tokenKey } as const;
   }
 
@@ -190,8 +196,10 @@ export function gitWebhook(admin: Kysely<DB>, tokenKey: string | undefined, limi
 
     const stored = await admin
       .selectFrom('git_webhooks')
-      .select('secret')
-      .where('project_id', '=', projectId.data)
+      .innerJoin('git_connections', 'git_connections.project_id', 'git_webhooks.project_id')
+      .select('git_webhooks.secret')
+      .where('git_webhooks.project_id', '=', projectId.data)
+      .where('git_connections.provider', '=', 'gitlab')
       .executeTakeFirst();
     const secret = stored ? openSecret(tokenKey, stored.secret) : undefined;
     if (secret === undefined || !sameSecret(given, secret)) return apiError(c, 'not_found');

@@ -22,7 +22,9 @@ import { apiError } from '@server/api/errors';
 import type { SessionVariables } from '@server/auth/session';
 import { withUser, type AppDb } from '@server/db/database';
 import { issueOfMergeRequest } from '@server/git/merge-request-issue';
-import { GitlabError, type GitlabClient } from '@server/integrations/gitlab/client';
+import type { GitlabClient } from '@server/integrations/gitlab/client';
+import { RepositoryError } from '@server/integrations/git-host';
+import type { RepositoryOperations } from '@server/integrations/repository-operations';
 import type { GitConnections } from '@server/integrations/gitlab/connections';
 import { readMergeRequest } from '@server/integrations/gitlab/merge-requests';
 import { loadTaskIssues } from '@server/plan/task-issues';
@@ -216,7 +218,11 @@ export function addGitReviewRoutes(
     db: AppDb;
     /** How the server reaches GitLab; undefined on a server that is not set up for it. */
     git:
-      | { client: Pick<GitlabClient, 'get'>; connections: Pick<GitConnections, 'access'> }
+      | {
+          operations?: RepositoryOperations | undefined;
+          client: Pick<GitlabClient, 'get'>;
+          connections: Pick<GitConnections, 'access'>;
+        }
       | undefined;
     connection: (trx: Transaction<DB>, projectId: string) => Promise<GitConnection | null>;
   },
@@ -368,14 +374,16 @@ export function addGitReviewRoutes(
     try {
       const access = await git?.connections.access(who.projectId);
       if (!git || !access) return apiError(c, 'not_found');
-      found = await readMergeRequest(
-        git.client,
-        { baseUrl: access.baseUrl, repositoryId: stored.repository.repository.id },
-        access.token,
-        number.data,
-      );
+      const target = {
+        baseUrl: access.baseUrl,
+        repositoryId: stored.repository.repository.id,
+        repositoryPath: stored.repository.repository.path,
+      };
+      found = git.operations
+        ? await git.operations.pull(target, access.token, number.data)
+        : await readMergeRequest(git.client, target, access.token, number.data);
     } catch (error) {
-      if (!(error instanceof GitlabError)) throw error;
+      if (!(error instanceof RepositoryError)) throw error;
       return apiError(c, 'internal');
     }
     if (!found) return apiError(c, 'not_found');

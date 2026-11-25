@@ -2,6 +2,42 @@
 // request needs from wherever the repository is. GitLab does it first (`gitlab/writer.ts`); a second host
 // is added next to it and the job stays as it is.
 
+/** An upstream repository failure, independent of its hosting platform. */
+export class RepositoryError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'RepositoryError';
+  }
+}
+
+export type RepositoryTarget = {
+  baseUrl: string;
+  repositoryId: number;
+  /** Required by GitHub's owner/repository API, never accepted as an arbitrary URL. */
+  repositoryPath?: string;
+  /** The local project whose authorization must be checked again before a write. */
+  projectId?: string;
+};
+
+/** Common metadata used by approval and architecture-review flows on either provider. */
+export type RepositoryPullRequest = {
+  number: number;
+  title: string;
+  description: string;
+  state: string;
+  url: string;
+  sourceBranch: string;
+  targetBranch: string;
+  author: string;
+  updatedAt: string | null;
+  draft: boolean;
+  conflicts: boolean;
+  sha: string | null;
+};
+
 /** A milestone that is in the repository now. */
 export type WrittenMilestone = {
   /** The host's id of it, which an issue names to belong to it. */
@@ -113,7 +149,4 @@ export type RepositoryWriter = {
 };
 
 /** The writer of a repository for a person's access token. */
-export type RepositoryWriters = (
-  target: { baseUrl: string; repositoryId: number },
-  token: string,
-) => RepositoryWriter;
+export type RepositoryWriters = (target: RepositoryTarget, token: string) => RepositoryWriter;

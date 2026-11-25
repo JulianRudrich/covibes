@@ -4,7 +4,7 @@ import { sql, type Kysely } from 'kysely';
 import { z } from 'zod';
 
 import { issueOfMergeRequest } from '@server/git/merge-request-issue';
-import { GitlabError, type GitlabClient } from '@server/integrations/gitlab/client';
+import type { GitlabClient } from '@server/integrations/gitlab/client';
 import type { GitConnections } from '@server/integrations/gitlab/connections';
 import { readIssueStates } from '@server/integrations/gitlab/issues';
 import {
@@ -12,6 +12,8 @@ import {
   MAX_OPEN_MERGE_REQUESTS,
 } from '@server/integrations/gitlab/merge-requests';
 import { notifyLive } from '@server/realtime/notifications';
+import { RepositoryError } from '@server/integrations/git-host';
+import type { RepositoryOperations } from '@server/integrations/repository-operations';
 
 /** Name of the job the database queues to read a repository's state (migration 0035). */
 export const GIT_SYNC_TASK = 'git_sync';
@@ -19,6 +21,7 @@ export const GIT_SYNC_TASK = 'git_sync';
 const payloadSchema = z.object({ projectId: z.uuid() });
 
 export type GitSyncDeps = {
+  operations?: RepositoryOperations | undefined;
   /** Role covibes_admin: the worker reads the project and stores what it read. */
   admin: Kysely<DB>;
   client: Pick<GitlabClient, 'get'>;
@@ -44,13 +47,13 @@ const COMMIT = /^[0-9a-f]{7,64}$/;
  * wait. Reviews of merge requests that are no longer open are marked so.
  */
 export async function runGitSync(
-  { admin, client, connections, now = Date.now }: GitSyncDeps,
+  { admin, client, connections, operations, now = Date.now }: GitSyncDeps,
   payload: unknown,
 ): Promise<GitSyncOutcome> {
   const { projectId } = payloadSchema.parse(payload);
   const connection = await admin
     .selectFrom('git_connections')
-    .select(['base_url', 'repository_id'])
+    .select(['base_url', 'repository_id', 'repository_path'])
     .where('project_id', '=', projectId)
     .executeTakeFirst();
   if (!connection || connection.repository_id === null) return 'gone';
@@ -86,10 +89,16 @@ export async function runGitSync(
     try {
       const access = await connections.access(projectId);
       if (access) {
-        const target = { baseUrl: access.baseUrl, repositoryId: Number(repositoryId) };
+        const target = {
+          baseUrl: access.baseUrl,
+          repositoryId: Number(repositoryId),
+          repositoryPath: connection.repository_path ?? '',
+        };
         const states =
           numbers.length > 0
-            ? await readIssueStates(client, target, access.token, numbers)
+            ? operations
+              ? await operations.issueStates(target, access.token, numbers)
+              : await readIssueStates(client, target, access.token, numbers)
             : new Map<number, never>();
         if (states.size > 0) {
           await admin
@@ -115,7 +124,9 @@ export async function runGitSync(
             .execute();
         }
 
-        const open = await listOpenMergeRequests(client, target, access.token);
+        const open = operations
+          ? await operations.pulls(target, access.token)
+          : await listOpenMergeRequests(client, target, access.token);
         const ofRepository = admin
           .updateTable('git_reviews')
           .where('project_id', '=', projectId)
@@ -156,7 +167,7 @@ export async function runGitSync(
       }
     } catch (error) {
       // GitLab is away or refuses: the states of before stay, and the next reading tries again.
-      if (!(error instanceof GitlabError)) throw error;
+      if (!(error instanceof RepositoryError)) throw error;
       failed = true;
     }
   }

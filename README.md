@@ -22,7 +22,7 @@ Plan projects together in chat and on a shared canvas. Turn decisions into a ver
 - **Make the structure visible.** Draw mind maps, architecture, data models, flows and roadmaps on a shared canvas, with blocks, connections, frames, sticky notes, presence and undo.
 - **Keep decisions traceable.** Set project criteria, compare alternatives, vote and keep the reasoning in a decision log. Review agent proposals before applying them.
 - **Build a plan that stays editable.** Collaborate on scope, milestones and tasks, keep versions, assign work and review proposed updates section by section.
-- **Hand over useful context.** Export plans as Markdown or PDF, diagrams as PNG, SVG or Mermaid, and a coding-agent package with context files and feature specs. The GitLab integration creates issues and package merge requests, reviews architecture and merges after explicit approval.
+- **Hand over useful context.** Export plans as Markdown or PDF, diagrams as PNG, SVG or Mermaid, and a coding-agent package with context files and feature specs. The GitHub and GitLab integrations create issues and package pull or merge requests, review architecture and merge after explicit approval. A GitHub App must be configured by the operator.
 - **Choose who can do what.** Owners, editors and viewers have distinct permissions. Repository writes require approval, and the interface supports English and German.
 
 ### A shared workspace
@@ -75,7 +75,7 @@ HTTPS, email, OAuth and backups. It includes a [Compose setup](deploy/compose.ya
 [environment template](deploy/.env.example).
 
 Application data is stored on the instance in PostgreSQL and the uploaded-file storage.
-AI requests send the context needed for the task to the configured provider; GitLab and email
+AI requests send the context needed for the task to the configured provider; GitHub, GitLab and email
 use their configured external services. Review those services and the deployment settings
 before inviting a team.
 
@@ -89,7 +89,7 @@ flowchart LR
     Database -->|"Queued jobs"| Worker["Graphile Worker"]
     Worker -->|"Canvas and plan updates"| Server
     Worker -->|"Model requests"| Claude["Claude"]
-    Worker -->|"Approved repository writes"| GitLab["GitLab"]
+    Worker -->|"Approved repository writes"| GitHosts["GitHub / GitLab"]
 ```
 
 The browser uses the Covibes API; credentials and provider calls belong to the server and worker.

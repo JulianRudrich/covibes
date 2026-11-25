@@ -39,7 +39,9 @@ import type { SessionVariables } from '@server/auth/session';
 import type { BoardDocuments } from '@server/collab/collab';
 import { withUser, type AppDb } from '@server/db/database';
 import { comparePackage, packageDiffers } from '@server/git/package-compare';
-import { GitlabError, type GitlabClient } from '@server/integrations/gitlab/client';
+import type { GitlabClient } from '@server/integrations/gitlab/client';
+import { RepositoryError } from '@server/integrations/git-host';
+import type { RepositoryOperations } from '@server/integrations/repository-operations';
 import type { GitConnections } from '@server/integrations/gitlab/connections';
 import {
   listOpenMergeRequests,
@@ -225,8 +227,11 @@ export function addGitRequestRoutes(
     /** How the server reaches GitLab; undefined on a server that is not set up for it. */
     git:
       | {
+          operations?: RepositoryOperations | undefined;
           client: Pick<GitlabClient, 'get'>;
-          connections: Pick<GitConnections, 'account' | 'access'>;
+          connections: Pick<GitConnections, 'access'> & {
+            account: (userId: string, projectId?: string) => ReturnType<GitConnections['account']>;
+          };
         }
       | undefined;
     connection: (trx: Transaction<DB>, projectId: string) => Promise<GitConnection | null>;
@@ -243,8 +248,8 @@ export function addGitRequestRoutes(
     return { userId: user.id, projectId: projectId.data } as const;
   }
 
-  const hasAccount = async (userId: string) =>
-    ((await connections?.account(userId)) ?? null) !== null;
+  const hasAccount = async (userId: string, projectId: string) =>
+    ((await connections?.account(userId, projectId)) ?? null) !== null;
 
   routes.get('/requests', async (c) => {
     const who = asked(c);
@@ -258,7 +263,10 @@ export function addGitRequestRoutes(
       };
     });
     if (!found) return apiError(c, 'not_found');
-    return c.json<GitRequests>({ ...found, hasAccount: await hasAccount(who.userId) });
+    return c.json<GitRequests>({
+      ...found,
+      hasAccount: await hasAccount(who.userId, who.projectId),
+    });
   });
 
   /** Runs one of the database's functions for the person; a refusal becomes an API error. */
@@ -364,7 +372,7 @@ export function addGitRequestRoutes(
       repository: stored.repository?.repository ?? null,
       canRequest: stored.row.role !== 'viewer',
       canApprove: canApprove(stored.row),
-      hasAccount: await hasAccount(who.userId),
+      hasAccount: await hasAccount(who.userId, who.projectId),
       milestones: roadmap.milestones.map((milestone) => ({
         number: milestone.number,
         title: milestone.title,
@@ -452,7 +460,11 @@ export function addGitRequestRoutes(
     return comparePackage(
       (await gatherPackage(db, documents, projectId, userId))?.input,
       repository.repository,
-      git && { client: git.client, access: () => git.connections.access(projectId) },
+      git && {
+        operations: git.operations,
+        client: git.client,
+        access: () => git.connections.access(projectId),
+      },
     );
   }
 
@@ -497,7 +509,7 @@ export function addGitRequestRoutes(
       repository: stored.repository?.repository ?? null,
       canRequest: stored.row.role !== 'viewer',
       canApprove: canApprove(stored.row),
-      hasAccount: await hasAccount(who.userId),
+      hasAccount: await hasAccount(who.userId, who.projectId),
       files: result?.problem === null ? result.states : null,
       problem: result?.problem ?? null,
       stale: result?.problem === null ? result.stale : [],
@@ -594,11 +606,14 @@ export function addGitRequestRoutes(
       try {
         const access = await git?.connections.access(who.projectId);
         if (git && access) {
-          const open = await listOpenMergeRequests(
-            git.client,
-            { baseUrl: access.baseUrl, repositoryId: stored.repository.repository.id },
-            access.token,
-          );
+          const target = {
+            baseUrl: access.baseUrl,
+            repositoryId: stored.repository.repository.id,
+            repositoryPath: stored.repository.repository.path,
+          };
+          const open = git.operations
+            ? await git.operations.pulls(target, access.token)
+            : await listOpenMergeRequests(git.client, target, access.token);
           mergeRequests = open.map((entry) => {
             const review = stored.reviews.get(entry.number);
             return {
@@ -620,14 +635,14 @@ export function addGitRequestRoutes(
         }
       } catch (error) {
         // The repository could not be read; the dialog says so.
-        if (!(error instanceof GitlabError)) throw error;
+        if (!(error instanceof RepositoryError)) throw error;
       }
     }
     return c.json<GitMergeRequests>({
       repository: stored.repository?.repository ?? null,
       canRequest: stored.row.role !== 'viewer',
       canApprove: canApprove(stored.row),
-      hasAccount: await hasAccount(who.userId),
+      hasAccount: await hasAccount(who.userId, who.projectId),
       canReview: stored.row.role !== 'viewer',
       mergeRequests,
     });
@@ -655,14 +670,16 @@ export function addGitRequestRoutes(
     try {
       const access = await git?.connections.access(who.projectId);
       if (!git || !access) return apiError(c, 'not_found');
-      found = await readMergeRequest(
-        git.client,
-        { baseUrl: access.baseUrl, repositoryId: stored.repository.repository.id },
-        access.token,
-        number.data,
-      );
+      const target = {
+        baseUrl: access.baseUrl,
+        repositoryId: stored.repository.repository.id,
+        repositoryPath: stored.repository.repository.path,
+      };
+      found = git.operations
+        ? await git.operations.pull(target, access.token, number.data)
+        : await readMergeRequest(git.client, target, access.token, number.data);
     } catch (error) {
-      if (!(error instanceof GitlabError)) throw error;
+      if (!(error instanceof RepositoryError)) throw error;
       return apiError(c, 'internal');
     }
     if (!found) return apiError(c, 'not_found');

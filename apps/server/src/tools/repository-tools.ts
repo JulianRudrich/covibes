@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { defineTool, type AgentTool } from '@server/ai-gateway';
-import { GitlabError } from '@server/integrations/gitlab/client';
+import { RepositoryError } from '@server/integrations/git-host';
 import {
   cleanPath,
   MAX_DIFFS,
@@ -115,14 +115,20 @@ export function repositoryTools(reader: RepositoryReader): AgentTool[] {
       if (error instanceof RepositoryGoneError) {
         return 'The project is no longer connected to its repository. Say so to the team; an owner can connect it again under "Repository …" in the project\'s menu.';
       }
-      if (!(error instanceof GitlabError)) throw error;
+      if (!(error instanceof RepositoryError)) throw error;
+      const host =
+        error.name === 'GithubError'
+          ? 'GitHub'
+          : error.name === 'GitlabError'
+            ? 'GitLab'
+            : 'The repository host';
       if (error.status === 0 || error.status >= 500) {
-        return 'GitLab could not be reached right now. Say so to the team; it may work again later.';
+        return `${host} could not be reached right now. Say so to the team; it may work again later.`;
       }
       if (error.status === 401 || error.status === 403) {
-        return 'GitLab refused the access to the repository; the access of the owner who connected it may have changed. Say so to the team.';
+        return `${host} refused the access to the repository; the access of the owner who connected it may have changed. Say so to the team.`;
       }
-      return `GitLab answered with an error (status ${String(error.status)}), so this could not be read. Say so to the team.`;
+      return `${host} answered with an error (status ${String(error.status)}), so this could not be read. Say so to the team.`;
     }
   }
 

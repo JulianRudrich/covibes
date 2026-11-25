@@ -21,13 +21,12 @@ import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
 import type { BoardDocuments } from '@server/collab/collab';
 import { withUser, type AppDb } from '@server/db/database';
-import { GitlabError, type GitlabClient } from '@server/integrations/gitlab/client';
-import type { GitConnections } from '@server/integrations/gitlab/connections';
+import { GitlabError } from '@server/integrations/gitlab/client';
 import { readState, signState } from '@server/integrations/gitlab/crypto';
-import type { GitlabSetup } from '@server/integrations/gitlab/setup';
+import type { RepositoryServices } from '@server/integrations/repository-operations';
 
 /** What the routes need to reach a GitLab; undefined on a server that is not set up for it. */
-export type GitDeps = { setup: GitlabSetup; client: GitlabClient; connections: GitConnections };
+export type GitDeps = RepositoryServices;
 
 type Env = { Variables: SessionVariables };
 
@@ -50,6 +49,7 @@ async function loadConnection(
     .innerJoin('users', 'users.id', 'git_connections.connected_by')
     .select([
       'git_connections.base_url',
+      'git_connections.provider',
       'git_connections.account_username',
       'git_connections.account_name',
       'git_connections.connected_by',
@@ -73,11 +73,13 @@ async function loadConnection(
     return null;
   }
   return {
+    provider: row.provider as 'github' | 'gitlab',
     baseUrl: row.base_url,
     account: { username: row.account_username, name: row.account_name },
     connectedBy: { userId: row.connected_by, name: row.connected_by_name },
     connectedAt: row.created_at.toISOString(),
     repository: {
+      provider: row.provider as 'github' | 'gitlab',
       id: Number(row.repository_id),
       path: row.repository_path,
       name: row.repository_name,
@@ -92,7 +94,8 @@ async function loadConnection(
  * connects their own through OAuth and disconnects it again. The way back from GitLab ends at
  * `gitCallback`.
  */
-export function gitAccountRoutes(auth: Auth, git: GitDeps | undefined) {
+export function gitAccountRoutes(auth: Auth, services: GitDeps | undefined) {
+  const git = services?.gitlab;
   const routes = new Hono<Env>();
   routes.use(sessionMiddleware(auth));
 
@@ -151,7 +154,7 @@ export function gitRoutes(
 ) {
   const routes = new Hono<Env>();
   routes.use(sessionMiddleware(auth));
-  addGitSyncRoutes(routes, { db, ...webhook, tokenKey: git?.setup.tokenKey });
+  addGitSyncRoutes(routes, { db, ...webhook, tokenKey: git?.gitlab?.setup.tokenKey });
   addGitRequestRoutes(routes, {
     db,
     documents,
@@ -193,7 +196,7 @@ export function gitRoutes(
     return c.json<GitState>({
       available: git !== undefined,
       ...project,
-      account: (await git?.connections.account(user.id)) ?? null,
+      account: (await git?.connections.account(user.id, projectId.data)) ?? null,
     });
   });
 
@@ -203,11 +206,11 @@ export function gitRoutes(
     if ('error' in asked) return asked.error;
     const search = gitRepositorySearchSchema.safeParse(c.req.query('search') ?? '');
     if (!search.success) return apiError(c, 'invalid_input');
-    const access = await git?.connections.accessOf(asked.userId);
+    const access = await git?.gitlab?.connections.accessOf(asked.userId);
     // Without an account of their own the owner connects one first.
-    if (!git || !access) return apiError(c, 'not_found');
+    if (!git?.gitlab || !access) return apiError(c, 'not_found');
     return c.json<GitRepository[]>(
-      await git.client.repositories(access.baseUrl, access.token, search.data),
+      await git.gitlab.client.repositories(access.baseUrl, access.token, search.data),
     );
   });
 
@@ -221,15 +224,15 @@ export function gitRoutes(
     const body: unknown = await c.req.json().catch(() => undefined);
     const input = gitRepositoryInputSchema.safeParse(body);
     if (!input.success) return apiError(c, 'invalid_input');
-    const access = await git?.connections.accessOf(asked.userId);
-    if (!git || !access) return apiError(c, 'not_found');
+    const access = await git?.gitlab?.connections.accessOf(asked.userId);
+    if (!git?.gitlab || !access) return apiError(c, 'not_found');
     const repository = await git.client.repository(
       access.baseUrl,
       access.token,
       input.data.repositoryId,
     );
     if (!repository) return apiError(c, 'invalid_input');
-    if (!(await git.connections.setRepository(asked.projectId, asked.userId, repository))) {
+    if (!(await git.gitlab.connections.setRepository(asked.projectId, asked.userId, repository))) {
       return apiError(c, 'not_found');
     }
     return c.body(null, 204);
@@ -253,7 +256,8 @@ export function gitRoutes(
  * tokens and the account is stored. The answer is always a redirect into the app: to the project
  * or the start page the flow came from, with how it ended for the dialog it was started in.
  */
-export function gitCallback(auth: Auth, appUrl: string, git: GitDeps | undefined) {
+export function gitCallback(auth: Auth, appUrl: string, services: GitDeps | undefined) {
+  const git = services?.gitlab;
   const routes = new Hono<Env>();
   routes.use(sessionMiddleware(auth));
   const home = appUrl.replace(/\/+$/, '');

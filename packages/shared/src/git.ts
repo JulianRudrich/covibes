@@ -1,10 +1,12 @@
 import { z } from 'zod';
 
-// GitLab in Covibes (specs 28a and 29a): the account a person connected, and the repository of a
-// project, as the web app shows them. Tokens never leave the server.
+// Repository integration contracts (specs 28a, 29a and 46). Tokens never leave the server.
+
+export type GitProvider = 'github' | 'gitlab';
 
 /** A repository in GitLab ("project" there), as far as Covibes shows it. */
 export type GitRepository = {
+  provider?: GitProvider;
   /** The id GitLab gives it. */
   id: number;
   /** Its path with the namespace, e.g. "verein/app". */
@@ -32,6 +34,7 @@ export type GitAccountState = {
 
 /** The repository of a project: which one, and with whose account it is reached. */
 export type GitConnection = {
+  provider?: GitProvider;
   /** Where the GitLab is, e.g. "https://gitlab.com". */
   baseUrl: string;
   /** The account in GitLab the access belongs to. */
@@ -110,6 +113,28 @@ export const gitRepositoryInputSchema = z
   .object({ repositoryId: z.number().int().positive() })
   .strict();
 export type GitRepositoryInput = z.infer<typeof gitRepositoryInputSchema>;
+
+/** GitHub App authorization belongs to the signed-in integration account, separate from login. */
+export type GithubAccountState = GitAccountState & { installUrl: string | null };
+export type GithubInstallations = {
+  installations: {
+    id: number;
+    account: string;
+    permissions: { contents?: string; issues?: string; pull_requests?: string };
+  }[];
+  more: boolean;
+};
+export const githubRepositoryInputSchema = z
+  .object({
+    installationId: z.number().int().positive(),
+    repositoryId: z.number().int().positive(),
+  })
+  .strict();
+export type GithubRepositoryInput = z.infer<typeof githubRepositoryInputSchema>;
+export const githubRepositoriesQuerySchema = z.object({
+  installationId: z.coerce.number().int().positive(),
+  search: gitRepositorySearchSchema.default(''),
+});
 
 /**
  * How the way back from GitLab ended, as the address says it: `?git=` opens the dialog

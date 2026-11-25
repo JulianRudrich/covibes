@@ -13,6 +13,7 @@ import { roadmapQuery } from '@web/features/roadmap/queries';
 import { boardHistoryQuery } from '@web/features/canvas/history-queries';
 import { usageOverviewQuery, usageStateQuery } from '@web/features/usage/queries';
 import { openVotesQuery } from '@web/features/decisions/queries';
+import { decisionLinksQueryKey } from '@web/features/decisions/link-queries';
 import { notificationsQuery } from '@web/features/notifications/queries';
 import { useProjectLive } from '@web/features/workspace/use-project-live';
 import { createQueryClient } from '@web/lib/query-client';
@@ -82,6 +83,35 @@ function loads(fetchMock: ReturnType<typeof stubApi>, url: string) {
 }
 
 describe('useProjectLive', () => {
+  it('refreshes dependency labels, missing targets and the picker after document changes and reconnect', async () => {
+    const client = createQueryClient();
+    const queryKey = decisionLinksQueryKey(PROJECT_ID);
+    client.setQueryData(queryKey, []);
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    function Harness() {
+      useProjectLive(PROJECT_ID);
+      return null;
+    }
+    render(
+      <QueryClientProvider client={client}>
+        <Harness />
+      </QueryClientProvider>,
+    );
+    act(() => {
+      live.handlers?.onEvent({ type: 'history', boardId: 'board' });
+      live.handlers?.onEvent({ type: 'roadmap' });
+      live.handlers?.onEvent({ type: 'decisions' });
+      live.handlers?.onConnect();
+    });
+    await waitFor(() => {
+      expect(
+        invalidate.mock.calls.filter(
+          ([options]) => JSON.stringify(options?.queryKey) === JSON.stringify(queryKey),
+        ),
+      ).toHaveLength(4);
+    });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey });
+  });
   it('reloads the notifications for a mention of the user and the open votes for a vote (spec 22a)', async () => {
     const NOTIFICATIONS_URL = '/api/notifications';
     const VOTES_URL = `${PROJECT_URL}/votes`;

@@ -32,6 +32,10 @@ type PlanPanelProps = {
   roadmapBusy: boolean;
   /** Who took which task of the plan (spec 26b); undefined until the roadmap is loaded. */
   tasks?: PlanTaskAssignments;
+  decisionLinks?: { onOpenDecision: (id: string) => void };
+  taskFocus?: string;
+  onTaskFocused?: () => void;
+  onTaskMissing?: () => void;
   /** The project's name, after which the exports of the plan are called (spec 27a). */
   projectName: string;
   onExportFailed: () => void;

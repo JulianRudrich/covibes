@@ -44,6 +44,7 @@ import {
   BackgroundVariant,
   ReactFlow,
   MiniMap,
+  Panel,
   ReactFlowProvider,
   useReactFlow,
   useStore,
@@ -94,6 +95,7 @@ import { useLiveCursors } from '@web/features/canvas/use-live-cursors';
 import { useNodeLocks } from '@web/features/canvas/use-node-locks';
 import { useUndo } from '@web/features/canvas/use-undo';
 import { useYjsFlow } from '@web/features/canvas/use-yjs-flow';
+import { TargetDecisionLinks } from '@web/features/decisions/decision-links';
 import { FIT_BOARD_OPTIONS, ZOOM_MAX, ZOOM_MIN } from '@web/features/canvas/zoom';
 import { boardImage, NO_EXPORT } from '@web/features/export/board-image';
 import { downloadBlob, downloadText } from '@web/features/export/download';
@@ -113,6 +115,7 @@ const CONNECTION_LINE_STYLE = {
 
 type CanvasPanelProps = {
   boardId: string;
+  decisionLinks?: { projectId: string; onOpenDecision: (id: string) => void };
   /** The board tabs of the header (spec 11). */
   tabs: ReactNode;
   /** A short note over the canvas, e.g. that the open board was deleted. */
@@ -183,6 +186,7 @@ export function CanvasPanel({ boardId, tabs, notice, ...canvas }: CanvasPanelPro
 
 function BoardCanvas({
   boardId,
+  decisionLinks,
   user,
   members,
   readOnly,
@@ -207,6 +211,7 @@ function BoardCanvas({
       ) : connection && loaded ? (
         <Board
           boardId={boardId}
+          decisionLinks={decisionLinks}
           connection={connection}
           user={user}
           members={members}
@@ -232,6 +237,7 @@ function BoardCanvas({
 
 type BoardProps = {
   boardId: string;
+  decisionLinks?: CanvasPanelProps['decisionLinks'];
   connection: BoardConnection;
   user: AwarenessUser;
   members: readonly ProjectMember[];
@@ -270,6 +276,7 @@ function centeredOn(point: Position, size: Size): Position {
 
 function Board({
   boardId,
+  decisionLinks,
   connection,
   user,
   members,
@@ -772,6 +779,21 @@ function Board({
           bgColor="var(--color-bg-canvas)"
         />
         <MiniMap pannable zoomable ariaLabel={t('canvas.minimap')} />
+        {decisionLinks &&
+        nodes.filter((node) => node.selected && node.type === 'block').length === 1 ? (
+          <Panel position="top-right">
+            <TargetDecisionLinks
+              projectId={decisionLinks.projectId}
+              target={{
+                kind: 'block',
+                boardId,
+                id: nodes.find((node) => node.selected && node.type === 'block')?.id ?? '',
+              }}
+              readOnly={readOnly}
+              onOpenDecision={decisionLinks.onOpenDecision}
+            />
+          </Panel>
+        ) : null}
         <ViewportPortal>
           {/* Proposals and the cursors of others are no part of the board: an image leaves them out. */}
           <div className="contents" {...{ [NO_EXPORT]: '' }}>

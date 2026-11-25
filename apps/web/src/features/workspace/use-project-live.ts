@@ -30,6 +30,7 @@ import { invitationsQuery } from '@web/features/share/queries';
 import { usageOverviewQueryKey, usageStateQueryKey } from '@web/features/usage/queries';
 import { boardHistoryQueryKey } from '@web/features/canvas/history-queries';
 import { useLiveChannel } from '@web/features/realtime/live-channel';
+import { decisionLinksQueryKey } from '@web/features/decisions/link-queries';
 
 /**
  * The live channel of the open project (specs 06 and 11), one connection for chat and boards:
@@ -55,7 +56,17 @@ export function useProjectLive(projectId: string, userId?: string) {
     if (queryClient.getQueryState(queryKey)) reload(queryKey);
   }
 
+  function reloadLinks() {
+    const queryKey = decisionLinksQueryKey(projectId);
+    if (queryClient.getQueryCache().findAll({ queryKey }).length > 0) {
+      void queryClient
+        .cancelQueries({ queryKey })
+        .then(() => queryClient.invalidateQueries({ queryKey }));
+    }
+  }
+
   function reloadDecisions() {
+    reloadLinks();
     reload(criteriaQueryKey(projectId));
     reload(decisionsQueryKey(projectId));
     // The log is only loaded once its dialog opened.
@@ -69,6 +80,7 @@ export function useProjectLive(projectId: string, userId?: string) {
   useLiveChannel(projectId, {
     onEvent: (event) => {
       if (event.type === 'boards' || event.type === 'project') {
+        reloadLinks();
         reload(projectQuery(projectId).queryKey);
         // Custom agents (spec 19) change with the project; the list is only loaded for editors.
         if (
@@ -95,6 +107,7 @@ export function useProjectLive(projectId: string, userId?: string) {
         // A generation started or ended, or a suggestion was decided (spec 25b).
         reload(planStateQueryKey(projectId));
       } else if (event.type === 'roadmap') {
+        reloadLinks();
         // The plan changed what its roadmap shows (spec 26a), and so the tasks issues are for.
         reload(roadmapQueryKey(projectId));
         reloadIfLoaded(gitIssuesQueryKey(projectId));
@@ -118,6 +131,7 @@ export function useProjectLive(projectId: string, userId?: string) {
         // The owner's overview of the running month, while its dialog is open (spec 31b).
         reloadIfLoaded(usageOverviewQueryKey(projectId, null));
       } else if (event.type === 'history') {
+        reloadLinks();
         // A board got an entry in its history (spec 38a); only its open dialog holds it.
         reloadIfLoaded(boardHistoryQueryKey(projectId, event.boardId));
       } else if (event.type === 'package') {

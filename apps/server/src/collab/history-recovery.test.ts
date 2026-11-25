@@ -10,6 +10,43 @@ import { createTestServer } from '@server/testing';
 const test = createTestServer();
 
 describe('history delivery recovery (spec 41)', () => {
+  it('delivers an outbox batch after its author account has disappeared', async () => {
+    const cookie = await test.signIn();
+    const response = await test.app.request('/api/projects', {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Deleted history author' }),
+    });
+    const projectId = ((await response.json()) as ProjectSummary).id;
+    const board = await test.db.admin
+      .selectFrom('boards')
+      .select('id')
+      .where('project_id', '=', projectId)
+      .executeTakeFirstOrThrow();
+    const authorId = randomUUID();
+    const doc = new Y.Doc();
+    const recorder = createBoardHistory({ adminPool: test.db.adminPool });
+    try {
+      recorder.loaded(board.id, doc);
+      addBlock(
+        doc,
+        { id: randomUUID(), label: 'API', position: { x: 0, y: 0 } },
+        { kind: 'human', userId: authorId },
+      );
+      recorder.changed(board.id, doc, { id: authorId, name: 'Former member' });
+      await recorder.stored(board.id, doc);
+      const result = await test.db.adminPool.query<{
+        actor_user_id: string | null;
+        actor_name: string;
+      }>('select actor_user_id, actor_name from board_changes where board_id = $1', [board.id]);
+      expect(result.rows).toEqual([{ actor_user_id: null, actor_name: 'Former member' }]);
+      expect(recorder.failedCount()).toBe(0);
+    } finally {
+      await recorder.close();
+      doc.destroy();
+    }
+  });
+
   it.each(['board_changes', 'board_history_outbox'] as const)(
     'retries a rejected %s write once',
     async (table) => {

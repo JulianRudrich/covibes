@@ -229,15 +229,6 @@ export function createBoardHistory({
     boards.delete(boardId);
   }
 
-  async function nameOf(client: pg.PoolClient, userId: string, known: Map<string, string>) {
-    const name = known.get(userId);
-    if (name !== undefined) return name;
-    const { rows } = await client.query<{ name: string }>('select name from users where id = $1', [
-      userId,
-    ]);
-    return rows[0]?.name ?? '';
-  }
-
   async function write(
     boardId: string,
     groups: readonly { actor: HistoryActor; items: HistoryItem[] }[],
@@ -309,6 +300,17 @@ export function createBoardHistory({
           continue;
         }
         const { actor } = group;
+        // An outbox batch can outlive its author. Lock an existing account until this
+        // transaction commits so a concurrent deletion cannot invalidate the foreign key.
+        const person =
+          actor.kind === 'human'
+            ? (
+                await client.query<{ id: string; name: string }>(
+                  'select id, name from users where id = $1 for key share',
+                  [actor.userId],
+                )
+              ).rows[0]
+            : undefined;
         await client.query(
           `insert into board_changes
              (project_id, board_id, actor_kind, actor_user_id, actor_agent_key, actor_name, items,
@@ -319,9 +321,9 @@ export function createBoardHistory({
             projectId,
             boardId,
             actor.kind,
-            actor.kind === 'human' ? actor.userId : null,
+            person?.id ?? null,
             actor.kind === 'agent' ? actor.agentKey : null,
-            actor.kind === 'human' ? await nameOf(client, actor.userId, names) : '',
+            actor.kind === 'human' ? (names.get(actor.userId) ?? person?.name ?? '') : '',
             JSON.stringify(group.items.slice(0, HISTORY_MAX_ITEMS)),
             at,
             taking?.reverts ?? null,
@@ -338,7 +340,7 @@ export function createBoardHistory({
             taking.reverts,
             boardId,
             at,
-            taking.by.userId,
+            person?.id ?? null,
             taking.by.name.slice(0, 200),
             taking.reverted,
             taking.kept,

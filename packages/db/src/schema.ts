@@ -32,6 +32,20 @@ export type ProjectRole = 'editor' | 'owner' | 'viewer';
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export interface AccountPasskeys {
+  aaguid: string | null;
+  backed_up: boolean;
+  counter: number;
+  created_at: Timestamp | null;
+  credential_id: string;
+  device_type: string;
+  id: Generated<string>;
+  name: string | null;
+  public_key: string;
+  transports: string | null;
+  user_id: string;
+}
+
 export interface Accounts {
   access_token: string | null;
   access_token_expires_at: Timestamp | null;
@@ -46,6 +60,16 @@ export interface Accounts {
   scope: string | null;
   updated_at: Timestamp;
   user_id: string;
+}
+
+export interface AccountTwoFactors {
+  backup_codes: string;
+  failed_verification_count: Generated<number>;
+  id: Generated<string>;
+  locked_until: Timestamp | null;
+  secret: string;
+  user_id: string;
+  verified: Generated<boolean>;
 }
 
 export interface AgentKnowledge {
@@ -129,6 +153,12 @@ export interface AwaySummaries {
   text: string | null;
   text_status: Generated<string>;
   user_id: string;
+}
+
+export interface BetaInvitations {
+  created_at: Generated<Timestamp>;
+  email: string;
+  expires_at: Timestamp;
 }
 
 export interface BoardChanges {
@@ -702,6 +732,7 @@ export interface Users {
   image: string | null;
   locale: Generated<string>;
   name: string;
+  two_factor_enabled: Generated<boolean>;
   updated_at: Generated<Timestamp>;
 }
 
@@ -750,12 +781,15 @@ export interface YjsDocuments {
 }
 
 export interface DB {
+  account_passkeys: AccountPasskeys;
+  account_two_factors: AccountTwoFactors;
   accounts: Accounts;
   agent_knowledge: AgentKnowledge;
   ai_attempts: AiAttempts;
   ai_budget_warnings: AiBudgetWarnings;
   ai_runs: AiRuns;
   away_summaries: AwaySummaries;
+  beta_invitations: BetaInvitations;
   board_changes: BoardChanges;
   board_history_outbox: BoardHistoryOutbox;
   boards: Boards;

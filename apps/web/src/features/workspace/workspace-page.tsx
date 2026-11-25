@@ -147,7 +147,7 @@ function useNotice() {
 function Workspace({ project, user }: { project: ProjectDetails; user: SessionUser | null }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { board: requested, view, focus, git: gitReturned } = route.useSearch();
+  const { board: requested, view, focus, task, git: gitReturned } = route.useSearch();
   // The project plan takes the place of the canvas while it is open (spec 25a).
   const planOpen = view === 'plan';
   const { notice, show: showNotice } = useNotice();
@@ -678,6 +678,25 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                   onOpenRoadmap={openRoadmap}
                   roadmapBusy={roadmapOpening.isPending}
                   tasks={planTasks}
+                  decisionLinks={{ onOpenDecision: setOpenDecisionId }}
+                  taskFocus={task}
+                  onTaskFocused={() => {
+                    void navigate({
+                      to: '/p/$projectId',
+                      params: { projectId: project.id },
+                      search: { view: 'plan' },
+                      replace: true,
+                    });
+                  }}
+                  onTaskMissing={() => {
+                    showNotice(t('decisionLinks.taskMissing'));
+                    void navigate({
+                      to: '/p/$projectId',
+                      params: { projectId: project.id },
+                      search: { view: 'plan' },
+                      replace: true,
+                    });
+                  }}
                   projectName={project.name}
                   onExportFailed={exportFailed}
                 />
@@ -685,6 +704,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
                 <RoadmapProvider value={roadmapSource}>
                   <CanvasPanel
                     boardId={activeBoard.id}
+                    decisionLinks={{ projectId: project.id, onOpenDecision: setOpenDecisionId }}
                     tabs={boardTabs(activeBoard.id)}
                     notice={notice}
                     user={{ id: user.id, name: user.name }}
@@ -755,6 +775,16 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
               onNotice={showNotice}
               openDecisionId={openDecisionId}
               onOpenDecision={setOpenDecisionId}
+              onOpenTarget={(target) => {
+                if (target.kind === 'block') openElement(target.boardId, target.id);
+                else
+                  void navigate({
+                    to: '/p/$projectId',
+                    params: { projectId: project.id },
+                    search: { view: 'plan', task: target.id },
+                  });
+                toCanvas();
+              }}
             />
           </>
         }

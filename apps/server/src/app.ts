@@ -6,12 +6,14 @@ import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 
 import { agentRoutes } from '@server/api/agents';
+import { accountRoutes } from '@server/api/account';
 import { agentKnowledgeRoutes } from '@server/api/agent-knowledge';
 import { customAgentRoutes } from '@server/api/custom-agents';
 import { awayRoutes } from '@server/api/away';
 import { boardHistoryRoutes } from '@server/api/board-history';
 import { boardRoutes } from '@server/api/boards';
 import { criteriaRoutes, decisionRoutes } from '@server/api/decisions';
+import { decisionLinkRoutes } from '@server/api/decision-links';
 import { apiError } from '@server/api/errors';
 import { fileRoutes, UPLOADS_PER_MINUTE } from '@server/api/files';
 import {
@@ -179,6 +181,14 @@ export function createApp({
       gitlabLogin: gitlabLoginEnabled(env),
       emailLogin: mail.mailer !== undefined,
       devMailbox: env.NODE_ENV === 'development' && mail.outbox !== undefined,
+      socialLogins: [
+        ...(env.GITHUB_CLIENT_ID ? ['github' as const] : []),
+        ...(env.GOOGLE_CLIENT_ID ? ['google' as const] : []),
+        ...(gitlabLoginEnabled(env) ? ['gitlab' as const] : []),
+      ],
+      emailCodeLogin: mail.mailer !== undefined,
+      passkeyLogin: true,
+      closedBeta: env.NODE_ENV === 'production',
     }),
   );
 
@@ -224,6 +234,7 @@ export function createApp({
   app.route('/api/projects/:projectId/debates', debateRoutes(db.app, auth));
   app.route('/api/projects/:projectId/criteria', criteriaRoutes(db.app, auth));
   app.route('/api/projects/:projectId/decisions', decisionRoutes(db.app, auth));
+  app.route('/api/projects/:projectId/decision-links', decisionLinkRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/away', awayRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/plan', planRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/roadmap', roadmapRoutes(db.app, auth, live, documents));
@@ -260,6 +271,7 @@ export function createApp({
   app.route('/api/projects/:projectId/members', memberRoutes(db.app, auth, connections));
   app.route('/api/invitations', invitationRoutes(db.app, auth));
   app.route('/api/notifications', notificationRoutes(db.app, auth));
+  app.route('/api/account', accountRoutes(db.app, auth));
   app.route(
     '/api/projects/:projectId/share-link',
     shareLinkRoutes(db.app, auth, { appUrl: env.APP_URL }),

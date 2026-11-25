@@ -1,195 +1,280 @@
 import { useQuery } from '@tanstack/react-query';
 import { getRouteApi, Link } from '@tanstack/react-router';
-import { GitBranch } from 'lucide-react';
-import { useState, type SubmitEvent } from 'react';
+import { useEffect, useRef, useState, type SubmitEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
-import { Logo } from '@web/components/logo';
 import { Button } from '@web/components/ui/button';
-import { Notice } from '@web/components/ui/card';
 import { Input, Label } from '@web/components/ui/input';
 import { LanguageSwitch } from '@web/features/account/language-switch';
-import { authErrorKey, redirectErrorKey, type AuthErrorKey } from '@web/features/auth/auth-errors';
-import { LoginScene } from '@web/features/auth/login-scene';
+import { redirectErrorKey, type AuthErrorKey } from '@web/features/auth/auth-errors';
 import { safeRedirectPath } from '@web/features/auth/redirect-path';
 import { configQuery } from '@web/features/auth/session';
 import { currentLanguage } from '@web/i18n/language';
 import { authClient } from '@web/lib/auth-client';
 
 const route = getRouteApi('/login');
-const emailSchema = z.email();
 
+function needsSecondFactor(data: unknown): boolean {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'twoFactorRedirect' in data &&
+    data.twoFactorRedirect === true
+  );
+}
+
+/** Functional account flow; spec 55 supplies the new visual system. */
 export function LoginPage() {
   const { t } = useTranslation();
   const search = route.useSearch();
   const config = useQuery(configQuery).data;
   const target = safeRedirectPath(search.redirect) ?? '/';
-  // Failed links come back to this page with the same target, so a retry still ends up there.
   const errorCallbackURL =
     target === '/' ? '/login' : `/login?redirect=${encodeURIComponent(target)}`;
-
   const [email, setEmail] = useState('');
-  const [sending, setSending] = useState(false);
-  const [sentTo, setSentTo] = useState<string>();
-  const [error, setError] = useState<AuthErrorKey | undefined>(
+  const [chosenMethod, setMethod] = useState<'code' | 'link'>();
+  const method = chosenMethod ?? (config?.emailCodeLogin ? 'code' : 'link');
+  const [sent, setSent] = useState(false);
+  const [code, setCode] = useState('');
+  const [secondFactor, setSecondFactor] = useState(search.twoFactor === 'required');
+  const [recovery, setRecovery] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<AuthErrorKey | 'accountSecurity.authFailed' | undefined>(
     search.error ? redirectErrorKey(search.error) : undefined,
   );
+  const codeInput = useRef<HTMLInputElement>(null);
 
-  async function sendLink(event: SubmitEvent<HTMLFormElement>) {
+  useEffect(() => {
+    if (secondFactor || (sent && method === 'code')) codeInput.current?.focus();
+  }, [secondFactor, sent, method, recovery]);
+
+  function complete(data: unknown) {
+    if (needsSecondFactor(data)) {
+      setSecondFactor(true);
+      setCode('');
+    } else window.location.assign(target);
+  }
+
+  function failed(reason: unknown) {
+    const detail = reason instanceof Error && reason.cause ? reason.cause : reason;
+    const limited =
+      typeof detail === 'object' && detail !== null && 'status' in detail && detail.status === 429;
+    setError(limited ? 'auth.errors.rateLimit' : 'accountSecurity.authFailed');
+  }
+
+  async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    const address = email.trim();
-    if (!emailSchema.safeParse(address).success) {
-      setError('auth.errors.invalidEmail');
-      return;
+    setError(undefined);
+    setBusy(true);
+    try {
+      if (secondFactor) {
+        const result = recovery
+          ? await authClient.twoFactor.verifyBackupCode({ code })
+          : await authClient.twoFactor.verifyTotp({ code });
+        if (result.error) throw new Error('Verification failed', { cause: result.error });
+        complete(result.data);
+      } else if (sent && method === 'code') {
+        const result = await authClient.signIn.emailOtp({ email: email.trim(), otp: code });
+        if (result.error) throw new Error('Verification failed', { cause: result.error });
+        complete(result.data);
+      } else {
+        if (!z.email().safeParse(email.trim()).success) {
+          setError('auth.errors.invalidEmail');
+          return;
+        }
+        const result =
+          method === 'code'
+            ? await authClient.emailOtp.sendVerificationOtp(
+                { email: email.trim(), type: 'sign-in' },
+                { headers: { 'accept-language': currentLanguage() } },
+              )
+            : await authClient.signIn.magicLink({
+                email: email.trim(),
+                callbackURL: target,
+                errorCallbackURL,
+                metadata: { language: currentLanguage() },
+              });
+        if (result.error) throw new Error('Request failed', { cause: result.error });
+        setSent(true);
+      }
+    } catch (reason) {
+      failed(reason);
+    } finally {
+      setBusy(false);
     }
-    setSending(true);
-    setError(undefined);
-    const result = await authClient.signIn.magicLink({
-      email: address,
-      callbackURL: target,
-      errorCallbackURL,
-      // The mail with the link is written in the language of this page (spec 32a).
-      metadata: { language: currentLanguage() },
-    });
-    setSending(false);
-    if (result.error) setError(authErrorKey(result.error));
-    else setSentTo(address);
   }
 
-  async function signInWithGitlab() {
+  async function social(provider: 'github' | 'google' | 'gitlab') {
     setError(undefined);
-    const result = await authClient.signIn.social({
-      provider: 'gitlab',
-      callbackURL: target,
-      errorCallbackURL,
-    });
-    if (result.error) setError(authErrorKey(result.error));
+    setBusy(true);
+    try {
+      const result = await authClient.signIn.social({
+        provider,
+        callbackURL: target,
+        errorCallbackURL,
+      });
+      if (result.error) failed(result.error);
+    } catch (reason) {
+      failed(reason);
+    } finally {
+      setBusy(false);
+    }
   }
 
-  const gitlabReady = config?.gitlabLogin === true;
-  // Without SMTP in production there is no login link by mail (spec 02b).
+  async function signInPasskey() {
+    setError(undefined);
+    setBusy(true);
+    try {
+      const result = await authClient.signIn.passkey();
+      if (result.error) failed(result.error);
+      else complete(result.data);
+    } catch (reason) {
+      failed(reason);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const providers = config?.socialLogins ?? (config?.gitlabLogin ? (['gitlab'] as const) : []);
   const emailReady = config?.emailLogin !== false;
-
   return (
-    <main className="grid min-h-dvh grid-cols-[minmax(0,1fr)_560px] bg-bg-app text-text max-[960px]:grid-cols-1">
-      <div className="contents max-[960px]:hidden">
-        <LoginScene />
-      </div>
-      <section
-        aria-labelledby="login-title"
-        className="flex flex-col justify-center px-[88px] py-10 max-[960px]:items-center max-[960px]:px-6"
-      >
-        <div className="w-full max-w-[384px]">
-          {/* Without the scene the brand stands above the form. */}
-          <div className="mb-10 hidden items-center gap-2.5 max-[960px]:flex">
-            <Logo />
-            <span className="font-display text-[18px] font-bold tracking-[-0.025em]">
-              {t('common.wordmark')}
-            </span>
-          </div>
-          <h2
-            id="login-title"
-            className="m-0 font-display text-[28px] font-semibold tracking-[-0.02em]"
-          >
-            {t('auth.title')}
-          </h2>
-          <p className="mt-2 mb-7 text-body text-text-3">{t('auth.subtitle')}</p>
-
-          {target.startsWith('/invite/') ? (
-            <Notice className="mb-4">{t('auth.invited')}</Notice>
+    <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center gap-6 p-6">
+      <Link to="/">{t('common.appName')}</Link>
+      <h1 className="text-2xl font-semibold">
+        {secondFactor ? t('accountSecurity.challengeTitle') : t('auth.title')}
+      </h1>
+      {config?.closedBeta ? <p>{t('accountSecurity.betaNotice')}</p> : null}
+      {target.startsWith('/invite/') ? <p>{t('auth.invited')}</p> : null}
+      {error ? <p role="alert">{t(error)}</p> : null}
+      {!secondFactor ? (
+        <div className="grid gap-3">
+          {providers.map((provider) => (
+            <Button key={provider} disabled={busy} onClick={() => void social(provider)}>
+              {t('accountSecurity.social', {
+                provider: { github: 'GitHub', google: 'Google', gitlab: 'GitLab' }[provider],
+              })}
+            </Button>
+          ))}
+          {config?.passkeyLogin ? (
+            <Button
+              disabled={busy || !('PublicKeyCredential' in window)}
+              onClick={() => void signInPasskey()}
+            >
+              {t('accountSecurity.passkeySignIn')}
+            </Button>
           ) : null}
-
-          {error ? (
-            <Notice id="login-error" tone="danger" className="mb-4">
-              {t(error)}
-            </Notice>
-          ) : null}
-
-          <Button
-            size="l"
-            className="w-full"
-            disabled={!gitlabReady}
-            aria-describedby={gitlabReady ? undefined : 'gitlab-hint'}
-            onClick={() => void signInWithGitlab()}
-          >
-            <GitBranch size={17} strokeWidth={2} aria-hidden="true" />
-            {t('auth.gitlab')}
-          </Button>
-          {gitlabReady ? null : (
-            <p id="gitlab-hint" className="mt-2 mb-0 text-small text-text-3">
-              {t('auth.gitlabUnavailable')}
-            </p>
-          )}
-
-          {emailReady ? (
+        </div>
+      ) : null}
+      {emailReady || secondFactor ? (
+        <form
+          noValidate
+          onSubmit={(event) => void submit(event)}
+          aria-busy={busy}
+          className="grid gap-3"
+        >
+          {!secondFactor ? (
             <>
-              <div className="my-[22px] flex items-center gap-3 text-small text-text-3">
-                <span aria-hidden="true" className="h-px flex-1 bg-border-strong" />
-                {t('auth.or')}
-                <span aria-hidden="true" className="h-px flex-1 bg-border-strong" />
-              </div>
-
-              {sentTo ? (
-                <div className="grid gap-3">
-                  <Notice tone="success">{t('auth.linkSent', { email: sentTo })}</Notice>
-                  {config?.devMailbox ? (
-                    <Link to="/dev/mails" className="text-ui">
-                      {t('auth.openMailbox')}
-                    </Link>
-                  ) : null}
-                  <Button
-                    variant="ghost"
-                    size="l"
-                    onClick={() => {
-                      setSentTo(undefined);
-                    }}
-                  >
-                    {t('auth.otherEmail')}
-                  </Button>
-                </div>
-              ) : (
-                <form
-                  className="grid gap-1.5"
-                  noValidate
-                  onSubmit={(event) => void sendLink(event)}
-                >
-                  <Label htmlFor="login-email" className="font-semibold">
-                    {t('auth.emailLabel')}
-                  </Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder={t('auth.emailPlaceholder')}
-                    value={email}
-                    className="h-[46px] rounded-[14px] px-4 text-[14px]"
-                    aria-invalid={error === 'auth.errors.invalidEmail'}
-                    aria-describedby={error ? 'login-error' : undefined}
-                    onChange={(event) => {
-                      setEmail(event.target.value);
-                    }}
-                  />
-                  <Button
-                    variant="primary"
-                    type="submit"
-                    size="l"
-                    className="mt-1.5 w-full"
-                    disabled={sending}
-                  >
-                    {sending ? t('auth.sending') : t('auth.sendLink')}
-                  </Button>
-                </form>
-              )}
-              <p className="mt-[22px] mb-0 text-small leading-normal text-text-3">
-                {t('auth.noPassword')}
-              </p>
+              <Label htmlFor="login-email">{t('auth.emailLabel')}</Label>
+              <Input
+                id="login-email"
+                type="email"
+                autoComplete="username webauthn"
+                value={email}
+                required
+                disabled={sent || busy}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                }}
+              />
+              {!sent ? (
+                <fieldset className="flex gap-4">
+                  <legend>{t('accountSecurity.emailMethod')}</legend>
+                  {(config?.emailCodeLogin ? (['code', 'link'] as const) : (['link'] as const)).map(
+                    (choice) => (
+                      <label key={choice}>
+                        <input
+                          type="radio"
+                          name="email-method"
+                          value={choice}
+                          checked={method === choice}
+                          disabled={busy}
+                          onChange={() => {
+                            setMethod(choice);
+                          }}
+                        />{' '}
+                        {t(`accountSecurity.method_${choice}`)}
+                      </label>
+                    ),
+                  )}
+                </fieldset>
+              ) : null}
             </>
           ) : null}
-
-          <LanguageSwitch className="mt-12 -ml-1 justify-start" />
-        </div>
-      </section>
+          {sent ? (
+            <p role="status">
+              {t(method === 'code' ? 'accountSecurity.codeSent' : 'auth.linkSent', { email })}
+            </p>
+          ) : null}
+          {secondFactor || (sent && method === 'code') ? (
+            <>
+              <Label htmlFor="login-code">
+                {t(recovery ? 'accountSecurity.recoveryCode' : 'accountSecurity.code')}
+              </Label>
+              <Input
+                id="login-code"
+                ref={codeInput}
+                value={code}
+                autoComplete="one-time-code"
+                inputMode={recovery ? 'text' : 'numeric'}
+                required
+                disabled={busy}
+                onChange={(event) => {
+                  setCode(event.target.value);
+                }}
+              />
+            </>
+          ) : null}
+          {!(sent && method === 'link') ? (
+            <Button type="submit" disabled={busy}>
+              {busy
+                ? t('common.loading')
+                : t(
+                    secondFactor || sent
+                      ? 'accountSecurity.verify'
+                      : method === 'code'
+                        ? 'accountSecurity.sendCode'
+                        : 'auth.sendLink',
+                  )}
+            </Button>
+          ) : null}
+          {secondFactor ? (
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                setRecovery(!recovery);
+                setCode('');
+              }}
+            >
+              {t(recovery ? 'accountSecurity.useAuthenticator' : 'accountSecurity.useRecovery')}
+            </Button>
+          ) : sent ? (
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                setSent(false);
+                setCode('');
+              }}
+            >
+              {t('auth.otherEmail')}
+            </Button>
+          ) : null}
+          {config?.devMailbox ? <Link to="/dev/mails">{t('auth.openMailbox')}</Link> : null}
+        </form>
+      ) : null}
+      <LanguageSwitch />
     </main>
   );
 }

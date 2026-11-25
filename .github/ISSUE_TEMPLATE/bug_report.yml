@@ -1,0 +1,56 @@
+name: Bug report
+description: Something in Covibes does not work as it should.
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Please leave out passwords, tokens, API keys, login links and the private content of projects. Security problems are reported privately, as described in SECURITY.md.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: I asked @Moderator to draw the architecture, but the canvas stayed empty and the chat showed "Something went wrong".
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a project in the architecture phase
+        2. Write "@Moderator draw the architecture" in the chat
+        3. …
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does it happen?
+      options:
+        - Local development (pnpm dev)
+        - Self-hosted instance (Docker)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit
+      description: The commit of `main` you run, from `git rev-parse --short HEAD` or the image you deployed.
+      placeholder: 75e9a5a
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and system
+      placeholder: Firefox 145 on macOS 15, Chrome 142 on Android 16 …
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant lines from the browser console or the server and worker output. Please check them for anything private before you send them.
+      render: text
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Drag images here if something looks wrong. Mention the theme (light or dark) and whether it was the phone layout.

@@ -21,6 +21,21 @@ export const serverEnvSchema = z
      * The web app connects to `COLLAB_PATH` from `@covibes/shared`; only tests use another value.
      */
     COLLAB_PATH: z.string().startsWith('/').default(COLLAB_PATH),
+    GITHUB_CLIENT_ID: z.string().min(1).optional(),
+    GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
+    GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+    GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+    /** Exact verified addresses admitted to the closed production beta. Empty means closed. */
+    BETA_ALLOWED_EMAILS: z
+      .string()
+      .default('')
+      .transform((value) =>
+        value
+          .split(',')
+          .map((email) => email.trim().toLowerCase())
+          .filter(Boolean),
+      )
+      .pipe(z.array(z.email())),
     GITLAB_CLIENT_ID: z.string().min(1).optional(),
     GITLAB_CLIENT_SECRET: z.string().min(1).optional(),
     /** Only for a self-hosted GitLab; defaults to gitlab.com. */
@@ -62,6 +77,14 @@ export const serverEnvSchema = z
      */
     ...usageLimitsEnv,
   })
+  .refine((env) => Boolean(env.GITHUB_CLIENT_ID) === Boolean(env.GITHUB_CLIENT_SECRET), {
+    message: 'GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be set together',
+    path: ['GITHUB_CLIENT_SECRET'],
+  })
+  .refine((env) => Boolean(env.GOOGLE_CLIENT_ID) === Boolean(env.GOOGLE_CLIENT_SECRET), {
+    message: 'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set together',
+    path: ['GOOGLE_CLIENT_SECRET'],
+  })
   .refine((env) => Boolean(env.GITLAB_CLIENT_ID) === Boolean(env.GITLAB_CLIENT_SECRET), {
     message: 'GITLAB_CLIENT_ID and GITLAB_CLIENT_SECRET must be set together',
     path: ['GITLAB_CLIENT_SECRET'],
@@ -76,10 +99,14 @@ export const serverEnvSchema = z
   })
   .refine(
     (env) =>
-      env.NODE_ENV !== 'production' || Boolean(env.SMTP_URL) || Boolean(env.GITLAB_CLIENT_ID),
+      env.NODE_ENV !== 'production' ||
+      Boolean(env.SMTP_URL) ||
+      Boolean(env.GITLAB_CLIENT_ID) ||
+      Boolean(env.GITHUB_CLIENT_ID) ||
+      Boolean(env.GOOGLE_CLIENT_ID),
     {
       message:
-        'Production needs a way to sign in: set SMTP_URL and MAIL_FROM (login link by mail) and/or GITLAB_CLIENT_ID and GITLAB_CLIENT_SECRET',
+        'Production needs a way to sign in: configure SMTP mail or a complete GitHub, Google or GitLab OAuth credential pair',
       path: ['SMTP_URL'],
     },
   );

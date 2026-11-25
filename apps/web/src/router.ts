@@ -30,6 +30,7 @@ const loginRoute = createRoute({
   validateSearch: z.object({
     redirect: z.string().optional().catch(undefined),
     error: z.string().optional().catch(undefined),
+    twoFactor: z.enum(['required']).optional().catch(undefined),
   }),
   beforeLoad: async ({ context, search }) => {
     const user = await context.queryClient.query(sessionQuery);
@@ -50,6 +51,12 @@ const authedRoute = createRoute({
     }
   },
   component: Outlet,
+});
+
+const accountRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: '/account',
+  component: lazyRouteComponent(() => import('@web/features/account/account-page'), 'AccountPage'),
 });
 
 const projectListRoute = createRoute({
@@ -78,6 +85,7 @@ const projectRoute = createRoute({
     board: z.string().optional().catch(undefined),
     view: z.enum(['plan']).optional().catch(undefined),
     focus: z.string().optional().catch(undefined),
+    task: z.uuid().optional().catch(undefined),
     git: z.enum(GIT_RETURNS).optional().catch(undefined),
     gitAccount: z.enum(GIT_RETURNS).optional().catch(undefined),
   }),
@@ -114,7 +122,7 @@ const devMailsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   loginRoute,
   shareRoute,
-  authedRoute.addChildren([projectListRoute, projectRoute, inviteRoute]),
+  authedRoute.addChildren([projectListRoute, projectRoute, inviteRoute, accountRoute]),
   ...(import.meta.env.DEV ? [devMailsRoute] : []),
 ]);
 

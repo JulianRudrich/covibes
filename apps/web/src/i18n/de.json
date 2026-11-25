@@ -1552,6 +1552,29 @@
       "plan": "Plan"
     }
   },
+  "decisionLinks": {
+    "impact": "Was ändert sich, wenn das fällt?",
+    "reviewHint": "Diese verknüpften Blöcke und Aufgaben müssen bei einer Änderung überprüft werden. Es wird nichts automatisch geändert.",
+    "empty": "Keine verknüpften Blöcke oder Aufgaben.",
+    "block": "Block",
+    "task": "Aufgabe",
+    "missing": "Entfernt oder nicht verfügbar",
+    "remove": "Verknüpfung lösen",
+    "removeNamed": "Verknüpfung mit {{name}} lösen",
+    "addTarget": "Block oder Aufgabe verknüpfen",
+    "searchTargets": "Blöcke und Aufgaben suchen",
+    "search": "Suchen",
+    "retry": "Laden fehlgeschlagen. Erneut versuchen",
+    "noTargets": "Keine passenden Blöcke oder Aufgaben.",
+    "refineSearch": "Weitere Ziele vorhanden. Suche eingrenzen.",
+    "failed": "Die Verknüpfung konnte nicht gespeichert werden. Zugriff und Projektlimit prüfen und erneut versuchen.",
+    "behindThis": "Entscheidungen dahinter",
+    "noDecisions": "Noch keine Entscheidungen verknüpft.",
+    "addDecision": "Entscheidung verknüpfen",
+    "open": "Offen",
+    "decided": "Entschieden",
+    "taskMissing": "Diese Aufgabe ist nicht mehr im Plan."
+  },
   "workspaces": {
     "select": "Arbeitsbereich",
     "allProjects": "Alle Projekte",

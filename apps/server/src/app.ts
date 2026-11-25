@@ -15,6 +15,7 @@ import { boardRoutes } from '@server/api/boards';
 import { criteriaRoutes, decisionRoutes } from '@server/api/decisions';
 import { projectLifecycleRoutes } from '@server/api/project-lifecycle';
 import { workspaceRoutes } from '@server/api/workspaces';
+import { decisionLinkRoutes } from '@server/api/decision-links';
 import { apiError } from '@server/api/errors';
 import { fileRoutes, UPLOADS_PER_MINUTE } from '@server/api/files';
 import {
@@ -235,6 +236,7 @@ export function createApp({
   app.route('/api/projects/:projectId/debates', debateRoutes(db.app, auth));
   app.route('/api/projects/:projectId/criteria', criteriaRoutes(db.app, auth));
   app.route('/api/projects/:projectId/decisions', decisionRoutes(db.app, auth));
+  app.route('/api/projects/:projectId/decision-links', decisionLinkRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/away', awayRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/plan', planRoutes(db.app, auth, documents));
   app.route('/api/projects/:projectId/roadmap', roadmapRoutes(db.app, auth, live, documents));

@@ -30,7 +30,9 @@ describe('yjs_documents', () => {
       "insert into boards (project_id, title, kind) values ($1, 'Board', 'main') returning id",
       [project.rows[0]?.id],
     );
-    const name = `board:${board.rows[0]?.id}`;
+    const boardId = board.rows[0]?.id;
+    if (!boardId) throw new Error('Board fixture was not created');
+    const name = `board:${boardId}`;
     await admin.query(
       `insert into yjs_documents (name, state) values ($1, '\\x0102')
        on conflict (name) do update set state = excluded.state`,

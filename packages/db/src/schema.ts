@@ -241,6 +241,18 @@ export interface Debates {
   turns: Generated<number>;
 }
 
+export interface DecisionLinks {
+  board_id: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  decision_id: string;
+  id: Generated<string>;
+  project_id: string;
+  target_id: string;
+  target_kind: string;
+  target_label: string;
+}
+
 export interface DecisionLog {
   actor_agent: string | null;
   actor_user: string | null;
@@ -813,6 +825,7 @@ export interface DB {
   criteria: Criteria;
   custom_agents: CustomAgents;
   debates: Debates;
+  decision_links: DecisionLinks;
   decision_log: DecisionLog;
   decisions: Decisions;
   file_cleanup: FileCleanup;

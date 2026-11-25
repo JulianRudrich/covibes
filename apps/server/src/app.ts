@@ -269,7 +269,7 @@ export function createApp({
   app.route('/api/agents', customAgentRoutes(db.app, auth, live));
 
   // In the Docker image the server also delivers the web app (spec 02b); locally Vite does.
-  if (env.WEB_DIST_DIR) serveWebApp(app, env.WEB_DIST_DIR);
+  if (env.WEB_DIST_DIR) serveWebApp(app, env.WEB_DIST_DIR, env.APP_URL);
 
   app.notFound((c) =>
     c.req.path.startsWith('/api/') ? apiError(c, 'not_found') : c.text('Not found', 404),

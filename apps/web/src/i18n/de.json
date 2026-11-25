@@ -1494,5 +1494,14 @@
       "block": "Canvas",
       "plan": "Plan"
     }
+  },
+  "layout": {
+    "loadingRoute": "Diese Seite wird geöffnet…",
+    "focusCanvas": "Canvas fokussieren",
+    "restorePanels": "Panels wieder anzeigen",
+    "showOverview": "Überblick einblenden",
+    "hideOverview": "Überblick ausblenden",
+    "resizeChat": "Chat-Panel vergrößern oder verkleinern",
+    "resizeOverview": "Überblick-Panel vergrößern oder verkleinern"
   }
 }

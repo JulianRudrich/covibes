@@ -1,13 +1,31 @@
 import type { GitReturn, Phase, ProjectAgent } from '@covibes/shared';
-import type { ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
+import { Maximize2, Minimize2, PanelRightClose, PanelRightOpen, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { IconButton } from '@web/components/ui/icon-button';
+import { PanelSplitter } from '@web/components/ui/panel-splitter';
+import { Tooltip } from '@web/components/ui/tooltip';
+import {
+  CHAT_LIMITS,
+  OVERVIEW_LIMITS,
+  clampPanel,
+  usePanelPreferences,
+} from '@web/features/workspace/use-panel-preferences';
 import { Panel } from '@web/components/ui/panel';
 import type { SessionUser } from '@web/features/auth/session';
 import type { ProjectSettings } from '@web/features/workspace/project-settings-dialog';
 import { MobileWorkspace } from '@web/features/workspace/mobile-workspace';
 import { WorkspaceHeader } from '@web/features/workspace/workspace-header';
-import { usePhone } from '@web/lib/use-media-query';
+import { useMediaQuery, usePhone } from '@web/lib/use-media-query';
 
 export type WorkspaceMember = { id: string; name: string; isCurrentUser: boolean };
 
@@ -92,6 +110,71 @@ export function WorkspaceShell({
 }: WorkspaceShellProps) {
   const { t } = useTranslation();
   const phone = usePhone();
+  const tablet = useMediaQuery('(48rem <= width < 80rem)');
+  const [preferences, updatePreferences] = usePanelPreferences();
+  const [focused, setFocused] = useState(false);
+  const [width, setWidth] = useState(1440);
+  const main = useRef<HTMLElement>(null);
+  const canvasPanel = useRef<HTMLElement>(null);
+  const overviewPanel = useRef<HTMLElement>(null);
+  const overviewToggle = useRef<HTMLButtonElement>(null);
+  const chatId = useId();
+  const canvasId = useId();
+  const overviewId = useId();
+  const overviewOpen = !focused && (tablet ? preferences.tabletOverview : preferences.wideOverview);
+  const overviewWidth = preferences.overview;
+  const chatMax = Math.max(
+    CHAT_LIMITS.min,
+    Math.min(
+      CHAT_LIMITS.max,
+      width - 24 - 12 - 340 - (!tablet && overviewOpen ? overviewWidth + 12 : 0),
+    ),
+  );
+  const chatWidth = clampPanel(
+    tablet ? preferences.tabletChat : preferences.chat,
+    CHAT_LIMITS.min,
+    chatMax,
+  );
+  const overviewMax = Math.max(
+    OVERVIEW_LIMITS.min,
+    Math.min(OVERVIEW_LIMITS.max, width - 24 - 24 - 340 - chatWidth),
+  );
+  const closeOverview = useCallback(() => {
+    updatePreferences(tablet ? { tabletOverview: false } : { wideOverview: false });
+    overviewToggle.current?.focus();
+  }, [tablet, updatePreferences]);
+  useEffect(() => {
+    if (phone || !main.current) return;
+    const element = main.current;
+    const measure = () => setWidth(element.clientWidth || window.innerWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [phone]);
+  useEffect(() => {
+    if (!tablet || !overviewOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        event.key !== 'Escape' ||
+        event.defaultPrevented ||
+        (event.target instanceof Element && event.target.closest('[role="dialog"],[role="menu"]'))
+      )
+        return;
+      event.preventDefault();
+      closeOverview();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [tablet, overviewOpen, closeOverview]);
+  const toggleFocus = () => {
+    setFocused((previous) => !previous);
+    if (!focused) requestAnimationFrame(() => canvasPanel.current?.focus());
+  };
+  const geometry = {
+    '--studio-chat-width': `${String(chatWidth)}px`,
+    '--studio-overview-width': `${String(clampPanel(overviewWidth, OVERVIEW_LIMITS.min, overviewMax))}px`,
+  } as CSSProperties;
 
   if (phone) {
     return (
@@ -113,7 +196,13 @@ export function WorkspaceShell({
   }
 
   return (
-    <div className="grid h-dvh min-w-[1100px] grid-rows-[64px_minmax(0,1fr)] bg-bg-app text-text">
+    <div
+      className="studio-workspace grid h-dvh min-w-0 grid-rows-[auto_minmax(0,1fr)] bg-bg-app text-text"
+      data-tablet={tablet}
+      data-focused={focused}
+      data-overview={overviewOpen}
+      style={geometry}
+    >
       <WorkspaceHeader
         projectName={projectName}
         settings={settings}
@@ -127,18 +216,99 @@ export function WorkspaceShell({
         user={user}
         team={team}
         share={share}
+        layout={
+          <div className="flex items-center gap-1">
+            <Tooltip content={t(focused ? 'layout.restorePanels' : 'layout.focusCanvas')}>
+              <IconButton
+                aria-label={t(focused ? 'layout.restorePanels' : 'layout.focusCanvas')}
+                aria-pressed={focused}
+                onClick={toggleFocus}
+              >
+                {focused ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip content={t(overviewOpen ? 'layout.hideOverview' : 'layout.showOverview')}>
+              <IconButton
+                ref={overviewToggle}
+                aria-label={t(overviewOpen ? 'layout.hideOverview' : 'layout.showOverview')}
+                aria-controls={overviewId}
+                aria-expanded={overviewOpen}
+                onClick={() => {
+                  setFocused(false);
+                  updatePreferences(
+                    tablet ? { tabletOverview: !overviewOpen } : { wideOverview: !overviewOpen },
+                  );
+                  if (tablet && !overviewOpen)
+                    requestAnimationFrame(() =>
+                      overviewPanel.current?.querySelector<HTMLButtonElement>('button')?.focus(),
+                    );
+                }}
+              >
+                {overviewOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+              </IconButton>
+            </Tooltip>
+          </div>
+        }
       />
 
-      <main className="grid min-h-0 grid-cols-[372px_minmax(0,1fr)_300px] gap-3 px-3 pb-3">
-        <Panel aria-label={t('panels.chat')}>{chat}</Panel>
-
-        <Panel aria-label={t('panels.canvas')}>{canvas}</Panel>
+      <main ref={main} className="studio-workspace-panels min-h-0 min-w-0 px-3 pb-3">
+        <Panel
+          id={chatId}
+          hidden={focused}
+          className="studio-chat-panel"
+          aria-label={t('panels.chat')}
+        >
+          {chat}
+        </Panel>
+        {!focused ? (
+          <PanelSplitter
+            label={t('layout.resizeChat')}
+            controls={chatId}
+            value={chatWidth}
+            min={CHAT_LIMITS.min}
+            max={chatMax}
+            onChange={(next) => updatePreferences(tablet ? { tabletChat: next } : { chat: next })}
+          />
+        ) : null}
+        <Panel
+          id={canvasId}
+          ref={canvasPanel}
+          tabIndex={-1}
+          className="studio-canvas-panel"
+          aria-label={t('panels.canvas')}
+        >
+          {canvas}
+        </Panel>
+        {!tablet && overviewOpen ? (
+          <PanelSplitter
+            label={t('layout.resizeOverview')}
+            controls={overviewId}
+            value={clampPanel(overviewWidth, OVERVIEW_LIMITS.min, overviewMax)}
+            min={OVERVIEW_LIMITS.min}
+            max={overviewMax}
+            reverse
+            onChange={(next) => updatePreferences({ overview: next })}
+          />
+        ) : null}
 
         {/* The overview has no title of its own: its sections head themselves. */}
         <aside
+          id={overviewId}
+          ref={overviewPanel}
+          hidden={!overviewOpen}
           aria-label={t('panels.overview')}
-          className="flex min-h-0 min-w-0 flex-col gap-[22px] overflow-y-auto rounded-surface bg-bg-panel p-[18px] shadow-panel"
+          className="studio-overview-panel flex min-h-0 min-w-0 flex-col gap-[22px] overflow-y-auto rounded-surface bg-bg-panel p-[18px] shadow-panel"
         >
+          {tablet ? (
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="m-0 font-display text-heading font-semibold">
+                {t('panels.overview')}
+              </h2>
+              <IconButton aria-label={t('layout.hideOverview')} onClick={closeOverview}>
+                <X size={16} />
+              </IconButton>
+            </div>
+          ) : null}
           {overview}
         </aside>
       </main>

@@ -1494,5 +1494,14 @@
       "block": "Canvas",
       "plan": "Plan"
     }
+  },
+  "layout": {
+    "loadingRoute": "Opening this page…",
+    "focusCanvas": "Focus canvas",
+    "restorePanels": "Restore panels",
+    "showOverview": "Show overview",
+    "hideOverview": "Hide overview",
+    "resizeChat": "Resize chat panel",
+    "resizeOverview": "Resize overview panel"
   }
 }

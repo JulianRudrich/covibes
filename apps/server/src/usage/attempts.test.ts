@@ -76,11 +76,12 @@ describe('atomic AI budget admission (spec 40)', () => {
     const request = await run();
     const instance = await reserveAttempt(test.db.admin, request, unlimited, now);
     await settleAttempt(test.db.admin, instance.id, 'succeeded', result(0.4));
-    const route = async () => ({
-      payer: 'workspace' as const,
-      model: request.model,
-      provider: 'anthropic' as const,
-    });
+    const route = () =>
+      Promise.resolve({
+        payer: 'workspace' as const,
+        model: request.model,
+        provider: 'anthropic' as const,
+      });
     const limits = { ...unlimited, instanceMonthUsd: 0.4 };
     const owned = await reserveAttempt(test.db.admin, request, limits, now, route);
     expect(owned.warning).toBeUndefined();
@@ -104,9 +105,9 @@ describe('atomic AI budget admission (spec 40)', () => {
       .executeTakeFirstOrThrow();
     expect(row).toMatchObject({
       payer: 'workspace',
-      workspace_id: expect.any(String),
       status: 'reconciled',
     });
+    expect(row.workspace_id).toEqual(expect.any(String));
   });
 
   it('admits only the reservations that fit when independent clients race', async () => {

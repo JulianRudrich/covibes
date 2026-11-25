@@ -27,6 +27,7 @@ describe('loadServerEnv', () => {
       BETA_ALLOWED_EMAILS: [],
       COLLAB_PATH: '/api/collab',
       // The limits of the AI (spec 31a), in USD.
+      AI_LIMIT_INSTANCE_MONTH_USD: 20,
       AI_LIMIT_PROJECT_MONTH_USD: 100,
       AI_LIMIT_USER_DAY_USD: 15,
     });

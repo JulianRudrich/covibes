@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { ProjectSummary, UsageOverview, UsageState } from '@covibes/shared';
 import { Hono } from 'hono';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { usageRoutes } from '@server/api/usage';
 import { APP_URL, createTestServer } from '@server/testing';
@@ -10,7 +10,7 @@ import { usagePeriods } from '@server/usage/limits';
 
 // What members learn of the limits of the AI (spec 31a): whether one is reached and until when,
 // and no number. And what owners read of the usage (spec 31b): the numbers of a month.
-const test = createTestServer();
+const test = createTestServer({ AI_LIMIT_INSTANCE_MONTH_USD: '0' });
 
 const LIMITS = { projectMonthUsd: 100, userDayUsd: 15 };
 const NOW = new Date();
@@ -149,13 +149,43 @@ describe('GET /api/projects/:projectId/usage/state', () => {
     expect((await request('/api/projects/nope/usage/state', project.owner)).status).toBe(404);
   });
 
+  it('reads the operator aggregate only after authorization and returns coarse instance state', async () => {
+    const project = await createProject();
+    const stranger = await test.signIn();
+    const readInstance = vi.fn<(at: Date) => Promise<number>>().mockResolvedValue(12345.678);
+    const app = new Hono().route(
+      '/api/projects/:projectId/usage',
+      usageRoutes(
+        test.db.app,
+        test.auth,
+        { ...LIMITS, instanceMonthUsd: 20 },
+        () => NOW,
+        readInstance,
+      ),
+    );
+    expect((await request(project.state, null, app)).status).toBe(401);
+    expect((await request(project.state, stranger, app)).status).toBe(404);
+    expect(readInstance).not.toHaveBeenCalled();
+    const response = await request(project.state, project.owner, app);
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(body).not.toContain('12345');
+    expect(JSON.parse(body) as UsageState).toMatchObject({
+      instance: { reached: true, resetsAt: usagePeriods(NOW).monthEnds.toISOString() },
+    });
+    expect(readInstance).toHaveBeenCalledExactlyOnceWith(NOW);
+  });
+
   it('is served by the app with the limits of its environment', async () => {
     const project = await createProject();
 
     const response = await request(project.state, project.owner, test.app);
 
     expect(response.status).toBe(200);
-    expect((await response.json()) as UsageState).toEqual(FREE);
+    expect((await response.json()) as UsageState).toEqual({
+      ...FREE,
+      instance: { reached: false, resetsAt: null },
+    });
   });
 });
 

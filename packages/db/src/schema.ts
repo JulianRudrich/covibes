@@ -87,6 +87,38 @@ export interface AgentKnowledge {
   url: string | null;
 }
 
+export interface AiAttempts {
+  agent_key: string;
+  budget_day: Timestamp;
+  budget_month: Timestamp;
+  cost_usd: Generated<Numeric>;
+  created_at: Generated<Timestamp>;
+  finished_at: Timestamp | null;
+  hold_usd: Numeric;
+  id: Generated<string>;
+  input_tokens: Generated<Int8>;
+  kind: string;
+  model: string;
+  operator_note: string | null;
+  outcome: string | null;
+  output_tokens: Generated<Int8>;
+  project_id: string;
+  provider: Generated<string>;
+  purpose: string;
+  reserved_usd: Numeric;
+  run_id: string;
+  status: Generated<string>;
+  user_id: string | null;
+  web_searches: Generated<number>;
+}
+
+export interface AiBudgetWarnings {
+  committed_usd: Numeric;
+  created_at: Generated<Timestamp>;
+  limit_usd: Numeric;
+  month: Timestamp;
+}
+
 export interface AiRuns {
   agent_key: string;
   cost_usd: Generated<Numeric>;
@@ -724,6 +756,8 @@ export interface DB {
   account_two_factors: AccountTwoFactors;
   accounts: Accounts;
   agent_knowledge: AgentKnowledge;
+  ai_attempts: AiAttempts;
+  ai_budget_warnings: AiBudgetWarnings;
   ai_runs: AiRuns;
   away_summaries: AwaySummaries;
   beta_invitations: BetaInvitations;

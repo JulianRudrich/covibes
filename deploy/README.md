@@ -160,3 +160,39 @@ docker compose up -d
 - `.env` holds all secrets: readable only by the operator (`chmod 600`), never committed.
 - Database and app are only reachable on the server itself; from outside only through the web server with HTTPS.
 - In production Covibes sets security headers and secure cookies.
+
+## AI budget admission and uncertain attempts
+
+Spec 40 adds an instance allowance of 20 USD per UTC calendar month, alongside the project
+month and person day. Configure `AI_LIMIT_INSTANCE_MONTH_USD` in `deploy/.env`; zero explicitly
+disables this limit. Every actual gateway invocation, including short classifications and
+retries, reserves its configured `AI_MAX_CALL_USD` before it starts. Production AI calls remain
+paused without a positive bound; local development defaults to 1 USD. Set a conservative bound
+for the models and workloads you allow. A call starts only if the entire reservation fits every
+enabled allowance. Lower reservations admit more concurrent calls, but must not misrepresent
+the cost the provider may incur.
+
+The Claude Agent SDK receives the same value as `maxBudgetUsd`. It limits its loop softly and
+cannot enforce a strict cap on the provider's final bill. Actual reported overspend is recorded
+and prevents further admissions. The instance allowance guarantees atomic admission against
+reserved amounts, not a ceiling on the provider invoice. Direct APIs in spec 44 can supply
+stronger token and cost bounds.
+
+The worker emits an `ai_budget_warning` JSON log when spending plus reservations first reaches
+80 percent in a month. `ai_budget_warnings` durably deduplicates the warning across workers.
+Monitor this event in the application's logs. No prompts, secrets or user identifiers are logged.
+
+Caught failures and cancellations preserve the reported partial usage. An abrupt process death
+can leave no durable usage report; without a final result, the unaccounted reservation remains
+held in `ai_attempts`, even after a restart. A crash never silently refunds spending. Operators can inspect these rows with their admin database connection. After stopping
+the relevant work and verifying its final cost in the provider records, release the hold with:
+
+```bash
+pnpm --filter @covibes/server ai:reconcile ATTEMPT_UUID 0.25 'Provider invoice verified after worker stop'
+```
+
+Run this on the operator's checkout with `DATABASE_ADMIN_URL` configured. The command records
+the note and additional cost, marks the attempt reconciled, and releases its hold atomically. It
+rejects a lower cost than already accounted or a second reconciliation. It must never be used
+to release an invocation that can still incur charges. Existing sessions and other non-AI work
+are unaffected by AI limits.

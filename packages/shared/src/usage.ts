@@ -16,7 +16,11 @@ export type UsageLimitState = {
  * cost in a day, across all projects. While one is reached, no model is called; everything else
  * keeps working.
  */
-export type UsageState = { project: UsageLimitState; user: UsageLimitState };
+export type UsageState = {
+  instance?: UsageLimitState;
+  project: UsageLimitState;
+  user: UsageLimitState;
+};
 
 /** A month as the overview takes it: "2026-10", a calendar month of UTC. */
 export const usageMonthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);

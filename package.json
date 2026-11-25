@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "tsx scripts/dev.ts",
     "build": "pnpm -r build",
-    "lint": "eslint . && pnpm -r --if-present check:tokens",
+    "lint": "node --max-old-space-size=3072 ./node_modules/eslint/bin/eslint.js . && pnpm -r --if-present check:tokens",
     "typecheck": "pnpm -r typecheck && tsc --noEmit -p scripts",
     "test": "pnpm -r test",
     "format": "prettier --write .",

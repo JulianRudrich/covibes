@@ -27,6 +27,7 @@ import type { Auth } from '@server/auth/auth';
 import { createBoardHistory, type RevertMark } from '@server/collab/board-history';
 import { withUser, type Database as AppDatabase } from '@server/db/database';
 import { sameSecret } from '@server/secrets';
+import { hasCanvasCommandReceipt } from '@server/tasks/run-commands';
 import { acceptUpgrade, fetchHeaders } from '@server/websockets';
 
 export type CollabContext = {
@@ -82,11 +83,85 @@ export function createCollab({
   onBoardHistory,
 }: CollabDeps) {
   const pendingStores = new Set<Promise<unknown>>();
+  const writing = new Map<string, Promise<void>>();
+  const failedStores = new Set<string>();
+  let closed = false;
+
+  // Merge snapshots instead of overwriting them: an older debounced store must not erase a
+  // command that was explicitly flushed after that snapshot was captured.
+  function persistDocument(documentName: string, state: Uint8Array, commandId?: string) {
+    const before = writing.get(documentName) ?? Promise.resolve();
+    const stored = before
+      .catch(() => undefined)
+      .then(async () => {
+        if (deletedDocuments.has(documentName)) return;
+        const client = await db.adminPool.connect();
+        const merged = new Y.Doc();
+        try {
+          await client.query('begin');
+          const { rows } = await client.query<{ state: Buffer }>(
+            'select state from yjs_documents where name = $1',
+            [documentName],
+          );
+          if (rows[0]) Y.applyUpdate(merged, new Uint8Array(rows[0].state));
+          Y.applyUpdate(merged, state);
+          if (commandId && !hasCanvasCommandReceipt(merged, commandId)) {
+            throw new Error('A command cannot finish before its canvas update reached the server');
+          }
+          await client.query(
+            `insert into yjs_documents (name, state, updated_at) values ($1, $2, now())
+           on conflict (name) do update set state = excluded.state, updated_at = now()`,
+            [documentName, Buffer.from(Y.encodeStateAsUpdate(merged))],
+          );
+          if (commandId) {
+            const boardId = boardIdFromDocumentName(documentName);
+            const completed = await client.query(
+              `update tool_commands set status = 'complete', completed_at = now()
+             where id = $1 and canvas->>'boardId' = $2 and response is not null`,
+              [commandId, boardId],
+            );
+            if (completed.rowCount !== 1)
+              throw new Error('The canvas command does not belong to this board');
+          }
+          await client.query('commit');
+          failedStores.delete(documentName);
+        } catch (error) {
+          await client.query('rollback').catch(() => undefined);
+          throw error;
+        } finally {
+          merged.destroy();
+          client.release();
+        }
+      })
+      .catch((error: unknown) => {
+        if (!deletedDocuments.has(documentName)) failedStores.add(documentName);
+        throw error;
+      });
+    writing.set(documentName, stored);
+    pendingStores.add(stored);
+    void stored
+      .finally(() => {
+        pendingStores.delete(stored);
+        if (writing.get(documentName) === stored) writing.delete(documentName);
+      })
+      .catch(() => undefined);
+    return stored;
+  }
+
   // Documents of deleted boards. Hocuspocus still stores a document after its last connection
   // closed; for these it must not, or the deleted canvas would come back.
   const deletedDocuments = new Set<string>();
   // What changed on the boards, written as entries of their history (spec 38a).
   const history = createBoardHistory({ adminPool: db.adminPool, onChanged: onBoardHistory });
+  const reconcileHistory = () => {
+    if (closed) return;
+    void history.reconcile().catch((error: unknown) => {
+      console.error('Reconciling board history failed', error);
+    });
+  };
+  reconcileHistory();
+  const historyRetry = setInterval(reconcileHistory, 30_000);
+  historyRetry.unref();
 
   const hocuspocus = new Hocuspocus<CollabContext>({
     name: 'covibes',
@@ -188,17 +263,7 @@ export function createCollab({
         },
         store: async ({ documentName, state, document }) => {
           if (deletedDocuments.has(documentName)) return;
-          const stored = db.adminPool.query(
-            `insert into yjs_documents (name, state, updated_at) values ($1, $2, now())
-             on conflict (name) do update set state = excluded.state, updated_at = now()`,
-            [documentName, state],
-          );
-          pendingStores.add(stored);
-          try {
-            await stored;
-          } finally {
-            pendingStores.delete(stored);
-          }
+          await persistDocument(documentName, state);
 
           // The board is stored; what changed on it since goes into its history (spec 38a). A
           // history that cannot be written must not make the store count as failed.
@@ -243,11 +308,25 @@ export function createCollab({
   async function deleteBoard(boardId: string) {
     const documentName = boardDocumentName(boardId);
     deletedDocuments.add(documentName);
-    history.unloaded(boardId);
+    failedStores.delete(documentName);
+    history.deleted(boardId);
     hocuspocus.closeConnections(documentName);
     // A store that started before could otherwise write the document again after the delete.
     await Promise.allSettled([...pendingStores]);
     await db.adminPool.query('delete from yjs_documents where name = $1', [documentName]);
+  }
+
+  /** Call after the relational project delete; tombstones stop late board and plan stores. */
+  async function deleteProjectDocuments(projectId: string, boardIds: readonly string[]) {
+    const names = [...boardIds.map(boardDocumentName), planDocumentName(projectId)];
+    for (const name of names) {
+      deletedDocuments.add(name);
+      failedStores.delete(name);
+      hocuspocus.closeConnections(name);
+    }
+    for (const id of boardIds) history.deleted(id);
+    await Promise.allSettled([...pendingStores]);
+    await db.adminPool.query('delete from yjs_documents where name = any($1::text[])', [names]);
   }
 
   /**
@@ -360,8 +439,34 @@ export function createCollab({
     return readDocument(planDocumentName(projectId), planOf);
   }
 
+  /** Explicit PostgreSQL acknowledgement; transport sync alone is not a durable save. */
+  async function flushDocument(documentName: string, commandId?: string): Promise<void> {
+    if (closed || deletedDocuments.has(documentName))
+      throw new Error('The document is no longer available');
+    const boardId = boardIdFromDocumentName(documentName);
+    const projectId = boardId ? undefined : projectIdFromPlanDocumentName(documentName);
+    if (!boardId && !projectId) throw new Error('Unknown collaboration document');
+    const connection = await hocuspocus.openDirectConnection(documentName, {
+      user: SERVICE_USER,
+      ...(boardId ? { boardId } : {}),
+      projectId: projectId ?? '',
+    });
+    try {
+      const document = connection.document;
+      if (!document) throw new Error('The document could not be opened');
+      await persistDocument(documentName, Y.encodeStateAsUpdate(document), commandId);
+      if (deletedDocuments.has(documentName))
+        throw new Error('The document was deleted during its save');
+      if (boardId) await history.stored(boardId, document);
+    } finally {
+      await connection.disconnect();
+    }
+  }
+
   /** Closes all connections and waits until every document is stored. */
   async function close() {
+    closed = true;
+    clearInterval(historyRetry);
     hocuspocus.closeConnections();
     hocuspocus.flushPendingStores();
     const deadline = Date.now() + 5_000;
@@ -371,6 +476,7 @@ export function createCollab({
     ) {
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
+    await history.close();
     // Everything is stored; do not wait up to 30 s for clients to finish the close handshake.
     for (const webSocket of webSockets.clients) webSocket.terminate();
     webSockets.close();
@@ -378,8 +484,15 @@ export function createCollab({
 
   return {
     hocuspocus,
+    flushDocument,
+    persistenceState: () => ({
+      pending: pendingStores.size,
+      failed: failedStores.size + history.failedCount(),
+      closed,
+    }),
     handleUpgrade,
     deleteBoard,
+    deleteProjectDocuments,
     changeBoard,
     changePlan,
     readBoard,
@@ -409,4 +522,7 @@ export type BoardDocuments = Pick<
    * the ids follow. Missing where nothing gives ids, e.g. in most tests.
    */
   giveTaskIds?: (projectId: string) => void;
+  flushDocument?: Collab['flushDocument'];
+  persistenceState?: Collab['persistenceState'];
+  deleteProjectDocuments?: Collab['deleteProjectDocuments'];
 };

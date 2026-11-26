@@ -17,11 +17,30 @@ afterAll(async () => {
 describe('yjs_documents', () => {
   it('can be written and read by the admin role', async () => {
     await admin.query(
-      `insert into yjs_documents (name, state) values ('board:test', '\\x0102')
+      `insert into users (id, name, email, email_verified)
+       values ($1, 'Document Owner', 'document-owner@example.com', true)
+       on conflict (id) do nothing`,
+      [USER],
+    );
+    const project = await admin.query<{ id: string }>(
+      "insert into projects (name, owner_id) values ('Document project', $1) returning id",
+      [USER],
+    );
+    const board = await admin.query<{ id: string }>(
+      "insert into boards (project_id, title, kind) values ($1, 'Board', 'main') returning id",
+      [project.rows[0]?.id],
+    );
+    const boardId = board.rows[0]?.id;
+    if (!boardId) throw new Error('Board fixture was not created');
+    const name = `board:${boardId}`;
+    await admin.query(
+      `insert into yjs_documents (name, state) values ($1, '\\x0102')
        on conflict (name) do update set state = excluded.state`,
+      [name],
     );
     const { rows } = await admin.query<{ state: Buffer }>(
-      "select state from yjs_documents where name = 'board:test'",
+      'select state from yjs_documents where name = $1',
+      [name],
     );
     expect([...(rows[0]?.state ?? [])]).toEqual([1, 2]);
   });

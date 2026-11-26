@@ -120,6 +120,11 @@ export function createRealtime({ db, auth }: RealtimeDeps) {
     }
   }
 
+  /** An account deletion invalidates every open tab, including surviving shared projects. */
+  function closeAccount(userId: string) {
+    for (const projectId of channels.keys()) closeUser(projectId, userId);
+  }
+
   const heartbeat = setInterval(() => {
     for (const webSocket of webSockets.clients) {
       if (!alive.has(webSocket)) {
@@ -146,7 +151,7 @@ export function createRealtime({ db, auth }: RealtimeDeps) {
     return channels.get(projectId)?.size ?? 0;
   }
 
-  return { handleUpgrade, publish, closeUser, close, connectionCount };
+  return { handleUpgrade, publish, closeUser, closeAccount, close, connectionCount };
 }
 
 export type Realtime = ReturnType<typeof createRealtime>;

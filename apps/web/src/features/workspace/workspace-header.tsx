@@ -33,6 +33,7 @@ import {
   ProjectSettingsDialog,
   type ProjectSettings,
 } from '@web/features/workspace/project-settings-dialog';
+import { ProjectLifecycleDialog } from '@web/features/workspaces/project-lifecycle-dialog';
 import type { WorkspaceMember, WorkspaceRepository } from '@web/features/workspace/workspace-shell';
 
 type WorkspaceHeaderProps = {
@@ -193,7 +194,18 @@ function ProjectMenu({
         </DropdownMenuContent>
       </DropdownMenu>
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        {settingsOpen ? <ProjectSettingsDialog settings={settings} /> : null}
+        {settingsOpen ? (
+          <ProjectSettingsDialog
+            settings={settings}
+            lifecycle={
+              settings.canChange ? (
+                <ProjectLifecycleDialog
+                  project={{ id: repository.projectId, name: projectName, role: 'owner' }}
+                />
+              ) : undefined
+            }
+          />
+        ) : null}
       </Dialog>
       <Dialog
         open={repositoryOpen}

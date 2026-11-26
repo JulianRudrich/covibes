@@ -8,7 +8,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { authOptions } from '@server/auth/auth';
 import { createTestServer } from '@server/testing';
 
-// The Docker image: production mode, GitLab as the only way to sign in, the built web app on disk.
+// Production with GitLab OAuth, no mail transport and the built web app on disk.
 const webDir = mkdtempSync(join(tmpdir(), 'covibes-web-'));
 mkdirSync(join(webDir, 'assets'));
 writeFileSync(join(webDir, 'index.html'), '<!doctype html><title>Covibes</title>');
@@ -78,7 +78,15 @@ describe('security in production', () => {
 
   it('offers only the configured ways to sign in', async () => {
     const config = (await (await app.request('/api/config')).json()) as PublicConfig;
-    expect(config).toEqual({ gitlabLogin: true, emailLogin: false, devMailbox: false });
+    expect(config).toEqual({
+      gitlabLogin: true,
+      emailLogin: false,
+      devMailbox: false,
+      socialLogins: ['gitlab'],
+      emailCodeLogin: false,
+      passkeyLogin: true,
+      closedBeta: true,
+    });
     const magicLink = await app.request('/api/auth/sign-in/magic-link', {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: env.APP_URL },

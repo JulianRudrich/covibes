@@ -24,6 +24,7 @@ describe('loadServerEnv', () => {
       HOST: '127.0.0.1',
       APP_URL: 'http://localhost:5173',
       TRUSTED_PROXIES: [],
+      BETA_ALLOWED_EMAILS: [],
       COLLAB_PATH: '/api/collab',
       // The limits of the AI (spec 31a), in USD.
       AI_LIMIT_INSTANCE_MONTH_USD: 20,
@@ -58,6 +59,34 @@ describe('loadServerEnv', () => {
     );
     const env = loadServerEnv({ ...required, GITLAB_CLIENT_ID: 'id', GITLAB_CLIENT_SECRET: 's' });
     expect(env.GITLAB_CLIENT_ID).toBe('id');
+  });
+
+  it.each(['GITHUB', 'GOOGLE'] as const)('needs both %s values or neither', (provider) => {
+    expect(() => loadServerEnv({ ...required, [`${provider}_CLIENT_ID`]: 'id' })).toThrow(
+      new RegExp(`${provider}_CLIENT_SECRET`),
+    );
+    expect(() => loadServerEnv({ ...required, [`${provider}_CLIENT_SECRET`]: 's' })).toThrow(
+      new RegExp(`${provider}_CLIENT_ID`),
+    );
+    expect(
+      loadServerEnv({
+        ...production,
+        [`${provider}_CLIENT_ID`]: 'id',
+        [`${provider}_CLIENT_SECRET`]: 's',
+      }).NODE_ENV,
+    ).toBe('production');
+  });
+
+  it('normalizes exact beta addresses and rejects wildcard admission', () => {
+    expect(
+      loadServerEnv({
+        ...required,
+        BETA_ALLOWED_EMAILS: ' Person@Example.com, other@example.com, ',
+      }).BETA_ALLOWED_EMAILS,
+    ).toEqual(['person@example.com', 'other@example.com']);
+    expect(() => loadServerEnv({ ...required, BETA_ALLOWED_EMAILS: '*@example.com' })).toThrow(
+      /BETA_ALLOWED_EMAILS/,
+    );
   });
 
   it('needs a sender for SMTP, and only accepts SMTP addresses', () => {

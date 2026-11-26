@@ -24,6 +24,7 @@ export type PlanTasksState = {
   issues: ReadonlyMap<string, RoadmapIssue>;
   /** Owners and editors get a button to assign; null for those who only read. */
   onPick: ((taskId: string, anchor: HTMLElement) => void) | null;
+  decisionLinks?: { onOpen: (taskId: string) => void; label: string };
   /** The texts of the controls, in the language of the app. */
   labels: {
     assign: string;
@@ -176,6 +177,34 @@ export const PlanTasks = Extension.create<PlanTasksOptions>({
               const at = controlPosition(node, position);
               if (at === null) return true;
               const issue = state.issues.get(id);
+              if (state.decisionLinks) {
+                const links = state.decisionLinks;
+                decorations.push(
+                  Decoration.widget(
+                    at,
+                    () => {
+                      const button = document.createElement('button');
+                      button.type = 'button';
+                      button.className = 'plan-task plan-task-open';
+                      button.setAttribute('contenteditable', 'false');
+                      button.textContent = links.label;
+                      button.addEventListener('mousedown', (event) => {
+                        event.preventDefault();
+                      });
+                      button.addEventListener('click', () => {
+                        links.onOpen(id);
+                      });
+                      return button;
+                    },
+                    {
+                      side: 3,
+                      key: `${id}:decisions:${links.label}`,
+                      ignoreSelection: true,
+                      stopEvent: () => true,
+                    },
+                  ),
+                );
+              }
               if (issue) {
                 decorations.push(
                   Decoration.widget(at, () => issueLink(issue, state.labels), {

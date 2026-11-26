@@ -34,15 +34,17 @@ export function CreateProjectDialog({
   quiet = false,
   trigger,
   className,
+  workspaceId,
 }: {
   label?: string;
   quiet?: boolean;
   trigger?: ReactElement;
   className?: string;
+  workspaceId?: string;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const createProject = useCreateProject();
+  const createProject = useCreateProject(workspaceId);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [invalid, setInvalid] = useState(false);

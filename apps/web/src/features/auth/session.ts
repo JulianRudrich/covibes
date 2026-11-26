@@ -10,6 +10,7 @@ export type SessionUser = {
   email: string;
   /** The language of the account (spec 32a); the interface follows it. */
   locale?: Language;
+  twoFactorEnabled?: boolean;
 };
 
 /** The signed-in user or null. Route guards and the account menu share this query. */
@@ -19,8 +20,14 @@ export const sessionQuery = queryOptions({
     const { data, error } = await authClient.getSession();
     if (error) throw new Error(`Session could not be loaded (${String(error.status)})`);
     if (!data) return null;
-    const { id, name, email, locale } = data.user;
-    return { id, name, email, ...(isLanguage(locale) ? { locale } : {}) };
+    const { id, name, email, locale, twoFactorEnabled } = data.user;
+    return {
+      id,
+      name,
+      email,
+      twoFactorEnabled: twoFactorEnabled === true,
+      ...(isLanguage(locale) ? { locale } : {}),
+    };
   },
   staleTime: 60_000,
 });

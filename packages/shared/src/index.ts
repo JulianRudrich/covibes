@@ -727,3 +727,4 @@ export type {
   WorkspaceInvitation,
 } from './workspaces';
 export * from './conversations';
+export * from './decision-links';

@@ -1,0 +1,38 @@
+name: Feature idea
+description: Suggest an idea for Covibes.
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The owner decides what Covibes becomes. An accepted idea turns into a numbered feature spec in `context/feature-specs` before anything is built.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: Describe the situation and what is missing today.
+      placeholder: When our team returns to a decision weeks later, I would like to …
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could Covibes help?
+      description: Your idea for a solution. Sketches and examples from other products are welcome.
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Which parts does it touch?
+      multiple: true
+      options:
+        - Chat
+        - Canvas and diagrams
+        - Moderator and agents
+        - Decisions and criteria
+        - Plan and roadmap
+        - Exports and the package for coding agents
+        - Git integration
+        - Collaboration and notifications
+        - Usage and limits
+        - Self-hosting
+        - Other

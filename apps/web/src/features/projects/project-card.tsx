@@ -14,6 +14,7 @@ import { PhaseSegment } from '@web/components/ui/phase-segments';
 import { UNKNOWN_AGENT_COLOR } from '@web/features/agents/agents';
 import { cn } from '@web/lib/cn';
 import { formatRelativeTime, initialsOf } from '@web/lib/format';
+import { ProjectLifecycleDialog } from '@web/features/workspaces/project-lifecycle-dialog';
 
 /** How many people and agents a card shows before "+N". */
 const MAX_PEOPLE = 4;
@@ -77,11 +78,11 @@ export function ProjectCard({ project, userId }: { project: ProjectSummary; user
   const people = project.members.slice(0, MAX_PEOPLE);
   const agents = project.agents.slice(0, MAX_AGENTS);
   return (
-    <li className="flex">
+    <li className="flex flex-col gap-2">
       <Link
         to="/p/$projectId"
         params={{ projectId: project.id }}
-        className="flex w-full flex-col gap-[18px] rounded-surface bg-bg-panel p-5 text-text no-underline shadow-panel transition-[translate,box-shadow] duration-200 hover:-translate-y-0.5 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink motion-reduce:transition-none"
+        className="flex w-full flex-1 flex-col gap-[18px] rounded-surface bg-bg-panel p-5 text-text no-underline shadow-panel transition-[translate,box-shadow] duration-200 hover:-translate-y-0.5 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink motion-reduce:transition-none"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -144,6 +145,11 @@ export function ProjectCard({ project, userId }: { project: ProjectSummary; user
           </span>
         </div>
       </Link>
+      {project.role === 'owner' ? (
+        <div className="self-end">
+          <ProjectLifecycleDialog project={project} />
+        </div>
+      ) : null}
     </li>
   );
 }

@@ -345,12 +345,11 @@ describe('without a session', () => {
     expect(router.state.location.search).toEqual({ redirect: `/p/${PROJECT.id}` });
   });
 
-  it('shows the GitLab login disabled until it is set up', async () => {
+  it('offers only the social providers configured by the server', async () => {
     renderApp('/login');
 
-    const gitlab = await screen.findByRole('button', { name: 'Mit GitLab anmelden' });
-    expect(gitlab).toBeDisabled();
-    expect(gitlab).toHaveAccessibleDescription('Der Login mit GitLab ist noch nicht eingerichtet.');
+    await screen.findByRole('heading', { name: 'Bei Covibes anmelden' });
+    expect(screen.queryByRole('button', { name: /GitLab/ })).not.toBeInTheDocument();
   });
 
   it('sends a login link that leads back to the original page', async () => {
@@ -379,10 +378,7 @@ describe('without a session', () => {
   it('offers the two languages on the login page, and asks for the mail in the one shown', async () => {
     renderApp('/login');
     const languages = within(await screen.findByRole('group', { name: 'Sprache' }));
-    // The scene beside the form says what Covibes is (spec 33, looks of spec 36c).
-    expect(
-      screen.getByRole('heading', { name: /Gemeinsam planen\.\s*Coding-Agents bauen\./ }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Anmeldemethode per E-Mail' })).toBeInTheDocument();
     expect(languages.getByRole('button', { name: 'Deutsch' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -439,7 +435,7 @@ describe('without a session', () => {
     });
     renderApp('/login');
 
-    const gitlab = await screen.findByRole('button', { name: 'Mit GitLab anmelden' });
+    const gitlab = await screen.findByRole('button', { name: 'Mit GitLab fortfahren' });
     await waitFor(() => {
       expect(gitlab).toBeEnabled();
     });
@@ -621,6 +617,29 @@ describe('with a session', () => {
     // The button of the welcome opens the same dialog as the one of the page.
     fireEvent.click(screen.getByRole('button', { name: 'Erstes Projekt anlegen' }));
     expect(await screen.findByRole('dialog', { name: 'Neues Projekt' })).toBeInTheDocument();
+  });
+
+  it('opens workspace AI settings from the project list', async () => {
+    stubApi({
+      'GET /api/projects': () => ({ body: [] }),
+      'GET /api/workspaces': () => ({
+        body: [{ id: 'own', name: 'Mein Team', kind: 'team', role: 'owner' }],
+      }),
+      'GET /api/workspaces/own/ai': () => ({
+        body: {
+          configured: [],
+          canStoreKeys: true,
+          month: '2026-11',
+          spending: { workspaceUsd: 0, instanceUsd: 0 },
+        },
+      }),
+    });
+    renderApp('/');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'KI-Einstellungen' }));
+    const dialog = await screen.findByRole('dialog', { name: 'KI-Einstellungen' });
+    expect(await within(dialog).findByLabelText('Anthropic')).toBeInTheDocument();
+    expect(within(dialog).getByRole('option', { name: 'Mein Team' })).toBeInTheDocument();
   });
 
   it('keeps the welcome for those without a project', async () => {

@@ -6,6 +6,10 @@ import { useTranslation } from 'react-i18next';
 import { CriteriaSection } from '@web/features/decisions/criteria-section';
 import { DecisionsSection } from '@web/features/decisions/decisions-section';
 import {
+  DecisionLinksReview,
+  type OpenDecisionTarget,
+} from '@web/features/decisions/decision-links';
+import {
   criteriaQuery,
   decisionLogQuery,
   decisionsQuery,
@@ -24,6 +28,7 @@ type DecisionsOverviewProps = {
   /** The decision whose dialog is open; "Seit du weg warst" opens decisions too (spec 23). */
   openDecisionId: string | null;
   onOpenDecision: (decisionId: string | null) => void;
+  onOpenTarget?: OpenDecisionTarget;
 };
 
 const NO_DECISIONS: Decision[] = [];
@@ -40,6 +45,7 @@ export function DecisionsOverview({
   onNotice,
   openDecisionId,
   onOpenDecision,
+  onOpenTarget,
 }: DecisionsOverviewProps) {
   const { t } = useTranslation();
   const decisions = useQuery(decisionsQuery(projectId)).data ?? NO_DECISIONS;
@@ -58,6 +64,21 @@ export function DecisionsOverview({
         comparing={comparing}
         openId={openDecisionId}
         onOpenIdChange={onOpenDecision}
+        renderLinks={(decision) => (
+          <DecisionLinksReview
+            projectId={projectId}
+            decisionId={decision.id}
+            readOnly={readOnly}
+            onOpenTarget={
+              onOpenTarget
+                ? (target) => {
+                    onOpenDecision(null);
+                    onOpenTarget(target);
+                  }
+                : undefined
+            }
+          />
+        )}
         log={log}
         onOpenLog={() => {
           setLogWanted(true);

@@ -10,6 +10,7 @@ import {
 } from '@tanstack/react-router';
 import { z } from 'zod';
 
+import { AccountPage } from '@web/features/account/account-page';
 import { LoginPage } from '@web/features/auth/login-page';
 import { safeRedirectPath } from '@web/features/auth/redirect-path';
 import { sessionQuery } from '@web/features/auth/session';
@@ -19,6 +20,8 @@ import { ProjectListPage } from '@web/features/projects/project-list-page';
 import { InvitePage } from '@web/features/share/invite-page';
 import { ShareViewPage } from '@web/features/share/share-view-page';
 import { WorkspacePage } from '@web/features/workspace/workspace-page';
+import { WorkspaceSettingsPage } from '@web/features/workspaces/workspace-settings-page';
+import { WorkspaceInvitePage } from '@web/features/workspaces/workspace-invite-page';
 
 export type RouterContext = { queryClient: QueryClient };
 
@@ -34,6 +37,7 @@ const loginRoute = createRoute({
   validateSearch: z.object({
     redirect: z.string().optional().catch(undefined),
     error: z.string().optional().catch(undefined),
+    twoFactor: z.enum(['required']).optional().catch(undefined),
   }),
   beforeLoad: async ({ context, search }) => {
     const user = await context.queryClient.query(sessionQuery);
@@ -56,6 +60,24 @@ const authedRoute = createRoute({
   component: Outlet,
 });
 
+const accountRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: '/account',
+  component: AccountPage,
+});
+
+const workspaceSettingsRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: '/workspaces/$workspaceId',
+  component: WorkspaceSettingsPage,
+});
+
+const workspaceInviteRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: '/workspace-invite/$token',
+  component: WorkspaceInvitePage,
+});
+
 const projectListRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: '/',
@@ -63,6 +85,7 @@ const projectListRoute = createRoute({
   // of the account menu opens with it once.
   validateSearch: z.object({
     gitAccount: z.enum(GIT_RETURNS).optional().catch(undefined),
+    workspace: z.uuid().optional().catch(undefined),
   }),
   component: ProjectListPage,
 });
@@ -79,6 +102,7 @@ const projectRoute = createRoute({
     board: z.string().optional().catch(undefined),
     view: z.enum(['plan']).optional().catch(undefined),
     focus: z.string().optional().catch(undefined),
+    task: z.uuid().optional().catch(undefined),
     git: z.enum(GIT_RETURNS).optional().catch(undefined),
     gitAccount: z.enum(GIT_RETURNS).optional().catch(undefined),
   }),
@@ -109,7 +133,14 @@ const devMailsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   loginRoute,
   shareRoute,
-  authedRoute.addChildren([projectListRoute, projectRoute, inviteRoute]),
+  authedRoute.addChildren([
+    projectListRoute,
+    projectRoute,
+    inviteRoute,
+    accountRoute,
+    workspaceSettingsRoute,
+    workspaceInviteRoute,
+  ]),
   ...(import.meta.env.DEV ? [devMailsRoute] : []),
 ]);
 

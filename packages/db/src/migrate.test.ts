@@ -49,7 +49,9 @@ describe('migrate', () => {
           server.close();
           return;
         }
-        server.close(() => resolve(address.port));
+        server.close(() => {
+          resolve(address.port);
+        });
       });
     });
     const database = await startEmbeddedPostgres({

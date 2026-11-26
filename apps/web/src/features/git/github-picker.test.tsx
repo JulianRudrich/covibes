@@ -45,6 +45,13 @@ describe('GitHub repository connection', () => {
           return Promise.resolve(
             Response.json({
               installations: [{ id: 12, account: 'northstar', permissions: {} }],
+              more: true,
+            }),
+          );
+        if (url === `${base}/github/installations?page=2`)
+          return Promise.resolve(
+            Response.json({
+              installations: [{ id: 13, account: 'second-team', permissions: {} }],
               more: false,
             }),
           );
@@ -78,6 +85,9 @@ describe('GitHub repository connection', () => {
     );
     const dialog = screen.getByRole('dialog', { name: 'Repository' });
     fireEvent.click(await within(dialog).findByRole('button', { name: 'GitHub' }));
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Weiter' }));
+    expect(await within(dialog).findByRole('button', { name: 'second-team' })).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Zurück' }));
     fireEvent.click(await within(dialog).findByRole('button', { name: 'northstar' }));
     fireEvent.click(await within(dialog).findByRole('button', { name: /northstar\/studio/ }));
     await waitFor(() => {

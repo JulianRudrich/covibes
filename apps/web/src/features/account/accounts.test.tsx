@@ -90,7 +90,9 @@ describe('account flows (spec 42)', () => {
       target: { value: person.email },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Send one-time code' }));
-    expect(await screen.findByRole('status')).toHaveTextContent(person.email);
+    expect(
+      await screen.findByText(`A one-time code was sent to ${person.email}. It expires in ten minutes.`),
+    ).toHaveAttribute('role', 'status');
     expect(screen.getByLabelText('Verification code')).toHaveFocus();
     expect(JSON.parse(requestCode.mock.calls[0]?.[0]?.body as string)).toEqual({
       email: person.email,

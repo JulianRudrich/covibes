@@ -12,6 +12,7 @@ import type * as Y from 'yjs';
 import type { BoardSession } from '@server/collab/board-client';
 import { decide, type Intent } from '@server/rules/decide';
 import type { CanvasToolOptions } from '@server/tools/placement';
+import { applyCanvasCommand } from '@server/tasks/run-commands';
 
 /** Where the operations an agent proposes in one run go (spec 13); the worker stores them. */
 export type ProposalSink = {
@@ -101,7 +102,18 @@ export async function writeCanvas(
 
     if (outcome.kind === 'reject') throw new Error('This tool is not allowed for you.');
     if (outcome.kind === 'direct') {
-      applyOperations(doc, planned.operations, options.author);
+      if (options.commands) {
+        const command = {
+          boardId: options.boardId,
+          author: options.author,
+          operations: planned.operations,
+          response: planned.done,
+        };
+        const id = await options.commands.prepareCanvas(command);
+        applyCanvasCommand(doc, id, command);
+      } else {
+        applyOperations(doc, planned.operations, options.author);
+      }
       return planned.done;
     }
     if (!rules) throw new Error('This change can only be made as a proposal right now.');

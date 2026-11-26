@@ -727,4 +727,9 @@ export type {
   WorkspaceInvitation,
 } from './workspaces';
 export * from './conversations';
+export {
+  persistenceReceiptSchema,
+  type PersistenceReceipt,
+  type PersistenceState,
+} from './persistence';
 export * from './decision-links';

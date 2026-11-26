@@ -59,6 +59,8 @@ import type { FileStorage } from '@server/storage/storage';
 import { sameSecret } from '@server/secrets';
 import { loadInstanceUsageTotal, usageLimitsOf } from '@server/usage/limits';
 import { securityHeaders, serveWebApp } from '@server/web-app';
+import { persistenceRoutes } from '@server/api/persistence';
+import { readiness } from '@server/readiness';
 
 /** A mail the worker hands to the development mailbox. */
 const devMailInputSchema = z.object({
@@ -126,6 +128,10 @@ export function createApp({
   if (env.NODE_ENV === 'production') app.use('*', securityHeaders(env.APP_URL));
 
   app.get('/health', (c) => c.json({ status: 'ok' }));
+  app.get('/ready', async (c) => {
+    const state = await readiness(db.adminPool, documents, { migrationsDir: env.MIGRATIONS_DIR });
+    return c.json(state, state.status === 'ready' ? 200 : 503);
+  });
 
   // No API request needs more than this (a message has at most 8000 characters), except an upload;
   // larger bodies are refused while they are read, so nobody can make the server buffer more.
@@ -177,6 +183,7 @@ export function createApp({
   app.use('/api/*', csrf({ origin: new URL(env.APP_URL).origin }));
 
   app.on(['GET', 'POST'], `${AUTH_BASE_PATH}/*`, (c) => auth.handler(c.req.raw));
+  app.route('/api', persistenceRoutes({ db, auth, documents, token: env.INTERNAL_TOKEN }));
 
   app.get('/api/config', (c) =>
     c.json<PublicConfig>({
@@ -290,7 +297,7 @@ export function createApp({
   app.route('/api/agents', customAgentRoutes(db.app, auth, live));
 
   // In the Docker image the server also delivers the web app (spec 02b); locally Vite does.
-  if (env.WEB_DIST_DIR) serveWebApp(app, env.WEB_DIST_DIR);
+  if (env.WEB_DIST_DIR) serveWebApp(app, env.WEB_DIST_DIR, env.APP_URL);
 
   app.notFound((c) =>
     c.req.path.startsWith('/api/') ? apiError(c, 'not_found') : c.text('Not found', 404),

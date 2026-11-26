@@ -1571,6 +1571,15 @@
     "remove": "Schlüssel entfernen",
     "saveError": "Der Schlüssel konnte nicht aktualisiert werden. Bitte versuche es erneut."
   },
+  "layout": {
+    "loadingRoute": "Diese Seite wird geöffnet…",
+    "focusCanvas": "Canvas fokussieren",
+    "restorePanels": "Panels wieder anzeigen",
+    "showOverview": "Überblick einblenden",
+    "hideOverview": "Überblick ausblenden",
+    "resizeChat": "Chat-Panel vergrößern oder verkleinern",
+    "resizeOverview": "Überblick-Panel vergrößern oder verkleinern"
+  },
   "decisionLinks": {
     "impact": "Was ändert sich, wenn das fällt?",
     "reviewHint": "Diese verknüpften Blöcke und Aufgaben müssen bei einer Änderung überprüft werden. Es wird nichts automatisch geändert.",

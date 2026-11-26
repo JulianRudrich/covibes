@@ -68,6 +68,7 @@ import {
   type DecisionContext,
 } from '@server/tasks/run-decisions';
 import { phaseWriter } from '@server/tasks/run-phase';
+import { createRunCommands, RecoveryConflictError } from '@server/tasks/run-commands';
 import { UsageLimitError, type UsageGuard, type UsageLimitScope } from '@server/usage/limits';
 import { loadTeam, teamWriter, type TeamContext } from '@server/tasks/run-team';
 import { addAgentsTool } from '@server/tools/add-agents';
@@ -545,16 +546,21 @@ export async function runAgentTurn(
     // Neither a missing setup nor a used-up quota gets better by retrying in a few seconds.
     const final =
       error instanceof GatewayConfigError ||
+      error instanceof RecoveryConflictError ||
       error instanceof GatewayLimitError ||
       attempt.attempt >= attempt.maxAttempts;
     const note =
-      error instanceof UsageLimitError
-        ? usageLimitNote(language, error.scope, error.resetsAt ?? new Date(), new Date())
-        : error instanceof GatewayLimitError
-          ? quotaNote(language, error.resetsAt, new Date())
-          : error instanceof GatewayConfigError
-            ? NOTES[language].unavailable
-            : NOTES[language][final ? 'failed' : 'retry'];
+      error instanceof RecoveryConflictError
+        ? language === 'de'
+          ? 'Der vorherige Lauf wurde unterbrochen. Bitte prüfe die bestehenden Änderungen und sende eine neue Anweisung.'
+          : 'The previous run was interrupted. Please check the existing changes and send a new instruction.'
+        : error instanceof UsageLimitError
+          ? usageLimitNote(language, error.scope, error.resetsAt ?? new Date(), new Date())
+          : error instanceof GatewayLimitError
+            ? quotaNote(language, error.resetsAt, new Date())
+            : error instanceof GatewayConfigError
+              ? NOTES[language].unavailable
+              : NOTES[language][final ? 'failed' : 'retry'];
     await failRun(deps.admin, run, messageId, { final, note, reason: describe(error) });
     if (!final) throw error;
     deps.logger.error(`Run ${run.id} failed for good: ${describe(error)}`);
@@ -639,6 +645,8 @@ async function converse(
   attempt: AgentTurnAttempt,
 ): Promise<AgentReplyResult> {
   const { run, agent, messageId } = turn;
+  const commands = await createRunCommands(deps.admin, run.id, deps.boards);
+  await commands.recover();
   const [conversation, board] = await Promise.all([
     loadConversation(deps.admin, run),
     deps.admin
@@ -728,6 +736,7 @@ async function converse(
       boards: deps.boards,
       boardId: board.id,
       author: { kind: 'agent', agentKey: agent.key },
+      commands,
       rules: {
         ...rules,
         proposal: await openRunProposal(deps.admin, {
@@ -879,7 +888,14 @@ async function converse(
         },
         moderation: moderates ? turn.moderation : undefined,
       }),
-      tools,
+      tools: tools.map((tool) =>
+        Object.hasOwn(CANVAS_TOOLS, tool.name) ||
+        DECISION_TOOLS.includes(tool.name) ||
+        GIT_TOOLS.some((name) => name === tool.name) ||
+        ['add_roadmap', 'add_agents', 'set_phase', 'start_debate'].includes(tool.name)
+          ? commands.wrap(tool)
+          : tool,
+      ),
       webSearch: web,
       onText: deltas.push,
       signal: attempt.signal,

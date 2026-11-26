@@ -1024,9 +1024,9 @@
       "failed": "The repository could not be removed. Please try again."
     },
     "account": {
-      "menu": "GitLab account …",
-      "title": "GitLab account",
-      "hint": "Your own access to GitLab, for all of your projects.",
+      "menu": "Repository accounts …",
+      "title": "Repository accounts",
+      "hint": "Your connected repository accounts.",
       "loadFailed": "The account could not be loaded. Please try again.",
       "as": "Your GitLab account: {{name}} (@{{username}}).",
       "connect": "With your GitLab account you pick the repository of a project as its owner, and Git actions you approve run in your name. You sign in to GitLab and allow Covibes to use the API.",
@@ -1054,7 +1054,7 @@
       "retry": "Retry",
       "discard": "Discard",
       "waitsForApprover": "Waiting for someone who may approve Git actions.",
-      "needsAccount": "To approve, you need your GitLab account.",
+      "needsAccount": "Connect the repository account required for approval.",
       "connectAccount": "Connect",
       "running": "Running … {{done}} of {{total}}",
       "failed": "{{open}} of {{total}} not done.",
@@ -1574,5 +1574,37 @@
     "open": "Open",
     "decided": "Decided",
     "taskMissing": "This task is no longer in the plan."
+  },
+  "github": {
+    "repositoryHint": "Connect a GitHub or GitLab repository to this project.",
+    "provider": "Repository provider",
+    "connectText": "Connect your GitHub account, then select an app installation and repository.",
+    "connect": "Connect to GitHub",
+    "loadFailed": "The GitHub account could not be loaded.",
+    "unavailable": "GitHub is not configured on this server.",
+    "connectFailed": "Connecting to GitHub failed. Please try again.",
+    "installations": "GitHub installations",
+    "installationsFailed": "Installations could not be loaded. Check your GitHub access.",
+    "noInstallations": "No installations are available to this account.",
+    "previous": "Previous",
+    "next": "Next",
+    "install": "Install GitHub App",
+    "refresh": "Refresh installations",
+    "repositoriesFailed": "Repositories could not be loaded. Check your GitHub access.",
+    "noRepositories": "No repositories found in this installation.",
+    "connectedBy": "Selected by {{by}}. GitHub App access is managed through @{{username}}.",
+    "removeHint": "Agents can no longer read this repository. Your GitHub account stays connected.",
+    "syncTitle": "GitHub sync",
+    "syncText": "Covibes reads the current state of linked issues and pull requests.",
+    "account": {
+      "title": "GitHub account",
+      "connect": "Connect to GitHub",
+      "disconnect": "Disconnect GitHub",
+      "disconnectConfirm": "Really disconnect",
+      "disconnectHint": "Projects connected through this account lose access.",
+      "loadFailed": "The GitHub account could not be loaded.",
+      "error": "The GitHub account could not be updated."
+    },
+    "refineSearch": "Showing up to 20 repositories. Refine your search to find more."
   }
 }

@@ -1024,9 +1024,9 @@
       "failed": "Das Repository konnte nicht entfernt werden. Bitte versuche es noch einmal."
     },
     "account": {
-      "menu": "GitLab-Konto …",
-      "title": "GitLab-Konto",
-      "hint": "Dein eigener Zugriff auf GitLab, für alle deine Projekte.",
+      "menu": "Repository-Konten …",
+      "title": "Repository-Konten",
+      "hint": "Deine verbundenen Repository-Konten.",
       "loadFailed": "Das Konto konnte nicht geladen werden. Bitte versuche es noch einmal.",
       "as": "Dein GitLab-Konto: {{name}} (@{{username}}).",
       "connect": "Mit deinem GitLab-Konto wählst du als Owner das Repository eines Projekts, und Git-Aktionen, die du freigibst, laufen unter deinem Namen. Du meldest dich bei GitLab an und erlaubst Covibes den Zugriff auf die API.",
@@ -1054,7 +1054,7 @@
       "retry": "Wiederholen",
       "discard": "Verwerfen",
       "waitsForApprover": "Wartet auf jemanden, der Git-Aktionen freigeben darf.",
-      "needsAccount": "Zum Freigeben brauchst du dein GitLab-Konto.",
+      "needsAccount": "Verbinde das für die Freigabe benötigte Repository-Konto.",
       "connectAccount": "Verbinden",
       "running": "Wird ausgeführt … {{done}} von {{total}}",
       "failed": "{{open}} von {{total}} nicht ausgeführt.",
@@ -1574,5 +1574,37 @@
     "open": "Offen",
     "decided": "Entschieden",
     "taskMissing": "Diese Aufgabe ist nicht mehr im Plan."
+  },
+  "github": {
+    "repositoryHint": "Verbinde ein GitHub- oder GitLab-Repository mit diesem Projekt.",
+    "provider": "Repository-Anbieter",
+    "connectText": "Verbinde dein GitHub-Konto und wähle anschließend eine App-Installation und ein Repository.",
+    "connect": "Mit GitHub verbinden",
+    "loadFailed": "Das GitHub-Konto konnte nicht geladen werden.",
+    "unavailable": "GitHub ist auf diesem Server nicht eingerichtet.",
+    "connectFailed": "Die Verbindung mit GitHub ist fehlgeschlagen. Bitte versuche es erneut.",
+    "installations": "GitHub-Installationen",
+    "installationsFailed": "Die Installationen konnten nicht geladen werden. Prüfe deinen GitHub-Zugriff.",
+    "noInstallations": "Für dieses Konto sind keine Installationen verfügbar.",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "install": "GitHub-App installieren",
+    "refresh": "Installationen aktualisieren",
+    "repositoriesFailed": "Die Repositories konnten nicht geladen werden. Prüfe deinen GitHub-Zugriff.",
+    "noRepositories": "In dieser Installation wurden keine Repositories gefunden.",
+    "connectedBy": "Ausgewählt von {{by}}. Der Zugriff der GitHub-App wird über @{{username}} verwaltet.",
+    "removeHint": "Agents können dieses Repository nicht mehr lesen. Dein GitHub-Konto bleibt verbunden.",
+    "syncTitle": "GitHub-Abgleich",
+    "syncText": "Covibes liest den aktuellen Stand verknüpfter Issues und Pull Requests.",
+    "account": {
+      "title": "GitHub-Konto",
+      "connect": "Mit GitHub verbinden",
+      "disconnect": "GitHub trennen",
+      "disconnectConfirm": "Wirklich trennen",
+      "disconnectHint": "Projekte, die über dieses Konto verbunden sind, verlieren den Zugriff.",
+      "loadFailed": "Das GitHub-Konto konnte nicht geladen werden.",
+      "error": "Das GitHub-Konto konnte nicht aktualisiert werden."
+    },
+    "refineSearch": "Bis zu 20 Repositories werden angezeigt. Verfeinere die Suche, um weitere zu finden."
   }
 }

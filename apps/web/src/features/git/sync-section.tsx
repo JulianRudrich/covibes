@@ -1,4 +1,4 @@
-import type { GitSync } from '@covibes/shared';
+import type { GitProvider, GitSync } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { Check, Copy, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
@@ -23,6 +23,7 @@ type SyncSectionProps = {
   loadedAt: number;
   /** Owners set up the webhook, on a server that is set up for GitLab. */
   canSetUpWebhook: boolean;
+  provider?: GitProvider;
 };
 
 /**
@@ -30,7 +31,13 @@ type SyncSectionProps = {
  * read whether the issues of the tasks are open or closed, a button to read now, and for owners
  * the webhook with which GitLab says at once that something changed.
  */
-export function SyncSection({ projectId, sync, loadedAt, canSetUpWebhook }: SyncSectionProps) {
+export function SyncSection({
+  projectId,
+  sync,
+  loadedAt,
+  canSetUpWebhook,
+  provider,
+}: SyncSectionProps) {
   const { t, i18n } = useTranslation();
   const ids = useId();
   const request = useRequestGitSync(projectId);
@@ -74,9 +81,9 @@ export function SyncSection({ projectId, sync, loadedAt, canSetUpWebhook }: Sync
       className="flex flex-col gap-2 border-t border-border-subtle pt-3"
     >
       <h3 id={`${ids}-title`} className={TITLE}>
-        {t('git.sync.title')}
+        {t(provider === 'github' ? 'github.syncTitle' : 'git.sync.title')}
       </h3>
-      <p className={NOTE}>{t('git.sync.text')}</p>
+      <p className={NOTE}>{t(provider === 'github' ? 'github.syncText' : 'git.sync.text')}</p>
       <div className="flex items-center gap-3">
         {sync?.failed ? (
           <FieldError>{t(when ? 'git.sync.failedSince' : 'git.sync.failed', { when })}</FieldError>

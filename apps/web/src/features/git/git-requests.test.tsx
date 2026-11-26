@@ -478,7 +478,7 @@ describe('IssuesDialog', () => {
     const { dialog } = renderDialog({ ...PLAN, hasAccount: false });
 
     expect(
-      await within(dialog).findByText(/Verbinde das für die Freigabe benötigte Repository-Konto\./),
+      await within(dialog).findByText(/Verbinde das für die Freigabe benötigte Repository-Konto/),
     ).toBeVisible();
     expect(
       within(dialog).getByRole('button', { name: '2 Issues zur Freigabe vorlegen' }),

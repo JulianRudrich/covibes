@@ -1105,7 +1105,7 @@
       "count": "{{done}} of {{total}} created",
       "requested": "waiting",
       "readOnly": "Owners and editors create issues.",
-      "accountHint": "To approve, you need your GitLab account. You connect it in the account menu.",
+      "accountHint": "Connect the repository account needed for approval in the account menu.",
       "limit": "At most {{count}} issues at once. Choose fewer tasks.",
       "create_one": "Create {{count}} issue",
       "create_other": "Create {{count}} issues",

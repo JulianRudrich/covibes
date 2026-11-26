@@ -183,7 +183,7 @@ describe('MergeRequestsDialog', () => {
     const approver = renderDialog({ ...LIST, hasAccount: false });
     expect(
       await within(approver.dialog).findByText(
-        /Verbinde das für die Freigabe benötigte Repository-Konto\./,
+        /Verbinde das für die Freigabe benötigte Repository-Konto/,
       ),
     ).toBeVisible();
     expect(

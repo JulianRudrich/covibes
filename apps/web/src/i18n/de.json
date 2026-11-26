@@ -1105,7 +1105,7 @@
       "count": "{{done}} von {{total}} angelegt",
       "requested": "wartet",
       "readOnly": "Issues legen Owner und Editoren an.",
-      "accountHint": "Zum Freigeben brauchst du dein GitLab-Konto. Du verbindest es im Konto-Menü.",
+      "accountHint": "Verbinde das für die Freigabe benötigte Repository-Konto im Konto-Menü.",
       "limit": "Höchstens {{count}} Issues auf einmal. Wähle weniger Aufgaben.",
       "create_one": "{{count}} Issue anlegen",
       "create_other": "{{count}} Issues anlegen",

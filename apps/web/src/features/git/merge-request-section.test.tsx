@@ -255,7 +255,7 @@ describe('MergeRequestSection', () => {
     const approver = renderSection({ ...PLAN, hasAccount: false });
     expect(
       await within(approver.section).findByText(
-        /Verbinde das für die Freigabe benötigte Repository-Konto\./,
+        /Verbinde das für die Freigabe benötigte Repository-Konto/,
       ),
     ).toBeVisible();
     expect(

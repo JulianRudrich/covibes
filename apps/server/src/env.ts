@@ -63,6 +63,8 @@ export const serverEnvSchema = z
       ),
     /** Built web app to serve in production (Docker image); unset while Vite serves it. */
     WEB_DIST_DIR: z.string().min(1).optional(),
+    /** Migrations shipped next to the built server in Docker; source development uses the package. */
+    MIGRATIONS_DIR: z.string().min(1).optional(),
     /**
      * Shared secret of server and worker (spec 07): with it the worker connects to the canvas of a
      * board to draw for an agent. Unset, the collaboration server accepts no such connection.

@@ -53,11 +53,6 @@ export const workerEnvSchema = z
   .refine((env) => !env.SMTP_URL || Boolean(env.MAIL_FROM), {
     message: 'MAIL_FROM is required when SMTP_URL is set',
     path: ['MAIL_FROM'],
-  })
-  .refine((env) => env.NODE_ENV !== 'production' || Boolean(env.ANTHROPIC_API_KEY), {
-    message:
-      'Production needs ANTHROPIC_API_KEY: a personal Claude subscription must not serve other people',
-    path: ['ANTHROPIC_API_KEY'],
   });
 
 export type WorkerEnv = z.output<typeof workerEnvSchema>;

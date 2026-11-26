@@ -9,9 +9,10 @@ import {
   ScrollText,
   Settings2,
 } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { lazy, Suspense, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { DialogLoading } from '@web/components/dialog-loading';
 import { Logo } from '@web/components/logo';
 import { Dialog } from '@web/components/ui/dialog';
 import {
@@ -20,12 +21,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@web/components/ui/dropdown-menu';
-import { GitDialog } from '@web/features/git/git-dialog';
-import { GitLogDialog } from '@web/features/git/git-log-dialog';
-import { MergeRequestsDialog } from '@web/features/git/merge-requests-dialog';
 import type { SessionUser } from '@web/features/auth/session';
 import { NotificationBell } from '@web/features/notifications/notification-bell';
-import { UsageDialog } from '@web/features/usage/usage-dialog';
 import { PhaseIndicator } from '@web/features/workspace/phase-indicator';
 import { Room } from '@web/features/workspace/room';
 import { ThemeButton } from '@web/features/workspace/theme-button';
@@ -34,6 +31,22 @@ import {
   type ProjectSettings,
 } from '@web/features/workspace/project-settings-dialog';
 import type { WorkspaceMember, WorkspaceRepository } from '@web/features/workspace/workspace-shell';
+
+const GitDialog = lazy(async () => ({
+  default: (await import('@web/features/git/git-dialog')).GitDialog,
+}));
+
+const GitLogDialog = lazy(async () => ({
+  default: (await import('@web/features/git/git-log-dialog')).GitLogDialog,
+}));
+
+const MergeRequestsDialog = lazy(async () => ({
+  default: (await import('@web/features/git/merge-requests-dialog')).MergeRequestsDialog,
+}));
+
+const UsageDialog = lazy(async () => ({
+  default: (await import('@web/features/usage/usage-dialog')).UsageDialog,
+}));
 
 type WorkspaceHeaderProps = {
   projectName: string;
@@ -53,6 +66,7 @@ type WorkspaceHeaderProps = {
   team: ReactNode;
   /** "Teilen" with the share dialog (spec 21a). */
   share: ReactNode;
+  layout?: ReactNode;
 };
 
 export function WorkspaceHeader({
@@ -68,11 +82,12 @@ export function WorkspaceHeader({
   user,
   team,
   share,
+  layout,
 }: WorkspaceHeaderProps) {
   const { t } = useTranslation();
 
   return (
-    <header className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 pr-4 pl-5">
+    <header className="studio-workspace-header grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 pr-4 pl-5">
       <div className="flex min-w-0 items-center gap-2.5">
         <Logo />
         <span className="font-display text-[18px] font-bold tracking-[-0.025em]">
@@ -97,6 +112,7 @@ export function WorkspaceHeader({
           <NotificationBell />
           <ThemeButton />
         </div>
+        {layout}
         {share}
       </div>
     </header>
@@ -209,11 +225,13 @@ function ProjectMenu({
         }}
       >
         {repositoryOpen ? (
-          <GitDialog
-            projectId={repository.projectId}
-            returned={repository.returned}
-            githubReturned={repository.githubReturned}
-          />
+          <Suspense fallback={<DialogLoading />}>
+            <GitDialog
+              projectId={repository.projectId}
+              returned={repository.returned}
+              githubReturned={repository.githubReturned}
+            />
+          </Suspense>
         ) : null}
       </Dialog>
       <Dialog
@@ -225,21 +243,31 @@ function ProjectMenu({
       >
         {/* Mounted only while open: the merge requests are read from the repository then. */}
         {mergeOpen || reviewId !== null ? (
-          <MergeRequestsDialog
-            // Another review is another view of the dialog.
-            key={reviewId ?? 'list'}
-            projectId={repository.projectId}
-            reviewId={reviewId}
-          />
+          <Suspense fallback={<DialogLoading />}>
+            <MergeRequestsDialog
+              // Another review is another view of the dialog.
+              key={reviewId ?? 'list'}
+              projectId={repository.projectId}
+              reviewId={reviewId}
+            />
+          </Suspense>
         ) : null}
       </Dialog>
       <Dialog open={logOpen} onOpenChange={setLogOpen}>
         {/* Mounted only while open: the log is loaded then. */}
-        {logOpen ? <GitLogDialog projectId={repository.projectId} /> : null}
+        {logOpen ? (
+          <Suspense fallback={<DialogLoading />}>
+            <GitLogDialog projectId={repository.projectId} />
+          </Suspense>
+        ) : null}
       </Dialog>
       <Dialog open={usageOpen} onOpenChange={setUsageOpen}>
         {/* Mounted only while open: the usage is loaded then. */}
-        {usageOpen ? <UsageDialog projectId={repository.projectId} /> : null}
+        {usageOpen ? (
+          <Suspense fallback={<DialogLoading />}>
+            <UsageDialog projectId={repository.projectId} />
+          </Suspense>
+        ) : null}
       </Dialog>
     </>
   );

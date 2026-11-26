@@ -660,7 +660,7 @@ describe('rule engine in the agent turn', () => {
     expect(await proposalsOf(runId)).toMatchObject([{ reason: 'proposals_only' }]);
   });
 
-  it('continues the open proposal of a run when it is retried', async () => {
+  it('keeps the original proposal and stops a divergent mutation after a retry', async () => {
     const { runId } = await projectWithRequest();
     const { boards } = memoryBoards();
     const proposesThenFails: Model = async (request) => {
@@ -679,8 +679,9 @@ describe('rule engine in the agent turn', () => {
     expect(proposals).toHaveLength(1);
     expect(proposals[0]?.operations).toMatchObject([
       { op: 'add_block', block: { label: 'Queue' } },
-      { op: 'add_block', block: { label: 'API' } },
     ]);
+    expect(await loadRun(runId)).toMatchObject({ status: 'error' });
+    expect((await reply(runId)).content).toContain('unterbrochen');
   });
 
   it('shows the agent the open proposals of the project', async () => {

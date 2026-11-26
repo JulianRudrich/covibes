@@ -25,7 +25,8 @@ Use **Node.js 24** and **pnpm 12.6.0**, as pinned in [`.nvmrc`](.nvmrc) and
 Set `ANTHROPIC_API_KEY` in `apps/server/.env.local` for the built-in agents before running
 `pnpm dev`. Optional settings are listed in [`apps/server/.env.example`](apps/server/.env.example)
 and [`apps/web/.env.example`](apps/web/.env.example). Keep secrets in local environment files.
-The worker checks its model access at startup and reports configuration failures in the terminal.
+The worker runs mail and repository jobs even when model access is unavailable. Agent replies
+report unavailable AI access, and repeated provider failures pause further model calls.
 
 `pnpm dev` starts a regular PostgreSQL 18 process from the bundled `embedded-postgres`
 binaries, applies migrations, starts the server, then launches the agent worker and web app.
@@ -128,7 +129,7 @@ private project data in an issue, screenshot or commit.
 | `The local database is running` | Stop the existing `pnpm dev` before a database maintenance command |
 | Port 54320, 3001 or 5173 is in use | Check for another development process using that port |
 | `PostgreSQL did not start` | Read the reported log tail or `.data/postgres.log` |
-| The worker exits during startup | Check its model-access error and the local AI configuration |
+| Agents report unavailable AI access | Check the local AI configuration; mail and repository jobs keep running |
 | The terminal closed while the app was running | The next `pnpm dev` stops a leftover local database cleanly first |
 
 For Docker, HTTPS, SMTP and production backup issues, use the [deployment guide](deploy/README.md).

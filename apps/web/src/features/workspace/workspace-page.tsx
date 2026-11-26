@@ -11,26 +11,26 @@ import {
 } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AgentDirectoryProvider } from '@web/features/agents/agent-directory';
 
 import { PageMessage, PageMessageLink } from '@web/components/page-message';
+import { DialogLoading } from '@web/components/dialog-loading';
+import { PanelHeader } from '@web/components/ui/panel';
 import { Dialog } from '@web/components/ui/dialog';
 import { sessionQuery, type SessionUser } from '@web/features/auth/session';
 import { awayQuery, useDismissAway } from '@web/features/away/queries';
 import { SinceYouWereAway } from '@web/features/away/since-you-were-away';
-import { BoardHistoryDialog } from '@web/features/canvas/board-history';
 import { BoardTabs } from '@web/features/canvas/board-tabs';
-import { CanvasPanel, type BoardExports } from '@web/features/canvas/canvas-panel';
+import type { BoardExports } from '@web/features/canvas/canvas-panel';
 import { ChatPanel } from '@web/features/chat/chat-panel';
 import { messagesQuery } from '@web/features/chat/queries';
 import { chatStatus, runsQuery } from '@web/features/chat/runs';
 import { DecisionsOverview } from '@web/features/decisions/decisions-overview';
 import { openVotesQuery, useVoteActions } from '@web/features/decisions/queries';
 import type { PlanTaskAssignments } from '@web/features/plan/plan-editor';
-import { PlanPanel } from '@web/features/plan/plan-panel';
 import { planStateQuery, usePlanActions } from '@web/features/plan/queries';
 import { handsQuery, useHandDecisions } from '@web/features/hands/queries';
 import { gitStateQuery, useConnectGitAccount } from '@web/features/git/queries';
@@ -68,6 +68,16 @@ import { useProjectSeen } from '@web/features/workspace/use-project-seen';
 import { WorkspaceShell, type WorkspaceMember } from '@web/features/workspace/workspace-shell';
 import { ApiError } from '@web/lib/api';
 import { usePhone } from '@web/lib/use-media-query';
+
+const CanvasPanel = lazy(async () => ({
+  default: (await import('@web/features/canvas/canvas-panel')).CanvasPanel,
+}));
+const PlanPanel = lazy(async () => ({
+  default: (await import('@web/features/plan/plan-panel')).PlanPanel,
+}));
+const BoardHistoryDialog = lazy(async () => ({
+  default: (await import('@web/features/canvas/board-history')).BoardHistoryDialog,
+}));
 
 const route = getRouteApi('/_authed/p/$projectId');
 
@@ -652,65 +662,80 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
         }
         canvas={
           activeBoard && user ? (
-            planOpen ? (
-              <PlanPanel
-                projectId={project.id}
-                tabs={boardTabs(activeBoard.id)}
-                notice={notice}
-                user={{ id: user.id, name: user.name }}
-                readOnly={readOnlyCanvas}
-                language={project.language}
-                plan={planState}
-                onGenerate={readOnlyCanvas ? undefined : planActions.generate}
-                onDecide={readOnlyCanvas ? undefined : planActions.decide}
-                onUpdate={readOnlyCanvas ? undefined : planActions.update}
-                onOpenRoadmap={openRoadmap}
-                roadmapBusy={roadmapOpening.isPending}
-                tasks={planTasks}
-                decisionLinks={{ onOpenDecision: setOpenDecisionId }}
-                taskFocus={task}
-                onTaskFocused={() => {
-                  void navigate({
-                    to: '/p/$projectId',
-                    params: { projectId: project.id },
-                    search: { view: 'plan' },
-                    replace: true,
-                  });
-                }}
-                onTaskMissing={() => {
-                  showNotice(t('decisionLinks.taskMissing'));
-                  void navigate({
-                    to: '/p/$projectId',
-                    params: { projectId: project.id },
-                    search: { view: 'plan' },
-                    replace: true,
-                  });
-                }}
-                projectName={project.name}
-                onExportFailed={exportFailed}
-              />
-            ) : (
-              <RoadmapProvider value={roadmapSource}>
-                <CanvasPanel
-                  boardId={activeBoard.id}
-                  decisionLinks={{ projectId: project.id, onOpenDecision: setOpenDecisionId }}
+            <Suspense
+              fallback={
+                <>
+                  <PanelHeader>{boardTabs(activeBoard.id)}</PanelHeader>
+                  <div
+                    role="status"
+                    aria-busy="true"
+                    className="grid min-h-0 place-items-center text-ui text-text-3"
+                  >
+                    {t('common.loading')}
+                  </div>
+                </>
+              }
+            >
+              {planOpen ? (
+                <PlanPanel
+                  projectId={project.id}
                   tabs={boardTabs(activeBoard.id)}
                   notice={notice}
                   user={{ id: user.id, name: user.name }}
-                  members={project.members}
                   readOnly={readOnlyCanvas}
-                  proposals={proposals}
-                  onDecide={decide}
-                  canAdoptVariants={canConfirmDecisions}
-                  focusId={focus}
-                  onFocused={clearFocus}
-                  onFocusMissing={focusMissing}
-                  onAsk={readOnlyCanvas ? undefined : setAsk}
-                  exports={boardExports}
-                  onPresence={showPresence}
+                  language={project.language}
+                  plan={planState}
+                  onGenerate={readOnlyCanvas ? undefined : planActions.generate}
+                  onDecide={readOnlyCanvas ? undefined : planActions.decide}
+                  onUpdate={readOnlyCanvas ? undefined : planActions.update}
+                  onOpenRoadmap={openRoadmap}
+                  roadmapBusy={roadmapOpening.isPending}
+                  tasks={planTasks}
+                  decisionLinks={{ onOpenDecision: setOpenDecisionId }}
+                  taskFocus={task}
+                  onTaskFocused={() => {
+                    void navigate({
+                      to: '/p/$projectId',
+                      params: { projectId: project.id },
+                      search: { view: 'plan' },
+                      replace: true,
+                    });
+                  }}
+                  onTaskMissing={() => {
+                    showNotice(t('decisionLinks.taskMissing'));
+                    void navigate({
+                      to: '/p/$projectId',
+                      params: { projectId: project.id },
+                      search: { view: 'plan' },
+                      replace: true,
+                    });
+                  }}
+                  projectName={project.name}
+                  onExportFailed={exportFailed}
                 />
-              </RoadmapProvider>
-            )
+              ) : (
+                <RoadmapProvider value={roadmapSource}>
+                  <CanvasPanel
+                    boardId={activeBoard.id}
+                    decisionLinks={{ projectId: project.id, onOpenDecision: setOpenDecisionId }}
+                    tabs={boardTabs(activeBoard.id)}
+                    notice={notice}
+                    user={{ id: user.id, name: user.name }}
+                    members={project.members}
+                    readOnly={readOnlyCanvas}
+                    proposals={proposals}
+                    onDecide={decide}
+                    canAdoptVariants={canConfirmDecisions}
+                    focusId={focus}
+                    onFocused={clearFocus}
+                    onFocusMissing={focusMissing}
+                    onAsk={readOnlyCanvas ? undefined : setAsk}
+                    exports={boardExports}
+                    onPresence={showPresence}
+                  />
+                </RoadmapProvider>
+              )}
+            </Suspense>
           ) : null
         }
         overview={
@@ -780,14 +805,16 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
       <Dialog open={historyOpen && activeBoard !== undefined} onOpenChange={setHistoryOpen}>
         {/* Mounted only while open: the history is loaded then. */}
         {historyOpen && activeBoard ? (
-          <BoardHistoryDialog
-            projectId={project.id}
-            boardId={activeBoard.id}
-            onOpenElement={(nodeId) => {
-              setHistoryOpen(false);
-              openElement(activeBoard.id, nodeId);
-            }}
-          />
+          <Suspense fallback={<DialogLoading />}>
+            <BoardHistoryDialog
+              projectId={project.id}
+              boardId={activeBoard.id}
+              onOpenElement={(nodeId) => {
+                setHistoryOpen(false);
+                openElement(activeBoard.id, nodeId);
+              }}
+            />
+          </Suspense>
         ) : null}
       </Dialog>
     </AgentDirectoryProvider>

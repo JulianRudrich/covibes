@@ -65,6 +65,10 @@ development mailbox at **http://localhost:5173/dev/mails**, then create a projec
 The database binaries are included; Docker is optional for local development. Stop everything with
 **Ctrl+C**. Project data is kept in `.data/` between starts.
 
+Mail and repository jobs continue when AI access is unavailable. `/health` reports process
+liveness; `/ready` checks PostgreSQL, migrations, the worker heartbeat and collaboration
+storage, while reporting AI degradation separately.
+
 For local ports, database access, backups and troubleshooting, see the
 [development guide](CONTRIBUTING.md#local-development).
 

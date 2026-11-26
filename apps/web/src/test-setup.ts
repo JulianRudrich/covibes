@@ -13,6 +13,7 @@ afterEach(async () => {
   cleanup();
   vi.unstubAllGlobals();
   // The tests read German texts; a test that switched the language (spec 32a) leaves no trace.
+  window.localStorage.removeItem('covibes.workspace.panels.v1');
   window.localStorage.removeItem('covibes.language');
   window.localStorage.removeItem('covibes.language.chosen');
   document.documentElement.lang = DEFAULT_LANGUAGE;

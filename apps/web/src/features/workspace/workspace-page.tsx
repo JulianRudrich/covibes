@@ -33,7 +33,8 @@ import type { PlanTaskAssignments } from '@web/features/plan/plan-editor';
 import { PlanPanel } from '@web/features/plan/plan-panel';
 import { planStateQuery, usePlanActions } from '@web/features/plan/queries';
 import { handsQuery, useHandDecisions } from '@web/features/hands/queries';
-import { useConnectGitAccount } from '@web/features/git/queries';
+import { gitStateQuery, useConnectGitAccount } from '@web/features/git/queries';
+import { useConnectGithubAccount } from '@web/features/git/github-queries';
 import { useGitSync } from '@web/features/git/use-git-sync';
 import {
   deviatingReviews,
@@ -137,7 +138,14 @@ function useNotice() {
 function Workspace({ project, user }: { project: ProjectDetails; user: SessionUser | null }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { board: requested, view, focus, task, git: gitReturned } = route.useSearch();
+  const {
+    board: requested,
+    view,
+    focus,
+    task,
+    git: gitReturned,
+    github: githubReturned,
+  } = route.useSearch();
   // The project plan takes the place of the canvas while it is open (spec 25a).
   const planOpen = view === 'plan';
   const { notice, show: showNotice } = useNotice();
@@ -258,7 +266,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
       void navigate({
         to: '/p/$projectId',
         params: { projectId: project.id },
-        search: (previous) => ({ ...previous, git: undefined }),
+        search: (previous) => ({ ...previous, git: undefined, github: undefined }),
         replace: true,
       }),
     [navigate, project.id],
@@ -427,6 +435,8 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
   const approveGit = useApproveGitRequests(project.id);
   const endGit = useEndGitRequest(project.id);
   const connectGit = useConnectGitAccount();
+  const connectGithub = useConnectGithubAccount();
+  const gitProvider = useQuery(gitStateQuery(project.id)).data?.connection?.provider;
   const gitFailed = useCallback(
     (error: unknown) => {
       showNotice(
@@ -444,7 +454,8 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
     canApprove: gitRequests.canApprove,
     hasAccount: gitRequests.hasAccount,
     userId,
-    busy: approveGit.isPending || endGit.isPending || connectGit.isPending,
+    busy:
+      approveGit.isPending || endGit.isPending || connectGit.isPending || connectGithub.isPending,
     onApprove: (requestIds: string[]) => {
       approveGit.mutate({ requestIds }, { onError: gitFailed });
     },
@@ -452,7 +463,8 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
       endGit.mutate({ requestId, how }, { onError: gitFailed });
     },
     onConnect: () => {
-      connectGit.mutate(
+      const connect = gitProvider === 'github' ? connectGithub : connectGit;
+      connect.mutate(
         { origin: 'account', projectId: project.id },
         {
           onSuccess: ({ url }) => {
@@ -573,6 +585,7 @@ function Workspace({ project, user }: { project: ProjectDetails; user: SessionUs
         repository={{
           projectId: project.id,
           returned: gitReturned,
+          githubReturned,
           onReturnSeen: clearGitReturn,
           reviewId: openReview,
           onReviewClosed: closeReview,

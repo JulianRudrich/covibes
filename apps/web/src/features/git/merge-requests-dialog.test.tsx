@@ -182,7 +182,9 @@ describe('MergeRequestsDialog', () => {
 
     const approver = renderDialog({ ...LIST, hasAccount: false });
     expect(
-      await within(approver.dialog).findByText(/Zum Freigeben brauchst du dein GitLab-Konto\./),
+      await within(approver.dialog).findByText(
+        /Verbinde das für die Freigabe benötigte Repository-Konto\./,
+      ),
     ).toBeVisible();
     expect(
       within(approver.dialog).getByRole('button', { name: 'Merge Request !7 zum Mergen vorlegen' }),

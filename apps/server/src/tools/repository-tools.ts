@@ -162,7 +162,7 @@ export function repositoryTools(reader: RepositoryReader): AgentTool[] {
   return [
     defineTool({
       name: 'list_repository_files',
-      description: `Lists the files and folders of one folder of the project's repository in GitLab (${name}). Start without a path to see the top folder, then go into folders. At most ${String(MAX_TREE_ENTRIES)} entries are shown.`,
+      description: `Lists the files and folders of one folder of the project's repository (${name}). Start without a path to see the top folder, then go into folders. At most ${String(MAX_TREE_ENTRIES)} entries are shown.`,
       input: {
         path: z
           .string()
@@ -195,7 +195,7 @@ export function repositoryTools(reader: RepositoryReader): AgentTool[] {
 
     defineTool({
       name: 'read_repository_file',
-      description: `Reads a text file of the project's repository in GitLab (${name}). Long files come in parts; ask for the next part to read on. Files that are no text, or larger than ${bytes(MAX_FILE_BYTES)}, are not read.`,
+      description: `Reads a text file of the project's repository (${name}). Long files come in parts; ask for the next part to read on. Files that are no text, or larger than ${bytes(MAX_FILE_BYTES)}, are not read.`,
       input: {
         path: z.string().trim().min(1).max(1000).describe('The file, e.g. "src/api/server.js"'),
         ref,
@@ -233,7 +233,7 @@ export function repositoryTools(reader: RepositoryReader): AgentTool[] {
 
     defineTool({
       name: 'list_issues',
-      description: `Lists the issues of the project's repository in GitLab (${name}), the latest changed first, at most ${String(MAX_LISTED)}.`,
+      description: `Lists the issues of the project's repository (${name}), the latest changed first, at most ${String(MAX_LISTED)}.`,
       input: {
         state: z
           .enum(['open', 'closed', 'all'])
@@ -262,7 +262,7 @@ export function repositoryTools(reader: RepositoryReader): AgentTool[] {
 
     defineTool({
       name: 'read_issue',
-      description: `Reads one issue of the project's repository in GitLab (${name}) with its description and its comments.`,
+      description: `Reads one issue of the project's repository (${name}) with its description and its comments.`,
       input: { number: number.describe('The number of the issue, e.g. 12 for #12') },
       run: ({ number: wanted }) =>
         guarded(async () => {
@@ -291,12 +291,12 @@ export function repositoryTools(reader: RepositoryReader): AgentTool[] {
 
     defineTool({
       name: 'list_merge_requests',
-      description: `Lists the merge requests of the project's repository in GitLab (${name}), the latest changed first, at most ${String(MAX_LISTED)}.`,
+      description: `Lists the pull or merge requests of the project's repository (${name}), the latest changed first, at most ${String(MAX_LISTED)}.`,
       input: {
         state: z
           .enum(['open', 'merged', 'closed', 'all'])
           .optional()
-          .describe('Which merge requests; open ones unless told otherwise'),
+          .describe('Which pull or merge requests; open ones unless told otherwise'),
       },
       run: ({ state = 'open' }) =>
         guarded(async () => {
@@ -315,8 +315,8 @@ export function repositoryTools(reader: RepositoryReader): AgentTool[] {
 
     defineTool({
       name: 'read_merge_request',
-      description: `Reads one merge request of the project's repository in GitLab (${name}): its description, the changes it makes (at most ${String(MAX_DIFFS)} files) and its comments.`,
-      input: { number: number.describe('The number of the merge request, e.g. 7 for !7') },
+      description: `Reads one pull or merge request of the project's repository (${name}): its description, the changes it makes (at most ${String(MAX_DIFFS)} files) and its comments.`,
+      input: { number: number.describe('The number of the pull or merge request, e.g. 7') },
       run: ({ number: wanted }) =>
         guarded(async () => {
           const found = await reader.mergeRequest(wanted);

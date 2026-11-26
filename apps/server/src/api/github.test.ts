@@ -231,7 +231,7 @@ function fixture() {
       `/api/github/callback?${new URLSearchParams({ state, code: 'fixture-code' }).toString()}`,
       cookie,
     );
-    expect(response.headers.get('location')).toBe(`${APP_URL}/?github=connected`);
+    expect(response.headers.get('location')).toBe(`${APP_URL}/?githubAccount=connected`);
     return state;
   }
   async function project() {

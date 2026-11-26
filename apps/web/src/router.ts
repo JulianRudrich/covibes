@@ -71,6 +71,7 @@ const projectListRoute = createRoute({
   // of the account menu opens with it once.
   validateSearch: z.object({
     gitAccount: z.enum(GIT_RETURNS).optional().catch(undefined),
+    githubAccount: z.enum(GIT_RETURNS).optional().catch(undefined),
   }),
   component: ProjectListPage,
 });
@@ -90,6 +91,8 @@ const projectRoute = createRoute({
     task: z.uuid().optional().catch(undefined),
     git: z.enum(GIT_RETURNS).optional().catch(undefined),
     gitAccount: z.enum(GIT_RETURNS).optional().catch(undefined),
+    github: z.enum(GIT_RETURNS).optional().catch(undefined),
+    githubAccount: z.enum(GIT_RETURNS).optional().catch(undefined),
   }),
   component: WorkspacePage,
 });

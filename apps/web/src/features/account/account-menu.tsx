@@ -50,9 +50,9 @@ export function AccountMenu({ user, children }: AccountMenuProps) {
   const updateSettings = useUpdateNotificationSettings();
   // The dialog "GitLab-Konto" (spec 29a). Someone who comes back from GitLab lands in it again:
   // the address says how the way back ended, on every page the menu is on.
-  const { gitAccount: gitReturned } = useSearch({ strict: false });
+  const { gitAccount: gitReturned, githubAccount: githubReturned } = useSearch({ strict: false });
   const { projectId } = useParams({ strict: false });
-  const [gitOpen, setGitOpen] = useState(gitReturned !== undefined);
+  const [gitOpen, setGitOpen] = useState(gitReturned !== undefined || githubReturned !== undefined);
   // The theme button of the top bar changes it too.
   const { choice: theme } = useTheme();
 
@@ -142,10 +142,14 @@ export function AccountMenu({ user, children }: AccountMenuProps) {
         onOpenChange={(open) => {
           setGitOpen(open);
           // How the way back ended was said once; then the address is clean again.
-          if (!open && gitReturned !== undefined) {
+          if (!open && (gitReturned !== undefined || githubReturned !== undefined)) {
             void navigate({
               to: '.',
-              search: (previous) => ({ ...previous, gitAccount: undefined }),
+              search: (previous) => ({
+                ...previous,
+                gitAccount: undefined,
+                githubAccount: undefined,
+              }),
               replace: true,
             });
           }

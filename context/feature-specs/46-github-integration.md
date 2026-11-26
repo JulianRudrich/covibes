@@ -9,8 +9,7 @@ against the project architecture, and merge only the precise revision explicitly
 approved by an authorized person. Existing GitLab connections remain usable.
 
 Owner authorization: 2026-11-17, all remaining feature specs. This integration is
-separate from signing in to Covibes with GitHub (spec 42). New product styling is
-owned by spec 55; this unit supplies the functional provider contracts and API.
+separate from signing in to Covibes with GitHub (spec 42). The integration uses the existing Covibes Studio design and includes its provider selection and account controls.
 
 ## Decisions and boundaries
 
@@ -99,7 +98,7 @@ API provides GitHub availability, integration connect/callback/disconnect,
 installation repository selection and project connection. Existing project Git
 request, review, package comparison and sync endpoints work for either provider.
 Missing provider fields in legacy calls retain their GitLab interpretation.
-Frontend layout and the final platform selector are integrated by spec 55.
+The existing Studio repository and account dialogs expose both providers.
 
 ## Verification
 

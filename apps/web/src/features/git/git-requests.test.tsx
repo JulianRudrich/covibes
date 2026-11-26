@@ -122,7 +122,7 @@ describe('Git requests under "Wartet auf dich"', () => {
     const { git, section } = renderWaiting([request(), request()], { hasAccount: false });
 
     expect(
-      within(section).getAllByText('Zum Freigeben brauchst du dein GitLab-Konto.'),
+      within(section).getAllByText('Verbinde das für die Freigabe benötigte Repository-Konto.'),
     ).toHaveLength(2);
     expect(within(section).queryByRole('button', { name: 'Freigeben' })).toBeNull();
     expect(within(section).queryByRole('button', { name: 'Alle freigeben' })).toBeNull();
@@ -478,7 +478,7 @@ describe('IssuesDialog', () => {
     const { dialog } = renderDialog({ ...PLAN, hasAccount: false });
 
     expect(
-      await within(dialog).findByText(/Zum Freigeben brauchst du dein GitLab-Konto\./),
+      await within(dialog).findByText(/Verbinde das für die Freigabe benötigte Repository-Konto\./),
     ).toBeVisible();
     expect(
       within(dialog).getByRole('button', { name: '2 Issues zur Freigabe vorlegen' }),

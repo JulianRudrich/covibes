@@ -16,6 +16,7 @@ export type WorkspaceRepository = {
   projectId: string;
   /** How the way back from GitLab ended; the dialog opens with it once. */
   returned: GitReturn | undefined;
+  githubReturned?: GitReturn | undefined;
   /** The dialog showed how it ended and was closed. */
   onReturnSeen: () => void;
   /** The review to show (spec 30b): the dialog "Merge Requests" opens with it. */

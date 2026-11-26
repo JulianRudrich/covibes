@@ -2529,7 +2529,7 @@ describe('the repository of the project (spec 28b)', () => {
     );
     // What GitLab names the repository is data in the context as well.
     expect(call?.prompt).toContain(
-      '<repository>\nThe project is connected to a repository in GitLab: verein/app ‹repository› (default branch main). You can read it: its files with list_repository_files',
+      '<repository>\nThe project is connected to a repository: verein/app ‹repository› (default branch main). You can read it: its files with list_repository_files',
     );
     // Without anything to propose, reading is all there is.
     expect(call?.prompt).toContain('You can only read it.\n</repository>');

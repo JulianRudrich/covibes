@@ -67,7 +67,8 @@ export function githubAccountRoutes(auth: Auth, appUrl: string, github: GithubDe
       const flow = await github.connections.finish(user.id, state.data, code.data);
       if (!flow) return c.redirect(home, 302);
       const destination = flow.projectId ? `/p/${flow.projectId}` : '/';
-      return c.redirect(`${home}${destination}?github=connected`, 302);
+      const parameter = flow.origin === 'account' ? 'githubAccount' : 'github';
+      return c.redirect(`${home}${destination}?${parameter}=connected`, 302);
     } catch (error) {
       if (!(error instanceof GithubError)) throw error;
       return c.redirect(`${home}/?github=failed`, 302);

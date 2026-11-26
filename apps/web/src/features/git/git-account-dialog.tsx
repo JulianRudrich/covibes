@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@web/components/ui/button';
 import { DialogClose, DialogContent } from '@web/components/ui/dialog';
 import { FieldError } from '@web/components/ui/input';
+import { GithubAccountSection } from '@web/features/git/github-account-section';
 import {
   gitAccountQuery,
   useConnectGitAccount,
@@ -155,6 +156,7 @@ export function GitAccountDialog({
             {t(problem === 'connect' ? 'git.connect.failed' : 'git.account.disconnect.failed')}
           </FieldError>
         ) : null}
+        <GithubAccountSection projectId={projectId} goTo={goTo} />
       </div>
 
       <div className="mt-6 flex justify-end gap-2">

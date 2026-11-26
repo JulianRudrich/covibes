@@ -37,10 +37,10 @@ describe('loadWorkerEnv', () => {
     );
   });
 
-  it('runs locally on the Claude login, but needs an API key in production', () => {
+  it('starts background jobs without AI credentials, including in production', () => {
     expect(loadWorkerEnv(required).ANTHROPIC_API_KEY).toBeUndefined();
     const production = { ...required, NODE_ENV: 'production', FILES_DIR: '/data/files' };
-    expect(() => loadWorkerEnv(production)).toThrow(/ANTHROPIC_API_KEY/);
+    expect(loadWorkerEnv(production).ANTHROPIC_API_KEY).toBeUndefined();
     expect(
       loadWorkerEnv({ ...production, ANTHROPIC_API_KEY: 'sk-ant-test' }).ANTHROPIC_API_KEY,
     ).toBe('sk-ant-test');

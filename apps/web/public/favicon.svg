@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>.mark{fill:#1b1a18;stroke:#1b1a18}@media(prefers-color-scheme:dark){.mark{fill:#f2f0ec;stroke:#f2f0ec}}</style>
+  <circle class="mark" cx="23" cy="23" r="18" stroke="none"/>
+  <circle class="mark" cx="41" cy="41" r="17" fill="none" stroke-width="6" style="fill:none"/>
+</svg>

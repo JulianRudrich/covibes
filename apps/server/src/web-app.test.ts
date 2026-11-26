@@ -11,7 +11,10 @@ import { createTestServer } from '@server/testing';
 // Production with GitLab OAuth, no mail transport and the built web app on disk.
 const webDir = mkdtempSync(join(tmpdir(), 'covibes-web-'));
 mkdirSync(join(webDir, 'assets'));
-writeFileSync(join(webDir, 'index.html'), '<!doctype html><title>Covibes</title>');
+writeFileSync(
+  join(webDir, 'index.html'),
+  '<!doctype html><title>Covibes</title><meta property="og:image" content="/share-preview.png"><meta name="twitter:image" content="/share-preview.png">',
+);
 writeFileSync(join(webDir, 'assets', 'index-abc123.js'), 'console.log(1);');
 writeFileSync(join(webDir, 'favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
 afterAll(() => {
@@ -34,6 +37,17 @@ describe('web app in production', () => {
       expect(response.status).toBe(200);
       expect(await response.text()).toContain('<title>Covibes</title>');
       expect(response.headers.get('cache-control')).toBe('no-cache');
+    }
+  });
+
+  it('serves only generic, origin-bound preview metadata on all application pages', async () => {
+    for (const path of ['/', '/index.html', '/share/private-token', '/p/private-project']) {
+      const response = await app.request(path, { headers: { host: 'attacker.example' } });
+      const html = await response.text();
+      expect(html).toContain('content="https://covibes.example.org/share-preview.png"');
+      expect(html).not.toContain('private-token');
+      expect(html).not.toContain('private-project');
+      expect(html).not.toContain('attacker.example');
     }
   });
 

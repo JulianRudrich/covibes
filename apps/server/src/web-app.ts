@@ -34,9 +34,15 @@ export function securityHeaders(appUrl: string) {
  * Serves the built web app from `dir`: existing files as they are, every other page as
  * `index.html`, so the app's own router takes over after a reload on e.g. `/p/…`.
  */
-export function serveWebApp(app: Hono, dir: string) {
+export function serveWebApp(app: Hono, dir: string, appUrl: string) {
   const root = resolve(dir);
-  const indexHtml = readFileSync(join(root, 'index.html'), 'utf8');
+  // Preview metadata is generic and bound to configured public origin, never a request Host
+  // header, private project, invitation token or share-token URL.
+  const imageUrl = new URL('/share-preview.png', new URL(appUrl).origin).href;
+  const indexHtml = readFileSync(join(root, 'index.html'), 'utf8').replace(
+    /(<meta (?:property="og:image"|name="twitter:image") content=")\/share-preview\.png(")/g,
+    `$1${imageUrl}$2`,
+  );
   const appPage = (c: Context) => {
     // Always ask for a fresh index.html, so a new version reaches everyone right away.
     c.header('Cache-Control', 'no-cache');
@@ -50,6 +56,7 @@ export function serveWebApp(app: Hono, dir: string) {
   });
   app.use('/assets/*', serveStatic({ root }));
   app.get('/', appPage);
+  app.get('/index.html', appPage);
   app.use('*', serveStatic({ root }));
   app.get('*', (c) => (c.req.path.startsWith('/api/') ? c.notFound() : appPage(c)));
 }

@@ -130,81 +130,83 @@ export function ChatPanel({
         <ChatStatusPill status={chatStatus(runs.data ?? [], messages.data ?? [], hands.length)} />
       </PanelHeader>
 
-      <ProjectSearch
-        projectId={projectId}
-        onOpen={(result) => {
-          if (result.kind === 'message') void history.openMessage(result.id);
-          else onSearchResult?.(result);
-        }}
-      />
-      {history.context ? (
-        <div role="status">
-          {t('conversation.context')}{' '}
-          <button type="button" onClick={history.latest}>
-            {t('conversation.latest')}
-          </button>
-        </div>
-      ) : null}
-      {history.failed ? <p role="alert">{t('conversation.loadFailed')}</p> : null}
-      <div className="flex min-h-0 flex-col">
-        {messages.isPending ? (
-          <p className="m-0 grid flex-1 place-items-center p-6 text-ui text-text-3">
-            {t('common.loading')}
-          </p>
-        ) : messages.isError ? (
-          <p role="alert" className="m-0 grid flex-1 place-items-center p-6 text-ui text-danger">
-            {t('chat.loadError')}
-          </p>
-        ) : (
-          <MessageList
-            items={history.context?.items ?? messages.data}
-            onLoadOlder={history.loadOlder}
-            hasOlder={history.hasOlder}
-            loadingOlder={history.loading}
-            focusMessageId={history.focusId}
-            onOpenMessage={(id) => {
-              void history.openMessage(id);
-            }}
-            empty={
-              <ChatStart
-                readOnly={readOnly}
-                // The first messages are for the moderator, who has to be in the team.
-                onStart={team.includes('moderator') ? offerStart : undefined}
-              />
-            }
-            currentUserId={user.id}
-            team={team}
-            people={members}
-            onRetry={retry}
-            onOffer={readOnly ? undefined : decideOffer}
-            voting={voting}
-            moderatorNeutral={moderatorNeutral}
-            onStopDebate={readOnly ? undefined : stopDebate}
-            onOpenReference={onOpenReference}
-          />
-        )}
-
-        <div className="flex flex-col gap-2.5 px-3 pb-3">
-          <RaisedHands hands={hands} onDecide={readOnly ? undefined : decideHand} />
-          {/* While a limit of the AI is reached (spec 31a); people keep writing to each other. */}
-          <UsageLimitNote projectId={projectId} />
-          {readOnly ? (
-            <p className="m-0 rounded-full bg-bg-subtle px-4 py-3.5 text-center text-ui text-text-3">
-              {t('chat.readOnly')}
+      <div className="studio-chat-content">
+        <ProjectSearch
+          projectId={projectId}
+          onOpen={(result) => {
+            if (result.kind === 'message') void history.openMessage(result.id);
+            else onSearchResult?.(result);
+          }}
+        />
+        {history.context ? (
+          <div role="status" className="studio-chat-history">
+            {t('conversation.context')}{' '}
+            <button type="button" onClick={history.latest}>
+              {t('conversation.latest')}
+            </button>
+          </div>
+        ) : null}
+        {history.failed ? <p role="alert">{t('conversation.loadFailed')}</p> : null}
+        <div className="flex min-h-0 flex-1 flex-col">
+          {messages.isPending ? (
+            <p className="m-0 grid flex-1 place-items-center p-6 text-ui text-text-3">
+              {t('common.loading')}
+            </p>
+          ) : messages.isError ? (
+            <p role="alert" className="m-0 grid flex-1 place-items-center p-6 text-ui text-danger">
+              {t('chat.loadError')}
             </p>
           ) : (
-            <Composer
-              agents={team}
-              people={others}
-              uploads={uploads}
-              start={start}
-              ask={ask}
-              onSend={(content, attachments, references) => {
-                history.latest();
-                send(content, attachments, references);
+            <MessageList
+              items={history.context?.items ?? messages.data}
+              onLoadOlder={history.loadOlder}
+              hasOlder={history.hasOlder}
+              loadingOlder={history.loading}
+              focusMessageId={history.focusId}
+              onOpenMessage={(id) => {
+                void history.openMessage(id);
               }}
+              empty={
+                <ChatStart
+                  readOnly={readOnly}
+                  // The first messages are for the moderator, who has to be in the team.
+                  onStart={team.includes('moderator') ? offerStart : undefined}
+                />
+              }
+              currentUserId={user.id}
+              team={team}
+              people={members}
+              onRetry={retry}
+              onOffer={readOnly ? undefined : decideOffer}
+              voting={voting}
+              moderatorNeutral={moderatorNeutral}
+              onStopDebate={readOnly ? undefined : stopDebate}
+              onOpenReference={onOpenReference}
             />
           )}
+
+          <div className="flex flex-col gap-2.5 px-3 pb-3">
+            <RaisedHands hands={hands} onDecide={readOnly ? undefined : decideHand} />
+            {/* While a limit of the AI is reached (spec 31a); people keep writing to each other. */}
+            <UsageLimitNote projectId={projectId} />
+            {readOnly ? (
+              <p className="m-0 rounded-full bg-bg-subtle px-4 py-3.5 text-center text-ui text-text-3">
+                {t('chat.readOnly')}
+              </p>
+            ) : (
+              <Composer
+                agents={team}
+                people={others}
+                uploads={uploads}
+                start={start}
+                ask={ask}
+                onSend={(content, attachments, references) => {
+                  history.latest();
+                  send(content, attachments, references);
+                }}
+              />
+            )}
+          </div>
         </div>
       </div>
     </>

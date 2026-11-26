@@ -1,0 +1,105 @@
+/* Spec49: preserve Studio surfaces and flows while filling the tablet-width gap. */
+.studio-workspace-header {
+  min-height: 64px;
+}
+.studio-workspace-panels {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--studio-chat-width) 12px minmax(0, 1fr) 12px var(
+      --studio-overview-width
+    );
+}
+.studio-workspace [hidden] {
+  display: none !important;
+}
+.studio-workspace[data-overview='false'] .studio-workspace-panels {
+  grid-template-columns: var(--studio-chat-width) 12px minmax(0, 1fr);
+}
+.studio-workspace[data-focused='true'] .studio-workspace-panels {
+  grid-template-columns: minmax(0, 1fr);
+}
+.studio-panel-splitter {
+  display: grid;
+  min-height: 0;
+  width: 12px;
+  cursor: col-resize;
+  touch-action: none;
+  place-items: center;
+  border-radius: 6px;
+  outline-offset: -2px;
+}
+.studio-panel-splitter > span {
+  width: 3px;
+  height: 32px;
+  border-radius: 3px;
+  background: var(--color-border-strong);
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.studio-panel-splitter:hover > span,
+.studio-panel-splitter:focus-visible > span {
+  opacity: 1;
+}
+.studio-chat-panel {
+  display: flex;
+  flex-direction: column;
+}
+.studio-chat-content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+.studio-chat-content > details {
+  flex-shrink: 0;
+  padding: 0 20px 8px;
+}
+.studio-chat-history {
+  flex-shrink: 0;
+  padding: 8px 20px;
+  font-size: var(--text-small);
+}
+.studio-chat-history button {
+  text-decoration: underline;
+}
+@media (48rem <= width < 80rem) {
+  .studio-workspace-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+  .studio-workspace-header > nav {
+    grid-column: 1/-1;
+    grid-row: 2;
+    justify-self: center;
+    max-width: 100%;
+  }
+  .studio-workspace-header > div:first-child > span:first-of-type {
+    display: none;
+  }
+  .studio-workspace-header > div:last-child {
+    gap: 8px;
+  }
+  .studio-workspace-panels {
+    grid-template-columns: var(--studio-chat-width) 12px minmax(0, 1fr);
+  }
+  .studio-overview-panel {
+    position: absolute;
+    inset: 0 12px 12px auto;
+    z-index: 20;
+    width: min(340px, calc(100% - 24px));
+    border: 1px solid var(--color-border);
+  }
+  .studio-workspace[data-focused='true'] .studio-workspace-panels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.studio-chat-panel > div:first-child {
+  min-height: 58px;
+  flex-shrink: 0;
+}
+@media (48rem <= width < 80rem) {
+  .studio-workspace-header > div:last-child > [role='group'] {
+    overflow-x: auto;
+  }
+}

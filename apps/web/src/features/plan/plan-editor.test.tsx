@@ -19,7 +19,7 @@ const collab = vi.hoisted(() => {
   const fake: { doc: unknown; connection: unknown; state: BoardConnectionState } = {
     doc: undefined,
     connection: undefined,
-    state: { status: 'connected', loaded: true, denied: false },
+    state: { status: 'connected', loaded: true, denied: false, persistence: 'unknown' },
   };
   return fake;
 });
@@ -42,7 +42,7 @@ const OLGA = { id: '11111111-1111-4111-8111-111111111111', name: 'Olga' };
 beforeEach(() => {
   collab.doc = new Y.Doc();
   collab.connection = { doc: collab.doc, provider: {} };
-  collab.state = { status: 'connected', loaded: true, denied: false };
+  collab.state = { status: 'connected', loaded: true, denied: false, persistence: 'unknown' };
   // jsdom lays nothing out; ProseMirror asks for the place of the caret when it gets the focus.
   const noRects = () => [] as unknown as DOMRectList;
   Range.prototype.getClientRects = noRects;
@@ -177,21 +177,32 @@ describe('PlanEditor', () => {
   });
 
   it('says so while the plan loads, when it is refused and while the connection is down', async () => {
-    collab.state = { status: 'connecting', loaded: false, denied: false };
+    collab.state = { status: 'connecting', loaded: false, denied: false, persistence: 'unknown' };
     const loading = renderPlan();
     expect(screen.getByText('Plan wird geladen …')).toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     loading.unmount();
 
-    collab.state = { status: 'disconnected', loaded: false, denied: true };
+    collab.state = { status: 'disconnected', loaded: false, denied: true, persistence: 'unknown' };
     const denied = renderPlan();
     expect(screen.getByText('Du hast keinen Zugriff mehr auf diesen Plan.')).toBeInTheDocument();
     denied.unmount();
 
-    collab.state = { status: 'disconnected', loaded: true, denied: false };
+    collab.state = { status: 'disconnected', loaded: true, denied: false, persistence: 'unknown' };
     renderPlan();
     expect(await screen.findByRole('textbox', { name: 'Projektplan' })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Verbindung wird wiederhergestellt …');
+  });
+
+  it('offers a retry when saving the plan fails', async () => {
+    const retryPersistence = vi.fn();
+    collab.connection = { doc: collab.doc, provider: {}, retryPersistence };
+    collab.state = { status: 'connected', loaded: true, denied: false, persistence: 'error' };
+    renderPlan();
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Speichern fehlgeschlagen');
+    fireEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
+    expect(retryPersistence).toHaveBeenCalledOnce();
   });
 
   it('offers "Plan erzeugen" in the toolbar and in the empty plan (spec 25b)', async () => {

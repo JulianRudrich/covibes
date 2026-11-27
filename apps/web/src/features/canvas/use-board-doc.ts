@@ -10,7 +10,12 @@ import {
   type BoardConnectionState,
 } from '@web/features/canvas/board-connection';
 
-const IDLE: BoardConnectionState = { status: 'connecting', loaded: false, denied: false };
+const IDLE: BoardConnectionState = {
+  status: 'connecting',
+  loaded: false,
+  denied: false,
+  persistence: 'unknown',
+};
 const noop = () => () => undefined;
 
 /** Connects to the Y.Doc of a board while the component is mounted. */

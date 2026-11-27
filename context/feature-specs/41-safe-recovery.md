@@ -29,7 +29,8 @@ AI degradation; clients only call a document saved after a database acknowledgem
   reports queue age and AI degradation separately. No secrets or content are returned.
 - Browser transport sync is not durable storage. An authenticated document flush checks
   membership, persists the current server document and returns a saved acknowledgement.
-  Existing UI gets the state contract without adopting the old visual design.
+  The existing Studio interface reports synchronization, saving, acknowledgement and errors.
+  A failed save offers retry and a new edit or reconnect requests a fresh acknowledgement.
 
 ## Implementation
 - Migration `0045_safe_recovery.sql`: admin-only `tool_commands`, `worker_heartbeats` and

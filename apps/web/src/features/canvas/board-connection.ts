@@ -1,7 +1,8 @@
-import { COLLAB_PATH } from '@covibes/shared';
+import { COLLAB_PATH, type PersistenceState } from '@covibes/shared';
 import { HocuspocusProvider, WebSocketStatus } from '@hocuspocus/provider';
 import * as Y from 'yjs';
 
+import { PersistenceTracker } from '@web/features/canvas/persistence-tracker';
 import { sameOriginWebSocketUrl } from '@web/lib/websocket-url';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
@@ -23,6 +24,7 @@ export type BoardConnectionState = {
   loaded: boolean;
   /** The server refused the board (session expired or no longer a member). */
   denied: boolean;
+  persistence: PersistenceState;
 };
 
 /** WebSocket address of the collaboration server on the web app's own origin. */
@@ -39,19 +41,41 @@ export function collabUrl(location: Pick<Location, 'protocol' | 'host'>): string
 export class BoardConnection {
   readonly doc = new Y.Doc();
   readonly provider: HocuspocusProvider;
-  private state: BoardConnectionState = { status: 'connecting', loaded: false, denied: false };
+  private state: BoardConnectionState = {
+    status: 'connecting',
+    loaded: false,
+    denied: false,
+    persistence: 'unknown',
+  };
+  private readonly persistence: PersistenceTracker;
   private readonly listeners = new Set<() => void>();
 
   constructor(options: { documentName: string; url: string; onDenied: () => void }) {
+    this.persistence = new PersistenceTracker(options.documentName, (persistence) => {
+      this.update({ persistence });
+    });
     this.provider = new HocuspocusProvider({
       url: options.url,
       name: options.documentName,
       document: this.doc,
       onStatus: ({ status }) => {
         this.update({ status: toConnectionStatus(status) });
+        this.persistence.connection(status === WebSocketStatus.Connected, false);
       },
       onSynced: ({ state }) => {
-        if (state) this.update({ loaded: true });
+        if (state) {
+          this.update({ loaded: true });
+          this.persistence.connection(
+            this.state.status === 'connected',
+            !this.provider.hasUnsyncedChanges,
+          );
+        }
+      },
+      onUnsyncedChanges: ({ number }) => {
+        this.persistence.connection(
+          this.state.status === 'connected',
+          number === 0 && this.state.loaded,
+        );
       },
       onAuthenticated: () => {
         this.update({ denied: false });
@@ -61,7 +85,16 @@ export class BoardConnection {
         options.onDenied();
       },
     });
+    this.doc.on('update', this.documentChanged);
   }
+
+  private readonly documentChanged = () => {
+    this.persistence.changed();
+  };
+
+  retryPersistence = () => {
+    this.persistence.retry();
+  };
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -78,6 +111,8 @@ export class BoardConnection {
   }
 
   destroy() {
+    this.persistence.destroy();
+    this.doc.off('update', this.documentChanged);
     this.listeners.clear();
     this.provider.destroy();
     this.doc.destroy();

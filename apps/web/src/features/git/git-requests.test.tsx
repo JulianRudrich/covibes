@@ -200,10 +200,10 @@ describe('Git requests under "Wartet auf dich"', () => {
     expect(within(section).getByLabelText('1 offen')).toBeInTheDocument();
     const card = within(section).getByRole('listitem');
     expect(within(card).getByRole('alert')).toHaveTextContent(
-      '2 von 3 nicht ausgeführt. GitLab hat den Zugriff abgelehnt.',
+      '2 von 3 nicht ausgeführt. Der Anbieter hat den Zugriff abgelehnt.',
     );
     fireEvent.click(within(card).getByRole('button', { name: 'Ansehen' }));
-    expect(card).toHaveTextContent('GitLab hat den Zugriff abgelehnt. (403 Forbidden)');
+    expect(card).toHaveTextContent('Der Anbieter hat den Zugriff abgelehnt. (403 Forbidden)');
 
     fireEvent.click(within(card).getByRole('button', { name: 'Wiederholen' }));
     expect(git.onApprove).toHaveBeenCalledWith([failed.id]);
@@ -674,7 +674,7 @@ describe('GitLogDialog', () => {
     const entry = await within(dialog).findByRole('listitem');
     expect(entry).toHaveTextContent('Fehlgeschlagen · 1 von 2');
     fireEvent.click(within(entry).getByRole('button', { name: '2 Aktionen ansehen' }));
-    expect(entry).toHaveTextContent('GitLab war nicht erreichbar.');
+    expect(entry).toHaveTextContent('Der Anbieter war nicht erreichbar.');
   });
 
   it('says when there is nothing yet, or the log could not be loaded', async () => {

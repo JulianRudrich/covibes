@@ -127,7 +127,7 @@ describe('the state from GitLab', () => {
     const section = await within(dialog).findByRole('region', { name: 'Stand aus GitLab' });
 
     expect(within(section).getByRole('alert')).toHaveTextContent(
-      'Der Abgleich hat nicht geklappt. Vielleicht ist der Zugriff auf GitLab abgelaufen.',
+      'Der Abgleich hat nicht geklappt. Vielleicht ist der Zugriff auf das Repository abgelaufen.',
     );
 
     await arrive({ syncedAt: ago(120), failed: true });

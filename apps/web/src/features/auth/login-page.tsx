@@ -46,8 +46,8 @@ export function LoginPage() {
   const codeInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (secondFactor || (sent && method === 'code')) codeInput.current?.focus();
-  }, [secondFactor, sent, method, recovery]);
+    if (!busy && (secondFactor || (sent && method === 'code'))) codeInput.current?.focus();
+  }, [busy, secondFactor, sent, method, recovery]);
 
   function complete(data: unknown) {
     if (needsSecondFactor(data)) {

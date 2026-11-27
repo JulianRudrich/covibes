@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import {
   diffBoard,
   getEdgesMap,
@@ -7,6 +9,7 @@ import {
   HISTORY_MAX_ITEMS,
   HISTORY_MERGE_MS,
   historyItemsSchema,
+  historyActorSchema,
   mergeItems,
   readEdges,
   readNodes,
@@ -16,6 +19,7 @@ import {
 } from '@covibes/shared';
 import type pg from 'pg';
 import type * as Y from 'yjs';
+import { z } from 'zod';
 
 // The history of the boards (spec 38a). The collaboration server tells this module when a board
 // was loaded, when a change arrived and when the board was stored. From that it writes entries:
@@ -47,6 +51,22 @@ export type RevertMark = {
   reverted: number;
   kept: number;
 };
+
+const batchSchema = z.object({
+  groups: z.array(z.object({ actor: historyActorSchema, items: historyItemsSchema })),
+  names: z.record(z.string(), z.string()),
+  at: z.iso.datetime(),
+  mark: z
+    .object({
+      reverts: z.uuid(),
+      by: z.object({ userId: z.string(), name: z.string() }),
+      removed: z.array(z.string()),
+      reverted: z.number().int().min(0),
+      kept: z.number().int().min(0),
+    })
+    .optional(),
+});
+type HistoryBatch = z.infer<typeof batchSchema>;
 
 type OpenBoard = {
   /** The board as it stood when the last entry was written. */
@@ -106,10 +126,82 @@ export function createBoardHistory({
   const boards = new Map<string, OpenBoard>();
   // One write per board at a time, in the order the board was stored.
   const writing = new Map<string, Promise<void>>();
+  const unstaged = new Map<string, { boardId: string; batch: HistoryBatch }>();
+  const failures = new Set<string>();
+  const deletedBoards = new Set<string>();
+  let stopped = false;
+  const isStopped = () => stopped;
+
+  async function drain(boardId: string) {
+    if (deletedBoards.has(boardId)) return;
+    for (const [id, entry] of unstaged) {
+      if (entry.boardId !== boardId) continue;
+      // Insert by a stable identity. A committed receipt survives a lost response and is
+      // never replaced with another copy of its payload.
+      await adminPool.query(
+        `insert into board_history_outbox (id, board_id, payload) values ($1, $2, $3::jsonb)
+         on conflict (id) do nothing`,
+        [id, boardId, JSON.stringify(entry.batch)],
+      );
+      unstaged.delete(id);
+    }
+    const { rows } = await adminPool.query<{ id: string; payload: unknown }>(
+      `select id, payload from board_history_outbox where board_id = $1
+       and completed_at is null order by created_at, id`,
+      [boardId],
+    );
+    for (const row of rows) {
+      const batch = batchSchema.parse(row.payload);
+      const projectId = await write(
+        boardId,
+        batch.groups,
+        new Map(Object.entries(batch.names)),
+        batch.mark,
+        row.id,
+        new Date(batch.at),
+      );
+      if (projectId !== undefined) onChanged?.(projectId, boardId);
+    }
+    failures.delete(boardId);
+  }
+
+  function enqueue(boardId: string): Promise<void> {
+    const before = writing.get(boardId) ?? Promise.resolve();
+    const next = before
+      .then(() => drain(boardId))
+      .catch((error: unknown) => {
+        if (!deletedBoards.has(boardId)) {
+          failures.add(boardId);
+          console.error(
+            'Writing the history of a board failed; its delivery will be retried',
+            error,
+          );
+        }
+      })
+      .finally(() => {
+        if (writing.get(boardId) === next) writing.delete(boardId);
+      });
+    writing.set(boardId, next);
+    return next;
+  }
+
+  async function reconcile(): Promise<void> {
+    if (isStopped()) return;
+    const { rows } = await adminPool.query<{ board_id: string }>(
+      `select distinct board_id from board_history_outbox where completed_at is null`,
+    );
+    if (isStopped()) return;
+    const ids = new Set([
+      ...rows.map((row) => row.board_id),
+      ...[...unstaged.values()].map((entry) => entry.boardId),
+    ]);
+    await Promise.all([...ids].map(enqueue));
+  }
 
   /** A board was loaded: this is how it stands, and nothing of it is news. */
   function loaded(boardId: string, doc: Y.Doc) {
     boards.set(boardId, opened(doc));
+    void enqueue(boardId);
   }
 
   /** A change arrived on a board. What it removed is attributed to a person who sent it. */
@@ -137,25 +229,27 @@ export function createBoardHistory({
     boards.delete(boardId);
   }
 
-  async function nameOf(client: pg.PoolClient, userId: string, known: Map<string, string>) {
-    const name = known.get(userId);
-    if (name !== undefined) return name;
-    const { rows } = await client.query<{ name: string }>('select name from users where id = $1', [
-      userId,
-    ]);
-    return rows[0]?.name ?? '';
-  }
-
   async function write(
     boardId: string,
     groups: readonly { actor: HistoryActor; items: HistoryItem[] }[],
     names: Map<string, string>,
     mark?: RevertMark,
+    batchId?: string,
+    at = now(),
   ): Promise<string | undefined> {
-    const at = now();
     const client = await adminPool.connect();
     try {
       await client.query('begin');
+      if (batchId) {
+        const receipt = await client.query<{ completed_at: Date | null }>(
+          'select completed_at from board_history_outbox where id = $1 for update',
+          [batchId],
+        );
+        if (!receipt.rows[0] || receipt.rows[0].completed_at !== null) {
+          await client.query('rollback');
+          return undefined;
+        }
+      }
       // The board may be gone meanwhile; then its history is, too.
       const found = await client.query<{ project_id: string }>(
         'select project_id from boards where id = $1 for share',
@@ -190,6 +284,7 @@ export function createBoardHistory({
           isBy(entry, group.actor) &&
           entry.reverts === null &&
           entry.undone_at === null &&
+          at.getTime() >= entry.updated_at.getTime() &&
           at.getTime() - entry.updated_at.getTime() < HISTORY_MERGE_MS
         ) {
           const merged = mergeItems(earlier.data, group.items);
@@ -205,6 +300,17 @@ export function createBoardHistory({
           continue;
         }
         const { actor } = group;
+        // An outbox batch can outlive its author. Lock an existing account until this
+        // transaction commits so a concurrent deletion cannot invalidate the foreign key.
+        const person =
+          actor.kind === 'human'
+            ? (
+                await client.query<{ id: string; name: string }>(
+                  'select id, name from users where id = $1 for key share',
+                  [actor.userId],
+                )
+              ).rows[0]
+            : undefined;
         await client.query(
           `insert into board_changes
              (project_id, board_id, actor_kind, actor_user_id, actor_agent_key, actor_name, items,
@@ -215,9 +321,9 @@ export function createBoardHistory({
             projectId,
             boardId,
             actor.kind,
-            actor.kind === 'human' ? actor.userId : null,
+            person?.id ?? null,
             actor.kind === 'agent' ? actor.agentKey : null,
-            actor.kind === 'human' ? await nameOf(client, actor.userId, names) : '',
+            actor.kind === 'human' ? (names.get(actor.userId) ?? person?.name ?? '') : '',
             JSON.stringify(group.items.slice(0, HISTORY_MAX_ITEMS)),
             at,
             taking?.reverts ?? null,
@@ -234,7 +340,7 @@ export function createBoardHistory({
             taking.reverts,
             boardId,
             at,
-            taking.by.userId,
+            person?.id ?? null,
             taking.by.name.slice(0, 200),
             taking.reverted,
             taking.kept,
@@ -251,6 +357,11 @@ export function createBoardHistory({
                   order by updated_at desc, id desc limit $4))`,
         [boardId, at, HISTORY_DAYS, HISTORY_MAX_ENTRIES],
       );
+      if (batchId)
+        await client.query(
+          'update board_history_outbox set payload = null, completed_at = now() where id = $1',
+          [batchId],
+        );
       await client.query('commit');
       return projectId;
     } catch (error) {
@@ -264,7 +375,7 @@ export function createBoardHistory({
   /**
    * A board was stored: what changed since the last entry is written, one entry per author. The
    * board as it stands becomes what the next entry is compared with, whether or not the write
-   * succeeds: a history with a gap is better than one that repeats itself.
+   * succeeds. A delivery outbox retries failed entries without repeating committed ones.
    *
    * With `mark`, the server just took an entry back for a person (spec 38b): what they did by
    * it is written as an entry of its own, and the entry it takes back is marked.
@@ -294,22 +405,18 @@ export function createBoardHistory({
     board.humans = new Map();
     board.service = false;
     board.removedBy = new Map();
-    if (groups.length === 0) return writing.get(boardId) ?? Promise.resolve();
-
-    const before = writing.get(boardId) ?? Promise.resolve();
-    const done = before
-      .then(() => write(boardId, groups, names, mark))
-      .then((projectId) => {
-        if (projectId !== undefined) onChanged?.(projectId, boardId);
-      })
-      .catch((error: unknown) => {
-        console.error('Writing the history of a board failed', error);
-      })
-      .finally(() => {
-        if (writing.get(boardId) === done) writing.delete(boardId);
+    if (groups.length > 0) {
+      unstaged.set(randomUUID(), {
+        boardId,
+        batch: {
+          groups,
+          names: Object.fromEntries(names),
+          at: now().toISOString(),
+          ...(mark ? { mark: { ...mark, removed: [...mark.removed] } } : {}),
+        },
       });
-    writing.set(boardId, done);
-    return done;
+    }
+    return enqueue(boardId);
   }
 
   /** Resolves once everything that was stored so far is written. */
@@ -317,7 +424,25 @@ export function createBoardHistory({
     return writing.get(boardId) ?? Promise.resolve();
   }
 
-  return { loaded, changed, stored, unloaded, settled };
+  return {
+    loaded,
+    changed,
+    stored,
+    unloaded,
+    settled,
+    reconcile,
+    deleted: (boardId: string) => {
+      deletedBoards.add(boardId);
+      boards.delete(boardId);
+      failures.delete(boardId);
+      for (const [id, entry] of unstaged) if (entry.boardId === boardId) unstaged.delete(id);
+    },
+    failedCount: () => failures.size,
+    close: async () => {
+      stopped = true;
+      await Promise.allSettled([...writing.values()]);
+    },
+  };
 }
 
 export type BoardHistoryRecorder = ReturnType<typeof createBoardHistory>;

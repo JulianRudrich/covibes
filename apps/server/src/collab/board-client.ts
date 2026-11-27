@@ -10,6 +10,8 @@ export type BoardSession = {
 
 /** How the worker reaches a board; tests use an in-memory Y.Doc instead. */
 export type BoardAccess = {
+  /** PostgreSQL acknowledgement; production clients implement it, memory-only tests may omit it. */
+  flush?: (boardId: string, commandId?: string) => Promise<void>;
   /**
    * Runs `fn` on the live Y.Doc of a board. It resolves once every change `fn` made has reached
    * the collaboration server, so everyone with the board open already sees it.
@@ -59,6 +61,22 @@ export function createBoardClient(options: BoardClientOptions): BoardAccess {
   }
 
   return {
+    async flush(boardId, commandId) {
+      const url = new URL(`/api/internal/boards/${boardId}/flush`, options.collabUrl);
+      url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          origin,
+          'content-type': 'application/json',
+          'x-internal-token': options.token,
+        },
+        body: JSON.stringify({ commandId }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!response.ok)
+        throw new Error('The collaboration server did not acknowledge a durable save');
+    },
     async withBoard(boardId, fn) {
       const doc = new Y.Doc();
       const websocketProvider = new HocuspocusProviderWebsocket({

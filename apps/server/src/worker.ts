@@ -4,13 +4,7 @@ import { run } from 'graphile-worker';
 import { Kysely, PostgresDialect } from 'kysely';
 import pg from 'pg';
 
-import { MODERATOR } from '@server/agents/catalog';
-import {
-  checkClaudeAccess,
-  completeText,
-  GatewayConfigError,
-  streamAgentReply,
-} from '@server/ai-gateway';
+import { completeText, GatewayConfigError, streamAgentReply } from '@server/ai-gateway';
 import { gatherPackageInput, type PackageReaders } from '@server/api/package';
 import { createBoardClient } from '@server/collab/board-client';
 import { agentGitRequests } from '@server/git/agent-requests';
@@ -23,6 +17,8 @@ import { createWorkerMailer } from '@server/integrations/mail/mailer';
 import { readStoredPlan } from '@server/plan/stored-plan';
 import { defaultFilesDir, localStorage } from '@server/storage/storage';
 import { releaseAbandonedJobs } from '@server/tasks/abandoned-jobs';
+import { acquireWorkerLease } from '@server/tasks/worker-lease';
+import { createModelAvailability } from '@server/tasks/model-availability';
 import { AGENT_TURN_TASK, agentTurnTask } from '@server/tasks/agent-turn';
 import { AWAY_SUMMARY_TASK, awaySummaryTask } from '@server/tasks/away-summary';
 import { GIT_REQUEST_TASK, gitRequestTask } from '@server/tasks/git-request';
@@ -41,7 +37,8 @@ import { loadWorkerEnv, type WorkerEnv } from '@server/worker-env';
 // observer (spec 15), the notification mails (spec 22b), the summaries for people who come back
 // (spec 23) and the generation of the plan (spec 25b). Every agent has its own queue per project, so it answers one request after the
 // other; up to five runs of different agents or projects work at the same time.
-const CONCURRENCY = 5;
+const MODEL_CONCURRENCY = 3;
+const BACKGROUND_CONCURRENCY = 2;
 
 function readEnvOrExit(): WorkerEnv {
   try {
@@ -57,19 +54,6 @@ function readEnvOrExit(): WorkerEnv {
 
 const env = readEnvOrExit();
 
-// Without a usable model the worker does not start, so a missing login shows at once and not in
-// the first answer.
-try {
-  const access = await checkClaudeAccess(MODERATOR.model);
-  console.log(`Covibes worker: ${access.model} via ${access.credentials}`);
-} catch (error) {
-  if (error instanceof GatewayConfigError) {
-    console.error(`Covibes worker cannot start. ${error.message}`);
-    process.exit(1);
-  }
-  throw error;
-}
-
 const pgPool = new pg.Pool({ connectionString: env.DATABASE_ADMIN_URL });
 // A connection that breaks (e.g. a database restart) fails its query and is replaced; it must not
 // end the worker, whether it was idle or in use.
@@ -81,6 +65,52 @@ pgPool.on('connect', (client) => {
   client.on('error', logConnectionError);
 });
 const admin = new Kysely<DB>({ dialect: new PostgresDialect({ pool: pgPool }) });
+// Ownership must be established before any previous worker's jobs are unlocked.
+const lease = await acquireWorkerLease(pgPool, () => {
+  console.error('Covibes worker: ownership connection was lost; stopping');
+  process.exit(1);
+});
+if (!lease) {
+  console.error('Covibes worker: another worker already owns this database');
+  await admin.destroy();
+  process.exit(1);
+}
+const models = createModelAvailability();
+const metered = createBudgetGateway(
+  {
+    admin,
+    limits: usageLimitsOf(env),
+    maxCallUsd: env.AI_MAX_CALL_USD ?? (env.NODE_ENV === 'production' ? 0 : 1),
+    onWarning: (warning) => {
+      console.warn(JSON.stringify({ event: 'ai_budget_warning', ...warning }));
+    },
+  },
+  { reply: streamAgentReply, complete: completeText },
+);
+function requireProductionKey() {
+  if (env.NODE_ENV === 'production' && !env.ANTHROPIC_API_KEY) {
+    throw new GatewayConfigError('Production AI access requires a configured API key');
+  }
+}
+const reply: typeof streamAgentReply = (request) =>
+  models.call(async () => {
+    requireProductionKey();
+    return metered.reply(request);
+  });
+const complete: typeof completeText = (request) =>
+  models.call(async () => {
+    requireProductionKey();
+    return metered.complete(request);
+  });
+await lease.heartbeat(models.state());
+const heartbeat = setInterval(() => {
+  void lease.heartbeat(models.state()).catch(() => {
+    console.error('Covibes worker: heartbeat failed; stopping');
+    process.exit(1);
+  });
+}, 10_000);
+heartbeat.unref();
+
 const boards = createBoardClient({
   collabUrl: env.COLLAB_URL,
   appUrl: env.APP_URL,
@@ -107,105 +137,111 @@ const packageReaders: PackageReaders = {
 
 // The limits of the AI (spec 31a): every job that calls a model checks them first.
 const limits = usageGuard(admin, usageLimitsOf(env));
-const metered = createBudgetGateway(
-  {
-    admin,
-    limits: usageLimitsOf(env),
-    maxCallUsd: env.AI_MAX_CALL_USD ?? (env.NODE_ENV === 'production' ? 0 : 1),
-    onWarning: (warning) => {
-      console.warn(JSON.stringify({ event: 'ai_budget_warning', ...warning }));
-    },
-  },
-  { reply: streamAgentReply, complete: completeText },
-);
 
-const released = await releaseAbandonedJobs(pgPool);
+const released = await releaseAbandonedJobs(lease);
 if (released > 0) {
   console.log(`Covibes worker: resumed the jobs of ${String(released)} ended worker(s)`);
 }
 
-const runner = await run({
-  pgPool,
-  concurrency: CONCURRENCY,
-  // Shutdown is handled below, so the pool closes after the last job.
-  noHandleSignals: true,
-  // No scheduled jobs yet; without this the worker looks for a crontab file.
-  parsedCronItems: [],
-  taskList: {
-    [AGENT_TURN_TASK]: agentTurnTask({
-      admin,
-      boards,
-      files: localStorage(env.FILES_DIR ?? defaultFilesDir()),
-      ...(repository ? { repository } : {}),
-      // The moderator proposes Git actions (spec 29e); they wait for approval like everyone's.
-      ...(gitConnections
-        ? {
-            gitRequests: agentGitRequests({
-              admin,
-              client: gitClient,
-              connections: gitConnections,
-              boards,
-            }),
-          }
-        : {}),
-      limits,
-      reply: metered.reply,
-      complete: metered.complete,
-    }),
-    [OBSERVE_TASK]: observeTask({ admin, complete: metered.complete, limits }),
-    // The moderator writes the project plan as suggestions per section (spec 25b).
-    [PLAN_GENERATE_TASK]: planGenerateTask({ admin, boards, complete: metered.complete, limits }),
-    // The moderator suggests a text of the package for coding agents (spec 27c).
-    [PACKAGE_SUGGEST_TASK]: packageSuggestTask({ admin, complete: metered.complete, limits }),
-    // The moderator writes the feature specs of a milestone out (spec 27d).
-    [PACKAGE_SPECS_TASK]: packageSpecsTask({ admin, boards, complete: metered.complete, limits }),
-    // An approved Git request runs with the access of who approved it (spec 29b). Without a
-    // GitLab nobody has an account, so nothing can be approved and no such job exists.
+const taskList = {
+  [AGENT_TURN_TASK]: agentTurnTask({
+    admin,
+    boards,
+    files: localStorage(env.FILES_DIR ?? defaultFilesDir()),
+    ...(repository ? { repository } : {}),
+    // The moderator proposes Git actions (spec 29e); they wait for approval like everyone's.
     ...(gitConnections
       ? {
-          [GIT_REQUEST_TASK]: gitRequestTask({
-            admin,
-            accessOf: gitConnections.accessOf,
-            writers: (target, token) => gitlabWriter(gitClient, target, token),
-          }),
-          // Reads the state of a project's repository (spec 30a).
-          [GIT_SYNC_TASK]: gitSyncTask({
+          gitRequests: agentGitRequests({
             admin,
             client: gitClient,
             connections: gitConnections,
+            boards,
           }),
         }
       : {}),
-    // The review of a merge request against the architecture (spec 30b): it reads the repository
-    // and writes into Covibes only.
-    ...(repository
-      ? {
-          [MR_REVIEW_TASK]: mrReviewTask({
-            admin,
-            repository,
-            packageInput: (projectId) => gatherPackageInput(admin, packageReaders, projectId),
-            complete: metered.complete,
-            limits,
-          }),
-        }
-      : {}),
-    // The moderator sums up the conversation for a member who comes back (spec 23).
-    [AWAY_SUMMARY_TASK]: awaySummaryTask({ admin, complete: metered.complete, limits }),
-    // Sums up by mail what a person has not seen in the app (spec 22b).
-    [NOTIFICATION_MAIL_TASK]: notificationMailTask({
-      admin,
-      mailer: createWorkerMailer(env),
-      appUrl: env.APP_URL,
-    }),
-  },
-});
+    limits,
+    reply,
+    complete,
+  }),
+  [OBSERVE_TASK]: observeTask({ admin, complete, limits }),
+  // The moderator writes the project plan as suggestions per section (spec 25b).
+  [PLAN_GENERATE_TASK]: planGenerateTask({ admin, boards, complete, limits }),
+  // The moderator suggests a text of the package for coding agents (spec 27c).
+  [PACKAGE_SUGGEST_TASK]: packageSuggestTask({ admin, complete, limits }),
+  // The moderator writes the feature specs of a milestone out (spec 27d).
+  [PACKAGE_SPECS_TASK]: packageSpecsTask({ admin, boards, complete, limits }),
+  // An approved Git request runs with the access of who approved it (spec 29b). Without a
+  // GitLab nobody has an account, so nothing can be approved and no such job exists.
+  ...(gitConnections
+    ? {
+        [GIT_REQUEST_TASK]: gitRequestTask({
+          admin,
+          accessOf: gitConnections.accessOf,
+          writers: (target, token) => gitlabWriter(gitClient, target, token),
+        }),
+        // Reads the state of a project's repository (spec 30a).
+        [GIT_SYNC_TASK]: gitSyncTask({
+          admin,
+          client: gitClient,
+          connections: gitConnections,
+        }),
+      }
+    : {}),
+  // The review of a merge request against the architecture (spec 30b): it reads the repository
+  // and writes into Covibes only.
+  ...(repository
+    ? {
+        [MR_REVIEW_TASK]: mrReviewTask({
+          admin,
+          repository,
+          packageInput: (projectId) => gatherPackageInput(admin, packageReaders, projectId),
+          complete,
+          limits,
+        }),
+      }
+    : {}),
+  // The moderator sums up the conversation for a member who comes back (spec 23).
+  [AWAY_SUMMARY_TASK]: awaySummaryTask({ admin, complete, limits }),
+  // Sums up by mail what a person has not seen in the app (spec 22b).
+  [NOTIFICATION_MAIL_TASK]: notificationMailTask({
+    admin,
+    mailer: createWorkerMailer(env),
+    appUrl: env.APP_URL,
+  }),
+};
+
+// Models cannot consume the slots used by mail and repository work.
+const backgroundNames = new Set<string>([GIT_REQUEST_TASK, GIT_SYNC_TASK, NOTIFICATION_MAIL_TASK]);
+const runners = await Promise.all([
+  run({
+    pgPool,
+    concurrency: MODEL_CONCURRENCY,
+    noHandleSignals: true,
+    parsedCronItems: [],
+    taskList: Object.fromEntries(
+      Object.entries(taskList).filter(([name]) => !backgroundNames.has(name)),
+    ),
+  }),
+  run({
+    pgPool,
+    concurrency: BACKGROUND_CONCURRENCY,
+    noHandleSignals: true,
+    parsedCronItems: [],
+    taskList: Object.fromEntries(
+      Object.entries(taskList).filter(([name]) => backgroundNames.has(name)),
+    ),
+  }),
+]);
 
 // Take no new jobs, give running ones a few seconds, then abort them; they are retried later.
 let shuttingDown = false;
 async function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
-  await runner.stop();
+  clearInterval(heartbeat);
+  await Promise.all(runners.map((runner) => runner.stop()));
+  await lease?.release();
   await admin.destroy();
   process.exit(0);
 }

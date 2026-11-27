@@ -180,6 +180,14 @@ export interface BoardChanges {
   updated_at: Generated<Timestamp>;
 }
 
+export interface BoardHistoryOutbox {
+  board_id: string;
+  completed_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+  id: string;
+  payload: Json | null;
+}
+
 export interface Boards {
   created_at: Generated<Timestamp>;
   id: Generated<string>;
@@ -702,6 +710,19 @@ export interface Tasks {
   title: Generated<string>;
 }
 
+export interface ToolCommands {
+  canvas: Json | null;
+  completed_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  input: Json;
+  position: number;
+  response: string | null;
+  run_id: string;
+  status: Generated<string>;
+  tool_name: string;
+}
+
 export interface Usage {
   agent_key: string;
   cost_usd: Generated<Numeric>;
@@ -757,6 +778,14 @@ export interface Votes {
   winner: string | null;
 }
 
+export interface WorkerHeartbeats {
+  ai_available: Generated<boolean>;
+  ai_retry_at: Timestamp | null;
+  heartbeat_at: Generated<Timestamp>;
+  instance_id: string;
+  singleton: Generated<boolean>;
+}
+
 export interface YjsDocuments {
   name: string;
   state: Buffer;
@@ -774,6 +803,7 @@ export interface DB {
   away_summaries: AwaySummaries;
   beta_invitations: BetaInvitations;
   board_changes: BoardChanges;
+  board_history_outbox: BoardHistoryOutbox;
   boards: Boards;
   comparisons: Comparisons;
   criteria: Criteria;
@@ -818,10 +848,12 @@ export interface DB {
   sessions: Sessions;
   share_links: ShareLinks;
   tasks: Tasks;
+  tool_commands: ToolCommands;
   usage: Usage;
   users: Users;
   verifications: Verifications;
   vote_ballots: VoteBallots;
   votes: Votes;
+  worker_heartbeats: WorkerHeartbeats;
   yjs_documents: YjsDocuments;
 }

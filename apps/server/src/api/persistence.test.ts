@@ -80,6 +80,67 @@ describe('durable save acknowledgement (spec 41)', () => {
     failed.mockRestore();
   });
 
+  it('commits board state and history staging together and retries after a staging failure', async () => {
+    const target = await board();
+    const documentName = boardDocumentName(target.id);
+    const blockId = randomUUID();
+    const suffix = randomUUID().replaceAll('-', '');
+    const functionName = `fail_outbox_${suffix}`;
+    const triggerName = `reject_outbox_${suffix}`;
+    await test.db.adminPool.query(`
+      create function public.${functionName}() returns trigger language plpgsql as $$
+      begin raise exception 'controlled outbox staging failure'; end; $$;
+      create trigger ${triggerName} before insert on public.board_history_outbox
+      for each row when (new.board_id = '${target.id}'::uuid) execute function public.${functionName}();
+    `);
+    try {
+      await test.collab.changeBoard(
+        { boardId: target.id, projectId: target.projectId },
+        async (doc) => {
+          addBlock(
+            doc,
+            { id: blockId, label: 'Atomic save', position: { x: 0, y: 0 } },
+            { kind: 'agent', agentKey: 'moderator' },
+          );
+          await expect(test.collab.flushDocument(documentName)).rejects.toThrow(
+            'controlled outbox staging failure',
+          );
+          const before = await test.db.adminPool.query<{ state: Buffer }>(
+            'select state from yjs_documents where name = $1',
+            [documentName],
+          );
+          const stored = new Y.Doc();
+          if (before.rows[0]) Y.applyUpdate(stored, new Uint8Array(before.rows[0].state));
+          expect(readNodes(stored).some((node) => node.id === blockId)).toBe(false);
+          stored.destroy();
+
+          await test.db.adminPool.query(
+            `drop trigger ${triggerName} on public.board_history_outbox`,
+          );
+          await test.collab.flushDocument(documentName);
+          const history = await test.db.adminPool.query(
+            'select id from board_changes where board_id = $1',
+            [target.id],
+          );
+          expect(history.rows).toHaveLength(1);
+          await test.collab.flushDocument(documentName);
+          expect(
+            (
+              await test.db.adminPool.query('select id from board_changes where board_id = $1', [
+                target.id,
+              ])
+            ).rows,
+          ).toEqual(history.rows);
+        },
+      );
+    } finally {
+      await test.db.adminPool.query(`
+        drop trigger if exists ${triggerName} on public.board_history_outbox;
+        drop function public.${functionName}();
+      `);
+    }
+  });
+
   it('protects worker flushes with the internal credential', async () => {
     const target = await board();
     const post = (token: string) =>

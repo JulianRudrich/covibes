@@ -89,7 +89,13 @@ export function createCollab({
 
   // Merge snapshots instead of overwriting them: an older debounced store must not erase a
   // command that was explicitly flushed after that snapshot was captured.
-  function persistDocument(documentName: string, state: Uint8Array, commandId?: string) {
+  function persistDocument(
+    documentName: string,
+    state: Uint8Array,
+    commandId?: string,
+    mark?: RevertMark,
+  ) {
+    const boardId = boardIdFromDocumentName(documentName);
     const before = writing.get(documentName) ?? Promise.resolve();
     const stored = before
       .catch(() => undefined)
@@ -108,13 +114,15 @@ export function createCollab({
           if (commandId && !hasCanvasCommandReceipt(merged, commandId)) {
             throw new Error('A command cannot finish before its canvas update reached the server');
           }
+          // Diff the state that will actually be stored. A debounced snapshot can be older
+          // than an explicit flush and must not create a false reversal in board history.
+          const historyThrough = boardId ? history.prepare(boardId, merged, mark, true) : 0;
           await client.query(
             `insert into yjs_documents (name, state, updated_at) values ($1, $2, now())
            on conflict (name) do update set state = excluded.state, updated_at = now()`,
             [documentName, Buffer.from(Y.encodeStateAsUpdate(merged))],
           );
           if (commandId) {
-            const boardId = boardIdFromDocumentName(documentName);
             const completed = await client.query(
               `update tool_commands set status = 'complete', completed_at = now()
              where id = $1 and canvas->>'boardId' = $2 and response is not null`,
@@ -123,8 +131,12 @@ export function createCollab({
             if (completed.rowCount !== 1)
               throw new Error('The canvas command does not belong to this board');
           }
+          const staged = boardId
+            ? await history.stageDocument(client, boardId, historyThrough)
+            : [];
           await client.query('commit');
           failedStores.delete(documentName);
+          if (boardId) await history.documentCommitted(boardId, staged);
         } catch (error) {
           await client.query('rollback').catch(() => undefined);
           throw error;
@@ -265,11 +277,6 @@ export function createCollab({
           if (deletedDocuments.has(documentName)) return;
           await persistDocument(documentName, state);
 
-          // The board is stored; what changed on it since goes into its history (spec 38a). A
-          // history that cannot be written must not make the store count as failed.
-          const boardId = boardIdFromDocumentName(documentName);
-          if (boardId) await history.stored(boardId, document);
-
           const planOf = projectIdFromPlanDocumentName(documentName);
           if (!planOf || !onPlanStored) return;
           // The plan is stored; whatever follows from it must not make the store count as failed.
@@ -378,7 +385,13 @@ export function createCollab({
    */
   async function recordHistory(boardId: string, mark?: RevertMark): Promise<void> {
     const live = hocuspocus.documents.get(boardDocumentName(boardId));
-    if (live && !live.isLoading) await history.stored(boardId, live, mark);
+    if (live && !live.isLoading)
+      await persistDocument(
+        boardDocumentName(boardId),
+        Y.encodeStateAsUpdate(live),
+        undefined,
+        mark,
+      );
     await history.settled(boardId);
   }
 
@@ -457,7 +470,6 @@ export function createCollab({
       await persistDocument(documentName, Y.encodeStateAsUpdate(document), commandId);
       if (deletedDocuments.has(documentName))
         throw new Error('The document was deleted during its save');
-      if (boardId) await history.stored(boardId, document);
     } finally {
       await connection.disconnect();
     }

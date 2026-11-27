@@ -126,7 +126,11 @@ export function createBoardHistory({
   const boards = new Map<string, OpenBoard>();
   // One write per board at a time, in the order the board was stored.
   const writing = new Map<string, Promise<void>>();
-  const unstaged = new Map<string, { boardId: string; batch: HistoryBatch }>();
+  const unstaged = new Map<
+    string,
+    { boardId: string; batch: HistoryBatch; sequence: number; documentBound: boolean }
+  >();
+  let sequence = 0;
   const failures = new Set<string>();
   const deletedBoards = new Set<string>();
   let stopped = false;
@@ -135,7 +139,7 @@ export function createBoardHistory({
   async function drain(boardId: string) {
     if (deletedBoards.has(boardId)) return;
     for (const [id, entry] of unstaged) {
-      if (entry.boardId !== boardId) continue;
+      if (entry.boardId !== boardId || entry.documentBound) continue;
       // Insert by a stable identity. A committed receipt survives a lost response and is
       // never replaced with another copy of its payload.
       await adminPool.query(
@@ -193,7 +197,9 @@ export function createBoardHistory({
     if (isStopped()) return;
     const ids = new Set([
       ...rows.map((row) => row.board_id),
-      ...[...unstaged.values()].map((entry) => entry.boardId),
+      ...[...unstaged.values()]
+        .filter((entry) => !entry.documentBound)
+        .map((entry) => entry.boardId),
     ]);
     await Promise.all([...ids].map(enqueue));
   }
@@ -380,11 +386,11 @@ export function createBoardHistory({
    * With `mark`, the server just took an entry back for a person (spec 38b): what they did by
    * it is written as an entry of its own, and the entry it takes back is marked.
    */
-  function stored(boardId: string, doc: Y.Doc, mark?: RevertMark): Promise<void> {
+  function prepare(boardId: string, doc: Y.Doc, mark?: RevertMark, documentBound = false): number {
     const board = boards.get(boardId);
     if (!board) {
       boards.set(boardId, opened(doc));
-      return Promise.resolve();
+      return sequence;
     }
     const current = read(doc);
     if (mark) {
@@ -408,6 +414,8 @@ export function createBoardHistory({
     if (groups.length > 0) {
       unstaged.set(randomUUID(), {
         boardId,
+        sequence: ++sequence,
+        documentBound,
         batch: {
           groups,
           names: Object.fromEntries(names),
@@ -416,7 +424,26 @@ export function createBoardHistory({
         },
       });
     }
+    return sequence;
+  }
+
+  function stored(boardId: string, doc: Y.Doc, mark?: RevertMark): Promise<void> {
+    prepare(boardId, doc, mark);
     return enqueue(boardId);
+  }
+
+  async function stageDocument(client: pg.PoolClient, boardId: string, through: number) {
+    const ids: string[] = [];
+    for (const [id, entry] of unstaged) {
+      if (entry.boardId !== boardId || !entry.documentBound || entry.sequence > through) continue;
+      await client.query(
+        `insert into board_history_outbox (id, board_id, payload) values ($1, $2, $3::jsonb)
+         on conflict (id) do nothing`,
+        [id, boardId, JSON.stringify(entry.batch)],
+      );
+      ids.push(id);
+    }
+    return ids;
   }
 
   /** Resolves once everything that was stored so far is written. */
@@ -428,6 +455,12 @@ export function createBoardHistory({
     loaded,
     changed,
     stored,
+    prepare,
+    stageDocument,
+    documentCommitted: (boardId: string, ids: readonly string[]) => {
+      for (const id of ids) unstaged.delete(id);
+      return enqueue(boardId);
+    },
     unloaded,
     settled,
     reconcile,

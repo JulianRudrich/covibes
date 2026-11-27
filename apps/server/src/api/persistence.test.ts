@@ -92,6 +92,17 @@ describe('durable save acknowledgement (spec 41)', () => {
     expect((await post(TOKEN)).status).toBe(200);
   });
 
+  it('does not acknowledge a document whose board has already been removed', async () => {
+    const missingBoard = randomUUID();
+    try {
+      await expect(test.collab.flushDocument(boardDocumentName(missingBoard))).rejects.toThrow(
+        'The document was deleted before it could be saved',
+      );
+    } finally {
+      await test.collab.deleteBoard(missingBoard);
+    }
+  });
+
   it('clears failed storage health when its board is deleted', async () => {
     const target = await board();
     const documentName = boardDocumentName(target.id);

@@ -42,8 +42,9 @@ AI degradation; clients only call a document saved after a database acknowledgem
 - History delivery retries through an outbox. History and its completion receipt commit
   together; copied payloads are discarded after success. The app reconciles at startup,
   on load/store and every thirty seconds, without claiming authenticated security auditing.
-  Document storage and outbox staging remain separate commits: a crash between them may
-  leave a history gap. A failed outbox insert is retried in memory until staging succeeds.
+  Board document storage and its history outbox staging commit in the same transaction.
+  A rejected outbox insert rolls back the document store; the next store retries both.
+  History delivery runs independently after commit and is retried from the durable outbox.
 
 ## Out of scope
 - Scaling workers or collaboration owners horizontally.

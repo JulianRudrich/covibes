@@ -16,6 +16,7 @@ import { startLiveBridge } from '@server/realtime/notifications';
 import { createRealtime } from '@server/realtime/realtime';
 import { defaultFilesDir, localStorage } from '@server/storage/storage';
 import { attachWebSockets } from '@server/websockets';
+import { prepareAccountDeletion } from '@server/workspaces/lifecycle';
 
 function readEnvOrExit(): ServerEnv {
   try {
@@ -33,7 +34,17 @@ const env = readEnvOrExit();
 const db = createDatabase(env);
 // Locally the development mailbox, in the Docker image SMTP (or no login by mail).
 const mail = createMailSetup(env);
-const auth = createAuth({ env, adminPool: db.adminPool, mailer: mail.mailer });
+const auth = createAuth({
+  env,
+  adminPool: db.adminPool,
+  mailer: mail.mailer,
+  beforeDeleteUser: (userId) => prepareAccountDeletion(db.adminPool, userId),
+  afterDeleteUser: (userId) => {
+    realtime.closeAccount(userId);
+    collab.closeAccount(userId);
+    return Promise.resolve();
+  },
+});
 const realtime = createRealtime({ db, auth });
 // Everyone with the project open learns when a stored plan changed its roadmap (spec 26a).
 const announceRoadmap = createRoadmapAnnouncer(realtime);
@@ -54,7 +65,13 @@ const collab: Collab = createCollab({
   },
 });
 // Forwards what the worker announces (runs, agent messages, streamed text) to the live channels.
-const liveBridge = startLiveBridge({ adminPool: db.adminPool, admin: db.admin, live: realtime });
+const connections = projectConnections(realtime, collab);
+const liveBridge = startLiveBridge({
+  adminPool: db.adminPool,
+  admin: db.admin,
+  live: realtime,
+  connections,
+});
 
 const server = serve(
   {
@@ -70,7 +87,7 @@ const server = serve(
           giveTaskIds(projectId);
         },
       },
-      connections: projectConnections(realtime, collab),
+      connections,
       files: localStorage(env.FILES_DIR ?? defaultFilesDir()),
     }).fetch,
     port: env.PORT,

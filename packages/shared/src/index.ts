@@ -705,6 +705,25 @@ export {
   type UsageSource,
   type UsageState,
 } from './usage';
+
+export {
+  workspaceIdSchema,
+  workspaceNameSchema,
+  createWorkspaceInputSchema,
+  workspaceMemberInputSchema,
+  workspaceInvitationInputSchema,
+  workspaceInvitationTokenSchema,
+  workspaceProjectInputSchema,
+  moveProjectInputSchema,
+} from './workspaces';
+export type {
+  WorkspaceRole,
+  WorkspaceSummary,
+  WorkspaceMember,
+  WorkspaceProject,
+  WorkspaceInvitation,
+} from './workspaces';
+
 export * from './conversations';
 export {
   persistenceReceiptSchema,

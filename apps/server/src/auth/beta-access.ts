@@ -23,6 +23,10 @@ export async function requireBetaAccess(options: {
        select 1 from public.invitations
        where kind = 'email' and lower(email) = $1 and expires_at > now()
          and revoked_at is null and uses = 0
+       union all
+       select 1 from public.workspace_invitations
+       where email = $1 and expires_at > now()
+         and revoked_at is null and accepted_at is null
        limit 1`,
       [email],
     );

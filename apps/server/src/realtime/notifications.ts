@@ -4,6 +4,7 @@ import type pg from 'pg';
 import { z } from 'zod';
 
 import { loadMessage, loadRun } from '@server/chat/rows';
+import type { ProjectConnections } from '@server/realtime/connections';
 import type { LivePublisher } from '@server/realtime/realtime';
 
 /**
@@ -29,6 +30,12 @@ export const liveNotificationSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('proposals'), projectId: z.uuid() }),
   // The project changed, e.g. its team (spec 14); clients load the project again.
   z.object({ kind: z.literal('project'), projectId: z.uuid() }),
+  z.object({
+    kind: z.literal('access'),
+    projectId: z.uuid(),
+    userId: z.uuid(),
+    scope: z.enum(['boards', 'all']),
+  }),
   // An agent raised a hand, or someone listened to it or dismissed it (spec 15).
   z.object({ kind: z.literal('hands'), projectId: z.uuid() }),
   // A decision or the criteria changed (spec 16a); the trigger of the decision log sends it.
@@ -71,6 +78,9 @@ export async function toLiveEvent(admin: Kysely<DB>, notification: LiveNotificat
       return { type: 'proposals' as const };
     case 'project':
       return { type: 'project' as const };
+    case 'access':
+      // The existing project-members trigger publishes the project refresh.
+      return undefined;
     case 'hands':
       return { type: 'hands' as const };
     case 'decisions':
@@ -97,6 +107,7 @@ export function startLiveBridge(deps: {
   adminPool: pg.Pool;
   admin: Kysely<DB>;
   live: LivePublisher;
+  connections?: ProjectConnections;
 }) {
   let client: pg.PoolClient | undefined;
   let stopped = false;
@@ -114,6 +125,9 @@ export function startLiveBridge(deps: {
     }
     const parsed = liveNotificationSchema.safeParse(json);
     if (!parsed.success) return;
+    if (parsed.data.kind === 'access') {
+      deps.connections?.closeUser(parsed.data.projectId, parsed.data.userId, parsed.data.scope);
+    }
     const event = await toLiveEvent(deps.admin, parsed.data);
     if (event) deps.live.publish(parsed.data.projectId, event);
   }

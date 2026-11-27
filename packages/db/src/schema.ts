@@ -294,6 +294,13 @@ export interface Decisions {
   vote_id: string | null;
 }
 
+export interface FileCleanup {
+  attempts: Generated<number>;
+  created_at: Generated<Timestamp>;
+  last_error_at: Timestamp | null;
+  storage_key: string;
+}
+
 export interface Files {
   created_at: Generated<Timestamp>;
   id: Generated<string>;
@@ -662,6 +669,7 @@ export interface Projects {
   phase: Generated<string>;
   settings: Generated<Json>;
   updated_at: Generated<Timestamp>;
+  workspace_id: Generated<string>;
 }
 
 export interface Proposals {
@@ -786,6 +794,44 @@ export interface WorkerHeartbeats {
   singleton: Generated<boolean>;
 }
 
+export interface WorkspaceInvitations {
+  accepted_at: Timestamp | null;
+  accepted_by: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  email: string | null;
+  expires_at: Generated<Timestamp>;
+  id: Generated<string>;
+  revoked_at: Timestamp | null;
+  role: ProjectRole;
+  token_hash: string;
+  workspace_id: string;
+}
+
+export interface WorkspaceMembers {
+  created_at: Generated<Timestamp>;
+  role: ProjectRole;
+  user_id: string;
+  workspace_id: string;
+}
+
+export interface WorkspaceProjectGrants {
+  project_id: string;
+  role: ProjectRole;
+  user_id: string;
+  workspace_id: string;
+}
+
+export interface Workspaces {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  kind: string;
+  name: string;
+  personal_owner_id: string | null;
+  settings: Generated<Json>;
+}
+
 export interface YjsDocuments {
   name: string;
   state: Buffer;
@@ -812,6 +858,7 @@ export interface DB {
   decision_links: DecisionLinks;
   decision_log: DecisionLog;
   decisions: Decisions;
+  file_cleanup: FileCleanup;
   files: Files;
   git_accounts: GitAccounts;
   git_actions: GitActions;
@@ -855,5 +902,9 @@ export interface DB {
   vote_ballots: VoteBallots;
   votes: Votes;
   worker_heartbeats: WorkerHeartbeats;
+  workspace_invitations: WorkspaceInvitations;
+  workspace_members: WorkspaceMembers;
+  workspace_project_grants: WorkspaceProjectGrants;
+  workspaces: Workspaces;
   yjs_documents: YjsDocuments;
 }

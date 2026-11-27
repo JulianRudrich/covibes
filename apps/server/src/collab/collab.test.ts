@@ -175,6 +175,36 @@ describe('connecting to a board', () => {
     const { boardId } = await projectWithBoard(owner);
     expect(await connect(boardId, owner, 'https://evil.example').result).toBe('denied');
   });
+
+  it('closes an account across board and plan documents while keeping another person connected', async () => {
+    const owner = await test.signIn();
+    const member = await test.signIn();
+    const first = await projectWithBoard(owner);
+    const second = await projectWithBoard(owner);
+    const author = await addMember(first.projectId, member, 'editor');
+    await addMember(second.projectId, member, 'editor');
+    const board = connect(first.boardId, member);
+    const anotherBoard = connect(second.boardId, member);
+    const plan = connectTo(planDocumentName(first.projectId), member);
+    const staying = connect(first.boardId, owner);
+    expect(
+      await Promise.all([board.result, anotherBoard.result, plan.result, staying.result]),
+    ).toEqual(['ok', 'ok', 'ok', 'ok']);
+    const closed = new Set<string>();
+    board.provider.on('close', () => closed.add('board'));
+    anotherBoard.provider.on('close', () => closed.add('another-board'));
+    plan.provider.on('close', () => closed.add('plan'));
+    let survivorClosed = false;
+    staying.provider.on('close', () => {
+      survivorClosed = true;
+    });
+
+    collab.closeAccount(author.userId);
+
+    await until(() => closed.size === 3);
+    expect(survivorClosed).toBe(false);
+    expect(staying.provider.isSynced).toBe(true);
+  });
 });
 
 describe('working together', () => {

@@ -5,11 +5,14 @@ import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
 import { Button } from '@web/components/ui/button';
+import { Logo } from '@web/components/logo';
+import { Notice } from '@web/components/ui/card';
 import { Input, Label } from '@web/components/ui/input';
 import { LanguageSwitch } from '@web/features/account/language-switch';
 import { redirectErrorKey, type AuthErrorKey } from '@web/features/auth/auth-errors';
 import { safeRedirectPath } from '@web/features/auth/redirect-path';
 import { configQuery } from '@web/features/auth/session';
+import { LoginScene } from '@web/features/auth/login-scene';
 import { currentLanguage } from '@web/i18n/language';
 import { authClient } from '@web/lib/auth-client';
 
@@ -24,7 +27,7 @@ function needsSecondFactor(data: unknown): boolean {
   );
 }
 
-/** Functional account flow; spec 55 supplies the new visual system. */
+/** Passwordless account flows in the existing productive Studio layout. */
 export function LoginPage() {
   const { t } = useTranslation();
   const search = route.useSearch();
@@ -139,142 +142,184 @@ export function LoginPage() {
   const providers = config?.socialLogins ?? (config?.gitlabLogin ? (['gitlab'] as const) : []);
   const emailReady = config?.emailLogin !== false;
   return (
-    <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center gap-6 p-6">
-      <Link to="/">{t('common.appName')}</Link>
-      <h1 className="text-2xl font-semibold">
-        {secondFactor ? t('accountSecurity.challengeTitle') : t('auth.title')}
-      </h1>
-      {config?.closedBeta ? <p>{t('accountSecurity.betaNotice')}</p> : null}
-      {target.startsWith('/invite/') ? <p>{t('auth.invited')}</p> : null}
-      {error ? <p role="alert">{t(error)}</p> : null}
-      {!secondFactor ? (
-        <div className="grid gap-3">
-          {providers.map((provider) => (
-            <Button key={provider} disabled={busy} onClick={() => void social(provider)}>
-              {t('accountSecurity.social', {
-                provider: { github: 'GitHub', google: 'Google', gitlab: 'GitLab' }[provider],
-              })}
-            </Button>
-          ))}
-          {config?.passkeyLogin ? (
-            <Button
-              disabled={busy || !('PublicKeyCredential' in window)}
-              onClick={() => void signInPasskey()}
-            >
-              {t('accountSecurity.passkeySignIn')}
-            </Button>
+    <main className="grid min-h-dvh grid-cols-[minmax(0,1fr)_560px] bg-bg-app text-text max-[960px]:grid-cols-1">
+      <div className="contents max-[960px]:hidden">
+        <LoginScene />
+      </div>
+      <section
+        aria-labelledby="login-title"
+        className="flex flex-col justify-center px-[88px] py-10 max-[960px]:items-center max-[960px]:px-6"
+      >
+        <div className="grid w-full max-w-[384px] gap-5">
+          <Link
+            to="/"
+            className="mb-5 hidden items-center gap-2.5 text-text no-underline max-[960px]:flex"
+          >
+            <Logo />
+            <span className="font-display text-[18px] font-bold tracking-[-0.025em]">
+              {t('common.wordmark')}
+            </span>
+          </Link>
+          <h1
+            id="login-title"
+            className="m-0 font-display text-[28px] font-semibold tracking-[-0.02em]"
+          >
+            {secondFactor ? t('accountSecurity.challengeTitle') : t('auth.title')}
+          </h1>
+          <p className="m-0 text-body text-text-3">{t('auth.subtitle')}</p>
+          {config?.closedBeta ? <Notice>{t('accountSecurity.betaNotice')}</Notice> : null}
+          {target.startsWith('/invite/') ? <Notice>{t('auth.invited')}</Notice> : null}
+          {target.startsWith('/workspace-invite/') ? (
+            <Notice>{t('workspaces.invite.signInNotice')}</Notice>
           ) : null}
-        </div>
-      ) : null}
-      {emailReady || secondFactor ? (
-        <form
-          noValidate
-          onSubmit={(event) => void submit(event)}
-          aria-busy={busy}
-          className="grid gap-3"
-        >
+          {error ? (
+            <Notice id="login-error" tone="danger">
+              {t(error)}
+            </Notice>
+          ) : null}
           {!secondFactor ? (
-            <>
-              <Label htmlFor="login-email">{t('auth.emailLabel')}</Label>
-              <Input
-                id="login-email"
-                type="email"
-                autoComplete="username webauthn"
-                value={email}
-                required
-                disabled={sent || busy}
-                onChange={(event) => {
-                  setEmail(event.target.value);
-                }}
-              />
-              {!sent ? (
-                <fieldset className="flex gap-4">
-                  <legend>{t('accountSecurity.emailMethod')}</legend>
-                  {(config?.emailCodeLogin ? (['code', 'link'] as const) : (['link'] as const)).map(
-                    (choice) => (
-                      <label key={choice}>
-                        <input
-                          type="radio"
-                          name="email-method"
-                          value={choice}
-                          checked={method === choice}
-                          disabled={busy}
-                          onChange={() => {
-                            setMethod(choice);
-                          }}
-                        />{' '}
-                        {t(`accountSecurity.method_${choice}`)}
-                      </label>
-                    ),
-                  )}
-                </fieldset>
+            <div className="grid gap-3">
+              {providers.map((provider) => (
+                <Button
+                  size="l"
+                  className="w-full"
+                  key={provider}
+                  disabled={busy}
+                  onClick={() => void social(provider)}
+                >
+                  {t('accountSecurity.social', {
+                    provider: { github: 'GitHub', google: 'Google', gitlab: 'GitLab' }[provider],
+                  })}
+                </Button>
+              ))}
+              {config?.passkeyLogin ? (
+                <Button
+                  size="l"
+                  className="w-full"
+                  disabled={busy || !('PublicKeyCredential' in window)}
+                  onClick={() => void signInPasskey()}
+                >
+                  {t('accountSecurity.passkeySignIn')}
+                </Button>
               ) : null}
-            </>
+            </div>
           ) : null}
-          {sent ? (
-            <p role="status">
-              {t(method === 'code' ? 'accountSecurity.codeSent' : 'auth.linkSent', { email })}
-            </p>
-          ) : null}
-          {secondFactor || (sent && method === 'code') ? (
-            <>
-              <Label htmlFor="login-code">
-                {t(recovery ? 'accountSecurity.recoveryCode' : 'accountSecurity.code')}
-              </Label>
-              <Input
-                id="login-code"
-                ref={codeInput}
-                value={code}
-                autoComplete="one-time-code"
-                inputMode={recovery ? 'text' : 'numeric'}
-                required
-                disabled={busy}
-                onChange={(event) => {
-                  setCode(event.target.value);
-                }}
-              />
-            </>
-          ) : null}
-          {!(sent && method === 'link') ? (
-            <Button type="submit" disabled={busy}>
-              {busy
-                ? t('common.loading')
-                : t(
-                    secondFactor || sent
-                      ? 'accountSecurity.verify'
-                      : method === 'code'
-                        ? 'accountSecurity.sendCode'
-                        : 'auth.sendLink',
-                  )}
-            </Button>
-          ) : null}
-          {secondFactor ? (
-            <Button
-              variant="ghost"
-              disabled={busy}
-              onClick={() => {
-                setRecovery(!recovery);
-                setCode('');
-              }}
+          {emailReady || secondFactor ? (
+            <form
+              noValidate
+              onSubmit={(event) => void submit(event)}
+              aria-busy={busy}
+              className="grid gap-3"
             >
-              {t(recovery ? 'accountSecurity.useAuthenticator' : 'accountSecurity.useRecovery')}
-            </Button>
-          ) : sent ? (
-            <Button
-              variant="ghost"
-              disabled={busy}
-              onClick={() => {
-                setSent(false);
-                setCode('');
-              }}
-            >
-              {t('auth.otherEmail')}
-            </Button>
+              {!secondFactor ? (
+                <>
+                  <Label htmlFor="login-email">{t('auth.emailLabel')}</Label>
+                  <Input
+                    id="login-email"
+                    className="h-[46px] rounded-[14px] px-4 text-[14px]"
+                    aria-invalid={error === 'auth.errors.invalidEmail'}
+                    aria-describedby={error ? 'login-error' : undefined}
+                    type="email"
+                    autoComplete="username webauthn"
+                    value={email}
+                    required
+                    disabled={sent || busy}
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                    }}
+                  />
+                  {!sent ? (
+                    <fieldset className="flex gap-4">
+                      <legend>{t('accountSecurity.emailMethod')}</legend>
+                      {(config?.emailCodeLogin
+                        ? (['code', 'link'] as const)
+                        : (['link'] as const)
+                      ).map((choice) => (
+                        <label key={choice}>
+                          <input
+                            type="radio"
+                            name="email-method"
+                            value={choice}
+                            checked={method === choice}
+                            disabled={busy}
+                            onChange={() => {
+                              setMethod(choice);
+                            }}
+                          />{' '}
+                          {t(`accountSecurity.method_${choice}`)}
+                        </label>
+                      ))}
+                    </fieldset>
+                  ) : null}
+                </>
+              ) : null}
+              {sent ? (
+                <p role="status">
+                  {t(method === 'code' ? 'accountSecurity.codeSent' : 'auth.linkSent', { email })}
+                </p>
+              ) : null}
+              {secondFactor || (sent && method === 'code') ? (
+                <>
+                  <Label htmlFor="login-code">
+                    {t(recovery ? 'accountSecurity.recoveryCode' : 'accountSecurity.code')}
+                  </Label>
+                  <Input
+                    id="login-code"
+                    className="h-[46px] rounded-[14px] px-4 text-[14px]"
+                    ref={codeInput}
+                    value={code}
+                    autoComplete="one-time-code"
+                    inputMode={recovery ? 'text' : 'numeric'}
+                    required
+                    disabled={busy}
+                    onChange={(event) => {
+                      setCode(event.target.value);
+                    }}
+                  />
+                </>
+              ) : null}
+              {!(sent && method === 'link') ? (
+                <Button variant="primary" size="l" className="w-full" type="submit" disabled={busy}>
+                  {busy
+                    ? t('common.loading')
+                    : t(
+                        secondFactor || sent
+                          ? 'accountSecurity.verify'
+                          : method === 'code'
+                            ? 'accountSecurity.sendCode'
+                            : 'auth.sendLink',
+                      )}
+                </Button>
+              ) : null}
+              {secondFactor ? (
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => {
+                    setRecovery(!recovery);
+                    setCode('');
+                  }}
+                >
+                  {t(recovery ? 'accountSecurity.useAuthenticator' : 'accountSecurity.useRecovery')}
+                </Button>
+              ) : sent ? (
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => {
+                    setSent(false);
+                    setCode('');
+                  }}
+                >
+                  {t('auth.otherEmail')}
+                </Button>
+              ) : null}
+              {config?.devMailbox ? <Link to="/dev/mails">{t('auth.openMailbox')}</Link> : null}
+            </form>
           ) : null}
-          {config?.devMailbox ? <Link to="/dev/mails">{t('auth.openMailbox')}</Link> : null}
-        </form>
-      ) : null}
-      <LanguageSwitch />
+          <LanguageSwitch className="mt-6 -ml-1 justify-start" />
+        </div>
+      </section>
     </main>
   );
 }

@@ -213,6 +213,61 @@ describe('live channel', () => {
     writing.socket.close();
     reading.socket.close();
   });
+
+  it('closes all tabs of a confirmed deleted account while keeping other members connected', async () => {
+    const email = `${randomUUID()}@example.com`;
+    const departing = await test.signIn(email);
+    const survivor = await test.signIn();
+    const privateId = await createProject(departing);
+    const sharedId = await createProject(survivor);
+    await addMember(sharedId, departing, 'viewer');
+    const session = await test.auth.api.getSession({ headers: new Headers({ cookie: departing }) });
+    if (!session) throw new Error('No departing session');
+    const first = await open(privateId, departing);
+    const second = await open(sharedId, departing);
+    const anotherTab = await open(sharedId, departing);
+    const staying = await open(sharedId, survivor);
+    if (
+      typeof first === 'number' ||
+      typeof second === 'number' ||
+      typeof anotherTab === 'number' ||
+      typeof staying === 'number'
+    )
+      throw new Error('Account tabs did not open');
+    const closed = Promise.all(
+      [first, second, anotherTab].map(
+        ({ socket }) => new Promise<number>((resolve) => socket.once('close', resolve)),
+      ),
+    );
+    try {
+      await test.db.adminPool.query(
+        "update sessions set created_at = now() - interval '10 minutes' where id = $1",
+        [session.session.id],
+      );
+      const requested = await test.app.request('/api/auth/delete-user', {
+        method: 'POST',
+        headers: { cookie: departing, origin: APP_URL, 'content-type': 'application/json' },
+        body: JSON.stringify({ callbackURL: '/login' }),
+      });
+      expect(requested.status).toBe(200);
+      expect(first.socket.readyState).toBe(WebSocket.OPEN);
+      const link = test.outbox
+        ?.list()
+        .find((mail) => mail.to === email)
+        ?.text.match(/https?:\/\/\S+/)?.[0];
+      if (!link) throw new Error('No deletion confirmation was delivered');
+      expect((await test.app.request(link, { headers: { cookie: departing } })).status).toBe(302);
+      expect(await closed).toEqual([4403, 4403, 4403]);
+      expect(first.events).toContainEqual({ type: 'project' });
+      expect(second.events).toContainEqual({ type: 'project' });
+      expect(staying.socket.readyState).toBe(WebSocket.OPEN);
+      test.realtime.publish(sharedId, { type: 'project' });
+      await until(() => staying.events.length > 0);
+      expect(await open(sharedId, departing)).toBe(401);
+    } finally {
+      for (const opened of [first, second, anotherTab, staying]) opened.socket.close();
+    }
+  });
 });
 
 describe('robustness', () => {

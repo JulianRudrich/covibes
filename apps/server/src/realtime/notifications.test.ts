@@ -8,12 +8,18 @@ import { createTestServer } from '@server/testing';
 
 const test = createTestServer();
 const published: { projectId: string; event: LiveEvent }[] = [];
+const closed: { projectId: string; userId: string; scope: 'boards' | 'all' }[] = [];
 let bridge: ReturnType<typeof startLiveBridge>;
 
 beforeAll(async () => {
   bridge = startLiveBridge({
     adminPool: test.db.adminPool,
     admin: test.db.admin,
+    connections: {
+      closeUser: (projectId, userId, scope) => {
+        closed.push({ projectId, userId, scope });
+      },
+    },
     live: {
       publish: (projectId, event) => {
         published.push({ projectId, event });
@@ -141,11 +147,27 @@ describe('live bridge', () => {
       member,
     );
     await until(() => changes() === 3);
+    await until(() =>
+      closed.some(
+        (entry) =>
+          entry.projectId === projectId &&
+          entry.userId === session?.user.id &&
+          entry.scope === 'boards',
+      ),
+    );
     await test.db.adminPool.query(
       'delete from project_members where project_id = $1 and user_id = $2',
       member,
     );
     await until(() => changes() === 4);
+    await until(() =>
+      closed.some(
+        (entry) =>
+          entry.projectId === projectId &&
+          entry.userId === session?.user.id &&
+          entry.scope === 'all',
+      ),
+    );
   });
 
   it('refuses to send a notification that does not match the format', async () => {

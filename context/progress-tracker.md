@@ -13,6 +13,7 @@
 Continue M8 with spec 41: safe recovery of interrupted work. Spec 40 is implemented and validated locally with atomic AI reservations and durable accounting for every invocation. The remaining rework precedes launch preparation (35) and acceptance (34).
 
 ## In progress
+- **Spec 43 workspace UI and account integration** (2026-11-24): real workspace/member/invitation/project-lifecycle flows in the restored productive Studio design; verified invitation admission and actual auth deletion lifecycle wiring.
 - Specs 41–46 and 49–54 are in development. Specs 47 and 48 are integrated on main.
 - Spec 49 preserves the Covibes Studio interface.
 

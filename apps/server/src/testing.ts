@@ -12,6 +12,7 @@ import { createMailSetup } from '@server/integrations/mail/mailer';
 import { projectConnections } from '@server/realtime/connections';
 import { createRealtime } from '@server/realtime/realtime';
 import { memoryStorage } from '@server/storage/storage';
+import { prepareAccountDeletion } from '@server/workspaces/lifecycle';
 
 export const APP_URL = 'http://localhost:5173';
 
@@ -29,7 +30,17 @@ export function createTestServer(overrides: Partial<Record<keyof ServerEnv, stri
   });
   const db = createDatabase(env);
   const mail = createMailSetup(env);
-  const auth = createAuth({ env, adminPool: db.adminPool, mailer: mail.mailer });
+  const auth = createAuth({
+    env,
+    adminPool: db.adminPool,
+    mailer: mail.mailer,
+    beforeDeleteUser: (userId) => prepareAccountDeletion(db.adminPool, userId),
+    afterDeleteUser: (userId) => {
+      realtime.closeAccount(userId);
+      collab.closeAccount(userId);
+      return Promise.resolve();
+    },
+  });
   const realtime = createRealtime({ db, auth });
   const collab = createCollab({
     db,

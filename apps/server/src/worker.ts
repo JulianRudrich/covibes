@@ -21,6 +21,7 @@ import { acquireWorkerLease } from '@server/tasks/worker-lease';
 import { createModelAvailability } from '@server/tasks/model-availability';
 import { AGENT_TURN_TASK, agentTurnTask } from '@server/tasks/agent-turn';
 import { AWAY_SUMMARY_TASK, awaySummaryTask } from '@server/tasks/away-summary';
+import { FILE_CLEANUP_TASK, fileCleanupTask } from '@server/tasks/file-cleanup';
 import { GIT_REQUEST_TASK, gitRequestTask } from '@server/tasks/git-request';
 import { GIT_SYNC_TASK, gitSyncTask } from '@server/tasks/git-sync';
 import { MR_REVIEW_TASK, mrReviewTask } from '@server/tasks/mr-review';
@@ -144,6 +145,7 @@ if (released > 0) {
 }
 
 const taskList = {
+  [FILE_CLEANUP_TASK]: fileCleanupTask(admin, localStorage(env.FILES_DIR ?? defaultFilesDir())),
   [AGENT_TURN_TASK]: agentTurnTask({
     admin,
     boards,
@@ -212,7 +214,12 @@ const taskList = {
 };
 
 // Models cannot consume the slots used by mail and repository work.
-const backgroundNames = new Set<string>([GIT_REQUEST_TASK, GIT_SYNC_TASK, NOTIFICATION_MAIL_TASK]);
+const backgroundNames = new Set<string>([
+  FILE_CLEANUP_TASK,
+  GIT_REQUEST_TASK,
+  GIT_SYNC_TASK,
+  NOTIFICATION_MAIL_TASK,
+]);
 const runners = await Promise.all([
   run({
     pgPool,

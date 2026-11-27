@@ -59,6 +59,24 @@ const accountRoute = createRoute({
   component: lazyRouteComponent(() => import('@web/features/account/account-page'), 'AccountPage'),
 });
 
+const workspaceSettingsRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: '/workspaces/$workspaceId',
+  component: lazyRouteComponent(
+    () => import('@web/features/workspaces/workspace-settings-page'),
+    'WorkspaceSettingsPage',
+  ),
+});
+
+const workspaceInviteRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: '/workspace-invite/$token',
+  component: lazyRouteComponent(
+    () => import('@web/features/workspaces/workspace-invite-page'),
+    'WorkspaceInvitePage',
+  ),
+});
+
 const projectListRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: '/',
@@ -66,6 +84,7 @@ const projectListRoute = createRoute({
   // of the account menu opens with it once.
   validateSearch: z.object({
     gitAccount: z.enum(GIT_RETURNS).optional().catch(undefined),
+    workspace: z.uuid().optional().catch(undefined),
   }),
   component: lazyRouteComponent(
     () => import('@web/features/projects/project-list-page'),
@@ -122,7 +141,14 @@ const devMailsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   loginRoute,
   shareRoute,
-  authedRoute.addChildren([projectListRoute, projectRoute, inviteRoute, accountRoute]),
+  authedRoute.addChildren([
+    projectListRoute,
+    projectRoute,
+    inviteRoute,
+    accountRoute,
+    workspaceSettingsRoute,
+    workspaceInviteRoute,
+  ]),
   ...(import.meta.env.DEV ? [devMailsRoute] : []),
 ]);
 

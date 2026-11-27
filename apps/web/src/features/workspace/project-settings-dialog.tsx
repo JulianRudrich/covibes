@@ -59,7 +59,13 @@ function Group({
  * the switches for agents, and the language the project is written in (spec 32b). Every change
  * applies at once; owners change them, everyone else sees them.
  */
-export function ProjectSettingsDialog({ settings }: { settings: ProjectSettings }) {
+export function ProjectSettingsDialog({
+  settings,
+  lifecycle,
+}: {
+  settings: ProjectSettings;
+  lifecycle?: ReactNode;
+}) {
   const { t } = useTranslation();
   const stanceName = useId();
   const processName = useId();
@@ -73,6 +79,7 @@ export function ProjectSettingsDialog({ settings }: { settings: ProjectSettings 
       className="w-[min(520px,calc(100vw-32px))]"
     >
       <div className="-mx-1 flex max-h-[min(70vh,640px)] flex-col gap-6 overflow-y-auto px-1 pb-1">
+        {lifecycle}
         <Group title={t('settings.stance.title')}>
           {MODERATOR_STANCES.map((stance) => (
             <Choice

@@ -23,6 +23,21 @@ describe('Avatar', () => {
     );
   });
 
+  it('fits a three-letter label like "You" with a smaller step at every size (spec 56)', () => {
+    render(<Avatar kind="human" size={30} label="You" initials="You" />);
+    const avatar = screen.getByRole('img', { name: 'You' });
+
+    expect(avatar).toHaveTextContent('You');
+    expect(avatar).toHaveClass('text-[10px]');
+    expect(avatar).not.toHaveClass('text-meta');
+  });
+
+  it('keeps the size of two-letter labels like "Du"', () => {
+    render(<Avatar kind="human" size={30} label="Du" initials="Du" />);
+
+    expect(screen.getByRole('img', { name: 'Du' })).toHaveClass('text-meta');
+  });
+
   it.each(AGENT_KEYS)('renders the %s agent as its mark on its tint', (agent) => {
     render(
       <Avatar kind="agent" agent={agent} size={24} label={agent} mark={CATALOG_MARKS[agent]} />,

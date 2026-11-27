@@ -297,6 +297,11 @@ Since 2026-09-30 the app is built with the prototype design; design changes, imp
   - a note stands straight while it is written in; a frame shows no widening outline (too large), its ring and pill say enough
   - an open topic shows only the "offen" pill instead of "Noch nicht entschieden"
   - the theme button in the top bar switches between light and dark; "Wie das System" stays in the account menu
+- **Derived in spec 56, after the closed spec 55 left specs 47 and 48 without a look:**
+  - the project search: a round 28 px ghost icon button with a 16 px magnifier in the chat header, right of the status pill, tinted while the search is open; on a phone, where the chat has no header, a 36 px row on `bg-subtle` at the top of the chat that looks like the field it opens. Open, a panel on `bg-subtle` (`rounded-panel`, 6 px inside) below the header: the field in the look of the project list search (36 px, round, the panel color, a 15 px magnifier, an ink ring on focus, without the browser's clear button), the small primary pill "Suchen", the close button. Results as rows with `rounded-md` that turn to the panel color on hover and focus: the kind as an outlined round pill in badge size, the title in medium weight, the snippet small in `text-3` on at most two lines; the count in meta size above them; the panel at most 45 % of the chat's height
+  - the history notice: a round bar on `bg-subtle` with the text small in `text-2` and "Zurück zu aktuellen Nachrichten" as a small pill in the panel color; a failed history load as a `rounded-card` box on `danger-bg`
+  - the board overview: 168 × 112 px on the panel color, `rounded-panel` and `shadow-float`, 16 px from the right edge and above the toolbar; blocks in `border-strong`, frames in their frame color with the frame border, notes in the note color; the area outside the view dimmed with `bg-subtle` at 72 %, the view outlined in `text-3`; hidden below 768 px
+  - arrow labels in the arrows' layer above their lines, blocks and notes above them; avatar labels of three letters (the English "You") one size step smaller
 
 ## Still to be designed
 Nothing: the design pass (spec 36) is complete with spec 36e. Derived by the coding agent from the studio handoff in spec 36b to 36e (owner decision, 2026-10-24). Settled in spec 36d:

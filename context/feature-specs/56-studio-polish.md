@@ -10,8 +10,8 @@ Specs 47 and 48 defined behavior only; their visual treatment was to come from s
 - Everything follows `context/ui-context.md`: tokens only, round controls, `rounded-panel` and `shadow-float` for floating surfaces, the Studio input look of the project list search. No new color tokens; light and dark come from the existing ones.
 - **Project search.** A round ghost icon button with a magnifier opens it: in the chat header next to the status pill on wider screens, and as a slim row at the top of the chat on a phone, where the header is hidden. Open, it is a panel below the header with a search field in the project list's look (magnifier, rounded, an ink ring on focus), a close button, and the results. Enter searches; nothing is sent while typing (the bounds of spec 47 stay: 2 to 200 characters). Escape or the close button closes it and gives the focus back to the button. The panel keeps the last results while it is open.
 - **Results.** Each result is one row: the kind as a small pill (Message, Decision, Canvas, Plan), the title in medium weight and the snippet in `text-3`, at most two lines. Rows highlight on hover and focus. A count says how many were found; no result says so with the query; a failed search says so in `danger`. The list scrolls inside the panel, which never grows past 45 % of the chat's height.
-- **History notice.** While the chat shows a message from the history, a pill bar on `bg-subtle` says so, with "Back to latest messages" as a small ghost pill.
-- **Board overview.** The minimap floats at the lower right like the toolbar: the panel color, `rounded-panel`, `shadow-float`, 16 px from the edges. Blocks show in `border-strong`, frames in their frame color with the frame border, notes in the note color; the area outside the view is dimmed with `bg-subtle` and the view is outlined in `text-3`. On a phone, where the canvas is for reading, the overview stays hidden; "Show all" navigates there.
+- **History notice.** While the chat shows a message from the history, a pill bar on `bg-subtle` says so, with "Back to latest messages" as a small pill in the panel color, the building block for actions on a subtle surface.
+- **Board overview.** The minimap floats at the lower right like the toolbar: the panel color, `rounded-panel`, `shadow-float`, 16 px from the right edge and above the toolbar, at 168 × 112 px so it does not meet the toolbar on a narrow canvas. Blocks show in `border-strong`, frames in their frame color with the frame border, notes in the note color; the area outside the view is dimmed with `bg-subtle` and the view is outlined in `text-3`. On a phone, where the canvas is for reading, the overview stays hidden; "Show all" navigates there.
 - **Arrow labels.** Labels render above the arrows' layer, so a line ends at the label pill instead of crossing the text; blocks and notes stay above labels.
 - **Own avatar.** A label of three letters, such as the English "You", gets a smaller size step so it fits the circle at every avatar size. The German "Du" keeps its size.
 
@@ -31,11 +31,18 @@ Specs 47 and 48 defined behavior only; their visual treatment was to come from s
 - Other screens and the archived Signal Atlas design.
 
 ## Checklist
-- [ ] The search opens from the chat header and from the phone row, searches with Enter, shows results with kind, title and snippet, and opens a result.
-- [ ] Escape and the close button close the search and return the focus to its button; a failed and an empty search say so.
-- [ ] The history notice is a pill bar with a ghost pill to return to the latest messages.
-- [ ] The board overview has the Studio look in light and dark and is hidden on a phone.
-- [ ] Arrow labels sit above their lines and below blocks and notes.
-- [ ] The own avatar shows "You" in full at every size; "Du" is unchanged.
-- [ ] Web tests cover the search's states, focus return and result selection, the avatar's text step and the label's stacking order.
-- [ ] Lint, type checks, formatting, web tests and the production build pass; the screens are checked in the browser in both themes and on a phone.
+- [x] The search opens from the chat header and from the phone row, searches with Enter, shows results with kind, title and snippet, and opens a result.
+- [x] Escape and the close button close the search and return the focus to its button; a failed and an empty search say so.
+- [x] The history notice is a pill bar with a ghost pill to return to the latest messages.
+- [x] The board overview has the Studio look in light and dark and is hidden on a phone.
+- [x] Arrow labels sit above their lines and below blocks and notes.
+- [x] The own avatar shows "You" in full at every size; "Du" is unchanged.
+- [x] Web tests cover the search's states, focus return and result selection, the avatar's text step and the label's stacking order.
+- [x] Lint, type checks, formatting, web tests and the production build pass; the screens are checked in the browser in both themes and on a phone.
+
+## Implementation notes
+The search is split into the header button, the phone row and the panel; the chat panel holds whether it is open and gives the focus back to the control that opened it, also to the phone row, which is drawn anew after closing. The request, its bounds and the four kinds of results are those of spec 47. The result count now has singular and plural forms in both languages ("1 Ergebnis", "1 result").
+
+The board overview takes its colors from `minimap.ts`: token variables only, passed to React Flow's custom properties, so light and dark follow the theme; the dimmed area mixes `bg-subtle` with transparency. It is 168 × 112 px and sits above the right end of the toolbar, which it covered on the 720 px canvas of the reference size at React Flow's default size. Arrow labels get the arrows' layer as their stacking order; drawn after the arrows, they cover their lines, and blocks and notes stay above. Avatar labels of three letters get one smaller size step at every avatar size, so the English "You" fits; the German "Du" is unchanged.
+
+Validation: the focused tests for the search (opening, Enter only, kinds and snippets, the disabled button below two characters, empty and failed results, Escape and close with the focus returning, the phone row), the board overview colors, the avatar step and the label's stacking pass with the other canvas element tests (48 tests). Lint including the token guard, type checks of all packages and formatting pass. The full web suite passes except three tests of the package dialog, which fail in the same way without this change in the local container (Node 22 where the project pins Node 24) and pass in CI. The screens were checked in the running app at 1440 × 900 in both themes and at a phone viewport: the search with six results, the labels on top of their arrows, the overview above the toolbar and hidden on the phone, and "You" in full. Server and database tests and the build are left to CI on the branch; this change touches the web app only.

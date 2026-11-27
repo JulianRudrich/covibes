@@ -88,6 +88,7 @@ import { describeFile, fileReader, readFileTool, type ProjectFile } from '@serve
 import { readLinkTool, type PageReader } from '@server/tools/read-link';
 import { GIT_TOOLS, gitTools } from '@server/tools/git-tools';
 import { repositoryTools } from '@server/tools/repository-tools';
+import { projectMemoryTools } from '@server/tools/project-memory';
 import { setPhaseTool } from '@server/tools/set-phase';
 import { startDebateTool } from '@server/tools/start-debate';
 import { updateBlockTool } from '@server/tools/update-block';
@@ -696,6 +697,11 @@ async function converse(
     proposalsOnly: turn.proposalsOnly,
   };
   const tools: AgentTool[] = [];
+  if (!debating) {
+    tools.push(
+      ...projectMemoryTools({ admin: deps.admin, boards: deps.boards, projectId: run.projectId }),
+    );
+  }
   // Reading changes nothing, so it needs no rule; a debate only talks.
   if (reader && !debating) tools.push(readFileTool({ files: reader }));
   // The web (spec 20b): the search is the gateway's, reading a link is our own tool.
@@ -849,6 +855,7 @@ async function converse(
           rejected: turn.team.rejected,
         },
         agentNames,
+        memoryAvailable: !debating,
         ...canvas,
         proposals,
         plan: plan.text,
@@ -1159,6 +1166,7 @@ function describeDebateSummary(
  */
 export function buildPrompt(context: {
   projectName: string;
+  memoryAvailable?: boolean;
   /** The current phase of the project (spec 24). */
   phase?: Phase;
   /** The team (spec 14); `self` is the agent that answers. */
@@ -1237,6 +1245,11 @@ export function buildPrompt(context: {
                 : 'The message addressed to you was removed. Answer the latest message in the chat.';
   return [
     `Project: ${asData(context.projectName)}`,
+    ...(context.memoryAvailable
+      ? [
+          'Project memory tools can search completed older messages and list or read additional boards. Use them when relevant context is missing from the recent chat and main canvas. Identify the sources you use, and check the current decisions before treating older discussion as the team’s present position.',
+        ]
+      : []),
     ...(context.phase ? [`<phase>\n${describePhase(context.phase)}\n</phase>`] : []),
     ...(context.team ? [`<team>\n${describeTeam(context.team)}\n</team>`] : []),
     ...(context.moderation ? [describeModeration(context.moderation)] : []),

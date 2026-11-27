@@ -68,7 +68,7 @@ services:
       setup:
         condition: service_completed_successfully
 
-  # Agent runs (spec 07): takes jobs from the queue, calls Claude and writes answers and blocks.
+  # Agent runs (spec 07): takes jobs from the queue, calls providers and writes answers and blocks.
   worker:
     <<: *image
     command: ['node', 'dist/worker.js']
@@ -85,8 +85,9 @@ services:
       GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID:-}
       GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET:-}
       TOKEN_KEY: ${TOKEN_KEY:-}
-      # Other people use this instance, so it needs an API key; a Claude subscription must not be used.
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?Set ANTHROPIC_API_KEY in deploy/.env}
+      # Optional instance-funded keys; workspaces can also supply their own provider keys.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       # The limits of the AI in USD, the same values as the app's; the worker checks them before
       # every model call.
       AI_LIMIT_INSTANCE_MONTH_USD: ${AI_LIMIT_INSTANCE_MONTH_USD:-20}

@@ -495,6 +495,13 @@
       "viewer": "Once the team adds something, it appears here."
     }
   },
+  "persistence": {
+    "syncing": "Syncing changes …",
+    "saving": "Saving …",
+    "saved": "Saved",
+    "error": "Could not save",
+    "retry": "Retry"
+  },
   "canvas": {
     "newBlock": "New block",
     "newNote": "New note",

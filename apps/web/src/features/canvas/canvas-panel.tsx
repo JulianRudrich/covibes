@@ -90,6 +90,7 @@ import { ProposalLayer } from '@web/features/proposals/proposal-layer';
 import { proposalOverlay } from '@web/features/proposals/proposal-overlay';
 import type { DecideProposal } from '@web/features/proposals/queries';
 import { useRoadmap } from '@web/features/roadmap/roadmap-context';
+import { SaveStatus } from '@web/features/canvas/save-status';
 import { useBoardDoc } from '@web/features/canvas/use-board-doc';
 import { useLiveCursors } from '@web/features/canvas/use-live-cursors';
 import { useNodeLocks } from '@web/features/canvas/use-node-locks';
@@ -201,7 +202,7 @@ function BoardCanvas({
   onPresence,
 }: Omit<CanvasPanelProps, 'tabs' | 'notice'>) {
   const { t } = useTranslation();
-  const { connection, status, loaded, denied } = useBoardDoc(boardId);
+  const { connection, status, loaded, denied, persistence } = useBoardDoc(boardId);
   const author = useMemo<Author>(() => ({ kind: 'human', userId: user.id }), [user.id]);
 
   return (
@@ -231,6 +232,9 @@ function BoardCanvas({
         <CanvasMessage>{t('canvas.loading')}</CanvasMessage>
       )}
       {loaded && !denied && status !== 'connected' ? <ReconnectingPill /> : null}
+      {loaded && !denied && connection ? (
+        <SaveStatus state={persistence} retry={connection.retryPersistence} />
+      ) : null}
     </>
   );
 }

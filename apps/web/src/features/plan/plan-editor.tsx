@@ -26,6 +26,7 @@ import {
 } from '@web/components/ui/dropdown-menu';
 import type { BoardConnection } from '@web/features/canvas/board-connection';
 import { Sparkle } from '@web/features/canvas/node-chrome';
+import { SaveStatus } from '@web/features/canvas/save-status';
 import { useCollabDoc } from '@web/features/canvas/use-board-doc';
 import { PlanSections } from '@web/features/plan/plan-sections';
 import {
@@ -104,13 +105,16 @@ function Message({ children }: { children: string }) {
  */
 export function PlanEditor({ projectId, ...plan }: PlanEditorProps) {
   const { t } = useTranslation();
-  const { connection, status, loaded, denied } = useCollabDoc(planDocumentName(projectId));
+  const { connection, status, loaded, denied, persistence } = useCollabDoc(
+    planDocumentName(projectId),
+  );
 
   if (denied) return <Message>{t('plan.denied')}</Message>;
   if (!connection || !loaded) return <Message>{t('plan.loading')}</Message>;
   return (
     <>
       <PlanDocument key={projectId} projectId={projectId} connection={connection} {...plan} />
+      <SaveStatus state={persistence} retry={connection.retryPersistence} />
       {status !== 'connected' ? (
         <div
           role="status"

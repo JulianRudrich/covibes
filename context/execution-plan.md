@@ -20,22 +20,23 @@ The owner authorized parallel implementation on 2026-11-17 and restored the Covi
 | Spec | Deliverable | Current state / dependency |
 | --- | --- | --- |
 | 39 | Dependency security and green CI | Completed on main, PR 1 |
-| 40 | Atomic budgets and all-attempt accounting | Detailed spec; isolated implementation |
-| 41 | Idempotent recovery, worker ownership, readiness | Isolated implementation; integrate after 40 |
-| 42 | Mail code/link, passkeys, OAuth, account controls, invite-only beta | Detailed spec and implementation next |
-| 43 | Personal/team workspaces, membership, project ownership/deletion | After 42; storage cleanup included |
-| 44 | Direct provider APIs, workspace keys, instance fallback, model selection | After 40 and 43 |
+| 40 | Atomic budgets and all-attempt accounting | Completed on main, PR 4 |
+| 41 | Idempotent recovery, worker ownership, readiness | Completed on main, PR 6; save status follow-up in PR 15 |
+| 42 | Mail code/link, passkeys, OAuth, account controls, invite-only beta | Completed on main, PR 5 |
+| 43 | Personal/team workspaces, membership, project ownership/deletion | In review, PR 9 |
+| 44 | Direct provider APIs, workspace keys, instance fallback, model selection | In review, PR 14 |
 | 45a–c | Scoped MCP connector, permitted writes and local companion | After 42 and stable project contracts |
-| 46 | GitHub App integration and GitLab compatibility | Existing Git-host abstraction; real app configuration needed |
-| 47 | History pagination, old-message links, project search, formatted answers | Detailed spec; independent worktree |
-| 48 | Initial fit/navigation, incremental board updates, efficient dragging | Detailed spec; independent worktree after 47 |
-| 49 | Route loading, responsive tablet layouts, metadata | Preserve the Studio interface |
-| 50 | Decision links and consequence/impact navigation | After stable project/plan/board contracts |
+| 46 | GitHub App integration and GitLab compatibility | In review, PR 10; real app configuration needed |
+| 47 | History pagination, old-message links, project search, formatted answers | Completed on main, PR 2 |
+| 48 | Initial fit/navigation, incremental board updates, efficient dragging | Completed on main, PR 3 |
+| 49 | Route loading, responsive tablet layouts, metadata | Completed on main, PR 11 |
+| 50 | Decision links and consequence/impact navigation | Completed on main, PR 7 |
 | 51 | Repository-to-architecture onboarding | After 46 and provider gateway |
 | 52 | Guided first session and sample project | After 50/51, using Studio |
-| 53 | Durable project memory for agents | After gateway and shared read contracts |
+| 53 | Durable project memory for agents | In review, PR 13 |
 | 54 | Evaluation fixtures for grounding, dissent, tools, cost/time | After agent contracts; distinguish fixtures from live evaluation |
 | 55 | Entirely new product design | Closed by owner on 2026-11-24; prototype archived |
+| 56 | Studio styling for the project search, the board overview, edge labels and the own avatar | Follow-up to 47/48; the styling was to come from 55 |
 | 35 | Operations, staging, backups/restore, monitoring and launch configuration | Source can proceed; external launch facts required |
 | 34 | Multi-user end-to-end acceptance | After behavior/design and staging contracts |
 

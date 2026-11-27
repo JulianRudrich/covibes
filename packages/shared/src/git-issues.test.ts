@@ -79,6 +79,15 @@ describe('packageSpecRefs', () => {
 });
 
 describe('buildIssueActions', () => {
+  it('links GitHub task specs through its native blob route', () => {
+    const [, issue] = build([SETUP], {
+      repository: { url: 'https://github.com/owner/project', defaultBranch: 'main' },
+    });
+    expect(issue?.payload.description).toContain(
+      '(https://github.com/owner/project/blob/main/context/feature-specs/',
+    );
+    expect(issue?.payload.description).not.toContain('/-/blob/');
+  });
   it('puts the milestone before its issues, in the order of the plan', () => {
     const actions = build([LIST, LOGIN, SETUP]);
 

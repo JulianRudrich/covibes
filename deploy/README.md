@@ -69,6 +69,40 @@ Signing in asks GitLab for `read_user` only; the scope `api` is asked for when s
 
 After changing `.env`: `docker compose up -d`.
 
+## GitHub App repositories
+
+GitHub repository access uses an App registered and controlled by the instance operator. This
+integration account is separate from Covibes sign-in. It never imports a coding assistant's,
+plugin's or GitHub CLI's credentials.
+
+1. Register a GitHub App for `github.com`, with callback URL `<APP_URL>/api/github/callback`
+   and user authorization enabled. Enable expiring user access tokens.
+2. Set webhook URL `<APP_URL>/api/github/webhook`, choose a separate random secret of at least
+   32 characters, and subscribe to **Issues**, **Pull request** and **Push** events. Installation
+   lifecycle events are sent by GitHub automatically.
+3. Grant repository **Contents**, **Issues** and **Pull requests** read/write, and **Metadata**
+   read. Do not grant workflow administration or organization permissions. Install the App only
+   on repositories the team wants Covibes to access.
+4. In `deploy/.env`, set all six `GITHUB_APP_*` values from the example and retain `TOKEN_KEY`.
+   The private RSA key can use literal `\n` line separators in its single env-file value. Both
+   the app and worker need the same settings. Restart them after changing configuration.
+5. Each person authorizes their integration account. A project owner selects an installation
+   and repository on which their GitHub account has write access. Editors granted Git approval
+   rights must authorize their own integration account too. Selection, execution and reads
+   revalidate access; the installation token is restricted to that one repository.
+
+Plans create local proposals. Issues, package commits/pull requests, review comments and merges
+are written only by the approved action queue. A merge includes the approved head SHA and
+respects GitHub branch protection. Removing the integration account disconnects its local
+projects; users can also revoke the App authorization in GitHub settings. Uninstalling or
+suspending the App and removing a repository invalidate matching connections on signed events;
+subsequent API reads also fail closed when access is revoked. Self-hosted GitHub Enterprise is
+not supported by this fixed-origin adapter. GitLab remains available alongside it.
+
+API tests cover the signed webhook and native adapter with fixtures. A real operator-configured
+installation, account authorization and approved write/review/merge exercise remains an external
+acceptance step; it has not been performed using development agent credentials.
+
 ## Web server in front
 Three things matter:
 - forward WebSockets (real-time canvas under `/api/collab`)

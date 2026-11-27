@@ -12,8 +12,10 @@ import {
 } from '@covibes/shared';
 
 import { fileStates, foldersOf, listBlobs } from '@server/integrations/gitlab/blobs';
-import { GitlabError, type GitlabClient } from '@server/integrations/gitlab/client';
+import type { GitlabClient } from '@server/integrations/gitlab/client';
 import type { GitAccess } from '@server/integrations/gitlab/connections';
+import { RepositoryError } from '@server/integrations/git-host';
+import type { RepositoryOperations } from '@server/integrations/repository-operations';
 
 // The plan package next to a repository (specs 29c and 29e): what the dialog of the package
 // shows before a request is made, and what a request is built from. The API compares for a
@@ -39,6 +41,7 @@ export type ComparedPackage =
 
 /** How the repository is read: the client, and the project's reading access. */
 export type PackageReach = {
+  operations?: RepositoryOperations | undefined;
   client: Pick<GitlabClient, 'get'>;
   access: () => Promise<GitAccess | undefined>;
 };
@@ -50,7 +53,7 @@ export type PackageReach = {
  */
 export async function comparePackage(
   input: CodingPackageInput | undefined,
-  repository: { id: number; defaultBranch: string | null },
+  repository: { id: number; defaultBranch: string | null; path?: string },
   reach: PackageReach | undefined,
 ): Promise<ComparedPackage> {
   const files = input ? buildCodingPackage(input) : [];
@@ -65,16 +68,17 @@ export async function comparePackage(
   try {
     const access = await reach?.access();
     if (!reach || !access) return { problem: 'unreachable' };
-    blobs = await listBlobs(
-      reach.client,
-      { baseUrl: access.baseUrl, repositoryId: repository.id },
-      access.token,
-      targetBranch,
-      // Earlier feature specs are looked for even if this package has none.
-      foldersOf([...files.map((file) => file.path), `${SPECS_FOLDER}/x`]),
-    );
+    const target = {
+      baseUrl: access.baseUrl,
+      repositoryId: repository.id,
+      repositoryPath: repository.path ?? '',
+    };
+    const folders = foldersOf([...files.map((file) => file.path), `${SPECS_FOLDER}/x`]);
+    blobs = reach.operations
+      ? await reach.operations.blobs(target, access.token, targetBranch, folders)
+      : await listBlobs(reach.client, target, access.token, targetBranch, folders);
   } catch (error) {
-    if (!(error instanceof GitlabError)) throw error;
+    if (!(error instanceof RepositoryError)) throw error;
     return { problem: 'unreachable' };
   }
   if (!blobs) return { problem: 'no_branch' };

@@ -254,7 +254,9 @@ describe('MergeRequestSection', () => {
 
     const approver = renderSection({ ...PLAN, hasAccount: false });
     expect(
-      await within(approver.section).findByText(/Zum Freigeben brauchst du dein GitLab-Konto\./),
+      await within(approver.section).findByText(
+        /Verbinde das für die Freigabe benötigte Repository-Konto/,
+      ),
     ).toBeVisible();
     expect(
       within(approver.section).getByRole('button', { name: 'Zur Freigabe vorlegen' }),

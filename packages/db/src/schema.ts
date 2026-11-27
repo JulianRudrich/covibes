@@ -352,12 +352,44 @@ export interface GitConnections {
   connected_by: string;
   created_at: Generated<Timestamp>;
   project_id: string;
+  provider: Generated<string>;
   repository_default_branch: string | null;
   repository_id: Int8 | null;
   repository_name: string | null;
   repository_path: string | null;
   repository_url: string | null;
   updated_at: Generated<Timestamp>;
+}
+
+export interface GithubAccounts {
+  access_token: string;
+  account_id: Int8;
+  expires_at: Timestamp | null;
+  login: string;
+  name: Generated<string>;
+  refresh_expires_at: Timestamp | null;
+  refresh_token: string | null;
+  updated_at: Generated<Timestamp>;
+  user_id: string;
+}
+
+export interface GithubInstallations {
+  created_at: Generated<Timestamp>;
+  installation_id: Int8;
+  project_id: string;
+  repository_id: Int8;
+  user_id: string;
+}
+
+export interface GithubOauthStates {
+  expires_at: Timestamp;
+  state_hash: string;
+  user_id: string;
+}
+
+export interface GithubWebhookDeliveries {
+  delivery_id: string;
+  received_at: Generated<Timestamp>;
 }
 
 export interface GitIssueStates {
@@ -380,6 +412,7 @@ export interface GitRequests {
   id: Generated<string>;
   kind: string;
   project_id: string;
+  provider: Generated<string>;
   repository_id: Int8;
   repository_path: string;
   repository_url: string;
@@ -821,6 +854,10 @@ export interface DB {
   git_reviews: GitReviews;
   git_sync: GitSync;
   git_webhooks: GitWebhooks;
+  github_accounts: GithubAccounts;
+  github_installations: GithubInstallations;
+  github_oauth_states: GithubOauthStates;
+  github_webhook_deliveries: GithubWebhookDeliveries;
   'graphile_worker._private_job_queues': GraphileWorkerPrivateJobQueues;
   'graphile_worker._private_jobs': GraphileWorkerPrivateJobs;
   'graphile_worker._private_known_crontabs': GraphileWorkerPrivateKnownCrontabs;

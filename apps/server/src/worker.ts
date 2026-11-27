@@ -8,11 +8,7 @@ import { completeText, GatewayConfigError, streamAgentReply } from '@server/ai-g
 import { gatherPackageInput, type PackageReaders } from '@server/api/package';
 import { createBoardClient } from '@server/collab/board-client';
 import { agentGitRequests } from '@server/git/agent-requests';
-import { createGitlabClient } from '@server/integrations/gitlab/client';
-import { createGitConnections } from '@server/integrations/gitlab/connections';
-import { repositoryReaders } from '@server/integrations/gitlab/repository';
-import { gitlabSetup } from '@server/integrations/gitlab/setup';
-import { gitlabWriter } from '@server/integrations/gitlab/writer';
+import { createRepositoryServices } from '@server/integrations/repository-operations';
 import { createWorkerMailer } from '@server/integrations/mail/mailer';
 import { readStoredPlan } from '@server/plan/stored-plan';
 import { defaultFilesDir, localStorage } from '@server/storage/storage';
@@ -119,14 +115,8 @@ const boards = createBoardClient({
 
 // The repositories projects are connected to (spec 28b). The worker shares the settings of the
 // connections with the server; without them, agents read no repository and no Git request runs.
-const gitSetup = gitlabSetup(env);
-const gitClient = createGitlabClient();
-const gitConnections = gitSetup
-  ? createGitConnections({ admin, client: gitClient, setup: gitSetup })
-  : undefined;
-const repository = gitConnections
-  ? repositoryReaders({ admin, client: gitClient, connections: gitConnections })
-  : undefined;
+const git = createRepositoryServices({ admin, env });
+const repository = git?.readers;
 
 // The plan and the boards as the package for coding agents is built from them.
 const packageReaders: PackageReaders = {
@@ -150,12 +140,13 @@ const taskList = {
     files: localStorage(env.FILES_DIR ?? defaultFilesDir()),
     ...(repository ? { repository } : {}),
     // The moderator proposes Git actions (spec 29e); they wait for approval like everyone's.
-    ...(gitConnections
+    ...(git
       ? {
           gitRequests: agentGitRequests({
             admin,
-            client: gitClient,
-            connections: gitConnections,
+            client: git.client,
+            operations: git.operations,
+            connections: git.connections,
             boards,
           }),
         }
@@ -173,18 +164,19 @@ const taskList = {
   [PACKAGE_SPECS_TASK]: packageSpecsTask({ admin, boards, complete, limits }),
   // An approved Git request runs with the access of who approved it (spec 29b). Without a
   // GitLab nobody has an account, so nothing can be approved and no such job exists.
-  ...(gitConnections
+  ...(git
     ? {
         [GIT_REQUEST_TASK]: gitRequestTask({
           admin,
-          accessOf: gitConnections.accessOf,
-          writers: (target, token) => gitlabWriter(gitClient, target, token),
+          accessOf: git.connections.accessOf,
+          writers: git.writers,
         }),
         // Reads the state of a project's repository (spec 30a).
         [GIT_SYNC_TASK]: gitSyncTask({
           admin,
-          client: gitClient,
-          connections: gitConnections,
+          client: git.client,
+          operations: git.operations,
+          connections: git.connections,
         }),
       }
     : {}),

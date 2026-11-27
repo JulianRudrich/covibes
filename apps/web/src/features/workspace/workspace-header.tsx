@@ -139,7 +139,9 @@ function ProjectMenu({
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Someone who comes back from GitLab lands in the dialog they left for it.
-  const [repositoryOpen, setRepositoryOpen] = useState(repository.returned !== undefined);
+  const [repositoryOpen, setRepositoryOpen] = useState(
+    repository.returned !== undefined || repository.githubReturned !== undefined,
+  );
   const [logOpen, setLogOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
@@ -215,12 +217,20 @@ function ProjectMenu({
         open={repositoryOpen}
         onOpenChange={(open) => {
           setRepositoryOpen(open);
-          if (!open && repository.returned !== undefined) repository.onReturnSeen();
+          if (
+            !open &&
+            (repository.returned !== undefined || repository.githubReturned !== undefined)
+          )
+            repository.onReturnSeen();
         }}
       >
         {repositoryOpen ? (
           <Suspense fallback={<DialogLoading />}>
-            <GitDialog projectId={repository.projectId} returned={repository.returned} />
+            <GitDialog
+              projectId={repository.projectId}
+              returned={repository.returned}
+              githubReturned={repository.githubReturned}
+            />
           </Suspense>
         ) : null}
       </Dialog>

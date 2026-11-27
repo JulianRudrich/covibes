@@ -20,7 +20,9 @@ import { sql, type Kysely } from 'kysely';
 import { gatherPackageInput, type PackageReaders } from '@server/api/package';
 import type { BoardAccess } from '@server/collab/board-client';
 import { comparePackage, packageDiffers } from '@server/git/package-compare';
-import { GitlabError, type GitlabClient } from '@server/integrations/gitlab/client';
+import type { GitlabClient } from '@server/integrations/gitlab/client';
+import { RepositoryError } from '@server/integrations/git-host';
+import type { RepositoryOperations } from '@server/integrations/repository-operations';
 import type { GitConnections } from '@server/integrations/gitlab/connections';
 import { readMergeRequest } from '@server/integrations/gitlab/merge-requests';
 import { loadAssignees } from '@server/plan/assignees';
@@ -85,11 +87,13 @@ export function agentGitRequests({
   client,
   connections,
   boards,
+  operations,
   now = () => new Date(),
 }: {
   /** Role covibes_admin: the worker reads the project and stores the request. */
   admin: Kysely<DB>;
   client: Pick<GitlabClient, 'get'>;
+  operations?: RepositoryOperations | undefined;
   /** The project's reading access, with which the repository is looked at. */
   connections: Pick<GitConnections, 'access'>;
   boards: BoardAccess;
@@ -208,7 +212,7 @@ export function agentGitRequests({
         const compared = await comparePackage(
           await gatherPackageInput(admin, readers, projectId),
           repository,
-          { client, access: () => connections.access(projectId) },
+          { operations, client, access: () => connections.access(projectId) },
         );
         if (compared.problem !== null) return { outcome: compared.problem };
         if (!packageDiffers(compared)) return { outcome: 'up_to_date' };
@@ -235,14 +239,16 @@ export function agentGitRequests({
         try {
           const access = await connections.access(projectId);
           if (!access) return { outcome: 'unreachable' };
-          found = await readMergeRequest(
-            client,
-            { baseUrl: access.baseUrl, repositoryId: repository.id },
-            access.token,
-            number,
-          );
+          const target = {
+            baseUrl: access.baseUrl,
+            repositoryId: repository.id,
+            repositoryPath: repository.path,
+          };
+          found = operations
+            ? await operations.pull(target, access.token, number)
+            : await readMergeRequest(client, target, access.token, number);
         } catch (error) {
-          if (!(error instanceof GitlabError)) throw error;
+          if (!(error instanceof RepositoryError)) throw error;
           return { outcome: 'unreachable' };
         }
         if (!found) return { outcome: 'not_found' };

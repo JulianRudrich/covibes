@@ -274,7 +274,15 @@ describe('runGitRequest', () => {
 
     expect(outcome).toBe('done');
     expect(asked).toEqual([approver]);
-    expect(repo.targets).toEqual([{ baseUrl: GITLAB, repositoryId: 101, token: 'approver-token' }]);
+    expect(repo.targets).toEqual([
+      expect.objectContaining({
+        baseUrl: GITLAB,
+        repositoryId: 101,
+        repositoryPath: 'verein/app',
+        projectId: expect.any(String) as unknown,
+        token: 'approver-token',
+      }),
+    ]);
     expect(repo.calls).toEqual(['milestone M1', 'issue Aufsetzen', 'issue Login']);
     const { request, actions } = await stored(requestId);
     expect(request.status).toBe('done');
@@ -677,7 +685,15 @@ describe('the review as a comment (spec 30c)', () => {
 
     expect(await runGitRequest(deps(repo, accessOf), { requestId })).toBe('done');
 
-    expect(accessOf).toHaveBeenCalledWith(approver);
+    expect(accessOf).toHaveBeenCalledWith(
+      approver,
+      expect.objectContaining({
+        baseUrl: GITLAB,
+        repositoryId: 101,
+        repositoryPath: 'verein/app',
+        projectId: expect.any(String) as unknown,
+      }),
+    );
     expect(repo.targets.at(-1)?.token).toBe('token-of-the-approver');
     expect(repo.calls).toEqual(['comment 7']);
     const { actions, request } = await stored(requestId);

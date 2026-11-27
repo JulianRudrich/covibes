@@ -42,6 +42,10 @@ function stubAccount(initial: GitAccountState, fail: string[] = []) {
           }),
         );
       }
+      if (key === 'GET /api/github/account')
+        return Promise.resolve(
+          Response.json({ available: false, account: null, installUrl: null }),
+        );
       if (key === `GET ${ACCOUNT}`) return Promise.resolve(Response.json(server.state));
       if (key === `POST ${ACCOUNT}/connect`) {
         return Promise.resolve(
@@ -78,7 +82,7 @@ function renderDialog(
       </Dialog>
     </QueryClientProvider>,
   );
-  return { calls, goTo, dialog: screen.getByRole('dialog', { name: 'GitLab-Konto' }) };
+  return { calls, goTo, dialog: screen.getByRole('dialog', { name: 'Repository-Konten' }) };
 }
 
 const posted = (calls: Call[]) => calls.find((call) => call.method === 'POST')?.body;

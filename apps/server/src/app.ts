@@ -27,7 +27,7 @@ import { messageRoutes } from '@server/api/messages';
 import { messageHistoryRoutes } from '@server/api/message-history';
 import { projectSearchRoutes } from '@server/api/project-search';
 import { notificationRoutes } from '@server/api/notifications';
-import { gitAccountRoutes, gitCallback, gitRoutes, type GitDeps } from '@server/api/git';
+import { gitAccountRoutes, gitCallback, gitRoutes } from '@server/api/git';
 import { GIT_WEBHOOK_PATH, gitWebhook, WEBHOOK_CALLS_PER_MINUTE } from '@server/api/git-sync';
 import { packageRoutes } from '@server/api/package';
 import { planRoutes } from '@server/api/plan';
@@ -41,8 +41,9 @@ import { AUTH_BASE_PATH, gitlabLoginEnabled, type Auth } from '@server/auth/auth
 import type { BoardDocuments } from '@server/collab/collab';
 import type { Database } from '@server/db/database';
 import type { ServerEnv } from '@server/env';
-import { createGitlabClient } from '@server/integrations/gitlab/client';
-import { createGitConnections } from '@server/integrations/gitlab/connections';
+import { createRepositoryServices } from '@server/integrations/repository-operations';
+import { githubAccountRoutes, githubProjectRoutes, githubWebhook } from '@server/api/github';
+import { GITHUB_WEBHOOK_PATH } from '@server/integrations/github/setup';
 import { createGitlabStandIn } from '@server/integrations/gitlab/dev/stand-in';
 import { DEV_GITLAB_PATH, GIT_CALLBACK_PATH, gitlabSetup } from '@server/integrations/gitlab/setup';
 import {
@@ -108,6 +109,7 @@ export type AppDeps = {
    * which reaches the stand-in without a network.
    */
   gitlabFetch?: typeof fetch;
+  githubFetch?: typeof fetch;
 };
 
 export function createApp({
@@ -120,6 +122,7 @@ export function createApp({
   files,
   connections,
   gitlabFetch,
+  githubFetch,
 }: AppDeps): Hono {
   const app = new Hono();
 
@@ -159,20 +162,13 @@ export function createApp({
       : servesStandIn && c.req.path.startsWith(`${DEV_GITLAB_PATH}/`)
         ? // The stand-in takes what a GitLab takes, e.g. a commit of many files.
           standInLimit(c, next)
-        : c.req.path.startsWith(`${GIT_WEBHOOK_PATH}/`)
+        : c.req.path.startsWith(`${GIT_WEBHOOK_PATH}/`) || c.req.path === GITHUB_WEBHOOK_PATH
           ? webhookLimit(c, next)
           : apiLimit(c, next);
   app.use('/api/*', limitBody);
   // The stand-in's routes stand before the check of the origin: the token endpoint takes a form,
   // as GitLab's does, and is called by this server, not by a page.
-  const gitClient = createGitlabClient(gitlabFetch);
-  const git: GitDeps | undefined = gitSetup
-    ? {
-        setup: gitSetup,
-        client: gitClient,
-        connections: createGitConnections({ admin: db.admin, client: gitClient, setup: gitSetup }),
-      }
-    : undefined;
+  const git = createRepositoryServices({ admin: db.admin, env, gitlabFetch, githubFetch });
   const standIn = gitSetup && servesStandIn ? createGitlabStandIn(gitSetup.source) : undefined;
   if (standIn) app.route(DEV_GITLAB_PATH, standIn.routes);
 
@@ -261,6 +257,9 @@ export function createApp({
   // secret and carries no session.
   const webhookLimiter = createRateLimiter({ limit: WEBHOOK_CALLS_PER_MINUTE, windowMs: 60_000 });
   app.route(GIT_WEBHOOK_PATH, gitWebhook(db.admin, gitSetup?.tokenKey, webhookLimiter));
+  app.route(GITHUB_WEBHOOK_PATH, githubWebhook(db.admin, git?.github?.setup));
+  app.route('/api/github', githubAccountRoutes(auth, env.APP_URL, git?.github));
+  app.route('/api/projects/:projectId/github', githubProjectRoutes(db.app, auth, git?.github));
   app.route('/api/git/account', gitAccountRoutes(auth, git));
   app.route(GIT_CALLBACK_PATH, gitCallback(auth, env.APP_URL, git));
   const invitationMailLimiter = createRateLimiter({

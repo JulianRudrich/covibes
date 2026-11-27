@@ -2,6 +2,7 @@ import { defineEnv } from '@covibes/shared';
 import { z } from 'zod';
 
 import { usageLimitsEnv } from '@server/usage/limits';
+import { githubConfigurationComplete, githubEnvFields } from '@server/integrations/github/setup';
 
 /** Environment of the worker process (spec 07); it shares `.env` files with the server. */
 export const workerEnvSchema = z
@@ -33,8 +34,13 @@ export const workerEnvSchema = z
     GITLAB_CLIENT_ID: z.string().min(1).optional(),
     GITLAB_CLIENT_SECRET: z.string().min(1).optional(),
     GITLAB_ISSUER: z.url().optional(),
+    ...githubEnvFields,
     /** The limits of the AI (spec 31a), the same as the server's. */
     ...usageLimitsEnv,
+  })
+  .refine(githubConfigurationComplete, {
+    message: 'Set all GITHUB_APP_* values and TOKEN_KEY together',
+    path: ['GITHUB_APP_ID'],
   })
   .refine((env) => Boolean(env.GITLAB_CLIENT_ID) === Boolean(env.GITLAB_CLIENT_SECRET), {
     message: 'GITLAB_CLIENT_ID and GITLAB_CLIENT_SECRET must be set together',

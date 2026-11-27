@@ -83,13 +83,18 @@ export function createGitConnections({
         .execute();
       const same = before?.account_id === fields.account_id && before.base_url === fields.base_url;
       if (before && !same) {
-        await trx.deleteFrom('git_connections').where('connected_by', '=', userId).execute();
+        await trx
+          .deleteFrom('git_connections')
+          .where('connected_by', '=', userId)
+          .where('provider', '=', 'gitlab')
+          .execute();
       } else if (before) {
         // The same account may have another name by now.
         await trx
           .updateTable('git_connections')
           .set({ account_username: account.username, account_name: account.name })
           .where('connected_by', '=', userId)
+          .where('provider', '=', 'gitlab')
           .execute();
       }
     });
@@ -194,6 +199,7 @@ export function createGitConnections({
         .executeTakeFirst();
       if (!owner) return false;
       const fields = {
+        provider: 'gitlab' as const,
         base_url: owner.base_url,
         connected_by: userId,
         account_id: owner.account_id,
@@ -205,6 +211,7 @@ export function createGitConnections({
         repository_url: repository.url,
         repository_default_branch: repository.defaultBranch,
       };
+      await trx.deleteFrom('github_installations').where('project_id', '=', projectId).execute();
       await trx
         .insertInto('git_connections')
         .values({ project_id: projectId, ...fields })

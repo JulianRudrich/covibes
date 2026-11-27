@@ -405,7 +405,9 @@ describe('the review as a comment (spec 30c)', () => {
 
     // Until it is known that the person may approve, the button only lays the comment before
     // the approvers.
-    fireEvent.click(await within(shown).findByRole('button', { name: 'In GitLab kommentieren' }));
+    fireEvent.click(
+      await within(shown).findByRole('button', { name: 'Im Repository kommentieren' }),
+    );
 
     await waitFor(() => {
       expect(posts(calls)).toEqual([
@@ -473,7 +475,7 @@ describe('the review as a comment (spec 30c)', () => {
     const posted = review({ comment: { requestId: REQUEST, state: 'done', url } });
     renderDialog({ reviews: [posted], reviewId: posted.id });
     const shown = await screen.findByRole('article', { name: 'Review von !7' });
-    expect(within(shown).getByRole('link', { name: 'In GitLab kommentiert' })).toHaveAttribute(
+    expect(within(shown).getByRole('link', { name: 'Im Repository kommentiert' })).toHaveAttribute(
       'href',
       url,
     );
@@ -501,7 +503,7 @@ describe('the review as a comment (spec 30c)', () => {
     for (const [answers, text] of cases) {
       renderDialog({ reviews: [review()], reviewId: review().id, answers });
 
-      fireEvent.click(await screen.findByRole('button', { name: 'In GitLab kommentieren' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Im Repository kommentieren' }));
 
       expect(await screen.findByRole('alert')).toHaveTextContent(text);
       cleanup();
@@ -616,7 +618,7 @@ describe('the comment of a review under "Wartet auf dich"', () => {
     );
 
     expect(section).toHaveTextContent('!7 Login per Link weicht von der Architektur ab');
-    expect(section).toHaveTextContent('In GitLab kommentiert');
+    expect(section).toHaveTextContent('Im Repository kommentiert');
     // The request that is done is a line with a check, like every Git request.
     expect(section).toHaveTextContent('Review von !7: 1 Abweichung in vereins-app kommentiert');
   });

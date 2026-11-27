@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@web/components/ui/button';
 import { DIALOG_SECTION_TITLE, DialogClose, DialogContent } from '@web/components/ui/dialog';
 import { FieldError, Input } from '@web/components/ui/input';
+import { GithubPicker } from '@web/features/git/github-picker';
 import {
   gitRepositoriesQuery,
   gitStateQuery,
@@ -23,6 +24,7 @@ type GitDialogProps = {
   projectId: string;
   /** How the way back from GitLab ended, if the person just came from there. */
   returned?: GitReturn;
+  githubReturned?: GitReturn;
   /** Sends the browser to GitLab's consent page; tests replace it. */
   goTo?: (url: string) => void;
 };
@@ -36,6 +38,7 @@ type GitDialogProps = {
 export function GitDialog({
   projectId,
   returned,
+  githubReturned,
   goTo = (url) => {
     window.location.assign(url);
   },
@@ -46,6 +49,9 @@ export function GitDialog({
   const [problem, setProblem] = useState(false);
   /** The owner changes a repository that is picked already. */
   const [picking, setPicking] = useState(false);
+  const [provider, setProvider] = useState<'github' | 'gitlab'>(
+    githubReturned ? 'github' : 'gitlab',
+  );
 
   /** To GitLab and back to this dialog. */
   function start() {
@@ -76,12 +82,40 @@ export function GitDialog({
   return (
     <DialogContent
       title={t('git.title')}
-      description={t('git.hint')}
+      description={t('github.repositoryHint')}
       className="w-[min(520px,calc(100vw-32px))]"
     >
       <div className="flex flex-col gap-4">
         {returned === 'denied' || returned === 'failed' ? (
           <FieldError>{t(`git.returned.${returned}`)}</FieldError>
+        ) : null}
+        {githubReturned === 'denied' || githubReturned === 'failed' ? (
+          <FieldError>{t('github.connectFailed')}</FieldError>
+        ) : null}
+
+        {data?.canManage && (!data.connection || picking) ? (
+          <div className="flex gap-2" role="group" aria-label={t('github.provider')}>
+            <Button
+              size="s"
+              variant={provider === 'gitlab' ? 'primary' : 'ghost'}
+              aria-pressed={provider === 'gitlab'}
+              onClick={() => {
+                setProvider('gitlab');
+              }}
+            >
+              GitLab
+            </Button>
+            <Button
+              size="s"
+              variant={provider === 'github' ? 'primary' : 'ghost'}
+              aria-pressed={provider === 'github'}
+              onClick={() => {
+                setProvider('github');
+              }}
+            >
+              GitHub
+            </Button>
+          </div>
         ) : null}
 
         {!data ? (
@@ -99,10 +133,22 @@ export function GitDialog({
             canManage={data.canManage}
             sync={data.sync}
             loadedAt={state.dataUpdatedAt}
-            canSetUpWebhook={data.canManage && data.available}
+            canSetUpWebhook={
+              data.canManage && data.available && data.connection.provider !== 'github'
+            }
             onChange={() => {
+              setProvider(data.connection?.provider === 'github' ? 'github' : 'gitlab');
               setPicking(true);
             }}
+          />
+        ) : data.canManage && provider === 'github' ? (
+          <GithubPicker
+            projectId={projectId}
+            current={data.connection?.repository ?? null}
+            onPicked={() => {
+              setPicking(false);
+            }}
+            goTo={goTo}
           />
         ) : !data.available ? (
           <p className={NOTE}>{t('git.unavailable')}</p>
@@ -194,7 +240,10 @@ function Connected({
         ) : null}
       </div>
       <p className="m-0 text-small leading-snug text-text-3">
-        {t('git.connected.by', { ...accountNames(account), by: connectedBy.name })}
+        {t(connection.provider === 'github' ? 'github.connectedBy' : 'git.connected.by', {
+          ...accountNames(account),
+          by: connectedBy.name,
+        })}
       </p>
 
       <SyncSection
@@ -202,6 +251,7 @@ function Connected({
         sync={sync}
         loadedAt={loadedAt}
         canSetUpWebhook={canSetUpWebhook}
+        provider={connection.provider}
       />
 
       {canManage ? (
@@ -224,7 +274,7 @@ function Connected({
                 {t('git.remove.confirm')}
               </Button>
               <span className="min-w-0 text-small leading-snug text-text-3">
-                {t('git.remove.hint')}
+                {t(connection.provider === 'github' ? 'github.removeHint' : 'git.remove.hint')}
               </span>
             </>
           ) : (

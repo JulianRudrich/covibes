@@ -83,6 +83,12 @@ import { loadElk } from '@web/features/canvas/elk';
 import { sizeRoadmaps, type CanvasFlowNode } from '@web/features/canvas/flow-mapping';
 import { FrameNode } from '@web/features/canvas/frame-node';
 import { LiveCursor } from '@web/features/canvas/live-cursor';
+import {
+  MINIMAP_COLORS,
+  MINIMAP_SIZE,
+  minimapNodeColor,
+  minimapNodeStroke,
+} from '@web/features/canvas/minimap';
 import { NoteNode } from '@web/features/canvas/note-node';
 import { PlacementLayer, type Placement } from '@web/features/canvas/placement-layer';
 import { edgesWithGeometry, nodeRects } from '@web/features/canvas/shown-edges';
@@ -778,7 +784,23 @@ function Board({
           color="var(--color-canvas-dot)"
           bgColor="var(--color-bg-canvas)"
         />
-        <MiniMap pannable zoomable ariaLabel={t('canvas.minimap')} />
+        {/* The overview floats like the toolbar, above its right end; on a phone the canvas is
+            for reading (spec 56). */}
+        <MiniMap
+          pannable
+          zoomable
+          ariaLabel={t('canvas.minimap')}
+          style={MINIMAP_SIZE}
+          className="!mr-4 !mb-20 overflow-hidden rounded-panel shadow-float max-md:hidden"
+          bgColor={MINIMAP_COLORS.background}
+          maskColor={MINIMAP_COLORS.mask}
+          maskStrokeColor={MINIMAP_COLORS.view}
+          maskStrokeWidth={1.5}
+          nodeColor={minimapNodeColor}
+          nodeStrokeColor={minimapNodeStroke}
+          nodeStrokeWidth={2}
+          nodeBorderRadius={6}
+        />
         {decisionLinks &&
         nodes.filter((node) => node.selected && node.type === 'block').length === 1 ? (
           <Panel position="top-right">

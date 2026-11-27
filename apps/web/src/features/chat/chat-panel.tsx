@@ -7,15 +7,20 @@ import type {
   ProjectSearchResult,
 } from '@covibes/shared';
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Button } from '@web/components/ui/button';
 import { PanelHeader, PanelTitle } from '@web/components/ui/panel';
 import { useMentionNames } from '@web/features/agents/agents';
 import { ChatStart } from '@web/features/chat/chat-start';
 import { Composer } from '@web/features/chat/composer';
 import { MessageList } from '@web/features/chat/message-list';
-import { ProjectSearch } from '@web/features/chat/project-search';
+import {
+  ProjectSearchButton,
+  ProjectSearchPanel,
+  ProjectSearchRow,
+} from '@web/features/chat/project-search';
 import { useMessageHistory } from '@web/features/chat/use-message-history';
 import { messagesQuery } from '@web/features/chat/queries';
 import { chatStatus, runsQuery } from '@web/features/chat/runs';
@@ -122,31 +127,90 @@ export function ChatPanel({
     setStart((previous) => ({ key: (previous?.key ?? 0) + 1, text }));
   }, []);
 
+  // The project search (spec 56) opens from the header or, on a phone, from a row in the chat;
+  // closing it gives the focus back to what opened it.
+  const searchPanelId = useId();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const openedFrom = useRef<HTMLElement | null>(null);
+  const searchButton = useRef<HTMLButtonElement>(null);
+  const searchRow = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef(false);
+  const openSearch = useCallback((from: HTMLElement | null) => {
+    openedFrom.current = from;
+    setSearchOpen(true);
+  }, []);
+  const closeSearch = useCallback(() => {
+    restoreFocus.current = true;
+    setSearchOpen(false);
+  }, []);
+  useEffect(() => {
+    if (searchOpen || !restoreFocus.current) return;
+    restoreFocus.current = false;
+    // The row is drawn anew once the search closes, so it is found by its ref again.
+    const target =
+      openedFrom.current === searchButton.current ? searchButton.current : searchRow.current;
+    target?.focus();
+  }, [searchOpen]);
+
   return (
     <>
       {/* On a phone the tab names the chat (spec 36e). */}
       <PanelHeader className="justify-between max-md:hidden">
         <PanelTitle>{t('panels.chat')}</PanelTitle>
-        <ChatStatusPill status={chatStatus(runs.data ?? [], messages.data ?? [], hands.length)} />
+        <div className="flex items-center gap-1.5">
+          <ChatStatusPill status={chatStatus(runs.data ?? [], messages.data ?? [], hands.length)} />
+          <ProjectSearchButton
+            ref={searchButton}
+            open={searchOpen}
+            aria-controls={searchOpen ? searchPanelId : undefined}
+            onClick={(event) => {
+              if (searchOpen) closeSearch();
+              else openSearch(event.currentTarget);
+            }}
+          />
+        </div>
       </PanelHeader>
 
       <div className="studio-chat-content">
-        <ProjectSearch
-          projectId={projectId}
-          onOpen={(result) => {
-            if (result.kind === 'message') void history.openMessage(result.id);
-            else onSearchResult?.(result);
-          }}
-        />
+        {searchOpen ? (
+          <ProjectSearchPanel
+            id={searchPanelId}
+            projectId={projectId}
+            onClose={closeSearch}
+            onOpen={(result) => {
+              if (result.kind === 'message') void history.openMessage(result.id);
+              else onSearchResult?.(result);
+            }}
+          />
+        ) : (
+          <div className="hidden shrink-0 px-4 pt-3 pb-2 max-md:flex">
+            <ProjectSearchRow
+              ref={searchRow}
+              onClick={(event) => {
+                openSearch(event.currentTarget);
+              }}
+            />
+          </div>
+        )}
         {history.context ? (
-          <div role="status" className="studio-chat-history">
-            {t('conversation.context')}{' '}
-            <button type="button" onClick={history.latest}>
+          <div
+            role="status"
+            className="mx-4 mb-2 flex shrink-0 items-center justify-between gap-2 rounded-full bg-bg-subtle py-1 pr-1 pl-3.5 text-small text-text-2"
+          >
+            <span className="min-w-0 truncate">{t('conversation.context')}</span>
+            <Button variant="surface" size="s" onClick={history.latest}>
               {t('conversation.latest')}
-            </button>
+            </Button>
           </div>
         ) : null}
-        {history.failed ? <p role="alert">{t('conversation.loadFailed')}</p> : null}
+        {history.failed ? (
+          <p
+            role="alert"
+            className="mx-4 mt-0 mb-2 shrink-0 rounded-card bg-danger-bg px-3.5 py-2 text-small text-danger"
+          >
+            {t('conversation.loadFailed')}
+          </p>
+        ) : null}
         <div className="flex min-h-0 flex-1 flex-col">
           {messages.isPending ? (
             <p className="m-0 grid flex-1 place-items-center p-6 text-ui text-text-3">

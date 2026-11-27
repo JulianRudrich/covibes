@@ -7,7 +7,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CanvasArrow } from '@web/features/canvas/canvas-arrow';
 import { CanvasActionsProvider, type CanvasActions } from '@web/features/canvas/canvas-actions';
-import type { ArrowFlowEdge, FrameFlowNode, NoteFlowNode } from '@web/features/canvas/flow-mapping';
+import {
+  LAYER,
+  type ArrowFlowEdge,
+  type FrameFlowNode,
+  type NoteFlowNode,
+} from '@web/features/canvas/flow-mapping';
 import { FrameNode } from '@web/features/canvas/frame-node';
 import { NoteNode } from '@web/features/canvas/note-node';
 import { RoadmapProvider } from '@web/features/roadmap/roadmap-context';
@@ -382,6 +387,15 @@ describe('CanvasArrow', () => {
     expect(arrow.style.strokeWidth).toBe('2');
     expect(arrow.style.strokeLinecap).toBe('round');
     expect(screen.getByText('REST')).toHaveClass('font-mono', 'text-badge', 'rounded-full');
+  });
+
+  it('draws its label in the layer of the arrows, below blocks and notes (spec 56)', () => {
+    renderArrow();
+    // The wrapper around the pill is what React Flow stacks against the layer of the arrows.
+    const wrapper = screen.getByText('REST').parentElement;
+
+    expect(wrapper?.style.zIndex).toBe(String(LAYER.edge));
+    expect(LAYER.edge).toBeLessThan(LAYER.node);
   });
 
   it('shows an agent change in the agent color at 2.25 px, also on the label', () => {

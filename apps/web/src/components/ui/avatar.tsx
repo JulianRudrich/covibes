@@ -42,6 +42,18 @@ const SIZE_CLASSES: Record<AvatarSize, string> = {
   52: 'size-[52px] text-display',
 };
 
+/** A smaller step for labels of three letters, such as the English "You" (spec 56). */
+const LONG_LABEL_TEXT: Record<AvatarSize, string> = {
+  16: 'text-[6px]',
+  20: 'text-[7px]',
+  24: 'text-[8px]',
+  26: 'text-[9px]',
+  28: 'text-[9px]',
+  30: 'text-[10px]',
+  32: 'text-[11px]',
+  52: 'text-ui',
+};
+
 // Agents are rounded squares whose radius is about a third of their size (handoff: 30 px → 10).
 const AGENT_RADIUS: Record<AvatarSize, string> = {
   16: 'rounded-[5px]',
@@ -119,7 +131,8 @@ export function Avatar(props: AvatarProps) {
         base,
         'rounded-full text-human-avatar-fg',
         props.tone === 'strong' ? 'bg-human-avatar-bg-strong' : 'bg-human-avatar-bg',
-        props.initials.length > 1 && size === 26 && 'text-[10px]',
+        props.initials.length === 2 && size === 26 && 'text-[10px]',
+        props.initials.length > 2 && LONG_LABEL_TEXT[size],
         className,
       )}
       style={style}

@@ -36,7 +36,7 @@ The owner authorized parallel implementation on 2026-11-17 and restored the Covi
 | 53 | Durable project memory for agents | In review, PR 13 |
 | 54 | Evaluation fixtures for grounding, dissent, tools, cost/time | After agent contracts; distinguish fixtures from live evaluation |
 | 55 | Entirely new product design | Closed by owner on 2026-11-24; prototype archived |
-| 56 | Studio styling for the project search, the board overview, edge labels and the own avatar | Follow-up to 47/48; the styling was to come from 55 |
+| 56 | Studio styling for the project search, the board overview, edge labels and the own avatar | Completed on main |
 | 35 | Operations, staging, backups/restore, monitoring and launch configuration | Source can proceed; external launch facts required |
 | 34 | Multi-user end-to-end acceptance | After behavior/design and staging contracts |
 

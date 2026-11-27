@@ -50,18 +50,6 @@
   min-height: 0;
   flex-direction: column;
 }
-.studio-chat-content > details {
-  flex-shrink: 0;
-  padding: 0 20px 8px;
-}
-.studio-chat-history {
-  flex-shrink: 0;
-  padding: 8px 20px;
-  font-size: var(--text-small);
-}
-.studio-chat-history button {
-  text-decoration: underline;
-}
 @media (48rem <= width < 80rem) {
   .studio-workspace-header {
     grid-template-columns: minmax(0, 1fr) auto;

@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { agentClass, agentColor, useAgents, type AgentInfo } from '@web/features/agents/agents';
 import { AGENT_LABEL } from '@web/features/canvas/agent-look';
 import { useCanvasActions } from '@web/features/canvas/canvas-actions';
-import type { ArrowFlowEdge } from '@web/features/canvas/flow-mapping';
+import { LAYER, type ArrowFlowEdge } from '@web/features/canvas/flow-mapping';
 import { useFocusOnMount, useInPlaceEditing } from '@web/features/canvas/in-place-editing';
 
 import { useJustDrawnBy } from '@web/features/canvas/use-just-drawn';
@@ -123,6 +123,9 @@ export function CanvasArrow({ id, data, selected }: EdgeProps<ArrowFlowEdge>) {
             className="nodrag nopan pointer-events-auto absolute"
             style={{
               transform: `translate(-50%, -50%) translate(${String(geometry.label.x)}px, ${String(geometry.label.y)}px)`,
+              // In the arrows' layer and drawn after them, so a line ends at its label instead of
+              // crossing it; blocks and notes stay above (spec 56).
+              zIndex: LAYER.edge,
             }}
           >
             {editing ? (

@@ -1,0 +1,67 @@
+name: Lint
+
+# Quick checks next to CI: the workflows, the spelling and the links between the repository's
+# files. Once a week the links to other sites are checked as well, since they can break without
+# any change here.
+on:
+  pull_request:
+  push:
+    branches: [main, 'spec/**']
+  schedule:
+    - cron: '41 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workflows:
+    name: Workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: actionlint
+        # Syntax, expressions and the shell scripts, with the runner's shellcheck.
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          "$(go env GOPATH)/bin/actionlint" -color
+      - name: zizmor
+        # Security problems in the workflows, with zizmor's default rules.
+        run: pipx run zizmor==1.32.0 --offline --format=github .github
+
+  spelling:
+    name: Spelling
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: typos
+        # The words it should accept are in typos.toml.
+        run: pipx run typos==1.52.2
+
+  links:
+    name: Links
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: lychee
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          # A change checks the links between the repository's files; the weekly run checks
+          # every link. The settings are in lychee.toml.
+          args: >-
+            --no-progress
+            ${{ (github.event_name == 'push' || github.event_name == 'pull_request') && '--offline' || '' }}
+            './**/*.md'

@@ -1,0 +1,24 @@
+# Link check with lychee (https://lychee.cli.rs). The Lint workflow checks the links between the
+# repository's files on every change, and every link once a week. Locally:
+#   lychee --offline './**/*.md'
+# and without --offline to check the links to other sites too.
+
+# Links to a heading (#getting-started) must find it.
+include_fragments = "anchor-only"
+
+max_retries = 3
+timeout = 30
+
+exclude_path = [
+  "(^|/)node_modules/",
+  "(^|/)dist/",
+  # The German design prototypes link to their own support files.
+  "^context/design/",
+]
+
+exclude = [
+  # Local development addresses in the guides
+  '^https?://(localhost|127\.0\.0\.1)',
+  # The private repository answers automated requests without a login with 404.
+  '^https://github\.com/JulianRudrich/covibes',
+]

@@ -1,0 +1,64 @@
+# Spelling check with typos (https://github.com/crate-ci/typos). The Lint workflow runs it on
+# every change; locally run `typos`, or `typos --write-changes` to fix what it finds.
+
+[files]
+extend-exclude = [
+  # German interface texts and the German design prototypes
+  "apps/web/src/i18n/de.json",
+  "context/design/",
+  # Generated
+  "pnpm-lock.yaml",
+]
+
+[default.extend-words]
+# Covibes speaks German and English: German words in tests, in the texts of exports, mails and
+# the package, and in interface labels that the documentation quotes.
+adresse = "adresse"
+aktion = "aktion"
+alle = "alle"
+als = "als"
+archiv = "archiv"
+deine = "deine"
+deines = "deines"
+diagramm = "diagramm"
+dran = "dran"
+ein = "ein"
+elemente = "elemente"
+ende = "ende"
+feld = "feld"
+foto = "foto"
+habe = "habe"
+ist = "ist"
+klick = "klick"
+modell = "modell"
+objekt = "objekt"
+oder = "oder"
+offen = "offen"
+oktober = "oktober"
+ordner = "ordner"
+paket = "paket"
+pakets = "pakets"
+passt = "passt"
+plattform = "plattform"
+produkt = "produkt"
+prozess = "prozess"
+redner = "redner"
+sie = "sie"
+stil = "stil"
+suche = "suche"
+tage = "tage"
+technik = "technik"
+termine = "termine"
+titel = "titel"
+unser = "unser"
+unter = "unter"
+variante = "variante"
+vor = "vor"
+# "ü" written as "ue" in file names of exports
+ue = "ue"
+# A product name in the design research
+dito = "dito"
+# COSE keys of the passkeys in tests
+cose = "cose"
+# The first piece of a streamed answer in tests
+hel = "hel"

@@ -461,6 +461,12 @@ Planned in three parts:
 - **Design:** **required** for the tablet layout, derived from the studio design
 - **Done when:** the login page loads without the workspace, and nothing is cut off at 768, 1024 and 1280 px.
 
+### 56 Studio polish for search, board overview and arrows
+- **Goal:** the project search of spec 47 and the board overview of spec 48 get the Studio look that the closed spec 55 was to give them, arrow labels sit on top of their lines, and the own avatar shows its full label.
+- **Needs:** 47, 48, 36
+- **Design:** small, derived from the studio design
+- **Done when:** search, history notice and board overview look like the rest of the workspace in both themes and on a phone, and no arrow crosses its label.
+
 ### 50 to 54 Product core
 Worked out one by one once 39 to 49 stand; the order follows what the beta shows.
 - **50** linked decisions: every block and task knows the decisions behind it; "what changes if this falls?" lists what to look at again

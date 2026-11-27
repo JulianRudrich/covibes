@@ -15,8 +15,6 @@ import { RouteLoading } from '@web/components/route-loading';
 import { safeRedirectPath } from '@web/features/auth/redirect-path';
 import { sessionQuery } from '@web/features/auth/session';
 import { ErrorPage, NotFoundPage } from '@web/features/errors/error-pages';
-import { WorkspaceSettingsPage } from '@web/features/workspaces/workspace-settings-page';
-import { WorkspaceInvitePage } from '@web/features/workspaces/workspace-invite-page';
 
 export type RouterContext = { queryClient: QueryClient };
 
@@ -64,13 +62,19 @@ const accountRoute = createRoute({
 const workspaceSettingsRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: '/workspaces/$workspaceId',
-  component: WorkspaceSettingsPage,
+  component: lazyRouteComponent(
+    () => import('@web/features/workspaces/workspace-settings-page'),
+    'WorkspaceSettingsPage',
+  ),
 });
 
 const workspaceInviteRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: '/workspace-invite/$token',
-  component: WorkspaceInvitePage,
+  component: lazyRouteComponent(
+    () => import('@web/features/workspaces/workspace-invite-page'),
+    'WorkspaceInvitePage',
+  ),
 });
 
 const projectListRoute = createRoute({

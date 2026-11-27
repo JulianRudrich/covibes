@@ -10,6 +10,7 @@
 .data
 backups
 context
+docs
 deploy
 **/.env
 **/.env.*

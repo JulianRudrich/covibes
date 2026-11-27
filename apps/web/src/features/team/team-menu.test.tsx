@@ -99,10 +99,19 @@ describe('TeamMenu', () => {
       'Opus 5.5 (Standard)',
       'Sonnet 5.5',
       'Haiku 4.5',
+      'OpenAI GPT-4.1',
+      'OpenAI GPT-4.1 mini',
     ]);
     expect(options[0]).toHaveAttribute('aria-checked', 'true');
     fireEvent.click(screen.getByRole('menuitemradio', { name: 'Haiku 4.5' }));
     expect(onModelChange).toHaveBeenCalledWith('critic', 'claude-haiku-4-5-20251001');
+
+    fireEvent.keyDown(
+      within(popover).getByRole('button', { name: 'Modell von Kritiker: Opus 5.5' }),
+      { key: 'Enter' },
+    );
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'OpenAI GPT-4.1' }));
+    expect(onModelChange).toHaveBeenCalledWith('critic', 'gpt-4.1');
 
     fireEvent.keyDown(
       within(popover).getByRole('button', { name: 'Modell von Sicherheit: Sonnet 5.5' }),

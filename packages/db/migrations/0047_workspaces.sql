@@ -506,3 +506,42 @@ $$;
 revoke all on function private.live_document_parent() from public;
 create trigger yjs_documents_live_parent before insert on public.yjs_documents
   for each row execute function private.live_document_parent();
+
+-- Serialize version numbers without blocking the parent key-share lock taken by a
+-- concurrent document store. Project deletion still conflicts with both locks.
+create or replace function public.keep_plan_version(p_project_id uuid, p_content jsonb, p_reason text)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_latest public.plan_versions;
+  v_id uuid;
+begin
+  if not private.has_role(p_project_id, 'editor') then
+    raise exception 'Only owners and editors keep versions of the plan' using errcode = '42501';
+  end if;
+  -- One at a time per project, so the numbers have no gaps and no doubles.
+  perform 1 from public.projects where id = p_project_id for no key update;
+  select * into v_latest
+  from public.plan_versions v
+  where v.project_id = p_project_id
+  order by v.number desc
+  limit 1;
+  if v_latest.content = p_content then
+    return null;
+  end if;
+
+  insert into public.plan_versions (project_id, number, content, reason, created_by)
+  values (
+    p_project_id,
+    coalesce(v_latest.number, 0) + 1,
+    p_content,
+    p_reason,
+    private.current_user_id()
+  )
+  returning id into v_id;
+  return v_id;
+end;
+$$;

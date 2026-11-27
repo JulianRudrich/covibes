@@ -152,7 +152,14 @@ describe('giving the tasks of a stored plan their ids', () => {
   });
 
   it('gives a plan the collaboration server stored its ids and comes to rest', async () => {
-    const projectId = randomUUID();
+    const cookie = await test.signIn();
+    const created = await test.app.request('/api/projects', {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Plan task IDs' }),
+    });
+    expect(created.status).toBe(201);
+    const { id: projectId } = (await created.json()) as { id: string };
     let stores = 0;
     const announced: LiveEvent[] = [];
     const announce = createRoadmapAnnouncer({

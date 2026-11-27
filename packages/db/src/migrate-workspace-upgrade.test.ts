@@ -14,7 +14,11 @@ it('backfills workspaces after decision links were already migrated', async () =
   const dir = mkdtempSync(join(tmpdir(), 'covibes-upgrade-'));
   cpSync(paths.migrations, dir, { recursive: true });
   const migration = '0047_workspaces.sql';
+  // Provider funding depends on workspaces. An instance without the workspace migration
+  // cannot have applied it yet, even if a higher-numbered independent migration exists.
+  const providerMigration = '0050_workspace_provider_funding.sql';
   unlinkSync(join(dir, migration));
+  unlinkSync(join(dir, providerMigration));
   const database = await startTestDatabase(dir);
   const admin = new pg.Client({ connectionString: database.adminUrl });
   await admin.connect();
@@ -37,7 +41,8 @@ it('backfills workspaces after decision links were already migrated', async () =
       [projectId, decisionId, targetId, userId],
     );
     cpSync(join(paths.migrations, migration), join(dir, migration));
-    expect(await migrate(database.adminUrl, dir)).toEqual([migration]);
+    cpSync(join(paths.migrations, providerMigration), join(dir, providerMigration));
+    expect(await migrate(database.adminUrl, dir)).toEqual([migration, providerMigration]);
     const project = await admin.query<{ kind: string; personal_owner_id: string }>(
       'select w.kind,w.personal_owner_id from projects p join workspaces w on w.id = p.workspace_id where p.id = $1',
       [projectId],

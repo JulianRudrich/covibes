@@ -34,7 +34,7 @@ export function usageRoutes(
   auth: Auth,
   limits: UsageLimits,
   now: () => Date = () => new Date(),
-  readInstanceTotal?: (at: Date) => Promise<number>,
+  readInstanceTotal?: (at: Date, projectId: string) => Promise<number>,
 ) {
   if ((limits.instanceMonthUsd ?? 0) > 0 && !readInstanceTotal) {
     throw new Error('An operator aggregate reader is required for instance limit state');
@@ -57,7 +57,9 @@ export function usageRoutes(
       // The app role cannot query a global amount. Only after membership succeeds does this
       // operator-owned reader calculate the coarse state; its amount never leaves this route.
       const instanceTotal =
-        (limits.instanceMonthUsd ?? 0) > 0 && readInstanceTotal ? await readInstanceTotal(at) : 0;
+        (limits.instanceMonthUsd ?? 0) > 0 && readInstanceTotal
+          ? await readInstanceTotal(at, projectId.data)
+          : 0;
       return c.json<UsageState>(
         usageStateOf(
           limits,

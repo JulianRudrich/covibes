@@ -1,3 +1,4 @@
+import type { AiProvider } from '@covibes/shared';
 import { GatewayConfigError, type AgentReplyUsage } from '@server/ai-gateway/types';
 
 /** List prices in USD per million tokens. */
@@ -12,7 +13,7 @@ export type ModelPrices = {
 export type ModelInfo = {
   /** The id agents are configured with and the provider receives, e.g. `claude-opus-5-5`. */
   id: string;
-  provider: 'anthropic';
+  provider: AiProvider;
   prices: ModelPrices;
   /** Whether the model takes an effort level; small models answer without one. */
   effort: boolean;
@@ -21,6 +22,19 @@ export type ModelInfo = {
 // Prices from https://platform.claude.com/docs/en/about-claude/pricing, checked on 2026-09-30.
 // They only price a run when the provider reports no cost of its own.
 const MODELS: readonly ModelInfo[] = [
+  // OpenAI standard text pricing: https://developers.openai.com/api/docs/pricing
+  {
+    id: 'gpt-4.1',
+    provider: 'openai',
+    prices: { input: 2, output: 8, cacheRead: 0.5, cacheWrite: 0 },
+    effort: false,
+  },
+  {
+    id: 'gpt-4.1-mini',
+    provider: 'openai',
+    prices: { input: 0.4, output: 1.6, cacheRead: 0.1, cacheWrite: 0 },
+    effort: false,
+  },
   {
     id: 'claude-opus-5-5',
     provider: 'anthropic',

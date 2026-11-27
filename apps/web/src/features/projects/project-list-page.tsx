@@ -8,6 +8,7 @@ import { AppHeader } from '@web/components/app-header';
 import { Avatar } from '@web/components/ui/avatar';
 import { Card, Notice } from '@web/components/ui/card';
 import { AccountMenu } from '@web/features/account/account-menu';
+import { AiSettingsDialog } from '@web/features/ai-settings/ai-settings-dialog';
 import { sessionQuery } from '@web/features/auth/session';
 import { NotificationBell } from '@web/features/notifications/notification-bell';
 import { CreateProjectDialog } from '@web/features/projects/create-project-dialog';
@@ -145,7 +146,7 @@ export function ProjectListPage() {
       </AppHeader>
 
       <main className="mx-auto w-full max-w-[1168px] px-6 pt-7 pb-16 max-md:px-4">
-        <div className="mb-6">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <WorkspacePicker
             value={workspaceId}
             onSelect={(id) => {
@@ -153,6 +154,7 @@ export function ProjectListPage() {
               void navigate({ to: '/', search: { workspace: id } });
             }}
           />
+          {user ? <AiSettingsDialog /> : null}
         </div>
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>

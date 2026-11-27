@@ -131,7 +131,7 @@ describe('the observer', () => {
 
     expect(complete).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'claude-sonnet-5-5',
+        model: 'claude-haiku-4-5-20251001',
         system: expect.stringContaining('You are the observer in Covibes') as unknown,
       }),
     );

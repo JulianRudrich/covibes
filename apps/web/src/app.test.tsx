@@ -619,6 +619,29 @@ describe('with a session', () => {
     expect(await screen.findByRole('dialog', { name: 'Neues Projekt' })).toBeInTheDocument();
   });
 
+  it('opens workspace AI settings from the project list', async () => {
+    stubApi({
+      'GET /api/projects': () => ({ body: [] }),
+      'GET /api/workspaces': () => ({
+        body: [{ id: 'own', name: 'Mein Team', kind: 'team', role: 'owner' }],
+      }),
+      'GET /api/workspaces/own/ai': () => ({
+        body: {
+          configured: [],
+          canStoreKeys: true,
+          month: '2026-11',
+          spending: { workspaceUsd: 0, instanceUsd: 0 },
+        },
+      }),
+    });
+    renderApp('/');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'KI-Einstellungen' }));
+    const dialog = await screen.findByRole('dialog', { name: 'KI-Einstellungen' });
+    expect(await within(dialog).findByLabelText('Anthropic')).toBeInTheDocument();
+    expect(within(dialog).getByRole('option', { name: 'Mein Team' })).toBeInTheDocument();
+  });
+
   it('keeps the welcome for those without a project', async () => {
     stubApi({ 'GET /api/projects': () => ({ body: [PROJECT] }) });
     renderApp('/');

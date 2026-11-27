@@ -50,3 +50,12 @@ export type WorkspaceInvitation = {
   acceptedAt: string | null;
   revokedAt: string | null;
 };
+
+export const AI_PROVIDERS = ['anthropic', 'openai'] as const;
+export type AiProvider = (typeof AI_PROVIDERS)[number];
+export type WorkspaceAiSettings = {
+  configured: AiProvider[];
+  canStoreKeys: boolean;
+  month: string;
+  spending: { instanceUsd: number; workspaceUsd: number };
+};

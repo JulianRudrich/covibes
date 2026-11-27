@@ -1,3 +1,4 @@
+import type { AiProvider } from '@covibes/shared';
 import { z } from 'zod';
 
 /**
@@ -54,6 +55,8 @@ export type CompleteRequest = {
   prompt: string;
   signal?: AbortSignal;
   billing?: BillingContext;
+  /** Explicit project or custom-agent selection, which may not change provider. */
+  fixedModel?: boolean;
   /** Conservative reservation; the SDK only provides a soft execution cap. */
   maxCostUsd?: number;
 };
@@ -88,7 +91,7 @@ export type AgentReplyUsage = {
 export type AgentReplyResult = {
   /** The complete reply text (everything passed to `onText`). */
   text: string;
-  provider: 'anthropic';
+  provider: AiProvider;
   model: string;
   usage: AgentReplyUsage;
   /** Cost of the whole turn in USD as reported or computed; an estimate, not a bill. */

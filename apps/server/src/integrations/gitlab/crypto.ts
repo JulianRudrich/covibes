@@ -16,7 +16,7 @@ import { z } from 'zod';
 
 const VERSION = 'v1';
 
-function keyFor(tokenKey: string, purpose: 'tokens' | 'state'): Buffer {
+function keyFor(tokenKey: string, purpose: string): Buffer {
   return createHash('sha256').update(`covibes:${purpose}:${tokenKey}`).digest();
 }
 
@@ -24,9 +24,9 @@ function keyFor(tokenKey: string, purpose: 'tokens' | 'state'): Buffer {
  * A token as it is stored: encrypted with AES-256-GCM, with a fresh nonce every time, so the same
  * token never looks the same twice. The form is `v1.nonce.ciphertext.tag`.
  */
-export function sealToken(tokenKey: string, token: string): string {
+export function sealToken(tokenKey: string, token: string, purpose = 'tokens'): string {
   const nonce = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', keyFor(tokenKey, 'tokens'), nonce);
+  const cipher = createCipheriv('aes-256-gcm', keyFor(tokenKey, purpose), nonce);
   const ciphertext = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
   return [VERSION, nonce, ciphertext, cipher.getAuthTag()]
     .map((part) => (typeof part === 'string' ? part : part.toString('base64url')))
@@ -34,14 +34,14 @@ export function sealToken(tokenKey: string, token: string): string {
 }
 
 /** The token of a stored form; throws if it was changed or sealed with another key. */
-export function openToken(tokenKey: string, sealed: string): string {
+export function openToken(tokenKey: string, sealed: string, purpose = 'tokens'): string {
   const [version, nonce, ciphertext, tag] = sealed.split('.');
   if (version !== VERSION || !nonce || ciphertext === undefined || !tag) {
     throw new Error('The stored token has an unknown form');
   }
   const decipher = createDecipheriv(
     'aes-256-gcm',
-    keyFor(tokenKey, 'tokens'),
+    keyFor(tokenKey, purpose),
     Buffer.from(nonce, 'base64url'),
   );
   decipher.setAuthTag(Buffer.from(tag, 'base64url'));

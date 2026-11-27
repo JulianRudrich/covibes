@@ -20,6 +20,7 @@ export const workerEnvSchema = z
      * instance other people use needs the key (architecture "AI providers").
      */
     ANTHROPIC_API_KEY: z.string().min(1).optional(),
+    OPENAI_API_KEY: z.string().min(1).optional(),
     /** SMTP access for the notification mails (spec 22b), the same as the server's; optional. */
     SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
     MAIL_FROM: z.string().min(3).optional(),

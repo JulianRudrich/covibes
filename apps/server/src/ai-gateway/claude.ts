@@ -76,6 +76,8 @@ const CONFIG_ERRORS: ReadonlySet<SDKAssistantMessageError> = new Set([
  */
 export async function streamAgentReply(request: AgentReplyRequest): Promise<AgentReplyResult> {
   const model = resolveModel(request.model);
+  if (model.provider !== 'anthropic')
+    throw new GatewayConfigError('The local SDK requires a Claude model');
   const { signal } = request;
   signal?.throwIfAborted();
 
@@ -227,6 +229,8 @@ export type ClaudeAccess = {
  */
 export async function checkClaudeAccess(modelId: string): Promise<ClaudeAccess> {
   const model = resolveModel(modelId);
+  if (model.provider !== 'anthropic')
+    throw new GatewayConfigError('The local SDK requires a Claude model');
   const abortController = new AbortController();
   // Streaming input that never sends a message: Claude Code starts, but the model is not called.
   const stopped = new Promise<void>((resolve) => {

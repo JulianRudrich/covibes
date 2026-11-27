@@ -4,7 +4,7 @@ import { run } from 'graphile-worker';
 import { Kysely, PostgresDialect } from 'kysely';
 import pg from 'pg';
 
-import { completeText, GatewayConfigError, streamAgentReply } from '@server/ai-gateway';
+import { completeText, streamAgentReply } from '@server/ai-gateway';
 import { gatherPackageInput, type PackageReaders } from '@server/api/package';
 import { createBoardClient } from '@server/collab/board-client';
 import { agentGitRequests } from '@server/git/agent-requests';
@@ -81,6 +81,7 @@ const metered = createBudgetGateway(
   {
     admin,
     limits: usageLimitsOf(env),
+    providerEnv: env,
     maxCallUsd: env.AI_MAX_CALL_USD ?? (env.NODE_ENV === 'production' ? 0 : 1),
     onWarning: (warning) => {
       console.warn(JSON.stringify({ event: 'ai_budget_warning', ...warning }));
@@ -88,21 +89,8 @@ const metered = createBudgetGateway(
   },
   { reply: streamAgentReply, complete: completeText },
 );
-function requireProductionKey() {
-  if (env.NODE_ENV === 'production' && !env.ANTHROPIC_API_KEY) {
-    throw new GatewayConfigError('Production AI access requires a configured API key');
-  }
-}
-const reply: typeof streamAgentReply = (request) =>
-  models.call(async () => {
-    requireProductionKey();
-    return metered.reply(request);
-  });
-const complete: typeof completeText = (request) =>
-  models.call(async () => {
-    requireProductionKey();
-    return metered.complete(request);
-  });
+const reply: typeof streamAgentReply = (request) => models.call(() => metered.reply(request));
+const complete: typeof completeText = (request) => models.call(() => metered.complete(request));
 await lease.heartbeat(models.state());
 const heartbeat = setInterval(() => {
   void lease.heartbeat(models.state()).catch(() => {

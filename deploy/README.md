@@ -33,7 +33,7 @@ chmod 600 .env
 Fill in `.env`:
 - `APP_URL`: the public address, exactly as Covibes is opened in the browser, e.g. `https://covibes.example.org` (no trailing `/`)
 - `BETTER_AUTH_SECRET`, `POSTGRES_PASSWORD`, `COVIBES_ADMIN_PASSWORD`, `COVIBES_APP_PASSWORD`, `INTERNAL_TOKEN`: each generated with `openssl rand -hex 32`
-- `ANTHROPIC_API_KEY`: an API key from the Claude Console for the agents. Other people use this instance, so a personal Claude subscription must not be used here; set a monthly spending limit in the Console.
+- Optionally set `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY` for instance-funded AI calls. Workspace owners can configure their own provider keys when `TOKEN_KEY` is set. Configure spending limits with each provider.
 - optionally `AI_LIMIT_PROJECT_MONTH_USD` and `AI_LIMIT_USER_DAY_USD`: what one project may cost in a calendar month and one person in a day, as estimated costs in USD. Without them a project stops at 100 and a person at 15; at a limit only the AI pauses. They guard against abuse and do not replace the spending limit in the Console.
 - at least one sign-in method, see the next section
 
@@ -63,7 +63,7 @@ Covibes only starts when at least one of the two methods is configured.
 
 **Connecting repositories (optional):** everyone connects their own GitLab account, and owners pick the GitLab repository of a project with it.
 1. Give the same application a second redirect URI, `<APP_URL>/api/git/callback`, and the scope `api` in addition.
-2. Set `TOKEN_KEY` (generated like the other secrets). It seals the tokens of the accounts in the database. Keep it: with another key everyone has to connect again.
+2. Set `TOKEN_KEY` (generated like the other secrets). It seals repository tokens and workspace provider keys in the database. Keep it: changing the key makes existing encrypted credentials unreadable.
 
 Signing in asks GitLab for `read_user` only; the scope `api` is asked for when someone connects their GitLab account.
 
@@ -138,8 +138,8 @@ same database.
 
 The worker reserves separate concurrency slots for model calls and background
 mail/repository work. Missing or invalid AI credentials do not stop those
-background jobs. Production AI still requires `ANTHROPIC_API_KEY` and never
-falls back to a personal subscription. Repeated provider failures pause new
+background jobs. A production AI call requires a matching workspace or instance provider key.
+Repeated provider failures pause new
 model calls for at least a minute; quota reset times can extend the pause.
 
 Use the endpoints for different purposes:

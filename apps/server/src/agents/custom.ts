@@ -6,6 +6,7 @@ import {
   mentionHandle,
 } from '@covibes/shared';
 import type { Kysely } from 'kysely';
+import { resolveModel } from '@server/ai-gateway/registry';
 
 import {
   CANVAS_TOOLS,
@@ -70,12 +71,14 @@ export function customAgentPrompt(
 
 /** A custom agent in the format all agents share (`architecture.md`, "Agents"). */
 export function customAgentDefinition(row: CustomAgentRow): AgentDefinition {
+  const model = isAgentModel(row.model) ? row.model : DEFAULT_AGENT_MODEL;
   return {
     key: row.id,
     names: { de: row.name, en: row.name },
     role: row.role,
-    provider: 'anthropic',
-    model: isAgentModel(row.model) ? row.model : DEFAULT_AGENT_MODEL,
+    provider: resolveModel(model).provider,
+    model,
+    fixedModel: isAgentModel(row.model),
     effort: 'medium',
     prompt: customAgentPrompt(row),
     // A custom agent draws or only talks; the moderator's tools are never its own.

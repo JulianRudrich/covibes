@@ -707,6 +707,7 @@ export {
 } from './usage';
 
 export {
+  AI_PROVIDERS,
   workspaceIdSchema,
   workspaceNameSchema,
   createWorkspaceInputSchema,
@@ -720,6 +721,8 @@ export type {
   WorkspaceRole,
   WorkspaceSummary,
   WorkspaceMember,
+  AiProvider,
+  WorkspaceAiSettings,
   WorkspaceProject,
   WorkspaceInvitation,
 } from './workspaces';

@@ -1,5 +1,6 @@
 import type { DB } from '@covibes/db';
 import {
+  AI_PROVIDERS,
   createWorkspaceInputSchema,
   workspaceIdSchema,
   workspaceInvitationInputSchema,
@@ -10,16 +11,19 @@ import {
   type WorkspaceMember,
   type WorkspaceProject,
   type WorkspaceSummary,
+  type WorkspaceAiSettings,
 } from '@covibes/shared';
 import { createHash, randomBytes } from 'node:crypto';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { sql, type Transaction } from 'kysely';
+import { z } from 'zod';
 
 import { apiError } from '@server/api/errors';
 import type { Auth } from '@server/auth/auth';
 import { sessionMiddleware, type SessionVariables } from '@server/auth/session';
-import { withUser, type AppDb } from '@server/db/database';
+import { withUser, type AppDb, type AdminDb } from '@server/db/database';
+import { sealToken } from '@server/integrations/gitlab/crypto';
 import type { ProjectConnections } from '@server/realtime/connections';
 
 type PgError = { code?: string; hint?: string };
@@ -45,7 +49,13 @@ function membership(trx: Transaction<DB>, workspaceId: string, userId: string) {
     .executeTakeFirst();
 }
 
-export function workspaceRoutes(db: AppDb, auth: Auth, connections: ProjectConnections) {
+export function workspaceRoutes(
+  db: AppDb,
+  auth: Auth,
+  connections: ProjectConnections,
+  admin: AdminDb,
+  tokenKey?: string,
+) {
   const routes = new Hono<{ Variables: SessionVariables }>();
   routes.use(sessionMiddleware(auth));
 
@@ -122,6 +132,106 @@ export function workspaceRoutes(db: AppDb, auth: Auth, connections: ProjectConne
       await next();
     }),
   );
+
+  // The credential table is deliberately inaccessible to the application role. Keep the
+  // membership lock and privileged access in one transaction so a concurrent removal waits.
+  async function asOwner<T>(
+    workspaceId: string,
+    userId: string,
+    action: (trx: Transaction<DB>) => Promise<T>,
+  ) {
+    return admin.transaction().execute(async (trx) => {
+      const member = await trx
+        .selectFrom('workspace_members')
+        .select('role')
+        .where('workspace_id', '=', workspaceId)
+        .where('user_id', '=', userId)
+        .forShare()
+        .executeTakeFirst();
+      if (member?.role !== 'owner') return undefined;
+      return action(trx);
+    });
+  }
+
+  routes.get('/:workspaceId/ai', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    const workspaceId = c.req.param('workspaceId');
+    const result = await asOwner(workspaceId, user.id, async (trx) => {
+      const keys = await trx
+        .selectFrom('workspace_provider_keys')
+        .select('provider')
+        .where('workspace_id', '=', workspaceId)
+        .orderBy('provider')
+        .execute();
+      const cost = await sql<{ instance: string; workspace: string; month: string }>`
+        select to_char(date_trunc('month', now() at time zone 'UTC'), 'YYYY-MM-DD') as month,
+          coalesce(sum(cost_usd) filter (where payer = 'instance'), 0)
+            + coalesce((select sum(cost_usd) from public.workspace_legacy_ai_costs
+              where workspace_id = ${workspaceId}::uuid
+              and month = date_trunc('month', now() at time zone 'UTC')::date), 0) as instance,
+          coalesce(sum(cost_usd) filter (where payer = 'workspace'), 0) as workspace
+        from public.ai_attempts
+        where workspace_id = ${workspaceId}::uuid
+          and budget_month = date_trunc('month', now() at time zone 'UTC')::date
+      `.execute(trx);
+      const row = cost.rows[0];
+      if (!row) throw new Error('Unable to load workspace spending');
+      return {
+        configured: keys.map(({ provider }) => z.enum(AI_PROVIDERS).parse(provider)),
+        canStoreKeys: Boolean(tokenKey),
+        month: row.month,
+        spending: { instanceUsd: Number(row.instance), workspaceUsd: Number(row.workspace) },
+      } satisfies WorkspaceAiSettings;
+    });
+    if (!result) return apiError(c, 'forbidden');
+    return c.json(result);
+  });
+
+  routes.put('/:workspaceId/ai/:provider', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    const provider = z.enum(AI_PROVIDERS).safeParse(c.req.param('provider'));
+    const input = z
+      .object({ key: z.string().trim().min(1).max(4096) })
+      .safeParse(await c.req.json().catch(() => undefined));
+    if (!provider.success || !input.success) return apiError(c, 'invalid_input');
+    const workspaceId = c.req.param('workspaceId');
+    const result = await asOwner(workspaceId, user.id, async (trx) => {
+      if (!tokenKey) return false;
+      const ciphertext = sealToken(
+        tokenKey,
+        input.data.key,
+        'ai:' + workspaceId + ':' + provider.data,
+      );
+      await trx
+        .insertInto('workspace_provider_keys')
+        .values({ workspace_id: workspaceId, provider: provider.data, ciphertext })
+        .onConflict((oc) => oc.columns(['workspace_id', 'provider']).doUpdateSet({ ciphertext }))
+        .execute();
+      return true;
+    });
+    if (result === undefined) return apiError(c, 'forbidden');
+    if (!result) return apiError(c, 'conflict');
+    return c.body(null, 204);
+  });
+
+  routes.delete('/:workspaceId/ai/:provider', async (c) => {
+    const user = c.get('user');
+    if (!user) return apiError(c, 'unauthorized');
+    const provider = z.enum(AI_PROVIDERS).safeParse(c.req.param('provider'));
+    if (!provider.success) return apiError(c, 'invalid_input');
+    const result = await asOwner(c.req.param('workspaceId'), user.id, async (trx) => {
+      await trx
+        .deleteFrom('workspace_provider_keys')
+        .where('workspace_id', '=', c.req.param('workspaceId'))
+        .where('provider', '=', provider.data)
+        .execute();
+      return true;
+    });
+    if (!result) return apiError(c, 'forbidden');
+    return c.body(null, 204);
+  });
 
   routes.patch('/:workspaceId', async (c) => {
     const user = c.get('user');

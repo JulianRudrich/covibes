@@ -102,6 +102,7 @@ export interface AiAttempts {
   operator_note: string | null;
   outcome: string | null;
   output_tokens: Generated<Int8>;
+  payer: Generated<string>;
   project_id: string;
   provider: Generated<string>;
   purpose: string;
@@ -110,6 +111,7 @@ export interface AiAttempts {
   status: Generated<string>;
   user_id: string | null;
   web_searches: Generated<number>;
+  workspace_id: string | null;
 }
 
 export interface AiBudgetWarnings {
@@ -808,6 +810,12 @@ export interface WorkspaceInvitations {
   workspace_id: string;
 }
 
+export interface WorkspaceLegacyAiCosts {
+  cost_usd: Numeric;
+  month: Timestamp;
+  workspace_id: string;
+}
+
 export interface WorkspaceMembers {
   created_at: Generated<Timestamp>;
   role: ProjectRole;
@@ -819,6 +827,12 @@ export interface WorkspaceProjectGrants {
   project_id: string;
   role: ProjectRole;
   user_id: string;
+  workspace_id: string;
+}
+
+export interface WorkspaceProviderKeys {
+  ciphertext: string;
+  provider: string;
   workspace_id: string;
 }
 
@@ -903,8 +917,10 @@ export interface DB {
   votes: Votes;
   worker_heartbeats: WorkerHeartbeats;
   workspace_invitations: WorkspaceInvitations;
+  workspace_legacy_ai_costs: WorkspaceLegacyAiCosts;
   workspace_members: WorkspaceMembers;
   workspace_project_grants: WorkspaceProjectGrants;
+  workspace_provider_keys: WorkspaceProviderKeys;
   workspaces: Workspaces;
   yjs_documents: YjsDocuments;
 }

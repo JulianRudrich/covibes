@@ -108,11 +108,13 @@ export function createCollab({
           if (commandId && !hasCanvasCommandReceipt(merged, commandId)) {
             throw new Error('A command cannot finish before its canvas update reached the server');
           }
-          await client.query(
+          const storedDocument = await client.query(
             `insert into yjs_documents (name, state, updated_at) values ($1, $2, now())
            on conflict (name) do update set state = excluded.state, updated_at = now()`,
             [documentName, Buffer.from(Y.encodeStateAsUpdate(merged))],
           );
+          if (storedDocument.rowCount !== 1)
+            throw new Error('The document was deleted before it could be saved');
           if (commandId) {
             const boardId = boardIdFromDocumentName(documentName);
             const completed = await client.query(
